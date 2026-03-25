@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vocab</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Variables ── */
+    :root {
+      --bg:       #0f0f0f;
+      --surface:  #1a1a1a;
+      --border:   #2e2e2e;
+      --text:     #e8e3d9;
+      --muted:    #6b6560;
+      --accent:   #c9a96e;
+      --error:    #c96e6e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Lora', Georgia, serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Écran de mot de passe ── */
+    #password-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+      padding: 2rem;
+      width: 100%;
+      max-width: 380px;
+      animation: fadeIn 0.6s ease;
+    }
+
+    .app-title {
+      font-size: 2.2rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+    }
+
+    .app-subtitle {
+      font-style: italic;
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: -1.5rem;
+    }
+
+    .input-group {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 1rem;
+      padding: 0.85rem 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="password"]:focus {
+      border-color: var(--accent);
+    }
+
+    button {
+      width: 100%;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: var(--bg);
+      cursor: pointer;
+      font-family: 'Lora', serif;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 0.85rem;
+      transition: opacity 0.2s;
+    }
+
+    button:hover { opacity: 0.85; }
+
+    .error-msg {
+      color: var(--error);
+      font-size: 0.85rem;
+      font-style: italic;
+      min-height: 1.2em;
+      text-align: center;
+    }
+
+    /* ── App (caché au départ) ── */
+    #app {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+      padding: 2rem;
+      width: 100%;
+      max-width: 500px;
+      animation: fadeIn 0.6s ease;
+    }
+
+    /* ── Animation ── */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Écran de mot de passe ── -->
+  <div id="password-screen">
+    <h1 class="app-title">Vocab</h1>
+    <p class="app-subtitle">ton espace de pratique</p>
+
+    <div class="input-group">
+      <input
+        type="password"
+        id="pwd-input"
+        placeholder="mot de passe"
+        autofocus
+      />
+      <button onclick="checkPassword()">Entrer</button>
+      <p class="error-msg" id="error-msg"></p>
+    </div>
+  </div>
+
+  <!-- ── App principale (vide pour l'instant) ── -->
+  <div id="app">
+    <h1 class="app-title">Vocab</h1>
+    <p style="color: var(--muted); font-style: italic;">
+      ✅ Mot de passe correct — la suite arrive bientôt !
+    </p>
+  </div>
+
+  <script>
+    // ── Mot de passe ──────────────────────────────────────────
+    // On stocke un hash SHA-256 du mot de passe, jamais le mot en clair
+    // Pour changer le mot de passe, remplace la valeur de PASSWORD_HASH
+    // par le hash de ton nouveau mot de passe (voir instructions ci-dessous)
+
+    const PASSWORD_HASH = "37a3fe961eeb61778465d62305d999d7c1d550ee99af1efd530a61f1a03be39b";
+
+    async function checkPassword() {
+      const input = document.getElementById('pwd-input').value;
+      const hash  = await sha256(input);
+
+      if (hash === PASSWORD_HASH) {
+        document.getElementById('password-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'flex';
+      } else {
+        document.getElementById('error-msg').textContent = 'mot de passe incorrect';
+        document.getElementById('pwd-input').value = '';
+        document.getElementById('pwd-input').focus();
+      }
+    }
+
+    // Permettre d'appuyer sur Entrée
+    document.getElementById('pwd-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') checkPassword();
+    });
+
+    // Fonction de hachage SHA-256 (native au navigateur, pas de librairie nécessaire)
+    async function sha256(message) {
+      const msgBuffer = new TextEncoder().encode(message);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+  </script>
+
+</body>
+</html>
