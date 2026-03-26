@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vocab</title>
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     :root {
@@ -30,7 +29,6 @@
       justify-content: center;
     }
 
-    /* ── Écrans ── */
     .screen {
       display: none;
       flex-direction: column;
@@ -43,7 +41,6 @@
     }
     .screen.active { display: flex; }
 
-    /* ── Titres ── */
     .app-title {
       font-size: 2.2rem;
       font-weight: 600;
@@ -57,7 +54,6 @@
       margin-top: -1.5rem;
     }
 
-    /* ── Inputs ── */
     .input-group {
       width: 100%;
       display: flex;
@@ -79,7 +75,6 @@
     }
     input[type="password"]:focus { border-color: var(--accent); }
 
-    /* ── Boutons ── */
     .btn-primary {
       width: 100%;
       background: var(--accent);
@@ -111,17 +106,9 @@
       gap: 0.75rem;
       transition: border-color 0.2s, background 0.2s;
     }
-    .btn-google:hover {
-      border-color: var(--accent);
-      background: #222;
-    }
-    .btn-google svg {
-      width: 20px;
-      height: 20px;
-      flex-shrink: 0;
-    }
+    .btn-google:hover { border-color: var(--accent); background: #222; }
+    .btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
 
-    /* ── Messages ── */
     .error-msg {
       color: var(--error);
       font-size: 0.85rem;
@@ -138,14 +125,54 @@
     }
 
     /* ── App principale ── */
-    #screen-app { max-width: 500px; }
-    .welcome {
+    #screen-app {
+      max-width: 520px;
+      align-items: flex-start;
+    }
+
+    .app-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .status {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .words-container {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .word-item {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--text);
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .word-item:last-child { border-bottom: none; }
+
+    .loading {
       color: var(--muted);
       font-style: italic;
       text-align: center;
+      width: 100%;
+      padding: 1rem 0;
     }
 
-    /* ── Animation ── */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(12px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -186,8 +213,13 @@
 
   <!-- ── Écran 3 : App principale ── -->
   <div class="screen" id="screen-app">
-    <h1 class="app-title">Vocab</h1>
-    <p class="welcome">✅ Connecté ! La suite arrive bientôt.</p>
+    <div class="app-header">
+      <h1 class="app-title">Vocab</h1>
+      <span class="status" id="status">chargement...</span>
+    </div>
+    <div class="words-container" id="words-container">
+      <p class="loading">Chargement des mots...</p>
+    </div>
   </div>
 
   <script>
@@ -195,13 +227,14 @@
     const PASSWORD_HASH = "37a3fe961eeb61778465d62305d999d7c1d550ee99af1efd530a61f1a03be39b";
     const CLIENT_ID     = "742808037031-61r1roac158e5ltrosgahkemc4r9e7n1.apps.googleusercontent.com";
     const SCOPES        = "https://www.googleapis.com/auth/spreadsheets";
+    const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
 
     // ── Clés localStorage ─────────────────────────────────────
     const KEY_PWD_OK    = "vocab_pwd_ok";
     const KEY_GG_TOKEN  = "vocab_google_token";
     const KEY_GG_EXPIRY = "vocab_google_expiry";
 
-    // ── Au chargement : vérifie ce qui est déjà sauvegardé ────
+    // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
       const pwdOk      = localStorage.getItem(KEY_PWD_OK) === "true";
       const token      = localStorage.getItem(KEY_GG_TOKEN);
@@ -209,11 +242,12 @@
       const tokenValid = token && Date.now() < expiry;
 
       if (pwdOk && tokenValid) {
-        showScreen('screen-app');        // Tout ok → app directement
+        showScreen('screen-app');
+        loadWords('English');           // ← on charge les mots immédiatement
       } else if (pwdOk) {
-        showScreen('screen-google');     // Mot de passe ok mais token expiré
+        showScreen('screen-google');
       } else {
-        showScreen('screen-password');   // Première visite
+        showScreen('screen-password');
       }
     });
 
@@ -227,7 +261,6 @@
     async function checkPassword() {
       const input = document.getElementById('pwd-input').value;
       const hash  = await sha256(input);
-
       if (hash === PASSWORD_HASH) {
         localStorage.setItem(KEY_PWD_OK, "true");
         showScreen('screen-google');
@@ -255,11 +288,11 @@
               'Erreur Google : ' + response.error;
             return;
           }
-          // Sauvegarde le token (valable ~1h, on retranche 60s par sécurité)
           const expiry = Date.now() + (response.expires_in - 60) * 1000;
           localStorage.setItem(KEY_GG_TOKEN, response.access_token);
           localStorage.setItem(KEY_GG_EXPIRY, expiry.toString());
           showScreen('screen-app');
+          loadWords('English');         // ← on charge les mots après connexion
         }
       });
     }
@@ -274,7 +307,6 @@
       tokenClient.requestAccessToken();
     }
 
-    // Attend que la librairie Google soit prête
     window.addEventListener('load', () => {
       const interval = setInterval(() => {
         if (typeof google !== 'undefined' && google.accounts) {
@@ -283,6 +315,51 @@
         }
       }, 200);
     });
+
+    // ── Lecture Google Sheets ─────────────────────────────────
+    // On lit la colonne B de l'onglet demandé et on filtre les cellules vides
+    async function loadWords(sheetName) {
+      const token = localStorage.getItem(KEY_GG_TOKEN);
+      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!B:B`;
+
+      try {
+        const res  = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          showError(`Erreur Sheets : ${data.error.message}`);
+          return;
+        }
+
+        // data.values est un tableau de tableaux : [["mot1"], ["mot2"], ...]
+        const words = (data.values || [])
+          .map(row => row[0])             // prend la première cellule de chaque ligne
+          .filter(w => w && w.trim());    // enlève les cellules vides
+
+        displayWords(words, sheetName);
+
+      } catch (err) {
+        showError('Erreur réseau : ' + err.message);
+      }
+    }
+
+    function displayWords(words, sheetName) {
+      const container = document.getElementById('words-container');
+      const status    = document.getElementById('status');
+
+      status.textContent = `${words.length} mots · ${sheetName}`;
+
+      container.innerHTML = words
+        .map(w => `<div class="word-item">${w}</div>`)
+        .join('');
+    }
+
+    function showError(msg) {
+      document.getElementById('words-container').innerHTML =
+        `<p class="loading" style="color:var(--error)">${msg}</p>`;
+    }
 
     // ── SHA-256 ───────────────────────────────────────────────
     async function sha256(message) {
