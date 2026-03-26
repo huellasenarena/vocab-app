@@ -167,11 +167,7 @@
       gap: 0.4rem;
       transition: border-color 0.2s, background 0.2s, transform 0.15s;
     }
-    .lang-btn:hover {
-      border-color: var(--accent);
-      background: #222;
-      transform: translateY(-2px);
-    }
+    .lang-btn:hover { border-color: var(--accent); background: #222; transform: translateY(-2px); }
     .lang-btn .flag { font-size: 1.8rem; }
     .lang-btn .lang-name { font-size: 0.85rem; color: var(--muted); }
 
@@ -223,11 +219,25 @@
       color: var(--accent);
       line-height: 1.2;
     }
+    .word-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
     .word-count {
       font-size: 0.78rem;
       font-family: 'DM Mono', monospace;
       color: var(--muted);
     }
+    /* ── Étoiles ── */
+    .stars {
+      font-size: 0.95rem;
+      letter-spacing: 0.05em;
+    }
+    .stars.s0 { color: var(--muted); }     /* ☆☆☆ jamais pratiqué */
+    .stars.s1 { color: #c9a96e88; }        /* ★☆☆ début */
+    .stars.s2 { color: var(--accent); }    /* ★★☆ bien */
+    .stars.s3 { color: var(--success); }   /* ★★★ maîtrisé */
 
     /* ── Boîte de définition ── */
     .hint-box {
@@ -265,7 +275,7 @@
       font-style: italic;
     }
 
-    /* ── Feedback de Mistral ── */
+    /* ── Feedback Mistral ── */
     .feedback-box {
       width: 100%;
       border-radius: 8px;
@@ -276,16 +286,8 @@
       animation: fadeIn 0.4s ease;
     }
     .feedback-box.visible { display: block; }
-    .feedback-box.correct {
-      background: #0e2018;
-      border: 1px solid var(--success);
-      color: var(--success);
-    }
-    .feedback-box.incorrect {
-      background: #200e0e;
-      border: 1px solid var(--error);
-      color: var(--error);
-    }
+    .feedback-box.correct   { background: #0e2018; border: 1px solid var(--success); color: var(--success); }
+    .feedback-box.incorrect { background: #200e0e; border: 1px solid var(--error);   color: var(--error); }
     .feedback-box .feedback-label {
       font-family: 'DM Mono', monospace;
       font-size: 0.72rem;
@@ -306,8 +308,7 @@
     /* ── Spinner ── */
     .spinner {
       display: inline-block;
-      width: 14px;
-      height: 14px;
+      width: 14px; height: 14px;
       border: 2px solid var(--muted);
       border-top-color: var(--accent);
       border-radius: 50%;
@@ -385,26 +386,25 @@
       <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">← langue</span>
     </div>
 
-    <!-- Carte du mot -->
     <div class="word-card">
       <span class="word-label">mot du jour</span>
       <span class="word-main" id="current-word">…</span>
-      <span class="word-count" id="word-count"></span>
+      <div class="word-meta">
+        <span class="stars s0" id="word-stars">☆☆☆</span>
+        <span class="word-count" id="word-count"></span>
+      </div>
     </div>
 
-    <!-- Boutons hint / suivant -->
     <div class="action-row">
       <button class="btn-secondary" id="btn-hint" onclick="askHint()">💡 Définition</button>
-      <button class="btn-primary" id="btn-next" onclick="nextWord()">Autre mot →</button>
+      <button class="btn-primary"   id="btn-next" onclick="nextWord()">Autre mot →</button>
     </div>
 
-    <!-- Boîte de définition (cachée au départ) -->
     <div class="hint-box" id="hint-box">
       <div class="hint-label">Définition</div>
       <div id="hint-text"></div>
     </div>
 
-    <!-- Zone de phrase -->
     <div class="sentence-section">
       <p class="sentence-label">Utilise ce mot dans une phrase :</p>
       <textarea id="sentence-input" rows="3" placeholder="Écris ta phrase ici…"></textarea>
@@ -413,29 +413,28 @@
       </button>
     </div>
 
-    <!-- Feedback Mistral -->
     <div class="feedback-box" id="feedback-box">
       <div class="feedback-label" id="feedback-label"></div>
       <div id="feedback-text"></div>
     </div>
-
   </div>
 
   <script>
     // ── Configuration ─────────────────────────────────────────
-    const PASSWORD_HASH  = "37a3fe961eeb61778465d62305d999d7c1d550ee99af1efd530a61f1a03be39b";
-    const CLIENT_ID      = "742808037031-61r1roac158e5ltrosgahkemc4r9e7n1.apps.googleusercontent.com";
-    const SCOPES         = "https://www.googleapis.com/auth/spreadsheets";
-    const SHEET_ID       = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
-    const MISTRAL_KEY    = "d4MPdq7upJvG0UU6xWJAOqYg2jyaZavU";  // ← injecté par GitHub Actions
-    const MISTRAL_MODEL  = "mistral-small-latest";
+    const PASSWORD_HASH = "37a3fe961eeb61778465d62305d999d7c1d550ee99af1efd530a61f1a03be39b";
+    const CLIENT_ID     = "742808037031-61r1roac158e5ltrosgahkemc4r9e7n1.apps.googleusercontent.com";
+    const SCOPES        = "https://www.googleapis.com/auth/spreadsheets";
+    const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
+    const MISTRAL_KEY   = "d4MPdq7upJvG0UU6xWJAOqYg2jyaZavU";
+    const MISTRAL_MODEL = "mistral-small-latest";
 
     const KEY_PWD_OK    = "vocab_pwd_ok";
     const KEY_GG_TOKEN  = "vocab_google_token";
     const KEY_GG_EXPIRY = "vocab_google_expiry";
 
     // ── État global ───────────────────────────────────────────
-    let allWords    = [];
+    let allWords    = [];       // liste brute des mots
+    let progressMap = {};       // { "word|lang": { correct, incorrect, rowIndex } }
     let currentWord = "";
     let currentLang = "";
 
@@ -446,16 +445,11 @@
       const expiry     = parseInt(localStorage.getItem(KEY_GG_EXPIRY) || "0");
       const tokenValid = token && Date.now() < expiry;
 
-      if (pwdOk && tokenValid) {
-        showScreen('screen-lang');
-      } else if (pwdOk) {
-        showScreen('screen-google');
-      } else {
-        showScreen('screen-password');
-      }
+      if (pwdOk && tokenValid) showScreen('screen-lang');
+      else if (pwdOk)          showScreen('screen-google');
+      else                     showScreen('screen-password');
     });
 
-    // ── Gestion des écrans ────────────────────────────────────
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
@@ -487,8 +481,7 @@
         scope: SCOPES,
         callback: (response) => {
           if (response.error) {
-            document.getElementById('google-error-msg').textContent =
-              'Erreur Google : ' + response.error;
+            document.getElementById('google-error-msg').textContent = 'Erreur Google : ' + response.error;
             return;
           }
           const expiry = Date.now() + (response.expires_in - 60) * 1000;
@@ -501,8 +494,7 @@
 
     function loginGoogle() {
       if (!tokenClient) {
-        document.getElementById('google-error-msg').textContent =
-          'Chargement en cours, réessaie dans un instant...';
+        document.getElementById('google-error-msg').textContent = 'Chargement en cours, réessaie dans un instant...';
         setTimeout(loginGoogle, 1000);
         return;
       }
@@ -524,60 +516,174 @@
       document.getElementById('lang-tag').textContent = `← ${lang}`;
       showScreen('screen-practice');
       resetPracticeUI();
-      await loadWords(lang);
+      document.getElementById('word-count').textContent = 'chargement...';
+
+      // Charge les mots ET la progression en parallèle
+      await Promise.all([
+        loadWords(lang),
+        loadProgress(lang)
+      ]);
+
+      pickWeightedWord();
     }
 
     function resetPracticeUI() {
       document.getElementById('current-word').textContent = '…';
-      document.getElementById('word-count').textContent = 'chargement...';
+      document.getElementById('word-stars').textContent   = '☆☆☆';
+      document.getElementById('word-stars').className     = 'stars s0';
       document.getElementById('hint-box').classList.remove('visible');
-      document.getElementById('hint-text').textContent = '';
-      document.getElementById('sentence-input').value = '';
+      document.getElementById('hint-text').textContent    = '';
+      document.getElementById('sentence-input').value     = '';
       document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
       document.getElementById('feedback-text').textContent = '';
     }
 
-    // ── Lecture Google Sheets ─────────────────────────────────
+    // ── Lecture mots ──────────────────────────────────────────
     async function loadWords(sheetName) {
       const token = localStorage.getItem(KEY_GG_TOKEN);
       const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!B:B`;
       try {
         const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         const data = await res.json();
-        if (data.error) {
-          document.getElementById('word-count').textContent = 'erreur de chargement';
-          return;
-        }
-        allWords = (data.values || [])
-          .map(row => row[0])
-          .filter(w => w && w.trim());
-        pickRandomWord();
-      } catch (err) {
-        document.getElementById('word-count').textContent = 'erreur réseau';
+        allWords = (data.values || []).map(r => r[0]).filter(w => w && w.trim());
+      } catch (e) {
+        allWords = [];
       }
     }
 
-    // ── Tirage aléatoire ──────────────────────────────────────
-    function pickRandomWord() {
+    // ── Lecture progression ───────────────────────────────────
+    async function loadProgress(lang) {
+      const token = localStorage.getItem(KEY_GG_TOKEN);
+      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E`;
+      progressMap = {};
+      try {
+        const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        const rows = data.values || [];
+        // On commence à 1 pour sauter l'en-tête (ligne 0)
+        rows.forEach((row, i) => {
+          if (i === 0) return; // skip header
+          const word     = row[0] || '';
+          const rowLang  = row[1] || '';
+          const correct  = parseInt(row[2]) || 0;
+          const incorrect= parseInt(row[3]) || 0;
+          if (word && rowLang === lang) {
+            progressMap[word.toLowerCase()] = { correct, incorrect, rowIndex: i + 1 }; // +1 car Sheets est 1-indexed
+          }
+        });
+      } catch (e) {
+        // Si erreur, on continue sans progression
+      }
+    }
+
+    // ── Tirage pondéré ────────────────────────────────────────
+    // Poids selon le niveau de maîtrise :
+    //   jamais pratiqué  → 10
+    //   en difficulté    → 8
+    //   en cours         → 5
+    //   maîtrisé (≥3 net)→ 1
+    function getWeight(word) {
+      const key  = word.toLowerCase();
+      const prog = progressMap[key];
+      if (!prog) return 10; // jamais pratiqué
+      const net = prog.correct - prog.incorrect;
+      if (net >= 3)  return 1;  // maîtrisé
+      if (net < 0)   return 8;  // en difficulté
+      return 5;                  // en cours
+    }
+
+    function pickWeightedWord() {
       if (allWords.length === 0) {
         document.getElementById('current-word').textContent = '—';
-        document.getElementById('word-count').textContent = 'aucun mot trouvé';
+        document.getElementById('word-count').textContent   = 'aucun mot trouvé';
         return;
       }
-      const idx = Math.floor(Math.random() * allWords.length);
-      currentWord = allWords[idx];
+
+      const weights = allWords.map(w => getWeight(w));
+      const total   = weights.reduce((a, b) => a + b, 0);
+      let rand      = Math.random() * total;
+
+      let chosen = allWords[0];
+      for (let i = 0; i < allWords.length; i++) {
+        rand -= weights[i];
+        if (rand <= 0) { chosen = allWords[i]; break; }
+      }
+
+      currentWord = chosen;
       document.getElementById('current-word').textContent = currentWord;
-      document.getElementById('word-count').textContent = `${allWords.length} mots disponibles`;
+
+      // Compte les mots non maîtrisés (poids > 1)
+      const remaining = allWords.filter(w => getWeight(w) > 1).length;
+      document.getElementById('word-count').textContent =
+        `${remaining} mot${remaining > 1 ? 's' : ''} à pratiquer`;
+
+      updateStars(currentWord);
+    }
+
+    function updateStars(word) {
+      const key    = word.toLowerCase();
+      const prog   = progressMap[key];
+      const starsEl = document.getElementById('word-stars');
+
+      if (!prog) {
+        starsEl.textContent = '☆☆☆'; starsEl.className = 'stars s0'; return;
+      }
+      const net = prog.correct - prog.incorrect;
+      if (net >= 3)      { starsEl.textContent = '★★★'; starsEl.className = 'stars s3'; }
+      else if (net >= 2) { starsEl.textContent = '★★☆'; starsEl.className = 'stars s2'; }
+      else if (net >= 1) { starsEl.textContent = '★☆☆'; starsEl.className = 'stars s1'; }
+      else               { starsEl.textContent = '☆☆☆'; starsEl.className = 'stars s0'; }
     }
 
     function nextWord() {
-      pickRandomWord();
-      // Réinitialise l'UI pour le nouveau mot
+      pickWeightedWord();
       document.getElementById('hint-box').classList.remove('visible');
-      document.getElementById('hint-text').textContent = '';
-      document.getElementById('sentence-input').value = '';
+      document.getElementById('hint-text').textContent    = '';
+      document.getElementById('sentence-input').value     = '';
       document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
       document.getElementById('feedback-text').textContent = '';
+    }
+
+    // ── Écriture progression ──────────────────────────────────
+    async function saveProgress(word, isCorrect) {
+      const token    = localStorage.getItem(KEY_GG_TOKEN);
+      const key      = word.toLowerCase();
+      const existing = progressMap[key];
+      const now      = new Date().toISOString();
+
+      if (existing) {
+        // Met à jour la ligne existante
+        const correct   = existing.correct   + (isCorrect ? 1 : 0);
+        const incorrect = existing.incorrect + (isCorrect ? 0 : 1);
+        const range     = `Progress!C${existing.rowIndex}:E${existing.rowIndex}`;
+        const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+        await fetch(url, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [[correct, incorrect, now]] })
+        });
+        // Met à jour le cache local
+        progressMap[key].correct   = correct;
+        progressMap[key].incorrect = incorrect;
+      } else {
+        // Ajoute une nouvelle ligne
+        const correct   = isCorrect ? 1 : 0;
+        const incorrect = isCorrect ? 0 : 1;
+        const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [[word, currentLang, correct, incorrect, now]] })
+        });
+        const data = await res.json();
+        // Récupère l'index de la nouvelle ligne pour les futures mises à jour
+        const updatedRange = data.updates?.updatedRange || '';
+        const match        = updatedRange.match(/(\d+)$/);
+        const rowIndex     = match ? parseInt(match[1]) : null;
+        progressMap[key]   = { correct, incorrect, rowIndex };
+      }
+
+      updateStars(word);
     }
 
     // ── Mistral : Définition ──────────────────────────────────
@@ -590,10 +696,7 @@
       const hintText = document.getElementById('hint-text');
       hintBox.classList.remove('visible');
 
-      const langNames = {
-        English: 'English', Spanish: 'Spanish',
-        French: 'French',   Greek: 'Modern Greek'
-      };
+      const langNames = { English: 'English', Spanish: 'Spanish', French: 'French', Greek: 'Modern Greek' };
 
       const prompt = `Give a concise definition and one example sentence for the word or expression "${currentWord}" in ${langNames[currentLang]}.
 Format your response like this:
@@ -614,7 +717,7 @@ Be brief and clear. Respond in ${langNames[currentLang]}.`;
       btn.textContent = '💡 Définition';
     }
 
-    // ── Mistral : Évaluation de phrase ────────────────────────
+    // ── Mistral : Évaluation ──────────────────────────────────
     async function submitSentence() {
       const sentence = document.getElementById('sentence-input').value.trim();
       if (!sentence) return;
@@ -628,10 +731,7 @@ Be brief and clear. Respond in ${langNames[currentLang]}.`;
       const feedbackText  = document.getElementById('feedback-text');
       feedbackBox.classList.remove('visible', 'correct', 'incorrect');
 
-      const langNames = {
-        English: 'English', Spanish: 'Spanish',
-        French: 'French',   Greek: 'Modern Greek'
-      };
+      const langNames = { English: 'English', Spanish: 'Spanish', French: 'French', Greek: 'Modern Greek' };
 
       const prompt = `A language learner is practicing ${langNames[currentLang]} vocabulary.
 The word or expression to use is: "${currentWord}"
@@ -644,14 +744,19 @@ Be encouraging but honest. Respond in French (the learner's language).
 Keep your response concise (2-3 sentences max).`;
 
       try {
-        const reply = await callMistral(prompt);
+        const reply     = await callMistral(prompt);
         const isCorrect = reply.startsWith('✓');
+
         feedbackLabel.textContent = isCorrect ? 'Correct !' : 'Pas tout à fait…';
-        feedbackText.textContent = reply;
+        feedbackText.textContent  = reply;
         feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
+
+        // ← Sauvegarde la progression dans Sheets
+        await saveProgress(currentWord, isCorrect);
+
       } catch (err) {
         feedbackLabel.textContent = 'Erreur';
-        feedbackText.textContent = err.message;
+        feedbackText.textContent  = err.message;
         feedbackBox.classList.add('visible', 'incorrect');
       }
 
