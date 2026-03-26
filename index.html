@@ -659,6 +659,14 @@
       if (e.key === 'Enter') checkPassword();
     });
 
+    // Cmd+Enter (Mac) ou Ctrl+Enter (Windows) pour vérifier la phrase
+    document.getElementById('sentence-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        submitSentence();
+      }
+    });
+
     // ── Google OAuth ──────────────────────────────────────────
     let tokenClient;
     function initGoogleClient() {
@@ -705,6 +713,7 @@
       document.getElementById('lang-tag').textContent = `← ${langInfo.name}`;
       showScreen('screen-practice');
       resetPracticeUI();
+      onSliderChange(wordCount()); // ← met à jour le label dans la bonne langue
       document.getElementById('word-count-label').textContent = 'chargement...';
       await Promise.all([ loadWords(lang), loadProgress(lang) ]);
       pickWords();
