@@ -29,6 +29,7 @@
       justify-content: center;
     }
 
+    /* ── Écrans ── */
     .screen {
       display: none;
       flex-direction: column;
@@ -36,7 +37,7 @@
       gap: 2rem;
       padding: 2rem;
       width: 100%;
-      max-width: 400px;
+      max-width: 420px;
       animation: fadeIn 0.6s ease;
     }
     .screen.active { display: flex; }
@@ -90,6 +91,20 @@
     }
     .btn-primary:hover { opacity: 0.85; }
 
+    .btn-secondary {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      cursor: pointer;
+      font-family: 'Lora', serif;
+      font-size: 1rem;
+      padding: 0.85rem;
+      transition: border-color 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); }
+
     .btn-google {
       width: 100%;
       background: var(--surface);
@@ -124,53 +139,113 @@
       line-height: 1.6;
     }
 
-    /* ── App principale ── */
-    #screen-app {
-      max-width: 520px;
-      align-items: flex-start;
+    /* ── Sélecteur de langue ── */
+    .lang-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
     }
 
-    .app-header {
+    .lang-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      cursor: pointer;
+      font-family: 'Lora', serif;
+      font-size: 1rem;
+      padding: 1.1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    }
+    .lang-btn:hover {
+      border-color: var(--accent);
+      background: #222;
+      transform: translateY(-2px);
+    }
+    .lang-btn .flag { font-size: 1.8rem; }
+    .lang-btn .lang-name {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    /* ── Écran de pratique ── */
+    #screen-practice {
+      max-width: 480px;
+    }
+
+    .practice-header {
       width: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
-    .status {
+    .lang-tag {
       font-family: 'DM Mono', monospace;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.25rem 0.6rem;
+      cursor: pointer;
+      transition: border-color 0.2s;
     }
+    .lang-tag:hover { border-color: var(--accent); }
 
-    .words-container {
+    /* ── Carte du mot ── */
+    .word-card {
       width: 100%;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.5rem;
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
-      max-height: 60vh;
-      overflow-y: auto;
+      align-items: center;
+      gap: 0.75rem;
+      text-align: center;
     }
 
-    .word-item {
+    .word-label {
+      font-size: 0.75rem;
       font-family: 'DM Mono', monospace;
-      font-size: 0.9rem;
-      color: var(--text);
-      padding: 0.4rem 0;
-      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
     }
-    .word-item:last-child { border-bottom: none; }
 
-    .loading {
+    .word-main {
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--accent);
+      line-height: 1.2;
+    }
+
+    .word-count {
+      font-size: 0.78rem;
+      font-family: 'DM Mono', monospace;
+      color: var(--muted);
+    }
+
+    /* ── Boutons d'action ── */
+    .action-row {
+      width: 100%;
+      display: flex;
+      gap: 0.75rem;
+    }
+    .action-row .btn-secondary { font-size: 0.9rem; padding: 0.75rem; }
+    .action-row .btn-primary   { font-size: 0.9rem; padding: 0.75rem; }
+
+    .loading-text {
       color: var(--muted);
       font-style: italic;
-      text-align: center;
-      width: 100%;
-      padding: 1rem 0;
+      font-size: 0.9rem;
     }
 
     @keyframes fadeIn {
@@ -211,15 +286,57 @@
     <p class="error-msg" id="google-error-msg"></p>
   </div>
 
-  <!-- ── Écran 3 : App principale ── -->
-  <div class="screen" id="screen-app">
-    <div class="app-header">
+  <!-- ── Écran 3 : Sélecteur de langue ── -->
+  <div class="screen" id="screen-lang">
+    <h1 class="app-title">Vocab</h1>
+    <p class="app-subtitle">quelle langue aujourd'hui ?</p>
+    <div class="lang-grid">
+      <button class="lang-btn" onclick="selectLanguage('English')">
+        <span class="flag">🇬🇧</span>
+        <span class="lang-name">English</span>
+      </button>
+      <button class="lang-btn" onclick="selectLanguage('Spanish')">
+        <span class="flag">🇪🇸</span>
+        <span class="lang-name">Español</span>
+      </button>
+      <button class="lang-btn" onclick="selectLanguage('French')">
+        <span class="flag">🇫🇷</span>
+        <span class="lang-name">Français</span>
+      </button>
+      <button class="lang-btn" onclick="selectLanguage('Greek')">
+        <span class="flag">🇬🇷</span>
+        <span class="lang-name">Ελληνικά</span>
+      </button>
+    </div>
+    <p class="error-msg" id="lang-error-msg"></p>
+  </div>
+
+  <!-- ── Écran 4 : Pratique ── -->
+  <div class="screen" id="screen-practice">
+    <div class="practice-header">
       <h1 class="app-title">Vocab</h1>
-      <span class="status" id="status">chargement...</span>
+      <!-- Clic sur le tag langue → retour au sélecteur -->
+      <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">← langue</span>
     </div>
-    <div class="words-container" id="words-container">
-      <p class="loading">Chargement des mots...</p>
+
+    <!-- Carte du mot -->
+    <div class="word-card" id="word-card">
+      <span class="word-label">mot du jour</span>
+      <span class="word-main" id="current-word">…</span>
+      <span class="word-count" id="word-count"></span>
     </div>
+
+    <!-- Boutons -->
+    <div class="action-row">
+      <button class="btn-secondary" id="btn-hint" onclick="askHint()">
+        💡 Définition
+      </button>
+      <button class="btn-primary" onclick="nextWord()">
+        Autre mot →
+      </button>
+    </div>
+
+    <p class="loading-text" id="practice-status"></p>
   </div>
 
   <script>
@@ -229,10 +346,15 @@
     const SCOPES        = "https://www.googleapis.com/auth/spreadsheets";
     const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
 
-    // ── Clés localStorage ─────────────────────────────────────
     const KEY_PWD_OK    = "vocab_pwd_ok";
     const KEY_GG_TOKEN  = "vocab_google_token";
     const KEY_GG_EXPIRY = "vocab_google_expiry";
+    const KEY_LANG      = "vocab_last_lang";
+
+    // ── État global ───────────────────────────────────────────
+    let allWords       = [];     // tous les mots de l'onglet actif
+    let currentWord    = "";     // mot affiché en ce moment
+    let currentLang    = "";     // langue active
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
@@ -242,8 +364,7 @@
       const tokenValid = token && Date.now() < expiry;
 
       if (pwdOk && tokenValid) {
-        showScreen('screen-app');
-        loadWords('English');           // ← on charge les mots immédiatement
+        showScreen('screen-lang');
       } else if (pwdOk) {
         showScreen('screen-google');
       } else {
@@ -270,7 +391,6 @@
         document.getElementById('pwd-input').focus();
       }
     }
-
     document.getElementById('pwd-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') checkPassword();
     });
@@ -291,8 +411,7 @@
           const expiry = Date.now() + (response.expires_in - 60) * 1000;
           localStorage.setItem(KEY_GG_TOKEN, response.access_token);
           localStorage.setItem(KEY_GG_EXPIRY, expiry.toString());
-          showScreen('screen-app');
-          loadWords('English');         // ← on charge les mots après connexion
+          showScreen('screen-lang');
         }
       });
     }
@@ -316,8 +435,22 @@
       }, 200);
     });
 
+    // ── Sélection de langue ───────────────────────────────────
+    async function selectLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem(KEY_LANG, lang);
+      document.getElementById('lang-tag').textContent = `← ${lang}`;
+      document.getElementById('lang-error-msg').textContent = '';
+
+      showScreen('screen-practice');
+      document.getElementById('current-word').textContent = '…';
+      document.getElementById('word-count').textContent = 'chargement...';
+      document.getElementById('practice-status').textContent = '';
+
+      await loadWords(lang);
+    }
+
     // ── Lecture Google Sheets ─────────────────────────────────
-    // On lit la colonne B de l'onglet demandé et on filtre les cellules vides
     async function loadWords(sheetName) {
       const token = localStorage.getItem(KEY_GG_TOKEN);
       const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!B:B`;
@@ -329,36 +462,43 @@
         const data = await res.json();
 
         if (data.error) {
-          showError(`Erreur Sheets : ${data.error.message}`);
+          document.getElementById('word-count').textContent = 'erreur de chargement';
           return;
         }
 
-        // data.values est un tableau de tableaux : [["mot1"], ["mot2"], ...]
-        const words = (data.values || [])
-          .map(row => row[0])             // prend la première cellule de chaque ligne
-          .filter(w => w && w.trim());    // enlève les cellules vides
+        allWords = (data.values || [])
+          .map(row => row[0])
+          .filter(w => w && w.trim());
 
-        displayWords(words, sheetName);
+        pickRandomWord();
 
       } catch (err) {
-        showError('Erreur réseau : ' + err.message);
+        document.getElementById('word-count').textContent = 'erreur réseau';
       }
     }
 
-    function displayWords(words, sheetName) {
-      const container = document.getElementById('words-container');
-      const status    = document.getElementById('status');
-
-      status.textContent = `${words.length} mots · ${sheetName}`;
-
-      container.innerHTML = words
-        .map(w => `<div class="word-item">${w}</div>`)
-        .join('');
+    // ── Tirage aléatoire ──────────────────────────────────────
+    function pickRandomWord() {
+      if (allWords.length === 0) {
+        document.getElementById('current-word').textContent = '—';
+        document.getElementById('word-count').textContent = 'aucun mot trouvé';
+        return;
+      }
+      const idx = Math.floor(Math.random() * allWords.length);
+      currentWord = allWords[idx];
+      document.getElementById('current-word').textContent = currentWord;
+      document.getElementById('word-count').textContent = `${allWords.length} mots disponibles`;
+      document.getElementById('practice-status').textContent = '';
     }
 
-    function showError(msg) {
-      document.getElementById('words-container').innerHTML =
-        `<p class="loading" style="color:var(--error)">${msg}</p>`;
+    function nextWord() {
+      pickRandomWord();
+    }
+
+    // ── Définition (placeholder — Mistral arrive bientôt) ─────
+    function askHint() {
+      document.getElementById('practice-status').textContent =
+        '✨ La définition via Mistral arrive à la prochaine étape !';
     }
 
     // ── SHA-256 ───────────────────────────────────────────────
