@@ -1,0 +1,17 @@
+{
+  "name": "Vocab",
+  "short_name": "Vocab",
+  "description": "Ton espace de pratique de vocabulaire",
+  "start_url": "/vocab-app/",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#0f0f0f",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

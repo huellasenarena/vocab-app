@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fond sombre avec coins arrondis -->
+  <rect width="512" height="512" rx="100" fill="#0f0f0f"/>
+  <!-- Lettre V en doré -->
+  <text
+    x="256"
+    y="370"
+    text-anchor="middle"
+    font-size="340"
+    font-family="Georgia, serif"
+    font-weight="600"
+    fill="#c9a96e"
+    letter-spacing="-10"
+  >V</text>
+  <!-- Petites étoiles en bas -->
+  <text x="256" y="460" text-anchor="middle" font-size="60" fill="#c9a96e" opacity="0.6">★★★</text>
+</svg>
