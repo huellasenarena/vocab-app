@@ -335,8 +335,12 @@
     .feedback-box.correct   { background: #0e2018; border: 1px solid var(--success); color: var(--success); }
     .feedback-box.incorrect { background: #200e0e; border: 1px solid var(--error);   color: var(--error); }
     .feedback-box .feedback-label {
-      font-family: 'DM Mono', monospace; font-size: 0.72rem;
-      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      font-style: normal;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
     }
     .no-count-notice { font-size: 0.78rem; font-style: italic; opacity: 0.7; margin-top: 0.5rem; }
 
@@ -882,8 +886,7 @@ Respond entirely in ${langName}.`;
 
       try {
         const reply = await callMistral(prompt);
-        document.getElementById('hint-text').innerHTML =
-          reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        document.getElementById('hint-text').innerHTML = renderMarkdown(reply);
         document.getElementById('hint-box').classList.add('visible');
         hintUsedWords.add(word.toLowerCase());
         if (currentWords.length === 1) {
@@ -928,12 +931,16 @@ Their sentence: "${sentence}"
 
 Evaluate using TWO criteria:
 CRITERION 1 — Correct usage: Is "${currentWords[0]}" grammatically and semantically correct?
-CRITERION 2 — Demonstrated understanding: Does the sentence show the learner understands what "${currentWords[0]}" means? Reject sentences that are too vague or generic (e.g. "I like X", "X est bien") or where X could be replaced by any random word.
+CRITERION 2 — Demonstrated understanding: Does the sentence show the learner truly understands what "${currentWords[0]}" means?
+Reject if:
+- The sentence is a bare fragment (e.g. just the word alone, or "une enquête qui sera menée" with no context)
+- The structure is "subject + is/est/es + word" with nothing else (e.g. "he is insatiable", "il est insatiable") — this tells us nothing about what the word means
+- The word could be swapped for any adjective/noun/verb without changing the sentence structure
 
-IMPORTANT PRELIMINARY CHECK: If the learner simply wrote the word/expression itself without making a real sentence (no subject, no conjugated verb, just the expression alone or as a fragment), immediately respond with ✗ and tell them to write a complete sentence with a subject and a verb.
+Accept only if the sentence places the word in a specific context that reveals its meaning — the reader should understand what the word means just from reading the sentence.
 
-- ✓ ONLY if ALL criteria are met
-- ✗ if any criterion fails — explain which and why, give ONE example of a strong sentence
+- ✓ ONLY if BOTH criteria are met
+- ✗ if either fails — be specific about WHY the sentence doesn't demonstrate understanding, then give ONE strong example sentence that does
 
 Respond entirely in ${feedbackLang}. Be concise (3 sentences max).`
 
