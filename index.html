@@ -5,14 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vocab</title>
 
-  <!-- ── PWA / icône ── -->
   <link rel="manifest" href="manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Vocab" />
   <link rel="apple-touch-icon" href="icon.svg" />
-
-  <!-- Favicon SVG inline -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f0f0f'/%3E%3Ctext y='74' x='50' text-anchor='middle' font-size='68' font-family='Georgia,serif' fill='%23c9a96e'%3EV%3C/text%3E%3C/svg%3E" />
 
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -67,12 +64,7 @@
       margin-top: -1.5rem;
     }
 
-    .input-group {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
+    .input-group { width: 100%; display: flex; flex-direction: column; gap: 0.75rem; }
 
     input[type="password"], textarea {
       width: 100%;
@@ -167,7 +159,6 @@
       line-height: 1.6;
     }
 
-    /* ── Sélecteur de langue ── */
     .lang-grid {
       width: 100%;
       display: grid;
@@ -192,7 +183,6 @@
     .lang-btn .flag { font-size: 1.8rem; }
     .lang-btn .lang-name { font-size: 0.85rem; color: var(--muted); }
 
-    /* ── Écran pratique ── */
     #screen-practice { max-width: 480px; }
 
     .practice-header {
@@ -216,7 +206,6 @@
     }
     .lang-tag:hover { border-color: var(--accent); }
 
-    /* ── Carte du mot ── */
     .word-card {
       width: 100%;
       background: var(--surface);
@@ -254,7 +243,6 @@
     .stars.s2 { color: var(--accent); }
     .stars.s3 { color: var(--success); }
 
-    /* Badge "aide utilisée" */
     .hint-used-badge {
       font-family: 'DM Mono', monospace;
       font-size: 0.72rem;
@@ -267,7 +255,6 @@
     }
     .hint-used-badge.visible { display: inline-block; }
 
-    /* ── Boîte définition ── */
     .hint-box {
       width: 100%;
       background: var(--surface);
@@ -290,16 +277,9 @@
       margin-bottom: 0.5rem;
     }
 
-    /* ── Zone phrase ── */
-    .sentence-section {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
+    .sentence-section { width: 100%; display: flex; flex-direction: column; gap: 0.75rem; }
     .sentence-label { font-size: 0.85rem; color: var(--muted); font-style: italic; }
 
-    /* ── Feedback ── */
     .feedback-box {
       width: 100%;
       border-radius: 8px;
@@ -326,28 +306,14 @@
       margin-top: 0.5rem;
     }
 
-    /* ── Boutons action ── */
     .action-row { width: 100%; display: flex; gap: 0.75rem; }
     .action-row .btn-secondary { font-size: 0.9rem; padding: 0.75rem; }
     .action-row .btn-primary   { font-size: 0.9rem; padding: 0.75rem; }
 
-    /* ── Écran stats ── */
+    /* ── Stats ── */
     #screen-stats { max-width: 480px; }
-
-    .stats-header {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .stats-grid {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
+    .stats-header { width: 100%; display: flex; align-items: center; justify-content: space-between; }
+    .stats-grid { width: 100%; display: flex; flex-direction: column; gap: 1rem; }
     .stats-lang-block {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -357,44 +323,17 @@
       flex-direction: column;
       gap: 0.75rem;
     }
-
-    .stats-lang-title {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--text);
-    }
+    .stats-lang-title { display: flex; align-items: center; gap: 0.6rem; font-size: 1rem; font-weight: 600; }
     .stats-lang-title .flag { font-size: 1.2rem; }
-
-    .stats-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.85rem;
-    }
+    .stats-row { display: flex; justify-content: space-between; font-size: 0.85rem; }
     .stats-row .label { color: var(--muted); font-style: italic; }
-    .stats-row .value { font-family: 'DM Mono', monospace; color: var(--text); }
+    .stats-row .value { font-family: 'DM Mono', monospace; }
     .stats-row .value.green  { color: var(--success); }
     .stats-row .value.yellow { color: var(--accent); }
     .stats-row .value.muted  { color: var(--muted); }
+    .progress-bar-bg { width: 100%; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--success); border-radius: 2px; transition: width 0.6s ease; }
 
-    /* Progress bar */
-    .progress-bar-bg {
-      width: 100%;
-      height: 4px;
-      background: var(--border);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .progress-bar-fill {
-      height: 100%;
-      background: var(--success);
-      border-radius: 2px;
-      transition: width 0.6s ease;
-    }
-
-    /* ── Spinner ── */
     .spinner {
       display: inline-block;
       width: 14px; height: 14px;
@@ -406,7 +345,6 @@
       vertical-align: middle;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(12px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -500,7 +438,7 @@
     </div>
 
     <div class="sentence-section">
-      <p class="sentence-label">Utilise ce mot dans une phrase :</p>
+      <p class="sentence-label" id="sentence-label">Utilise ce mot dans une phrase :</p>
       <textarea id="sentence-input" rows="3" placeholder="Écris ta phrase ici…"></textarea>
       <button class="btn-primary" id="btn-submit" onclick="submitSentence()">
         Vérifier ma phrase ✓
@@ -532,17 +470,17 @@
     const SCOPES        = "https://www.googleapis.com/auth/spreadsheets";
     const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
     const MISTRAL_KEY   = "d4MPdq7upJvG0UU6xWJAOqYg2jyaZavU";
-    const MISTRAL_MODEL = "mistral-medium-latest";   // ← medium pour meilleure qualité
+    const MISTRAL_MODEL = "mistral-medium-latest";
 
     const KEY_PWD_OK    = "vocab_pwd_ok";
     const KEY_GG_TOKEN  = "vocab_google_token";
     const KEY_GG_EXPIRY = "vocab_google_expiry";
 
     const LANGS = [
-      { key: 'English', flag: '🇬🇧', name: 'English',   mistralName: 'English' },
-      { key: 'Spanish', flag: '🇪🇸', name: 'Español',   mistralName: 'Spanish' },
-      { key: 'French',  flag: '🇫🇷', name: 'Français',  mistralName: 'French' },
-      { key: 'Greek',   flag: '🇬🇷', name: 'Ελληνικά', mistralName: 'Modern Greek' },
+      { key: 'English', flag: '🇬🇧', name: 'English',   mistralName: 'English',      sentencePrompt: 'Use this word in a sentence:',    feedbackLang: 'English' },
+      { key: 'Spanish', flag: '🇪🇸', name: 'Español',   mistralName: 'Spanish',      sentencePrompt: 'Usa esta palabra en una frase:',   feedbackLang: 'Spanish' },
+      { key: 'French',  flag: '🇫🇷', name: 'Français',  mistralName: 'French',       sentencePrompt: 'Utilise ce mot dans une phrase :', feedbackLang: 'French'  },
+      { key: 'Greek',   flag: '🇬🇷', name: 'Ελληνικά', mistralName: 'Modern Greek', sentencePrompt: 'Χρησιμοποίησε αυτή τη λέξη σε μια πρόταση:', feedbackLang: 'Modern Greek' },
     ];
 
     // ── État global ───────────────────────────────────────────
@@ -550,7 +488,7 @@
     let progressMap = {};
     let currentWord = "";
     let currentLang = "";
-    let hintUsed    = false;   // ← flag aide utilisée
+    let hintUsed    = false;
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
@@ -558,7 +496,6 @@
       const token      = localStorage.getItem(KEY_GG_TOKEN);
       const expiry     = parseInt(localStorage.getItem(KEY_GG_EXPIRY) || "0");
       const tokenValid = token && Date.now() < expiry;
-
       if (pwdOk && tokenValid) showScreen('screen-lang');
       else if (pwdOk)          showScreen('screen-google');
       else                     showScreen('screen-password');
@@ -568,6 +505,8 @@
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
     }
+
+    function getLang() { return LANGS.find(l => l.key === currentLang) || LANGS[0]; }
 
     // ── Mot de passe ──────────────────────────────────────────
     async function checkPassword() {
@@ -588,7 +527,6 @@
 
     // ── Google OAuth ──────────────────────────────────────────
     let tokenClient;
-
     function initGoogleClient() {
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
@@ -605,7 +543,6 @@
         }
       });
     }
-
     function loginGoogle() {
       if (!tokenClient) {
         document.getElementById('google-error-msg').textContent = 'Chargement en cours, réessaie dans un instant...';
@@ -614,12 +551,10 @@
       }
       tokenClient.requestAccessToken();
     }
-
     window.addEventListener('load', () => {
       const interval = setInterval(() => {
         if (typeof google !== 'undefined' && google.accounts) {
-          initGoogleClient();
-          clearInterval(interval);
+          initGoogleClient(); clearInterval(interval);
         }
       }, 200);
     });
@@ -627,7 +562,9 @@
     // ── Sélection de langue ───────────────────────────────────
     async function selectLanguage(lang) {
       currentLang = lang;
-      document.getElementById('lang-tag').textContent = `← ${lang}`;
+      const langInfo = getLang();
+      document.getElementById('lang-tag').textContent      = `← ${langInfo.name}`;
+      document.getElementById('sentence-label').textContent = langInfo.sentencePrompt;
       showScreen('screen-practice');
       resetPracticeUI();
       document.getElementById('word-count').textContent = 'chargement...';
@@ -637,13 +574,13 @@
 
     function resetPracticeUI() {
       hintUsed = false;
-      document.getElementById('current-word').textContent  = '…';
-      document.getElementById('word-stars').textContent    = '☆☆☆';
-      document.getElementById('word-stars').className      = 'stars s0';
+      document.getElementById('current-word').textContent   = '…';
+      document.getElementById('word-stars').textContent     = '☆☆☆';
+      document.getElementById('word-stars').className       = 'stars s0';
       document.getElementById('hint-used-badge').classList.remove('visible');
       document.getElementById('hint-box').classList.remove('visible');
-      document.getElementById('hint-text').textContent     = '';
-      document.getElementById('sentence-input').value      = '';
+      document.getElementById('hint-text').textContent      = '';
+      document.getElementById('sentence-input').value       = '';
       document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
       document.getElementById('feedback-text').textContent  = '';
       document.getElementById('no-count-notice').textContent = '';
@@ -670,13 +607,12 @@
         const data = await res.json();
         (data.values || []).forEach((row, i) => {
           if (i === 0) return;
-          const word     = row[0] || '';
-          const rowLang  = row[1] || '';
-          const correct  = parseInt(row[2]) || 0;
-          const incorrect= parseInt(row[3]) || 0;
-          if (word && rowLang === lang) {
+          const word      = row[0] || '';
+          const rowLang   = row[1] || '';
+          const correct   = parseInt(row[2]) || 0;
+          const incorrect = parseInt(row[3]) || 0;
+          if (word && rowLang === lang)
             progressMap[word.toLowerCase()] = { correct, incorrect, rowIndex: i + 1 };
-          }
         });
       } catch (e) {}
     }
@@ -729,8 +665,8 @@
       hintUsed = false;
       document.getElementById('hint-used-badge').classList.remove('visible');
       document.getElementById('hint-box').classList.remove('visible');
-      document.getElementById('hint-text').textContent     = '';
-      document.getElementById('sentence-input').value      = '';
+      document.getElementById('hint-text').textContent      = '';
+      document.getElementById('sentence-input').value       = '';
       document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
       document.getElementById('feedback-text').textContent  = '';
       document.getElementById('no-count-notice').textContent = '';
@@ -742,7 +678,6 @@
       const key      = word.toLowerCase();
       const existing = progressMap[key];
       const now      = new Date().toISOString();
-
       if (existing) {
         const correct   = existing.correct   + (isCorrect ? 1 : 0);
         const incorrect = existing.incorrect + (isCorrect ? 0 : 1);
@@ -764,10 +699,9 @@
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ values: [[word, currentLang, correct, incorrect, now]] })
         });
-        const data      = await res.json();
-        const match     = (data.updates?.updatedRange || '').match(/(\d+)$/);
-        const rowIndex  = match ? parseInt(match[1]) : null;
-        progressMap[key] = { correct, incorrect, rowIndex };
+        const data     = await res.json();
+        const match    = (data.updates?.updatedRange || '').match(/(\d+)$/);
+        progressMap[key] = { correct, incorrect, rowIndex: match ? parseInt(match[1]) : null };
       }
       updateStars(word);
     }
@@ -776,42 +710,37 @@
     async function askHint() {
       const btn = document.getElementById('btn-hint');
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Chargement…';
-
+      btn.innerHTML = '<span class="spinner"></span>';
       document.getElementById('hint-box').classList.remove('visible');
 
-      const langInfo = LANGS.find(l => l.key === currentLang);
-      const langName = langInfo ? langInfo.mistralName : currentLang;
+      const langName = getLang().mistralName;
 
-      // Prompt amélioré : ignore les noms propres, cherche le sens commun/lexical
-      const prompt = `You are a vocabulary teacher. The learner is studying ${langName} vocabulary.
+      const prompt = `You are a vocabulary teacher. The learner is studying ${langName}.
 
-Give the definition and one example sentence for the word or expression: "${currentWord}"
+Give the definition and one rich example sentence for: "${currentWord}"
 
-Important rules:
-- Focus on its meaning as a COMMON WORD or EXPRESSION in ${langName}, not as a proper noun, brand name, or place name.
-- If the word has multiple meanings, give the most useful/common one for a language learner.
-- If it is an expression or idiom, explain what it means in context.
+Rules:
+- Treat it as a COMMON WORD or EXPRESSION in ${langName}, not a proper noun or brand name.
+- If it has multiple meanings, give the most useful one for a language learner.
+- The example sentence must clearly illustrate the word's meaning in a realistic context.
 
-Format exactly like this:
+Format exactly:
 **Définition :** ...
 **Exemple :** ...
 
-Respond in ${langName}.`;
+Respond entirely in ${langName}.`;
 
       try {
         const reply = await callMistral(prompt);
         document.getElementById('hint-text').innerHTML =
           reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         document.getElementById('hint-box').classList.add('visible');
-        // Marque que l'aide a été utilisée
         hintUsed = true;
         document.getElementById('hint-used-badge').classList.add('visible');
       } catch (err) {
         document.getElementById('hint-text').textContent = 'Erreur : ' + err.message;
         document.getElementById('hint-box').classList.add('visible');
       }
-
       btn.disabled = false;
       btn.textContent = '💡 Définition';
     }
@@ -823,7 +752,7 @@ Respond in ${langName}.`;
 
       const btn = document.getElementById('btn-submit');
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Analyse…';
+      btn.innerHTML = '<span class="spinner"></span>';
 
       const feedbackBox   = document.getElementById('feedback-box');
       const feedbackLabel = document.getElementById('feedback-label');
@@ -831,43 +760,46 @@ Respond in ${langName}.`;
       const noCountNotice = document.getElementById('no-count-notice');
       feedbackBox.classList.remove('visible', 'correct', 'incorrect');
 
-      const langInfo = LANGS.find(l => l.key === currentLang);
-      const langName = langInfo ? langInfo.mistralName : currentLang;
+      const langInfo = getLang();
+      const langName = langInfo.mistralName;
+      const feedbackLang = langInfo.feedbackLang;
 
-      // Prompt amélioré : exige une vraie compréhension, pas juste l'inclusion du mot
+      // ── Prompt strict : exige une vraie démonstration de compréhension ──
       const prompt = `You are a strict but encouraging ${langName} vocabulary teacher.
 
-The learner is practicing the word/expression: "${currentWord}" in ${langName}.
-Their sentence is: "${sentence}"
+The learner is practicing: "${currentWord}" in ${langName}.
+Their sentence: "${sentence}"
 
-Evaluate the sentence using these strict criteria:
-1. Is "${currentWord}" used correctly (grammar, meaning, register)?
-2. Does the sentence DEMONSTRATE understanding of the word's meaning? 
-   A sentence like "${currentWord} est bon" or "J'aime ${currentWord}" does NOT demonstrate understanding — it just includes the word without showing you know what it means.
-   A good sentence uses the word in a context that reveals its meaning.
+Evaluate using these TWO criteria:
 
-- If BOTH criteria are met: start with "✓" then briefly explain what's good.
-- If the sentence is grammatically correct but doesn't demonstrate understanding: start with "✗" then explain that the sentence needs to show the meaning of the word, and give an example of a better sentence.
-- If the word is used incorrectly: start with "✗" then explain the mistake and suggest a correction.
+CRITERION 1 — Correct usage: Is "${currentWord}" grammatically and semantically correct in this sentence?
 
-Respond in French. Be concise (2-3 sentences max).`;
+CRITERION 2 — Demonstrated understanding: Does the sentence show that the learner understands what "${currentWord}" means?
+A sentence FAILS this criterion if:
+- It is too vague or generic (e.g. "I like ${currentWord}", "${currentWord} est bien", "c'est ${currentWord}")
+- The word could be replaced by ANY other word without changing the sentence structure (shows no understanding of the specific meaning)
+- The sentence lacks a concrete subject, context, or situation that makes the word's meaning clear
+A sentence PASSES if it uses "${currentWord}" in a specific, meaningful context that could NOT work with a random word substituted in.
+
+Decision:
+- ✓ ONLY if BOTH criteria are met
+- ✗ if either criterion fails — explain which one and why, then give ONE example of a strong sentence using "${currentWord}"
+
+Respond entirely in ${feedbackLang}. Be concise (3 sentences max).`;
 
       try {
         const reply     = await callMistral(prompt);
         const isCorrect = reply.startsWith('✓');
-
-        feedbackLabel.textContent = isCorrect ? 'Correct !' : 'Pas tout à fait…';
+        feedbackLabel.textContent = isCorrect ? '✓' : '✗';
         feedbackText.textContent  = reply;
         feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
 
-        // Ne compte pas si l'aide a été utilisée
         if (hintUsed) {
-          noCountNotice.textContent = '(aide utilisée — non comptabilisé dans ta progression)';
+          noCountNotice.textContent = '(aide utilisée — non comptabilisé)';
         } else {
           noCountNotice.textContent = '';
           await saveProgress(currentWord, isCorrect);
         }
-
       } catch (err) {
         feedbackLabel.textContent = 'Erreur';
         feedbackText.textContent  = err.message;
@@ -883,33 +815,28 @@ Respond in French. Be concise (2-3 sentences max).`;
       showScreen('screen-stats');
       const grid = document.getElementById('stats-grid');
       grid.innerHTML = '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
-
       const token = localStorage.getItem(KEY_GG_TOKEN);
-      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E`;
-
       try {
-        const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-        const data = await res.json();
-        const rows = (data.values || []).slice(1); // skip header
-
-        // Charge aussi le total de mots par langue
-        const wordCounts = {};
-        await Promise.all(LANGS.map(async (l) => {
-          const r = await fetch(
+        const [progressRes, ...wordCountRes] = await Promise.all([
+          fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E`,
+            { headers: { Authorization: `Bearer ${token}` } }),
+          ...LANGS.map(l => fetch(
             `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(l.key)}!B:B`,
             { headers: { Authorization: `Bearer ${token}` } }
-          );
-          const d = await r.json();
-          wordCounts[l.key] = (d.values || []).filter(row => row[0] && row[0].trim()).length;
-        }));
+          ))
+        ]);
+        const progressData = await progressRes.json();
+        const wordCountData = await Promise.all(wordCountRes.map(r => r.json()));
 
-        // Construit les stats par langue
-        const statsByLang = {};
-        LANGS.forEach(l => {
-          statsByLang[l.key] = { mastered: 0, learning: 0, struggling: 0, total: wordCounts[l.key] || 0 };
+        const wordCounts = {};
+        LANGS.forEach((l, i) => {
+          wordCounts[l.key] = (wordCountData[i].values || []).filter(r => r[0] && r[0].trim()).length;
         });
 
-        rows.forEach(row => {
+        const statsByLang = {};
+        LANGS.forEach(l => { statsByLang[l.key] = { mastered: 0, learning: 0, struggling: 0, total: wordCounts[l.key] || 0 }; });
+
+        (progressData.values || []).slice(1).forEach(row => {
           const lang      = row[1] || '';
           const correct   = parseInt(row[2]) || 0;
           const incorrect = parseInt(row[3]) || 0;
@@ -920,11 +847,10 @@ Respond in French. Be concise (2-3 sentences max).`;
           else              statsByLang[lang].learning++;
         });
 
-        // Affiche
         grid.innerHTML = LANGS.map(l => {
-          const s        = statsByLang[l.key];
+          const s         = statsByLang[l.key];
           const practiced = s.mastered + s.learning + s.struggling;
-          const pct      = s.total > 0 ? Math.round((s.mastered / s.total) * 100) : 0;
+          const pct       = s.total > 0 ? Math.round((s.mastered / s.total) * 100) : 0;
           const notStarted = s.total - practiced;
           return `
             <div class="stats-lang-block">
@@ -953,7 +879,6 @@ Respond in French. Be concise (2-3 sentences max).`;
               </div>
             </div>`;
         }).join('');
-
       } catch (err) {
         grid.innerHTML = `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
       }
@@ -970,8 +895,8 @@ Respond in French. Be concise (2-3 sentences max).`;
         body: JSON.stringify({
           model: MISTRAL_MODEL,
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 350,
-          temperature: 0.5
+          max_tokens: 400,
+          temperature: 0.4
         })
       });
       const data = await res.json();
@@ -987,6 +912,5 @@ Respond in French. Be concise (2-3 sentences max).`;
       return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
   </script>
-
 </body>
 </html>
