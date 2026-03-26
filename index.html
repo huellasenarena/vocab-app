@@ -43,10 +43,10 @@
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 2rem;
+      gap: 1.5rem;
       padding: 2rem;
       width: 100%;
-      max-width: 420px;
+      max-width: 480px;
       animation: fadeIn 0.6s ease;
     }
     .screen.active { display: flex; }
@@ -61,7 +61,7 @@
       font-style: italic;
       color: var(--muted);
       font-size: 0.95rem;
-      margin-top: -1.5rem;
+      margin-top: -1.2rem;
     }
 
     .input-group { width: 100%; display: flex; flex-direction: column; gap: 0.75rem; }
@@ -144,168 +144,278 @@
     .btn-google:hover { border-color: var(--accent); background: #222; }
     .btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
 
-    .error-msg {
-      color: var(--error);
-      font-size: 0.85rem;
-      font-style: italic;
-      min-height: 1.2em;
-      text-align: center;
-    }
-    .info-msg {
-      color: var(--muted);
-      font-size: 0.88rem;
-      font-style: italic;
-      text-align: center;
-      line-height: 1.6;
-    }
+    .error-msg { color: var(--error); font-size: 0.85rem; font-style: italic; min-height: 1.2em; text-align: center; }
+    .info-msg  { color: var(--muted); font-size: 0.88rem; font-style: italic; text-align: center; line-height: 1.6; }
 
-    .lang-grid {
-      width: 100%;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.75rem;
-    }
+    /* ── Langue ── */
+    .lang-grid { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
     .lang-btn {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      cursor: pointer;
-      font-family: 'Lora', serif;
-      padding: 1.1rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.4rem;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); cursor: pointer; font-family: 'Lora', serif; padding: 1.1rem;
+      display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
       transition: border-color 0.2s, background 0.2s, transform 0.15s;
     }
     .lang-btn:hover { border-color: var(--accent); background: #222; transform: translateY(-2px); }
     .lang-btn .flag { font-size: 1.8rem; }
     .lang-btn .lang-name { font-size: 0.85rem; color: var(--muted); }
 
-    #screen-practice { max-width: 480px; }
-
-    .practice-header {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .header-actions { display: flex; gap: 0.5rem; align-items: center; }
-
+    /* ── Header pratique ── */
+    .practice-header { width: 100%; display: flex; align-items: center; justify-content: space-between; }
+    .header-actions  { display: flex; gap: 0.5rem; align-items: center; }
     .lang-tag {
-      font-family: 'DM Mono', monospace;
-      font-size: 0.78rem;
-      color: var(--muted);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 0.25rem 0.6rem;
-      cursor: pointer;
-      transition: border-color 0.2s;
+      font-family: 'DM Mono', monospace; font-size: 0.78rem; color: var(--muted);
+      background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+      padding: 0.25rem 0.6rem; cursor: pointer; transition: border-color 0.2s;
     }
     .lang-tag:hover { border-color: var(--accent); }
 
+    /* ── Slider ── */
+    .slider-section {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .slider-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .slider-value {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--accent);
+      font-weight: 500;
+    }
+    input[type="range"] {
+      width: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+    /* ── Cartes de mots (multi) ── */
+    .words-chips {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+    .word-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3rem;
+      flex: 1;
+      min-width: 100px;
+      text-align: center;
+    }
+    .word-chip .chip-word {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .word-chip .chip-stars {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .word-chip .chip-stars.s3 { color: var(--success); }
+    .word-chip .chip-stars.s2 { color: var(--accent); }
+    .word-chip .chip-stars.s1 { color: #c9a96e88; }
+
+    /* Carte mot unique */
     .word-card {
       width: 100%;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 2rem;
+      padding: 1.75rem 2rem;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 0.75rem;
       text-align: center;
     }
-    .word-label {
-      font-size: 0.75rem;
-      font-family: 'DM Mono', monospace;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-    .word-main {
-      font-size: 2rem;
-      font-weight: 600;
-      color: var(--accent);
-      line-height: 1.2;
-    }
-    .word-meta { display: flex; align-items: center; gap: 0.75rem; }
-    .word-count {
-      font-size: 0.78rem;
-      font-family: 'DM Mono', monospace;
-      color: var(--muted);
-    }
-    .stars { font-size: 0.95rem; letter-spacing: 0.05em; }
-    .stars.s0 { color: var(--muted); }
-    .stars.s1 { color: #c9a96e88; }
-    .stars.s2 { color: var(--accent); }
-    .stars.s3 { color: var(--success); }
+    .word-label { font-size: 0.75rem; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+    .word-main  { font-size: 2rem; font-weight: 600; color: var(--accent); line-height: 1.2; }
+    .word-meta  { display: flex; align-items: center; gap: 0.75rem; }
+    .word-count { font-size: 0.78rem; font-family: 'DM Mono', monospace; color: var(--muted); }
+    .stars      { font-size: 0.95rem; letter-spacing: 0.05em; }
+    .stars.s0   { color: var(--muted); }
+    .stars.s1   { color: #c9a96e88; }
+    .stars.s2   { color: var(--accent); }
+    .stars.s3   { color: var(--success); }
 
     .hint-used-badge {
-      font-family: 'DM Mono', monospace;
-      font-size: 0.72rem;
-      color: var(--muted);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 0.2rem 0.5rem;
-      display: none;
+      font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted);
+      background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+      padding: 0.2rem 0.5rem; display: none;
     }
     .hint-used-badge.visible { display: inline-block; }
 
-    .hint-box {
+    /* ── Hint dropdown (multi-mots) ── */
+    .hint-dropdown {
       width: 100%;
+      display: none;
+      flex-direction: column;
+      gap: 0.4rem;
+      animation: fadeIn 0.3s ease;
+    }
+    .hint-dropdown.visible { display: flex; }
+    .hint-dropdown-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .hint-word-btn {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.25rem;
-      font-size: 0.92rem;
-      line-height: 1.7;
+      border-radius: 6px;
       color: var(--text);
-      display: none;
-      animation: fadeIn 0.4s ease;
+      cursor: pointer;
+      font-family: 'Lora', serif;
+      font-size: 0.9rem;
+      padding: 0.6rem 1rem;
+      text-align: left;
+      transition: border-color 0.2s;
+    }
+    .hint-word-btn:hover { border-color: var(--accent); }
+
+    /* ── Boîte définition ── */
+    .hint-box {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.25rem; font-size: 0.92rem; line-height: 1.7;
+      color: var(--text); display: none; animation: fadeIn 0.4s ease;
     }
     .hint-box.visible { display: block; }
     .hint-box .hint-label {
-      font-family: 'DM Mono', monospace;
-      font-size: 0.72rem;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 0.5rem;
+      font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;
     }
 
+    /* ── Zone phrase ── */
     .sentence-section { width: 100%; display: flex; flex-direction: column; gap: 0.75rem; }
-    .sentence-label { font-size: 0.85rem; color: var(--muted); font-style: italic; }
+    .sentence-label   { font-size: 0.85rem; color: var(--muted); font-style: italic; }
 
+    /* ── Feedback ── */
     .feedback-box {
-      width: 100%;
-      border-radius: 8px;
-      padding: 1.25rem;
-      font-size: 0.92rem;
-      line-height: 1.7;
-      display: none;
-      animation: fadeIn 0.4s ease;
+      width: 100%; border-radius: 8px; padding: 1.25rem; font-size: 0.92rem;
+      line-height: 1.7; display: none; animation: fadeIn 0.4s ease;
     }
     .feedback-box.visible   { display: block; }
     .feedback-box.correct   { background: #0e2018; border: 1px solid var(--success); color: var(--success); }
     .feedback-box.incorrect { background: #200e0e; border: 1px solid var(--error);   color: var(--error); }
     .feedback-box .feedback-label {
-      font-family: 'DM Mono', monospace;
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 0.5rem;
+      font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;
     }
-    .no-count-notice {
-      font-size: 0.78rem;
-      font-style: italic;
-      opacity: 0.7;
-      margin-top: 0.5rem;
-    }
+    .no-count-notice { font-size: 0.78rem; font-style: italic; opacity: 0.7; margin-top: 0.5rem; }
 
+    /* ── Bouton QCM ── */
+    .qcm-offer {
+      width: 100%;
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+    .qcm-offer.visible { display: block; }
+    .btn-qcm {
+      width: 100%;
+      background: transparent;
+      border: 1px dashed var(--accent);
+      border-radius: 6px;
+      color: var(--accent);
+      cursor: pointer;
+      font-family: 'Lora', serif;
+      font-size: 0.9rem;
+      padding: 0.75rem;
+      transition: background 0.2s;
+    }
+    .btn-qcm:hover { background: #1a1500; }
+
+    /* ── Section QCM ── */
+    .qcm-section {
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      gap: 0.75rem;
+      animation: fadeIn 0.4s ease;
+    }
+    .qcm-section.visible { display: flex; }
+    .qcm-question {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .qcm-word {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-align: center;
+    }
+    .qcm-choices {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .qcm-choice {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      cursor: pointer;
+      font-family: 'Lora', serif;
+      font-size: 0.9rem;
+      padding: 0.85rem 1rem;
+      text-align: left;
+      transition: border-color 0.2s, background 0.2s;
+      line-height: 1.5;
+    }
+    .qcm-choice:hover:not(:disabled)    { border-color: var(--accent); }
+    .qcm-choice:disabled                { cursor: default; }
+    .qcm-choice.correct-answer          { border-color: var(--success); background: #0e2018; color: var(--success); }
+    .qcm-choice.wrong-answer            { border-color: var(--error);   background: #200e0e; color: var(--error); }
+
+    .qcm-result {
+      font-size: 0.88rem;
+      font-style: italic;
+      text-align: center;
+      min-height: 1.4em;
+    }
+    .qcm-result.correct   { color: var(--success); }
+    .qcm-result.incorrect { color: var(--error); }
+
+    /* ── Boutons action ── */
     .action-row { width: 100%; display: flex; gap: 0.75rem; }
     .action-row .btn-secondary { font-size: 0.9rem; padding: 0.75rem; }
     .action-row .btn-primary   { font-size: 0.9rem; padding: 0.75rem; }
@@ -313,15 +423,10 @@
     /* ── Stats ── */
     #screen-stats { max-width: 480px; }
     .stats-header { width: 100%; display: flex; align-items: center; justify-content: space-between; }
-    .stats-grid { width: 100%; display: flex; flex-direction: column; gap: 1rem; }
+    .stats-grid   { width: 100%; display: flex; flex-direction: column; gap: 1rem; }
     .stats-lang-block {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.25rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;
     }
     .stats-lang-title { display: flex; align-items: center; gap: 0.6rem; font-size: 1rem; font-weight: 600; }
     .stats-lang-title .flag { font-size: 1.2rem; }
@@ -331,24 +436,18 @@
     .stats-row .value.green  { color: var(--success); }
     .stats-row .value.yellow { color: var(--accent); }
     .stats-row .value.muted  { color: var(--muted); }
-    .progress-bar-bg { width: 100%; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .progress-bar-bg   { width: 100%; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
     .progress-bar-fill { height: 100%; background: var(--success); border-radius: 2px; transition: width 0.6s ease; }
 
+    /* ── Spinner ── */
     .spinner {
-      display: inline-block;
-      width: 14px; height: 14px;
-      border: 2px solid var(--muted);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      margin-right: 6px;
-      vertical-align: middle;
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid var(--muted); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      margin-right: 6px; vertical-align: middle;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
+    @keyframes spin    { to { transform: rotate(360deg); } }
+    @keyframes fadeIn  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
@@ -386,22 +485,10 @@
     <h1 class="app-title">Vocab</h1>
     <p class="app-subtitle">quelle langue aujourd'hui ?</p>
     <div class="lang-grid">
-      <button class="lang-btn" onclick="selectLanguage('English')">
-        <span class="flag">🇬🇧</span>
-        <span class="lang-name">English</span>
-      </button>
-      <button class="lang-btn" onclick="selectLanguage('Spanish')">
-        <span class="flag">🇪🇸</span>
-        <span class="lang-name">Español</span>
-      </button>
-      <button class="lang-btn" onclick="selectLanguage('French')">
-        <span class="flag">🇫🇷</span>
-        <span class="lang-name">Français</span>
-      </button>
-      <button class="lang-btn" onclick="selectLanguage('Greek')">
-        <span class="flag">🇬🇷</span>
-        <span class="lang-name">Ελληνικά</span>
-      </button>
+      <button class="lang-btn" onclick="selectLanguage('English')"><span class="flag">🇬🇧</span><span class="lang-name">English</span></button>
+      <button class="lang-btn" onclick="selectLanguage('Spanish')"><span class="flag">🇪🇸</span><span class="lang-name">Español</span></button>
+      <button class="lang-btn" onclick="selectLanguage('French')"><span class="flag">🇫🇷</span><span class="lang-name">Français</span></button>
+      <button class="lang-btn" onclick="selectLanguage('Greek')"><span class="flag">🇬🇷</span><span class="lang-name">Ελληνικά</span></button>
     </div>
     <button class="btn-ghost" onclick="showStats()">📊 voir mes statistiques</button>
     <p class="error-msg" id="lang-error-msg"></p>
@@ -409,6 +496,7 @@
 
   <!-- ── Écran 4 : Pratique ── -->
   <div class="screen" id="screen-practice">
+
     <div class="practice-header">
       <h1 class="app-title">Vocab</h1>
       <div class="header-actions">
@@ -417,39 +505,79 @@
       </div>
     </div>
 
-    <div class="word-card">
+    <!-- Slider nombre de mots -->
+    <div class="slider-section">
+      <div class="slider-header">
+        <span class="slider-label">Nombre de mots</span>
+        <span class="slider-value" id="slider-value">1 mot</span>
+      </div>
+      <input type="range" id="word-count-slider" min="1" max="5" value="1"
+        oninput="onSliderChange(this.value)" />
+    </div>
+
+    <!-- Mot unique -->
+    <div id="single-word-card" class="word-card">
       <span class="word-label">mot du jour</span>
       <span class="word-main" id="current-word">…</span>
       <div class="word-meta">
         <span class="stars s0" id="word-stars">☆☆☆</span>
-        <span class="word-count" id="word-count"></span>
+        <span class="word-count" id="word-count-label"></span>
         <span class="hint-used-badge" id="hint-used-badge">💡 aide</span>
       </div>
     </div>
 
+    <!-- Multi-mots chips -->
+    <div id="multi-word-chips" class="words-chips" style="display:none;"></div>
+
+    <!-- Boutons hint / suivant -->
     <div class="action-row">
       <button class="btn-secondary" id="btn-hint" onclick="askHint()">💡 Définition</button>
       <button class="btn-primary"   id="btn-next" onclick="nextWord()">Autre mot →</button>
     </div>
 
+    <!-- Dropdown sélecteur de mot (mode multi) -->
+    <div class="hint-dropdown" id="hint-dropdown">
+      <span class="hint-dropdown-label">Quel mot veux-tu éclaircir ?</span>
+      <div id="hint-word-buttons"></div>
+    </div>
+
+    <!-- Boîte définition -->
     <div class="hint-box" id="hint-box">
-      <div class="hint-label">Définition</div>
+      <div class="hint-label" id="hint-box-label">Définition</div>
       <div id="hint-text"></div>
     </div>
 
+    <!-- Zone phrase -->
     <div class="sentence-section">
       <p class="sentence-label" id="sentence-label">Utilise ce mot dans une phrase :</p>
-      <textarea id="sentence-input" rows="3" placeholder="Écris ta phrase ici…"></textarea>
+      <textarea id="sentence-input" rows="4" placeholder="Écris ta phrase ici…"></textarea>
       <button class="btn-primary" id="btn-submit" onclick="submitSentence()">
-        Vérifier ma phrase ✓
+        Vérifier ✓
       </button>
     </div>
 
+    <!-- Feedback -->
     <div class="feedback-box" id="feedback-box">
       <div class="feedback-label" id="feedback-label"></div>
       <div id="feedback-text"></div>
       <div class="no-count-notice" id="no-count-notice"></div>
     </div>
+
+    <!-- Offre QCM (après ✗) -->
+    <div class="qcm-offer" id="qcm-offer">
+      <button class="btn-qcm" onclick="startQCM()">
+        🎯 Faire le QCM pour ce mot →
+      </button>
+    </div>
+
+    <!-- Section QCM -->
+    <div class="qcm-section" id="qcm-section">
+      <span class="qcm-question">Quelle est la bonne définition ?</span>
+      <span class="qcm-word" id="qcm-word"></span>
+      <div class="qcm-choices" id="qcm-choices"></div>
+      <div class="qcm-result" id="qcm-result"></div>
+    </div>
+
   </div>
 
   <!-- ── Écran 5 : Statistiques ── -->
@@ -477,18 +605,19 @@
     const KEY_GG_EXPIRY = "vocab_google_expiry";
 
     const LANGS = [
-      { key: 'English', flag: '🇬🇧', name: 'English',   mistralName: 'English',      sentencePrompt: 'Use this word in a sentence:',    feedbackLang: 'English' },
-      { key: 'Spanish', flag: '🇪🇸', name: 'Español',   mistralName: 'Spanish',      sentencePrompt: 'Usa esta palabra en una frase:',   feedbackLang: 'Spanish' },
-      { key: 'French',  flag: '🇫🇷', name: 'Français',  mistralName: 'French',       sentencePrompt: 'Utilise ce mot dans une phrase :', feedbackLang: 'French'  },
-      { key: 'Greek',   flag: '🇬🇷', name: 'Ελληνικά', mistralName: 'Modern Greek', sentencePrompt: 'Χρησιμοποίησε αυτή τη λέξη σε μια πρόταση:', feedbackLang: 'Modern Greek' },
+      { key: 'English', flag: '🇬🇧', name: 'English',   mistralName: 'English',      sentencePrompt: 'Use these words in a single text:',        feedbackLang: 'English' },
+      { key: 'Spanish', flag: '🇪🇸', name: 'Español',   mistralName: 'Spanish',      sentencePrompt: 'Usa estas palabras en un solo texto:',      feedbackLang: 'Spanish' },
+      { key: 'French',  flag: '🇫🇷', name: 'Français',  mistralName: 'French',       sentencePrompt: 'Utilise ces mots dans un seul texte :',     feedbackLang: 'French'  },
+      { key: 'Greek',   flag: '🇬🇷', name: 'Ελληνικά', mistralName: 'Modern Greek', sentencePrompt: 'Χρησιμοποίησε αυτές τις λέξεις σε ένα κείμενο:', feedbackLang: 'Modern Greek' },
     ];
 
     // ── État global ───────────────────────────────────────────
-    let allWords    = [];
-    let progressMap = {};
-    let currentWord = "";
-    let currentLang = "";
-    let hintUsed    = false;
+    let allWords      = [];
+    let progressMap   = {};
+    let currentWords  = [];    // tableau — 1 ou plusieurs mots
+    let currentLang   = "";
+    let hintUsedWords = new Set(); // mots pour lesquels l'aide a été demandée
+    let qcmWord       = "";    // mot en cours de QCM
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
@@ -507,6 +636,7 @@
     }
 
     function getLang() { return LANGS.find(l => l.key === currentLang) || LANGS[0]; }
+    function wordCount() { return parseInt(document.getElementById('word-count-slider').value); }
 
     // ── Mot de passe ──────────────────────────────────────────
     async function checkPassword() {
@@ -529,8 +659,7 @@
     let tokenClient;
     function initGoogleClient() {
       tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
+        client_id: CLIENT_ID, scope: SCOPES,
         callback: (response) => {
           if (response.error) {
             document.getElementById('google-error-msg').textContent = 'Erreur Google : ' + response.error;
@@ -544,46 +673,56 @@
       });
     }
     function loginGoogle() {
-      if (!tokenClient) {
-        document.getElementById('google-error-msg').textContent = 'Chargement en cours, réessaie dans un instant...';
-        setTimeout(loginGoogle, 1000);
-        return;
-      }
+      if (!tokenClient) { setTimeout(loginGoogle, 1000); return; }
       tokenClient.requestAccessToken();
     }
     window.addEventListener('load', () => {
-      const interval = setInterval(() => {
-        if (typeof google !== 'undefined' && google.accounts) {
-          initGoogleClient(); clearInterval(interval);
-        }
+      const iv = setInterval(() => {
+        if (typeof google !== 'undefined' && google.accounts) { initGoogleClient(); clearInterval(iv); }
       }, 200);
     });
+
+    // ── Slider ────────────────────────────────────────────────
+    function onSliderChange(val) {
+      const n = parseInt(val);
+      document.getElementById('slider-value').textContent = n === 1 ? '1 mot' : `${n} mots`;
+      // Met à jour le label de la zone de texte
+      const langInfo = getLang();
+      const label = n === 1
+        ? langInfo.sentencePrompt.replace('ces mots', 'ce mot').replace('these words', 'this word').replace('estas palabras', 'esta palabra').replace('αυτές τις λέξεις', 'αυτή τη λέξη')
+        : langInfo.sentencePrompt;
+      document.getElementById('sentence-label').textContent = label;
+    }
 
     // ── Sélection de langue ───────────────────────────────────
     async function selectLanguage(lang) {
       currentLang = lang;
       const langInfo = getLang();
-      document.getElementById('lang-tag').textContent      = `← ${langInfo.name}`;
-      document.getElementById('sentence-label').textContent = langInfo.sentencePrompt;
+      document.getElementById('lang-tag').textContent = `← ${langInfo.name}`;
       showScreen('screen-practice');
       resetPracticeUI();
-      document.getElementById('word-count').textContent = 'chargement...';
+      document.getElementById('word-count-label').textContent = 'chargement...';
       await Promise.all([ loadWords(lang), loadProgress(lang) ]);
-      pickWeightedWord();
+      pickWords();
     }
 
     function resetPracticeUI() {
-      hintUsed = false;
-      document.getElementById('current-word').textContent   = '…';
-      document.getElementById('word-stars').textContent     = '☆☆☆';
-      document.getElementById('word-stars').className       = 'stars s0';
+      hintUsedWords = new Set();
+      currentWords  = [];
+      document.getElementById('current-word').textContent     = '…';
+      document.getElementById('word-stars').textContent       = '☆☆☆';
+      document.getElementById('word-stars').className         = 'stars s0';
       document.getElementById('hint-used-badge').classList.remove('visible');
       document.getElementById('hint-box').classList.remove('visible');
-      document.getElementById('hint-text').textContent      = '';
-      document.getElementById('sentence-input').value       = '';
+      document.getElementById('hint-dropdown').classList.remove('visible');
+      document.getElementById('hint-text').textContent        = '';
+      document.getElementById('sentence-input').value         = '';
       document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
-      document.getElementById('feedback-text').textContent  = '';
-      document.getElementById('no-count-notice').textContent = '';
+      document.getElementById('feedback-text').textContent    = '';
+      document.getElementById('no-count-notice').textContent  = '';
+      document.getElementById('qcm-offer').classList.remove('visible');
+      document.getElementById('qcm-section').classList.remove('visible');
+      document.getElementById('qcm-result').textContent       = '';
     }
 
     // ── Lecture mots ──────────────────────────────────────────
@@ -607,10 +746,8 @@
         const data = await res.json();
         (data.values || []).forEach((row, i) => {
           if (i === 0) return;
-          const word      = row[0] || '';
-          const rowLang   = row[1] || '';
-          const correct   = parseInt(row[2]) || 0;
-          const incorrect = parseInt(row[3]) || 0;
+          const word = row[0] || '', rowLang = row[1] || '';
+          const correct = parseInt(row[2]) || 0, incorrect = parseInt(row[3]) || 0;
           if (word && rowLang === lang)
             progressMap[word.toLowerCase()] = { correct, incorrect, rowIndex: i + 1 };
         });
@@ -627,49 +764,312 @@
       return 5;
     }
 
-    function pickWeightedWord() {
-      if (allWords.length === 0) {
-        document.getElementById('current-word').textContent = '—';
-        document.getElementById('word-count').textContent   = 'aucun mot trouvé';
-        return;
-      }
-      const weights = allWords.map(w => getWeight(w));
+    function pickWeightedOne(exclude = []) {
+      const pool = allWords.filter(w => !exclude.includes(w));
+      if (pool.length === 0) return allWords[Math.floor(Math.random() * allWords.length)];
+      const weights = pool.map(w => getWeight(w));
       const total   = weights.reduce((a, b) => a + b, 0);
       let rand      = Math.random() * total;
-      let chosen    = allWords[0];
-      for (let i = 0; i < allWords.length; i++) {
+      for (let i = 0; i < pool.length; i++) {
         rand -= weights[i];
-        if (rand <= 0) { chosen = allWords[i]; break; }
+        if (rand <= 0) return pool[i];
       }
-      currentWord = chosen;
-      document.getElementById('current-word').textContent = currentWord;
+      return pool[pool.length - 1];
+    }
+
+    function pickWords() {
+      if (allWords.length === 0) {
+        document.getElementById('current-word').textContent    = '—';
+        document.getElementById('word-count-label').textContent = 'aucun mot trouvé';
+        return;
+      }
+      const n = wordCount();
+      currentWords = [];
+      for (let i = 0; i < n; i++) currentWords.push(pickWeightedOne(currentWords));
+
       const remaining = allWords.filter(w => getWeight(w) > 1).length;
-      document.getElementById('word-count').textContent =
+      document.getElementById('word-count-label').textContent =
         `${remaining} mot${remaining > 1 ? 's' : ''} à pratiquer`;
-      updateStars(currentWord);
+
+      renderWordDisplay();
+    }
+
+    function renderWordDisplay() {
+      const n = currentWords.length;
+      const single = document.getElementById('single-word-card');
+      const multi  = document.getElementById('multi-word-chips');
+
+      if (n === 1) {
+        single.style.display = '';
+        multi.style.display  = 'none';
+        document.getElementById('current-word').textContent = currentWords[0];
+        updateStars(currentWords[0]);
+      } else {
+        single.style.display = 'none';
+        multi.style.display  = '';
+        multi.innerHTML = currentWords.map(w => {
+          const starsInfo = getStarsInfo(w);
+          return `<div class="word-chip">
+            <span class="chip-word">${w}</span>
+            <span class="chip-stars ${starsInfo.cls}">${starsInfo.str}</span>
+          </div>`;
+        }).join('');
+      }
+    }
+
+    function getStarsInfo(word) {
+      const prog = progressMap[word.toLowerCase()];
+      if (!prog) return { str: '☆☆☆', cls: 's0' };
+      const net = prog.correct - prog.incorrect;
+      if (net >= 3) return { str: '★★★', cls: 's3' };
+      if (net >= 2) return { str: '★★☆', cls: 's2' };
+      if (net >= 1) return { str: '★☆☆', cls: 's1' };
+      return { str: '☆☆☆', cls: 's0' };
     }
 
     function updateStars(word) {
-      const prog    = progressMap[word.toLowerCase()];
+      const info    = getStarsInfo(word);
       const starsEl = document.getElementById('word-stars');
-      if (!prog) { starsEl.textContent = '☆☆☆'; starsEl.className = 'stars s0'; return; }
-      const net = prog.correct - prog.incorrect;
-      if (net >= 3)      { starsEl.textContent = '★★★'; starsEl.className = 'stars s3'; }
-      else if (net >= 2) { starsEl.textContent = '★★☆'; starsEl.className = 'stars s2'; }
-      else if (net >= 1) { starsEl.textContent = '★☆☆'; starsEl.className = 'stars s1'; }
-      else               { starsEl.textContent = '☆☆☆'; starsEl.className = 'stars s0'; }
+      starsEl.textContent = info.str;
+      starsEl.className   = `stars ${info.cls}`;
     }
 
     function nextWord() {
-      pickWeightedWord();
-      hintUsed = false;
-      document.getElementById('hint-used-badge').classList.remove('visible');
+      resetPracticeUI();
+      pickWords();
+      // Réinitialise le slider label
+      onSliderChange(wordCount());
+    }
+
+    // ── Hint ─────────────────────────────────────────────────
+    function askHint() {
+      if (currentWords.length === 1) {
+        fetchHint(currentWords[0]);
+      } else {
+        // Affiche le dropdown
+        const dropdown = document.getElementById('hint-dropdown');
+        const btns     = document.getElementById('hint-word-buttons');
+        dropdown.classList.toggle('visible');
+        btns.innerHTML = currentWords.map(w =>
+          `<button class="hint-word-btn" onclick="fetchHint('${w.replace(/'/g, "\\'")}')">${w}</button>`
+        ).join('');
+      }
+    }
+
+    async function fetchHint(word) {
+      document.getElementById('hint-dropdown').classList.remove('visible');
+      const btn = document.getElementById('btn-hint');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
       document.getElementById('hint-box').classList.remove('visible');
-      document.getElementById('hint-text').textContent      = '';
-      document.getElementById('sentence-input').value       = '';
-      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
-      document.getElementById('feedback-text').textContent  = '';
-      document.getElementById('no-count-notice').textContent = '';
+      document.getElementById('hint-box-label').textContent = `Définition — ${word}`;
+
+      const langName = getLang().mistralName;
+      const prompt = `You are a vocabulary teacher. The learner is studying ${langName}.
+
+Give the definition and one rich example sentence for: "${word}"
+
+Rules:
+- Treat it as a COMMON WORD or EXPRESSION in ${langName}, not a proper noun or brand name.
+- If it has multiple meanings, give the most useful one for a language learner.
+- The example must clearly illustrate the word's meaning in a realistic context.
+
+Format exactly:
+**Définition :** ...
+**Exemple :** ...
+
+Respond entirely in ${langName}.`;
+
+      try {
+        const reply = await callMistral(prompt);
+        document.getElementById('hint-text').innerHTML =
+          reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        document.getElementById('hint-box').classList.add('visible');
+        hintUsedWords.add(word.toLowerCase());
+        if (currentWords.length === 1) {
+          document.getElementById('hint-used-badge').classList.add('visible');
+        }
+      } catch (err) {
+        document.getElementById('hint-text').textContent = 'Erreur : ' + err.message;
+        document.getElementById('hint-box').classList.add('visible');
+      }
+      btn.disabled = false;
+      btn.textContent = '💡 Définition';
+    }
+
+    // ── Évaluation ────────────────────────────────────────────
+    async function submitSentence() {
+      const sentence = document.getElementById('sentence-input').value.trim();
+      if (!sentence) return;
+
+      const btn = document.getElementById('btn-submit');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+
+      const feedbackBox   = document.getElementById('feedback-box');
+      const feedbackLabel = document.getElementById('feedback-label');
+      const feedbackText  = document.getElementById('feedback-text');
+      const noCountNotice = document.getElementById('no-count-notice');
+      feedbackBox.classList.remove('visible', 'correct', 'incorrect');
+      document.getElementById('qcm-offer').classList.remove('visible');
+      document.getElementById('qcm-section').classList.remove('visible');
+
+      const langInfo   = getLang();
+      const langName   = langInfo.mistralName;
+      const feedbackLang = langInfo.feedbackLang;
+      const wordsList  = currentWords.join('", "');
+
+      const isSingle = currentWords.length === 1;
+
+      const prompt = isSingle ? `You are a strict but encouraging ${langName} vocabulary teacher.
+
+The learner is practicing: "${currentWords[0]}" in ${langName}.
+Their sentence: "${sentence}"
+
+Evaluate using TWO criteria:
+CRITERION 1 — Correct usage: Is "${currentWords[0]}" grammatically and semantically correct?
+CRITERION 2 — Demonstrated understanding: Does the sentence show the learner understands what "${currentWords[0]}" means? Reject sentences that are too vague or generic (e.g. "I like X", "X est bien") or where X could be replaced by any random word.
+
+- ✓ ONLY if BOTH criteria are met
+- ✗ if either fails — explain which and why, give ONE example of a strong sentence
+
+Respond entirely in ${feedbackLang}. Be concise (3 sentences max).`
+
+      : `You are a strict but encouraging ${langName} vocabulary teacher.
+
+The learner is practicing these words: "${wordsList}" in ${langName}.
+Their text: "${sentence}"
+
+For EACH word, evaluate:
+1. Is it used correctly (grammar and meaning)?
+2. Does the text demonstrate understanding of its meaning? (reject vague or generic usage)
+
+Format your response as a list, one line per word:
+- "${currentWords[0]}": ✓ or ✗ + brief comment
+- "${currentWords[1]}": ✓ or ✗ + brief comment
+(etc.)
+
+Then on a new line: overall verdict — start with "✓" if ALL words are correct, "✗" if any word fails.
+
+Respond entirely in ${feedbackLang}.`;
+
+      try {
+        const reply = await callMistral(prompt);
+
+        // Cherche le verdict global (dernière ligne qui commence par ✓ ou ✗)
+        const lines     = reply.split('\n').map(l => l.trim()).filter(Boolean);
+        const verdict   = lines.findLast(l => l.startsWith('✓') || l.startsWith('✗')) || reply;
+        const isCorrect = verdict.startsWith('✓');
+
+        feedbackLabel.textContent = isCorrect ? '✓' : '✗';
+        feedbackText.textContent  = reply;
+        feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
+
+        // Progression — mots sans aide utilisée
+        const wordsToSave = currentWords.filter(w => !hintUsedWords.has(w.toLowerCase()));
+        const wordsWithHelp = currentWords.filter(w => hintUsedWords.has(w.toLowerCase()));
+
+        if (wordsWithHelp.length > 0 && !isCorrect) {
+          noCountNotice.textContent = `(aide utilisée pour ${wordsWithHelp.join(', ')} — non comptabilisé)`;
+        } else if (wordsWithHelp.length > 0 && isCorrect) {
+          noCountNotice.textContent = `(aide utilisée pour ${wordsWithHelp.join(', ')} — non comptabilisé)`;
+        } else {
+          noCountNotice.textContent = '';
+        }
+
+        for (const w of wordsToSave) {
+          await saveProgress(w, isCorrect);
+        }
+
+        // Propose le QCM si ✗ et un seul mot (QCM sur le mot raté)
+        if (!isCorrect) {
+          // En mode multi, propose le QCM pour le premier mot mentionné comme ✗
+          qcmWord = isSingle
+            ? currentWords[0]
+            : (currentWords.find(w => {
+                const line = lines.find(l => l.includes(w));
+                return line && line.includes('✗');
+              }) || currentWords[0]);
+          document.getElementById('qcm-offer').classList.add('visible');
+        }
+
+      } catch (err) {
+        feedbackLabel.textContent = 'Erreur';
+        feedbackText.textContent  = err.message;
+        feedbackBox.classList.add('visible', 'incorrect');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Vérifier ✓';
+    }
+
+    // ── QCM ───────────────────────────────────────────────────
+    async function startQCM() {
+      document.getElementById('qcm-offer').classList.remove('visible');
+      const section  = document.getElementById('qcm-section');
+      const choicesEl = document.getElementById('qcm-choices');
+      const resultEl  = document.getElementById('qcm-result');
+      section.classList.add('visible');
+      document.getElementById('qcm-word').textContent = qcmWord;
+      resultEl.textContent = '';
+      choicesEl.innerHTML  = '<div style="color:var(--muted);font-style:italic;padding:0.5rem"><span class="spinner"></span> Génération du QCM…</div>';
+
+      const langName = getLang().mistralName;
+
+      const prompt = `You are a vocabulary teacher creating a multiple-choice quiz in ${langName}.
+
+The word to test is: "${qcmWord}"
+
+Generate exactly 4 definitions:
+- 1 correct definition of "${qcmWord}"
+- 3 plausible but incorrect definitions (they could be definitions of OTHER words, not "${qcmWord}")
+
+Return ONLY a JSON array of 4 objects, no other text, no markdown:
+[
+  {"text": "...", "correct": true},
+  {"text": "...", "correct": false},
+  {"text": "...", "correct": false},
+  {"text": "...", "correct": false}
+]
+
+Write all definitions in ${langName}. Shuffle the order randomly.`;
+
+      try {
+        const reply = await callMistral(prompt);
+        // Extrait le JSON
+        const jsonMatch = reply.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) throw new Error('Format inattendu');
+        const choices = JSON.parse(jsonMatch[0]);
+
+        choicesEl.innerHTML = choices.map((c, i) =>
+          `<button class="qcm-choice" onclick="checkQCM(this, ${c.correct}, ${i})">${c.text}</button>`
+        ).join('');
+      } catch (err) {
+        choicesEl.innerHTML = `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
+      }
+    }
+
+    async function checkQCM(btn, isCorrect, idx) {
+      // Désactive tous les boutons
+      document.querySelectorAll('.qcm-choice').forEach(b => b.disabled = true);
+
+      // Colorie la réponse
+      btn.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
+
+      // Si faux, montre la bonne réponse
+      if (!isCorrect) {
+        document.querySelectorAll('.qcm-choice').forEach(b => {
+          if (b.onclick.toString().includes('true')) b.classList.add('correct-answer');
+        });
+        // Compte comme ✗ supplémentaire
+        await saveProgress(qcmWord, false);
+        document.getElementById('qcm-result').textContent  = '✗ Pas tout à fait…';
+        document.getElementById('qcm-result').className    = 'qcm-result incorrect';
+      } else {
+        // Résultat neutre — ni ✓ ni ✗ dans la progression
+        document.getElementById('qcm-result').textContent = '✓ Bonne définition !';
+        document.getElementById('qcm-result').className   = 'qcm-result correct';
+      }
     }
 
     // ── Écriture progression ──────────────────────────────────
@@ -703,181 +1103,49 @@
         const match    = (data.updates?.updatedRange || '').match(/(\d+)$/);
         progressMap[key] = { correct, incorrect, rowIndex: match ? parseInt(match[1]) : null };
       }
-      updateStars(word);
-    }
-
-    // ── Mistral : Définition ──────────────────────────────────
-    async function askHint() {
-      const btn = document.getElementById('btn-hint');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span>';
-      document.getElementById('hint-box').classList.remove('visible');
-
-      const langName = getLang().mistralName;
-
-      const prompt = `You are a vocabulary teacher. The learner is studying ${langName}.
-
-Give the definition and one rich example sentence for: "${currentWord}"
-
-Rules:
-- Treat it as a COMMON WORD or EXPRESSION in ${langName}, not a proper noun or brand name.
-- If it has multiple meanings, give the most useful one for a language learner.
-- The example sentence must clearly illustrate the word's meaning in a realistic context.
-
-Format exactly:
-**Définition :** ...
-**Exemple :** ...
-
-Respond entirely in ${langName}.`;
-
-      try {
-        const reply = await callMistral(prompt);
-        document.getElementById('hint-text').innerHTML =
-          reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        document.getElementById('hint-box').classList.add('visible');
-        hintUsed = true;
-        document.getElementById('hint-used-badge').classList.add('visible');
-      } catch (err) {
-        document.getElementById('hint-text').textContent = 'Erreur : ' + err.message;
-        document.getElementById('hint-box').classList.add('visible');
-      }
-      btn.disabled = false;
-      btn.textContent = '💡 Définition';
-    }
-
-    // ── Mistral : Évaluation ──────────────────────────────────
-    async function submitSentence() {
-      const sentence = document.getElementById('sentence-input').value.trim();
-      if (!sentence) return;
-
-      const btn = document.getElementById('btn-submit');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span>';
-
-      const feedbackBox   = document.getElementById('feedback-box');
-      const feedbackLabel = document.getElementById('feedback-label');
-      const feedbackText  = document.getElementById('feedback-text');
-      const noCountNotice = document.getElementById('no-count-notice');
-      feedbackBox.classList.remove('visible', 'correct', 'incorrect');
-
-      const langInfo = getLang();
-      const langName = langInfo.mistralName;
-      const feedbackLang = langInfo.feedbackLang;
-
-      // ── Prompt strict : exige une vraie démonstration de compréhension ──
-      const prompt = `You are a strict but encouraging ${langName} vocabulary teacher.
-
-The learner is practicing: "${currentWord}" in ${langName}.
-Their sentence: "${sentence}"
-
-Evaluate using these TWO criteria:
-
-CRITERION 1 — Correct usage: Is "${currentWord}" grammatically and semantically correct in this sentence?
-
-CRITERION 2 — Demonstrated understanding: Does the sentence show that the learner understands what "${currentWord}" means?
-A sentence FAILS this criterion if:
-- It is too vague or generic (e.g. "I like ${currentWord}", "${currentWord} est bien", "c'est ${currentWord}")
-- The word could be replaced by ANY other word without changing the sentence structure (shows no understanding of the specific meaning)
-- The sentence lacks a concrete subject, context, or situation that makes the word's meaning clear
-A sentence PASSES if it uses "${currentWord}" in a specific, meaningful context that could NOT work with a random word substituted in.
-
-Decision:
-- ✓ ONLY if BOTH criteria are met
-- ✗ if either criterion fails — explain which one and why, then give ONE example of a strong sentence using "${currentWord}"
-
-Respond entirely in ${feedbackLang}. Be concise (3 sentences max).`;
-
-      try {
-        const reply     = await callMistral(prompt);
-        const isCorrect = reply.startsWith('✓');
-        feedbackLabel.textContent = isCorrect ? '✓' : '✗';
-        feedbackText.textContent  = reply;
-        feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
-
-        if (hintUsed) {
-          noCountNotice.textContent = '(aide utilisée — non comptabilisé)';
-        } else {
-          noCountNotice.textContent = '';
-          await saveProgress(currentWord, isCorrect);
-        }
-      } catch (err) {
-        feedbackLabel.textContent = 'Erreur';
-        feedbackText.textContent  = err.message;
-        feedbackBox.classList.add('visible', 'incorrect');
-      }
-
-      btn.disabled = false;
-      btn.textContent = 'Vérifier ma phrase ✓';
+      if (currentWords.length === 1) updateStars(word);
     }
 
     // ── Statistiques ──────────────────────────────────────────
     async function showStats() {
       showScreen('screen-stats');
-      const grid = document.getElementById('stats-grid');
+      const grid  = document.getElementById('stats-grid');
       grid.innerHTML = '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
       const token = localStorage.getItem(KEY_GG_TOKEN);
       try {
         const [progressRes, ...wordCountRes] = await Promise.all([
-          fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E`,
-            { headers: { Authorization: `Bearer ${token}` } }),
-          ...LANGS.map(l => fetch(
-            `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(l.key)}!B:B`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          ))
+          fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E`, { headers: { Authorization: `Bearer ${token}` } }),
+          ...LANGS.map(l => fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(l.key)}!B:B`, { headers: { Authorization: `Bearer ${token}` } }))
         ]);
-        const progressData = await progressRes.json();
+        const progressData  = await progressRes.json();
         const wordCountData = await Promise.all(wordCountRes.map(r => r.json()));
-
-        const wordCounts = {};
-        LANGS.forEach((l, i) => {
-          wordCounts[l.key] = (wordCountData[i].values || []).filter(r => r[0] && r[0].trim()).length;
-        });
+        const wordCounts    = {};
+        LANGS.forEach((l, i) => { wordCounts[l.key] = (wordCountData[i].values || []).filter(r => r[0] && r[0].trim()).length; });
 
         const statsByLang = {};
         LANGS.forEach(l => { statsByLang[l.key] = { mastered: 0, learning: 0, struggling: 0, total: wordCounts[l.key] || 0 }; });
-
         (progressData.values || []).slice(1).forEach(row => {
-          const lang      = row[1] || '';
-          const correct   = parseInt(row[2]) || 0;
-          const incorrect = parseInt(row[3]) || 0;
+          const lang = row[1] || '', correct = parseInt(row[2]) || 0, incorrect = parseInt(row[3]) || 0;
           if (!statsByLang[lang]) return;
           const net = correct - incorrect;
-          if (net >= 3)     statsByLang[lang].mastered++;
+          if (net >= 3) statsByLang[lang].mastered++;
           else if (net < 0) statsByLang[lang].struggling++;
-          else              statsByLang[lang].learning++;
+          else statsByLang[lang].learning++;
         });
 
         grid.innerHTML = LANGS.map(l => {
-          const s         = statsByLang[l.key];
-          const practiced = s.mastered + s.learning + s.struggling;
-          const pct       = s.total > 0 ? Math.round((s.mastered / s.total) * 100) : 0;
+          const s          = statsByLang[l.key];
+          const practiced  = s.mastered + s.learning + s.struggling;
+          const pct        = s.total > 0 ? Math.round((s.mastered / s.total) * 100) : 0;
           const notStarted = s.total - practiced;
-          return `
-            <div class="stats-lang-block">
-              <div class="stats-lang-title">
-                <span class="flag">${l.flag}</span>
-                <span>${l.name}</span>
-              </div>
-              <div class="progress-bar-bg">
-                <div class="progress-bar-fill" style="width:${pct}%"></div>
-              </div>
-              <div class="stats-row">
-                <span class="label">Total de mots</span>
-                <span class="value">${s.total}</span>
-              </div>
-              <div class="stats-row">
-                <span class="label">★★★ Maîtrisés</span>
-                <span class="value green">${s.mastered}</span>
-              </div>
-              <div class="stats-row">
-                <span class="label">★☆☆ En cours</span>
-                <span class="value yellow">${s.learning}</span>
-              </div>
-              <div class="stats-row">
-                <span class="label">☆☆☆ Pas encore commencé</span>
-                <span class="value muted">${notStarted}</span>
-              </div>
-            </div>`;
+          return `<div class="stats-lang-block">
+            <div class="stats-lang-title"><span class="flag">${l.flag}</span><span>${l.name}</span></div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+            <div class="stats-row"><span class="label">Total de mots</span><span class="value">${s.total}</span></div>
+            <div class="stats-row"><span class="label">★★★ Maîtrisés</span><span class="value green">${s.mastered}</span></div>
+            <div class="stats-row"><span class="label">★☆☆ En cours</span><span class="value yellow">${s.learning}</span></div>
+            <div class="stats-row"><span class="label">☆☆☆ Pas encore commencé</span><span class="value muted">${notStarted}</span></div>
+          </div>`;
         }).join('');
       } catch (err) {
         grid.innerHTML = `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
@@ -888,16 +1156,8 @@ Respond entirely in ${feedbackLang}. Be concise (3 sentences max).`;
     async function callMistral(prompt) {
       const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${MISTRAL_KEY}`
-        },
-        body: JSON.stringify({
-          model: MISTRAL_MODEL,
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 400,
-          temperature: 0.4
-        })
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
+        body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: 500, temperature: 0.4 })
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
