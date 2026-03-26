@@ -930,8 +930,10 @@ Evaluate using TWO criteria:
 CRITERION 1 — Correct usage: Is "${currentWords[0]}" grammatically and semantically correct?
 CRITERION 2 — Demonstrated understanding: Does the sentence show the learner understands what "${currentWords[0]}" means? Reject sentences that are too vague or generic (e.g. "I like X", "X est bien") or where X could be replaced by any random word.
 
-- ✓ ONLY if BOTH criteria are met
-- ✗ if either fails — explain which and why, give ONE example of a strong sentence
+IMPORTANT PRELIMINARY CHECK: If the learner simply wrote the word/expression itself without making a real sentence (no subject, no conjugated verb, just the expression alone or as a fragment), immediately respond with ✗ and tell them to write a complete sentence with a subject and a verb.
+
+- ✓ ONLY if ALL criteria are met
+- ✗ if any criterion fails — explain which and why, give ONE example of a strong sentence
 
 Respond entirely in ${feedbackLang}. Be concise (3 sentences max).`
 
@@ -962,7 +964,7 @@ Respond entirely in ${feedbackLang}.`;
         const isCorrect = verdict.startsWith('✓');
 
         feedbackLabel.textContent = isCorrect ? '✓' : '✗';
-        feedbackText.textContent  = reply;
+        feedbackText.innerHTML = renderMarkdown(reply);
         feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
 
         // Progression — mots sans aide utilisée
@@ -1150,6 +1152,18 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
       } catch (err) {
         grid.innerHTML = `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
       }
+    }
+
+    // ── Rendu Markdown simple ─────────────────────────────────
+    // Convertit **gras**, *italique*, et sauts de ligne en HTML
+    function renderMarkdown(text) {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
     }
 
     // ── Appel Mistral ─────────────────────────────────────────
