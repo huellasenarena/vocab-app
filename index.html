@@ -4,8 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vocab</title>
+
+  <!-- ── PWA / icône ── -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Vocab" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+
+  <!-- Favicon SVG inline -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f0f0f'/%3E%3Ctext y='74' x='50' text-anchor='middle' font-size='68' font-family='Georgia,serif' fill='%23c9a96e'%3EV%3C/text%3E%3C/svg%3E" />
+
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <style>
     :root {
       --bg:      #0f0f0f;
@@ -62,8 +74,7 @@
       gap: 0.75rem;
     }
 
-    input[type="password"],
-    textarea {
+    input[type="password"], textarea {
       width: 100%;
       background: var(--surface);
       border: 1px solid var(--border);
@@ -77,8 +88,7 @@
       resize: none;
     }
     input[type="password"] { font-family: 'DM Mono', monospace; }
-    input[type="password"]:focus,
-    textarea:focus { border-color: var(--accent); }
+    input[type="password"]:focus, textarea:focus { border-color: var(--accent); }
 
     .btn-primary {
       width: 100%;
@@ -93,7 +103,7 @@
       padding: 0.85rem;
       transition: opacity 0.2s;
     }
-    .btn-primary:hover { opacity: 0.85; }
+    .btn-primary:hover    { opacity: 0.85; }
     .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .btn-secondary {
@@ -108,8 +118,20 @@
       padding: 0.85rem;
       transition: border-color 0.2s;
     }
-    .btn-secondary:hover { border-color: var(--accent); }
+    .btn-secondary:hover    { border-color: var(--accent); }
     .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-ghost {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      padding: 0.25rem 0.5rem;
+      transition: color 0.2s;
+    }
+    .btn-ghost:hover { color: var(--accent); }
 
     .btn-google {
       width: 100%;
@@ -159,7 +181,6 @@
       color: var(--text);
       cursor: pointer;
       font-family: 'Lora', serif;
-      font-size: 1rem;
       padding: 1.1rem;
       display: flex;
       flex-direction: column;
@@ -171,7 +192,7 @@
     .lang-btn .flag { font-size: 1.8rem; }
     .lang-btn .lang-name { font-size: 0.85rem; color: var(--muted); }
 
-    /* ── Écran de pratique ── */
+    /* ── Écran pratique ── */
     #screen-practice { max-width: 480px; }
 
     .practice-header {
@@ -180,6 +201,8 @@
       align-items: center;
       justify-content: space-between;
     }
+    .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+
     .lang-tag {
       font-family: 'DM Mono', monospace;
       font-size: 0.78rem;
@@ -219,27 +242,32 @@
       color: var(--accent);
       line-height: 1.2;
     }
-    .word-meta {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
+    .word-meta { display: flex; align-items: center; gap: 0.75rem; }
     .word-count {
       font-size: 0.78rem;
       font-family: 'DM Mono', monospace;
       color: var(--muted);
     }
-    /* ── Étoiles ── */
-    .stars {
-      font-size: 0.95rem;
-      letter-spacing: 0.05em;
-    }
-    .stars.s0 { color: var(--muted); }     /* ☆☆☆ jamais pratiqué */
-    .stars.s1 { color: #c9a96e88; }        /* ★☆☆ début */
-    .stars.s2 { color: var(--accent); }    /* ★★☆ bien */
-    .stars.s3 { color: var(--success); }   /* ★★★ maîtrisé */
+    .stars { font-size: 0.95rem; letter-spacing: 0.05em; }
+    .stars.s0 { color: var(--muted); }
+    .stars.s1 { color: #c9a96e88; }
+    .stars.s2 { color: var(--accent); }
+    .stars.s3 { color: var(--success); }
 
-    /* ── Boîte de définition ── */
+    /* Badge "aide utilisée" */
+    .hint-used-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.2rem 0.5rem;
+      display: none;
+    }
+    .hint-used-badge.visible { display: inline-block; }
+
+    /* ── Boîte définition ── */
     .hint-box {
       width: 100%;
       background: var(--surface);
@@ -262,20 +290,16 @@
       margin-bottom: 0.5rem;
     }
 
-    /* ── Zone de phrase ── */
+    /* ── Zone phrase ── */
     .sentence-section {
       width: 100%;
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
     }
-    .sentence-label {
-      font-size: 0.85rem;
-      color: var(--muted);
-      font-style: italic;
-    }
+    .sentence-label { font-size: 0.85rem; color: var(--muted); font-style: italic; }
 
-    /* ── Feedback Mistral ── */
+    /* ── Feedback ── */
     .feedback-box {
       width: 100%;
       border-radius: 8px;
@@ -285,7 +309,7 @@
       display: none;
       animation: fadeIn 0.4s ease;
     }
-    .feedback-box.visible { display: block; }
+    .feedback-box.visible   { display: block; }
     .feedback-box.correct   { background: #0e2018; border: 1px solid var(--success); color: var(--success); }
     .feedback-box.incorrect { background: #200e0e; border: 1px solid var(--error);   color: var(--error); }
     .feedback-box .feedback-label {
@@ -295,15 +319,80 @@
       letter-spacing: 0.1em;
       margin-bottom: 0.5rem;
     }
-
-    /* ── Boutons d'action ── */
-    .action-row {
-      width: 100%;
-      display: flex;
-      gap: 0.75rem;
+    .no-count-notice {
+      font-size: 0.78rem;
+      font-style: italic;
+      opacity: 0.7;
+      margin-top: 0.5rem;
     }
+
+    /* ── Boutons action ── */
+    .action-row { width: 100%; display: flex; gap: 0.75rem; }
     .action-row .btn-secondary { font-size: 0.9rem; padding: 0.75rem; }
     .action-row .btn-primary   { font-size: 0.9rem; padding: 0.75rem; }
+
+    /* ── Écran stats ── */
+    #screen-stats { max-width: 480px; }
+
+    .stats-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .stats-grid {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .stats-lang-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .stats-lang-title {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .stats-lang-title .flag { font-size: 1.2rem; }
+
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+    }
+    .stats-row .label { color: var(--muted); font-style: italic; }
+    .stats-row .value { font-family: 'DM Mono', monospace; color: var(--text); }
+    .stats-row .value.green  { color: var(--success); }
+    .stats-row .value.yellow { color: var(--accent); }
+    .stats-row .value.muted  { color: var(--muted); }
+
+    /* Progress bar */
+    .progress-bar-bg {
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--success);
+      border-radius: 2px;
+      transition: width 0.6s ease;
+    }
 
     /* ── Spinner ── */
     .spinner {
@@ -376,6 +465,7 @@
         <span class="lang-name">Ελληνικά</span>
       </button>
     </div>
+    <button class="btn-ghost" onclick="showStats()">📊 voir mes statistiques</button>
     <p class="error-msg" id="lang-error-msg"></p>
   </div>
 
@@ -383,7 +473,10 @@
   <div class="screen" id="screen-practice">
     <div class="practice-header">
       <h1 class="app-title">Vocab</h1>
-      <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">← langue</span>
+      <div class="header-actions">
+        <button class="btn-ghost" onclick="showStats()">📊</button>
+        <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">← langue</span>
+      </div>
     </div>
 
     <div class="word-card">
@@ -392,6 +485,7 @@
       <div class="word-meta">
         <span class="stars s0" id="word-stars">☆☆☆</span>
         <span class="word-count" id="word-count"></span>
+        <span class="hint-used-badge" id="hint-used-badge">💡 aide</span>
       </div>
     </div>
 
@@ -416,6 +510,18 @@
     <div class="feedback-box" id="feedback-box">
       <div class="feedback-label" id="feedback-label"></div>
       <div id="feedback-text"></div>
+      <div class="no-count-notice" id="no-count-notice"></div>
+    </div>
+  </div>
+
+  <!-- ── Écran 5 : Statistiques ── -->
+  <div class="screen" id="screen-stats">
+    <div class="stats-header">
+      <h1 class="app-title">Stats</h1>
+      <button class="btn-ghost" onclick="showScreen('screen-lang')">← retour</button>
+    </div>
+    <div class="stats-grid" id="stats-grid">
+      <p style="color:var(--muted);font-style:italic;">Chargement…</p>
     </div>
   </div>
 
@@ -426,17 +532,25 @@
     const SCOPES        = "https://www.googleapis.com/auth/spreadsheets";
     const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
     const MISTRAL_KEY   = "d4MPdq7upJvG0UU6xWJAOqYg2jyaZavU";
-    const MISTRAL_MODEL = "mistral-small-latest";
+    const MISTRAL_MODEL = "mistral-medium-latest";   // ← medium pour meilleure qualité
 
     const KEY_PWD_OK    = "vocab_pwd_ok";
     const KEY_GG_TOKEN  = "vocab_google_token";
     const KEY_GG_EXPIRY = "vocab_google_expiry";
 
+    const LANGS = [
+      { key: 'English', flag: '🇬🇧', name: 'English',   mistralName: 'English' },
+      { key: 'Spanish', flag: '🇪🇸', name: 'Español',   mistralName: 'Spanish' },
+      { key: 'French',  flag: '🇫🇷', name: 'Français',  mistralName: 'French' },
+      { key: 'Greek',   flag: '🇬🇷', name: 'Ελληνικά', mistralName: 'Modern Greek' },
+    ];
+
     // ── État global ───────────────────────────────────────────
-    let allWords    = [];       // liste brute des mots
-    let progressMap = {};       // { "word|lang": { correct, incorrect, rowIndex } }
+    let allWords    = [];
+    let progressMap = {};
     let currentWord = "";
     let currentLang = "";
+    let hintUsed    = false;   // ← flag aide utilisée
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
@@ -517,25 +631,22 @@
       showScreen('screen-practice');
       resetPracticeUI();
       document.getElementById('word-count').textContent = 'chargement...';
-
-      // Charge les mots ET la progression en parallèle
-      await Promise.all([
-        loadWords(lang),
-        loadProgress(lang)
-      ]);
-
+      await Promise.all([ loadWords(lang), loadProgress(lang) ]);
       pickWeightedWord();
     }
 
     function resetPracticeUI() {
-      document.getElementById('current-word').textContent = '…';
-      document.getElementById('word-stars').textContent   = '☆☆☆';
-      document.getElementById('word-stars').className     = 'stars s0';
+      hintUsed = false;
+      document.getElementById('current-word').textContent  = '…';
+      document.getElementById('word-stars').textContent    = '☆☆☆';
+      document.getElementById('word-stars').className      = 'stars s0';
+      document.getElementById('hint-used-badge').classList.remove('visible');
       document.getElementById('hint-box').classList.remove('visible');
-      document.getElementById('hint-text').textContent    = '';
-      document.getElementById('sentence-input').value     = '';
+      document.getElementById('hint-text').textContent     = '';
+      document.getElementById('sentence-input').value      = '';
       document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
-      document.getElementById('feedback-text').textContent = '';
+      document.getElementById('feedback-text').textContent  = '';
+      document.getElementById('no-count-notice').textContent = '';
     }
 
     // ── Lecture mots ──────────────────────────────────────────
@@ -546,9 +657,7 @@
         const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         const data = await res.json();
         allWords = (data.values || []).map(r => r[0]).filter(w => w && w.trim());
-      } catch (e) {
-        allWords = [];
-      }
+      } catch (e) { allWords = []; }
     }
 
     // ── Lecture progression ───────────────────────────────────
@@ -559,37 +668,27 @@
       try {
         const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         const data = await res.json();
-        const rows = data.values || [];
-        // On commence à 1 pour sauter l'en-tête (ligne 0)
-        rows.forEach((row, i) => {
-          if (i === 0) return; // skip header
+        (data.values || []).forEach((row, i) => {
+          if (i === 0) return;
           const word     = row[0] || '';
           const rowLang  = row[1] || '';
           const correct  = parseInt(row[2]) || 0;
           const incorrect= parseInt(row[3]) || 0;
           if (word && rowLang === lang) {
-            progressMap[word.toLowerCase()] = { correct, incorrect, rowIndex: i + 1 }; // +1 car Sheets est 1-indexed
+            progressMap[word.toLowerCase()] = { correct, incorrect, rowIndex: i + 1 };
           }
         });
-      } catch (e) {
-        // Si erreur, on continue sans progression
-      }
+      } catch (e) {}
     }
 
     // ── Tirage pondéré ────────────────────────────────────────
-    // Poids selon le niveau de maîtrise :
-    //   jamais pratiqué  → 10
-    //   en difficulté    → 8
-    //   en cours         → 5
-    //   maîtrisé (≥3 net)→ 1
     function getWeight(word) {
-      const key  = word.toLowerCase();
-      const prog = progressMap[key];
-      if (!prog) return 10; // jamais pratiqué
+      const prog = progressMap[word.toLowerCase()];
+      if (!prog) return 10;
       const net = prog.correct - prog.incorrect;
-      if (net >= 3)  return 1;  // maîtrisé
-      if (net < 0)   return 8;  // en difficulté
-      return 5;                  // en cours
+      if (net >= 3) return 1;
+      if (net < 0)  return 8;
+      return 5;
     }
 
     function pickWeightedWord() {
@@ -598,36 +697,26 @@
         document.getElementById('word-count').textContent   = 'aucun mot trouvé';
         return;
       }
-
       const weights = allWords.map(w => getWeight(w));
       const total   = weights.reduce((a, b) => a + b, 0);
       let rand      = Math.random() * total;
-
-      let chosen = allWords[0];
+      let chosen    = allWords[0];
       for (let i = 0; i < allWords.length; i++) {
         rand -= weights[i];
         if (rand <= 0) { chosen = allWords[i]; break; }
       }
-
       currentWord = chosen;
       document.getElementById('current-word').textContent = currentWord;
-
-      // Compte les mots non maîtrisés (poids > 1)
       const remaining = allWords.filter(w => getWeight(w) > 1).length;
       document.getElementById('word-count').textContent =
         `${remaining} mot${remaining > 1 ? 's' : ''} à pratiquer`;
-
       updateStars(currentWord);
     }
 
     function updateStars(word) {
-      const key    = word.toLowerCase();
-      const prog   = progressMap[key];
+      const prog    = progressMap[word.toLowerCase()];
       const starsEl = document.getElementById('word-stars');
-
-      if (!prog) {
-        starsEl.textContent = '☆☆☆'; starsEl.className = 'stars s0'; return;
-      }
+      if (!prog) { starsEl.textContent = '☆☆☆'; starsEl.className = 'stars s0'; return; }
       const net = prog.correct - prog.incorrect;
       if (net >= 3)      { starsEl.textContent = '★★★'; starsEl.className = 'stars s3'; }
       else if (net >= 2) { starsEl.textContent = '★★☆'; starsEl.className = 'stars s2'; }
@@ -637,11 +726,14 @@
 
     function nextWord() {
       pickWeightedWord();
+      hintUsed = false;
+      document.getElementById('hint-used-badge').classList.remove('visible');
       document.getElementById('hint-box').classList.remove('visible');
-      document.getElementById('hint-text').textContent    = '';
-      document.getElementById('sentence-input').value     = '';
+      document.getElementById('hint-text').textContent     = '';
+      document.getElementById('sentence-input').value      = '';
       document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
-      document.getElementById('feedback-text').textContent = '';
+      document.getElementById('feedback-text').textContent  = '';
+      document.getElementById('no-count-notice').textContent = '';
     }
 
     // ── Écriture progression ──────────────────────────────────
@@ -652,7 +744,6 @@
       const now      = new Date().toISOString();
 
       if (existing) {
-        // Met à jour la ligne existante
         const correct   = existing.correct   + (isCorrect ? 1 : 0);
         const incorrect = existing.incorrect + (isCorrect ? 0 : 1);
         const range     = `Progress!C${existing.rowIndex}:E${existing.rowIndex}`;
@@ -662,11 +753,9 @@
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ values: [[correct, incorrect, now]] })
         });
-        // Met à jour le cache local
         progressMap[key].correct   = correct;
         progressMap[key].incorrect = incorrect;
       } else {
-        // Ajoute une nouvelle ligne
         const correct   = isCorrect ? 1 : 0;
         const incorrect = isCorrect ? 0 : 1;
         const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
@@ -675,14 +764,11 @@
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ values: [[word, currentLang, correct, incorrect, now]] })
         });
-        const data = await res.json();
-        // Récupère l'index de la nouvelle ligne pour les futures mises à jour
-        const updatedRange = data.updates?.updatedRange || '';
-        const match        = updatedRange.match(/(\d+)$/);
-        const rowIndex     = match ? parseInt(match[1]) : null;
-        progressMap[key]   = { correct, incorrect, rowIndex };
+        const data      = await res.json();
+        const match     = (data.updates?.updatedRange || '').match(/(\d+)$/);
+        const rowIndex  = match ? parseInt(match[1]) : null;
+        progressMap[key] = { correct, incorrect, rowIndex };
       }
-
       updateStars(word);
     }
 
@@ -692,25 +778,38 @@
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Chargement…';
 
-      const hintBox  = document.getElementById('hint-box');
-      const hintText = document.getElementById('hint-text');
-      hintBox.classList.remove('visible');
+      document.getElementById('hint-box').classList.remove('visible');
 
-      const langNames = { English: 'English', Spanish: 'Spanish', French: 'French', Greek: 'Modern Greek' };
+      const langInfo = LANGS.find(l => l.key === currentLang);
+      const langName = langInfo ? langInfo.mistralName : currentLang;
 
-      const prompt = `Give a concise definition and one example sentence for the word or expression "${currentWord}" in ${langNames[currentLang]}.
-Format your response like this:
-**Definition:** ...
-**Example:** ...
-Be brief and clear. Respond in ${langNames[currentLang]}.`;
+      // Prompt amélioré : ignore les noms propres, cherche le sens commun/lexical
+      const prompt = `You are a vocabulary teacher. The learner is studying ${langName} vocabulary.
+
+Give the definition and one example sentence for the word or expression: "${currentWord}"
+
+Important rules:
+- Focus on its meaning as a COMMON WORD or EXPRESSION in ${langName}, not as a proper noun, brand name, or place name.
+- If the word has multiple meanings, give the most useful/common one for a language learner.
+- If it is an expression or idiom, explain what it means in context.
+
+Format exactly like this:
+**Définition :** ...
+**Exemple :** ...
+
+Respond in ${langName}.`;
 
       try {
         const reply = await callMistral(prompt);
-        hintText.innerHTML = reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        hintBox.classList.add('visible');
+        document.getElementById('hint-text').innerHTML =
+          reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        document.getElementById('hint-box').classList.add('visible');
+        // Marque que l'aide a été utilisée
+        hintUsed = true;
+        document.getElementById('hint-used-badge').classList.add('visible');
       } catch (err) {
-        hintText.textContent = 'Erreur : ' + err.message;
-        hintBox.classList.add('visible');
+        document.getElementById('hint-text').textContent = 'Erreur : ' + err.message;
+        document.getElementById('hint-box').classList.add('visible');
       }
 
       btn.disabled = false;
@@ -729,19 +828,29 @@ Be brief and clear. Respond in ${langNames[currentLang]}.`;
       const feedbackBox   = document.getElementById('feedback-box');
       const feedbackLabel = document.getElementById('feedback-label');
       const feedbackText  = document.getElementById('feedback-text');
+      const noCountNotice = document.getElementById('no-count-notice');
       feedbackBox.classList.remove('visible', 'correct', 'incorrect');
 
-      const langNames = { English: 'English', Spanish: 'Spanish', French: 'French', Greek: 'Modern Greek' };
+      const langInfo = LANGS.find(l => l.key === currentLang);
+      const langName = langInfo ? langInfo.mistralName : currentLang;
 
-      const prompt = `A language learner is practicing ${langNames[currentLang]} vocabulary.
-The word or expression to use is: "${currentWord}"
+      // Prompt amélioré : exige une vraie compréhension, pas juste l'inclusion du mot
+      const prompt = `You are a strict but encouraging ${langName} vocabulary teacher.
+
+The learner is practicing the word/expression: "${currentWord}" in ${langName}.
 Their sentence is: "${sentence}"
 
-Evaluate if they used "${currentWord}" correctly in their sentence.
-- If correct: start your response with "✓" and briefly explain why it's correct.
-- If incorrect: start your response with "✗" and explain the mistake clearly, then suggest a corrected sentence.
-Be encouraging but honest. Respond in French (the learner's language).
-Keep your response concise (2-3 sentences max).`;
+Evaluate the sentence using these strict criteria:
+1. Is "${currentWord}" used correctly (grammar, meaning, register)?
+2. Does the sentence DEMONSTRATE understanding of the word's meaning? 
+   A sentence like "${currentWord} est bon" or "J'aime ${currentWord}" does NOT demonstrate understanding — it just includes the word without showing you know what it means.
+   A good sentence uses the word in a context that reveals its meaning.
+
+- If BOTH criteria are met: start with "✓" then briefly explain what's good.
+- If the sentence is grammatically correct but doesn't demonstrate understanding: start with "✗" then explain that the sentence needs to show the meaning of the word, and give an example of a better sentence.
+- If the word is used incorrectly: start with "✗" then explain the mistake and suggest a correction.
+
+Respond in French. Be concise (2-3 sentences max).`;
 
       try {
         const reply     = await callMistral(prompt);
@@ -751,8 +860,13 @@ Keep your response concise (2-3 sentences max).`;
         feedbackText.textContent  = reply;
         feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
 
-        // ← Sauvegarde la progression dans Sheets
-        await saveProgress(currentWord, isCorrect);
+        // Ne compte pas si l'aide a été utilisée
+        if (hintUsed) {
+          noCountNotice.textContent = '(aide utilisée — non comptabilisé dans ta progression)';
+        } else {
+          noCountNotice.textContent = '';
+          await saveProgress(currentWord, isCorrect);
+        }
 
       } catch (err) {
         feedbackLabel.textContent = 'Erreur';
@@ -762,6 +876,87 @@ Keep your response concise (2-3 sentences max).`;
 
       btn.disabled = false;
       btn.textContent = 'Vérifier ma phrase ✓';
+    }
+
+    // ── Statistiques ──────────────────────────────────────────
+    async function showStats() {
+      showScreen('screen-stats');
+      const grid = document.getElementById('stats-grid');
+      grid.innerHTML = '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
+
+      const token = localStorage.getItem(KEY_GG_TOKEN);
+      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E`;
+
+      try {
+        const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        const rows = (data.values || []).slice(1); // skip header
+
+        // Charge aussi le total de mots par langue
+        const wordCounts = {};
+        await Promise.all(LANGS.map(async (l) => {
+          const r = await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(l.key)}!B:B`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const d = await r.json();
+          wordCounts[l.key] = (d.values || []).filter(row => row[0] && row[0].trim()).length;
+        }));
+
+        // Construit les stats par langue
+        const statsByLang = {};
+        LANGS.forEach(l => {
+          statsByLang[l.key] = { mastered: 0, learning: 0, struggling: 0, total: wordCounts[l.key] || 0 };
+        });
+
+        rows.forEach(row => {
+          const lang      = row[1] || '';
+          const correct   = parseInt(row[2]) || 0;
+          const incorrect = parseInt(row[3]) || 0;
+          if (!statsByLang[lang]) return;
+          const net = correct - incorrect;
+          if (net >= 3)     statsByLang[lang].mastered++;
+          else if (net < 0) statsByLang[lang].struggling++;
+          else              statsByLang[lang].learning++;
+        });
+
+        // Affiche
+        grid.innerHTML = LANGS.map(l => {
+          const s        = statsByLang[l.key];
+          const practiced = s.mastered + s.learning + s.struggling;
+          const pct      = s.total > 0 ? Math.round((s.mastered / s.total) * 100) : 0;
+          const notStarted = s.total - practiced;
+          return `
+            <div class="stats-lang-block">
+              <div class="stats-lang-title">
+                <span class="flag">${l.flag}</span>
+                <span>${l.name}</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" style="width:${pct}%"></div>
+              </div>
+              <div class="stats-row">
+                <span class="label">Total de mots</span>
+                <span class="value">${s.total}</span>
+              </div>
+              <div class="stats-row">
+                <span class="label">★★★ Maîtrisés</span>
+                <span class="value green">${s.mastered}</span>
+              </div>
+              <div class="stats-row">
+                <span class="label">★☆☆ En cours</span>
+                <span class="value yellow">${s.learning}</span>
+              </div>
+              <div class="stats-row">
+                <span class="label">☆☆☆ Pas encore commencé</span>
+                <span class="value muted">${notStarted}</span>
+              </div>
+            </div>`;
+        }).join('');
+
+      } catch (err) {
+        grid.innerHTML = `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
+      }
     }
 
     // ── Appel Mistral ─────────────────────────────────────────
@@ -775,8 +970,8 @@ Keep your response concise (2-3 sentences max).`;
         body: JSON.stringify({
           model: MISTRAL_MODEL,
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 300,
-          temperature: 0.7
+          max_tokens: 350,
+          temperature: 0.5
         })
       });
       const data = await res.json();
