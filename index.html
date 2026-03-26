@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vocab</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root {
+      --bg:      #0f0f0f;
+      --surface: #1a1a1a;
+      --border:  #2e2e2e;
+      --text:    #e8e3d9;
+      --muted:   #6b6560;
+      --accent:  #c9a96e;
+      --error:   #c96e6e;
+      --success: #6ec98a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Lora', Georgia, serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+      padding: 2rem;
+      width: 100%;
+      max-width: 420px;
+      animation: fadeIn 0.6s ease;
+    }
+    .screen.active { display: flex; }
+
+    .app-title {
+      font-size: 2.2rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+    }
+    .app-subtitle {
+      font-style: italic;
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: -1.5rem;
+    }
+
+    .input-group {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    input[type="password"],
+    textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'Lora', serif;
+      font-size: 1rem;
+      padding: 0.85rem 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+      resize: none;
+    }
+    input[type="password"] { font-family: 'DM Mono', monospace; }
+    input[type="password"]:focus,
+    textarea:focus { border-color: var(--accent); }
+
+    .btn-primary {
+      width: 100%;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: var(--bg);
+      cursor: pointer;
+      font-family: 'Lora', serif;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 0.85rem;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-secondary {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      cursor: pointer;
+      font-family: 'Lora', serif;
+      font-size: 1rem;
+      padding: 0.85rem;
+      transition: border-color 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); }
+    .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-google {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      cursor: pointer;
+      font-family: 'Lora', serif;
+      font-size: 1rem;
+      padding: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .btn-google:hover { border-color: var(--accent); background: #222; }
+    .btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+    .error-msg {
+      color: var(--error);
+      font-size: 0.85rem;
+      font-style: italic;
+      min-height: 1.2em;
+      text-align: center;
+    }
+    .info-msg {
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-style: italic;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    /* ── Sélecteur de langue ── */
+    .lang-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .lang-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      cursor: pointer;
+      font-family: 'Lora', serif;
+      font-size: 1rem;
+      padding: 1.1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    }
+    .lang-btn:hover {
+      border-color: var(--accent);
+      background: #222;
+      transform: translateY(-2px);
+    }
+    .lang-btn .flag { font-size: 1.8rem; }
+    .lang-btn .lang-name { font-size: 0.85rem; color: var(--muted); }
+
+    /* ── Écran de pratique ── */
+    #screen-practice { max-width: 480px; }
+
+    .practice-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .lang-tag {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.25rem 0.6rem;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .lang-tag:hover { border-color: var(--accent); }
+
+    /* ── Carte du mot ── */
+    .word-card {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      text-align: center;
+    }
+    .word-label {
+      font-size: 0.75rem;
+      font-family: 'DM Mono', monospace;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .word-main {
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--accent);
+      line-height: 1.2;
+    }
+    .word-count {
+      font-size: 0.78rem;
+      font-family: 'DM Mono', monospace;
+      color: var(--muted);
+    }
+
+    /* ── Boîte de définition ── */
+    .hint-box {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      font-size: 0.92rem;
+      line-height: 1.7;
+      color: var(--text);
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+    .hint-box.visible { display: block; }
+    .hint-box .hint-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+    }
+
+    /* ── Zone de phrase ── */
+    .sentence-section {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .sentence-label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    /* ── Feedback de Mistral ── */
+    .feedback-box {
+      width: 100%;
+      border-radius: 8px;
+      padding: 1.25rem;
+      font-size: 0.92rem;
+      line-height: 1.7;
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+    .feedback-box.visible { display: block; }
+    .feedback-box.correct {
+      background: #0e2018;
+      border: 1px solid var(--success);
+      color: var(--success);
+    }
+    .feedback-box.incorrect {
+      background: #200e0e;
+      border: 1px solid var(--error);
+      color: var(--error);
+    }
+    .feedback-box .feedback-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+    }
+
+    /* ── Boutons d'action ── */
+    .action-row {
+      width: 100%;
+      display: flex;
+      gap: 0.75rem;
+    }
+    .action-row .btn-secondary { font-size: 0.9rem; padding: 0.75rem; }
+    .action-row .btn-primary   { font-size: 0.9rem; padding: 0.75rem; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--muted);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Écran 1 : Mot de passe ── -->
+  <div class="screen" id="screen-password">
+    <h1 class="app-title">Vocab</h1>
+    <p class="app-subtitle">ton espace de pratique</p>
+    <div class="input-group">
+      <input type="password" id="pwd-input" placeholder="mot de passe" autofocus />
+      <button class="btn-primary" onclick="checkPassword()">Entrer</button>
+      <p class="error-msg" id="error-msg"></p>
+    </div>
+  </div>
+
+  <!-- ── Écran 2 : Connexion Google ── -->
+  <div class="screen" id="screen-google">
+    <h1 class="app-title">Vocab</h1>
+    <p class="app-subtitle">ton espace de pratique</p>
+    <p class="info-msg">Connecte ton compte Google pour accéder<br/>à ta liste de vocabulaire.</p>
+    <button class="btn-google" onclick="loginGoogle()">
+      <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <path fill="#EA4335" d="M24 9.5c3.14 0 5.95 1.08 8.17 2.86l6.09-6.09C34.46 3.09 29.5 1 24 1 14.82 1 7.07 6.48 3.64 14.22l7.08 5.5C12.43 13.61 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.1 24.5c0-1.64-.15-3.22-.42-4.75H24v9h12.42c-.54 2.9-2.18 5.36-4.65 7.01l7.19 5.59C43.18 37.13 46.1 31.27 46.1 24.5z"/>
+        <path fill="#FBBC05" d="M10.72 28.28A14.6 14.6 0 0 1 9.5 24c0-1.49.26-2.93.72-4.28l-7.08-5.5A22.9 22.9 0 0 0 1 24c0 3.68.88 7.16 2.64 10.22l7.08-5.94z"/>
+        <path fill="#34A853" d="M24 47c5.5 0 10.12-1.82 13.49-4.95l-7.19-5.59c-1.82 1.22-4.15 1.94-6.3 1.94-6.26 0-11.57-4.11-13.28-9.72l-7.08 5.94C7.07 41.52 14.82 47 24 47z"/>
+      </svg>
+      Se connecter avec Google
+    </button>
+    <p class="error-msg" id="google-error-msg"></p>
+  </div>
+
+  <!-- ── Écran 3 : Sélecteur de langue ── -->
+  <div class="screen" id="screen-lang">
+    <h1 class="app-title">Vocab</h1>
+    <p class="app-subtitle">quelle langue aujourd'hui ?</p>
+    <div class="lang-grid">
+      <button class="lang-btn" onclick="selectLanguage('English')">
+        <span class="flag">🇬🇧</span>
+        <span class="lang-name">English</span>
+      </button>
+      <button class="lang-btn" onclick="selectLanguage('Spanish')">
+        <span class="flag">🇪🇸</span>
+        <span class="lang-name">Español</span>
+      </button>
+      <button class="lang-btn" onclick="selectLanguage('French')">
+        <span class="flag">🇫🇷</span>
+        <span class="lang-name">Français</span>
+      </button>
+      <button class="lang-btn" onclick="selectLanguage('Greek')">
+        <span class="flag">🇬🇷</span>
+        <span class="lang-name">Ελληνικά</span>
+      </button>
+    </div>
+    <p class="error-msg" id="lang-error-msg"></p>
+  </div>
+
+  <!-- ── Écran 4 : Pratique ── -->
+  <div class="screen" id="screen-practice">
+    <div class="practice-header">
+      <h1 class="app-title">Vocab</h1>
+      <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">← langue</span>
+    </div>
+
+    <!-- Carte du mot -->
+    <div class="word-card">
+      <span class="word-label">mot du jour</span>
+      <span class="word-main" id="current-word">…</span>
+      <span class="word-count" id="word-count"></span>
+    </div>
+
+    <!-- Boutons hint / suivant -->
+    <div class="action-row">
+      <button class="btn-secondary" id="btn-hint" onclick="askHint()">💡 Définition</button>
+      <button class="btn-primary" id="btn-next" onclick="nextWord()">Autre mot →</button>
+    </div>
+
+    <!-- Boîte de définition (cachée au départ) -->
+    <div class="hint-box" id="hint-box">
+      <div class="hint-label">Définition</div>
+      <div id="hint-text"></div>
+    </div>
+
+    <!-- Zone de phrase -->
+    <div class="sentence-section">
+      <p class="sentence-label">Utilise ce mot dans une phrase :</p>
+      <textarea id="sentence-input" rows="3" placeholder="Écris ta phrase ici…"></textarea>
+      <button class="btn-primary" id="btn-submit" onclick="submitSentence()">
+        Vérifier ma phrase ✓
+      </button>
+    </div>
+
+    <!-- Feedback Mistral -->
+    <div class="feedback-box" id="feedback-box">
+      <div class="feedback-label" id="feedback-label"></div>
+      <div id="feedback-text"></div>
+    </div>
+
+  </div>
+
+  <script>
+    // ── Configuration ─────────────────────────────────────────
+    const PASSWORD_HASH  = "37a3fe961eeb61778465d62305d999d7c1d550ee99af1efd530a61f1a03be39b";
+    const CLIENT_ID      = "742808037031-61r1roac158e5ltrosgahkemc4r9e7n1.apps.googleusercontent.com";
+    const SCOPES         = "https://www.googleapis.com/auth/spreadsheets";
+    const SHEET_ID       = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
+    const MISTRAL_KEY    = "d4MPdq7upJvG0UU6xWJAOqYg2jyaZavU";  // ← injecté par GitHub Actions
+    const MISTRAL_MODEL  = "mistral-small-latest";
+
+    const KEY_PWD_OK    = "vocab_pwd_ok";
+    const KEY_GG_TOKEN  = "vocab_google_token";
+    const KEY_GG_EXPIRY = "vocab_google_expiry";
+
+    // ── État global ───────────────────────────────────────────
+    let allWords    = [];
+    let currentWord = "";
+    let currentLang = "";
+
+    // ── Au chargement ─────────────────────────────────────────
+    window.addEventListener('load', () => {
+      const pwdOk      = localStorage.getItem(KEY_PWD_OK) === "true";
+      const token      = localStorage.getItem(KEY_GG_TOKEN);
+      const expiry     = parseInt(localStorage.getItem(KEY_GG_EXPIRY) || "0");
+      const tokenValid = token && Date.now() < expiry;
+
+      if (pwdOk && tokenValid) {
+        showScreen('screen-lang');
+      } else if (pwdOk) {
+        showScreen('screen-google');
+      } else {
+        showScreen('screen-password');
+      }
+    });
+
+    // ── Gestion des écrans ────────────────────────────────────
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    // ── Mot de passe ──────────────────────────────────────────
+    async function checkPassword() {
+      const input = document.getElementById('pwd-input').value;
+      const hash  = await sha256(input);
+      if (hash === PASSWORD_HASH) {
+        localStorage.setItem(KEY_PWD_OK, "true");
+        showScreen('screen-google');
+      } else {
+        document.getElementById('error-msg').textContent = 'mot de passe incorrect';
+        document.getElementById('pwd-input').value = '';
+        document.getElementById('pwd-input').focus();
+      }
+    }
+    document.getElementById('pwd-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') checkPassword();
+    });
+
+    // ── Google OAuth ──────────────────────────────────────────
+    let tokenClient;
+
+    function initGoogleClient() {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: (response) => {
+          if (response.error) {
+            document.getElementById('google-error-msg').textContent =
+              'Erreur Google : ' + response.error;
+            return;
+          }
+          const expiry = Date.now() + (response.expires_in - 60) * 1000;
+          localStorage.setItem(KEY_GG_TOKEN, response.access_token);
+          localStorage.setItem(KEY_GG_EXPIRY, expiry.toString());
+          showScreen('screen-lang');
+        }
+      });
+    }
+
+    function loginGoogle() {
+      if (!tokenClient) {
+        document.getElementById('google-error-msg').textContent =
+          'Chargement en cours, réessaie dans un instant...';
+        setTimeout(loginGoogle, 1000);
+        return;
+      }
+      tokenClient.requestAccessToken();
+    }
+
+    window.addEventListener('load', () => {
+      const interval = setInterval(() => {
+        if (typeof google !== 'undefined' && google.accounts) {
+          initGoogleClient();
+          clearInterval(interval);
+        }
+      }, 200);
+    });
+
+    // ── Sélection de langue ───────────────────────────────────
+    async function selectLanguage(lang) {
+      currentLang = lang;
+      document.getElementById('lang-tag').textContent = `← ${lang}`;
+      showScreen('screen-practice');
+      resetPracticeUI();
+      await loadWords(lang);
+    }
+
+    function resetPracticeUI() {
+      document.getElementById('current-word').textContent = '…';
+      document.getElementById('word-count').textContent = 'chargement...';
+      document.getElementById('hint-box').classList.remove('visible');
+      document.getElementById('hint-text').textContent = '';
+      document.getElementById('sentence-input').value = '';
+      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
+      document.getElementById('feedback-text').textContent = '';
+    }
+
+    // ── Lecture Google Sheets ─────────────────────────────────
+    async function loadWords(sheetName) {
+      const token = localStorage.getItem(KEY_GG_TOKEN);
+      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!B:B`;
+      try {
+        const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        if (data.error) {
+          document.getElementById('word-count').textContent = 'erreur de chargement';
+          return;
+        }
+        allWords = (data.values || [])
+          .map(row => row[0])
+          .filter(w => w && w.trim());
+        pickRandomWord();
+      } catch (err) {
+        document.getElementById('word-count').textContent = 'erreur réseau';
+      }
+    }
+
+    // ── Tirage aléatoire ──────────────────────────────────────
+    function pickRandomWord() {
+      if (allWords.length === 0) {
+        document.getElementById('current-word').textContent = '—';
+        document.getElementById('word-count').textContent = 'aucun mot trouvé';
+        return;
+      }
+      const idx = Math.floor(Math.random() * allWords.length);
+      currentWord = allWords[idx];
+      document.getElementById('current-word').textContent = currentWord;
+      document.getElementById('word-count').textContent = `${allWords.length} mots disponibles`;
+    }
+
+    function nextWord() {
+      pickRandomWord();
+      // Réinitialise l'UI pour le nouveau mot
+      document.getElementById('hint-box').classList.remove('visible');
+      document.getElementById('hint-text').textContent = '';
+      document.getElementById('sentence-input').value = '';
+      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
+      document.getElementById('feedback-text').textContent = '';
+    }
+
+    // ── Mistral : Définition ──────────────────────────────────
+    async function askHint() {
+      const btn = document.getElementById('btn-hint');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Chargement…';
+
+      const hintBox  = document.getElementById('hint-box');
+      const hintText = document.getElementById('hint-text');
+      hintBox.classList.remove('visible');
+
+      const langNames = {
+        English: 'English', Spanish: 'Spanish',
+        French: 'French',   Greek: 'Modern Greek'
+      };
+
+      const prompt = `Give a concise definition and one example sentence for the word or expression "${currentWord}" in ${langNames[currentLang]}.
+Format your response like this:
+**Definition:** ...
+**Example:** ...
+Be brief and clear. Respond in ${langNames[currentLang]}.`;
+
+      try {
+        const reply = await callMistral(prompt);
+        hintText.innerHTML = reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        hintBox.classList.add('visible');
+      } catch (err) {
+        hintText.textContent = 'Erreur : ' + err.message;
+        hintBox.classList.add('visible');
+      }
+
+      btn.disabled = false;
+      btn.textContent = '💡 Définition';
+    }
+
+    // ── Mistral : Évaluation de phrase ────────────────────────
+    async function submitSentence() {
+      const sentence = document.getElementById('sentence-input').value.trim();
+      if (!sentence) return;
+
+      const btn = document.getElementById('btn-submit');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Analyse…';
+
+      const feedbackBox   = document.getElementById('feedback-box');
+      const feedbackLabel = document.getElementById('feedback-label');
+      const feedbackText  = document.getElementById('feedback-text');
+      feedbackBox.classList.remove('visible', 'correct', 'incorrect');
+
+      const langNames = {
+        English: 'English', Spanish: 'Spanish',
+        French: 'French',   Greek: 'Modern Greek'
+      };
+
+      const prompt = `A language learner is practicing ${langNames[currentLang]} vocabulary.
+The word or expression to use is: "${currentWord}"
+Their sentence is: "${sentence}"
+
+Evaluate if they used "${currentWord}" correctly in their sentence.
+- If correct: start your response with "✓" and briefly explain why it's correct.
+- If incorrect: start your response with "✗" and explain the mistake clearly, then suggest a corrected sentence.
+Be encouraging but honest. Respond in French (the learner's language).
+Keep your response concise (2-3 sentences max).`;
+
+      try {
+        const reply = await callMistral(prompt);
+        const isCorrect = reply.startsWith('✓');
+        feedbackLabel.textContent = isCorrect ? 'Correct !' : 'Pas tout à fait…';
+        feedbackText.textContent = reply;
+        feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
+      } catch (err) {
+        feedbackLabel.textContent = 'Erreur';
+        feedbackText.textContent = err.message;
+        feedbackBox.classList.add('visible', 'incorrect');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Vérifier ma phrase ✓';
+    }
+
+    // ── Appel Mistral ─────────────────────────────────────────
+    async function callMistral(prompt) {
+      const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${MISTRAL_KEY}`
+        },
+        body: JSON.stringify({
+          model: MISTRAL_MODEL,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 300,
+          temperature: 0.7
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      return data.choices[0].message.content.trim();
+    }
+
+    // ── SHA-256 ───────────────────────────────────────────────
+    async function sha256(message) {
+      const msgBuffer  = new TextEncoder().encode(message);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray  = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+  </script>
+
+</body>
+</html>
