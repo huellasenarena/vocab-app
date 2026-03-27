@@ -1129,43 +1129,59 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
       const now      = new Date().toISOString();
 
       try {
-        let res;
+        let res, data;
+
         if (existing) {
+          // Mise à jour d'une ligne existante
           const correct   = existing.correct   + (isCorrect ? 1 : 0);
           const incorrect = existing.incorrect + (isCorrect ? 0 : 1);
           const range     = `Progress!C${existing.rowIndex}:E${existing.rowIndex}`;
           const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
-          res = await fetch(url, {
+          res  = await fetch(url, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ values: [[correct, incorrect, now]] })
           });
+          data = await res.json();
+          console.log(`[Sheets PUT] status=${res.status}`, data);
           if (res.status === 401) throw new Error('token_expired');
+          if (!res.ok) throw new Error(`Sheets error ${res.status}: ${JSON.stringify(data.error)}`);
           progressMap[key].correct   = correct;
           progressMap[key].incorrect = incorrect;
+
         } else {
+          // Ajout d'une nouvelle ligne
           const correct   = isCorrect ? 1 : 0;
           const incorrect = isCorrect ? 0 : 1;
-          const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
-          res = await fetch(url, {
+          // ← encodeURIComponent sur le range, :append reste hors de l'encodage
+          const range     = encodeURIComponent('Progress!A:E');
+          const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+          res  = await fetch(url, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ values: [[word, currentLang, correct, incorrect, now]] })
           });
+          data = await res.json();
+          console.log(`[Sheets POST] status=${res.status}`, data);
           if (res.status === 401) throw new Error('token_expired');
-          const data     = await res.json();
-          const match    = (data.updates?.updatedRange || '').match(/(\d+)$/);
+          if (!res.ok) throw new Error(`Sheets error ${res.status}: ${JSON.stringify(data.error)}`);
+          const match      = (data.updates?.updatedRange || '').match(/(\d+)$/);
           progressMap[key] = { correct, incorrect, rowIndex: match ? parseInt(match[1]) : null };
         }
+
         if (currentWords.length === 1) updateStars(word);
+        console.log(`[Sheets] ✓ Progression sauvegardée : ${word} (${isCorrect ? '✓' : '✗'})`);
 
       } catch (err) {
+        console.error(`[Sheets] Erreur saveProgress :`, err.message);
         if (err.message === 'token_expired') {
-          // Token expiré en pleine session → refresh silencieux puis réessaie
           pendingSaveAfterReauth = { word, isCorrect };
           silentRefresh();
+        } else {
+          // Affiche un petit avertissement discret sous le feedback
+          const notice = document.getElementById('no-count-notice');
+          if (notice) notice.textContent += ' ⚠️ Erreur de sauvegarde — vérifie ta connexion.';
         }
-        // Autres erreurs ignorées silencieusement
       }
     }
 
