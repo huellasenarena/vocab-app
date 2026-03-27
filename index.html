@@ -456,6 +456,13 @@
 </head>
 <body>
 
+  <!-- ── Écran 0 : Chargement ── -->
+  <div class="screen" id="screen-loading">
+    <h1 class="app-title">Vocab</h1>
+    <p class="app-subtitle" style="margin-top:0">connexion en cours…</p>
+    <div style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-top:1rem"></div>
+  </div>
+
   <!-- ── Écran 1 : Mot de passe ── -->
   <div class="screen" id="screen-password">
     <h1 class="app-title">Vocab</h1>
@@ -624,14 +631,45 @@
     let qcmWord       = "";    // mot en cours de QCM
 
     // ── Au chargement ─────────────────────────────────────────
+    // On attend que la lib Google soit prête avant de décider quel écran afficher
     window.addEventListener('load', () => {
       const pwdOk      = localStorage.getItem(KEY_PWD_OK) === "true";
       const token      = localStorage.getItem(KEY_GG_TOKEN);
       const expiry     = parseInt(localStorage.getItem(KEY_GG_EXPIRY) || "0");
       const tokenValid = token && Date.now() < expiry;
-      if (pwdOk && tokenValid) showScreen('screen-lang');
-      else if (pwdOk)          showScreen('screen-google');
-      else                     showScreen('screen-password');
+
+      if (!pwdOk) {
+        // Première visite → mot de passe
+        showScreen('screen-password');
+        return;
+      }
+
+      if (tokenValid) {
+        // Token encore valide → app directement
+        showScreen('screen-lang');
+        // Initialise quand même Google en arrière-plan pour les futurs refreshs
+        const iv = setInterval(() => {
+          if (typeof google !== 'undefined' && google.accounts) {
+            initGoogleClient(); clearInterval(iv);
+          }
+        }, 200);
+        return;
+      }
+
+      // Token expiré → on attend la lib Google et on tente un refresh silencieux
+      // On affiche un écran de chargement pendant ce temps
+      showScreen('screen-loading');
+      const iv = setInterval(() => {
+        if (typeof google !== 'undefined' && google.accounts) {
+          initGoogleClient();
+          clearInterval(iv);
+          if (token) {
+            silentRefresh(); // tente sans popup → si succès, va à screen-lang
+          } else {
+            showScreen('screen-google'); // jamais connecté → bouton Google
+          }
+        }
+      }, 200);
     });
 
     function showScreen(id) {
@@ -707,23 +745,6 @@
       if (!tokenClient) { setTimeout(loginGoogle, 1000); return; }
       tokenClient.requestAccessToken({ prompt: 'consent' });
     }
-
-    window.addEventListener('load', () => {
-      const iv = setInterval(() => {
-        if (typeof google !== 'undefined' && google.accounts) {
-          initGoogleClient();
-          clearInterval(iv);
-
-          // Tente un refresh silencieux si le token est expiré
-          const pwdOk  = localStorage.getItem(KEY_PWD_OK) === "true";
-          const token  = localStorage.getItem(KEY_GG_TOKEN);
-          const expiry = parseInt(localStorage.getItem(KEY_GG_EXPIRY) || "0");
-          if (pwdOk && token && Date.now() >= expiry) {
-            silentRefresh(); // essaie sans popup d'abord
-          }
-        }
-      }, 200);
-    });
 
     // ── Slider ────────────────────────────────────────────────
     function onSliderChange(val) {
