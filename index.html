@@ -285,7 +285,7 @@
       width: 100%;
       display: none;
       flex-direction: column;
-      gap: 0.4rem;
+      gap: 0.6rem;
       animation: fadeIn 0.3s ease;
     }
     .hint-dropdown.visible { display: flex; }
@@ -303,8 +303,8 @@
       color: var(--text);
       cursor: pointer;
       font-family: 'Lora', serif;
-      font-size: 0.9rem;
-      padding: 0.6rem 1rem;
+      font-size: 0.95rem;
+      padding: 0.75rem 1rem;
       text-align: left;
       transition: border-color 0.2s;
     }
@@ -548,7 +548,7 @@
 
     <!-- Dropdown sélecteur de mot (mode multi) -->
     <div class="hint-dropdown" id="hint-dropdown">
-      <span class="hint-dropdown-label">Quel mot veux-tu éclaircir ?</span>
+      <span class="hint-dropdown-label" id="hint-dropdown-label-text">Quel mot veux-tu éclaircir ?</span>
       <div id="hint-word-buttons"></div>
     </div>
 
@@ -574,16 +574,14 @@
       <div class="no-count-notice" id="no-count-notice"></div>
     </div>
 
-    <!-- Offre QCM (après ✗) -->
+    <!-- Offre QCM (après ✗) — un bouton par mot raté -->
     <div class="qcm-offer" id="qcm-offer">
-      <button class="btn-qcm" onclick="startQCM()">
-        🎯 Faire le QCM pour ce mot →
-      </button>
+      <div id="qcm-offer-buttons"></div>
     </div>
 
     <!-- Section QCM -->
     <div class="qcm-section" id="qcm-section">
-      <span class="qcm-question">Quelle est la bonne définition ?</span>
+      <span class="qcm-question" id="qcm-question">Quelle est la bonne définition ?</span>
       <span class="qcm-word" id="qcm-word"></span>
       <div class="qcm-choices" id="qcm-choices"></div>
       <div class="qcm-result" id="qcm-result"></div>
@@ -616,10 +614,30 @@
     const KEY_GG_EXPIRY = "vocab_google_expiry";
 
     const LANGS = [
-      { key: 'English', flag: '🇬🇧', name: 'English',   mistralName: 'English',      sentencePrompt: 'Use these words in a single text:',        feedbackLang: 'English' },
-      { key: 'Spanish', flag: '🇪🇸', name: 'Español',   mistralName: 'Spanish',      sentencePrompt: 'Usa estas palabras en un solo texto:',      feedbackLang: 'Spanish' },
-      { key: 'French',  flag: '🇫🇷', name: 'Français',  mistralName: 'French',       sentencePrompt: 'Utilise ces mots dans un seul texte :',     feedbackLang: 'French'  },
-      { key: 'Greek',   flag: '🇬🇷', name: 'Ελληνικά', mistralName: 'Modern Greek', sentencePrompt: 'Χρησιμοποίησε αυτές τις λέξεις σε ένα κείμενο:', feedbackLang: 'Modern Greek' },
+      { key: 'English', flag: '🇬🇧', name: 'English',   mistralName: 'English',
+        sentencePrompt: 'Use these words in a single text:',
+        sentencePromptSingle: 'Use this word in a sentence:',
+        hintDropdownLabel: 'Which word would you like to clarify?',
+        qcmQuestion: 'What is the correct definition?',
+        feedbackLang: 'English' },
+      { key: 'Spanish', flag: '🇪🇸', name: 'Español',   mistralName: 'Spanish',
+        sentencePrompt: 'Usa estas palabras en un solo texto:',
+        sentencePromptSingle: 'Usa esta palabra en una frase:',
+        hintDropdownLabel: '¿Qué palabra quieres aclarar?',
+        qcmQuestion: '¿Cuál es la definición correcta?',
+        feedbackLang: 'Spanish' },
+      { key: 'French',  flag: '🇫🇷', name: 'Français',  mistralName: 'French',
+        sentencePrompt: 'Utilise ces mots dans un seul texte :',
+        sentencePromptSingle: 'Utilise ce mot dans une phrase :',
+        hintDropdownLabel: 'Quel mot veux-tu éclaircir ?',
+        qcmQuestion: 'Quelle est la bonne définition ?',
+        feedbackLang: 'French' },
+      { key: 'Greek',   flag: '🇬🇷', name: 'Ελληνικά', mistralName: 'Modern Greek',
+        sentencePrompt: 'Χρησιμοποίησε αυτές τις λέξεις σε ένα κείμενο:',
+        sentencePromptSingle: 'Χρησιμοποίησε αυτή τη λέξη σε μια πρόταση:',
+        hintDropdownLabel: 'Ποια λέξη θέλεις να ξεκαθαρίσεις;',
+        qcmQuestion: 'Ποια είναι η σωστή ορισμός;',
+        feedbackLang: 'Modern Greek' },
     ];
 
     // ── État global ───────────────────────────────────────────
@@ -748,24 +766,40 @@
 
     // ── Slider ────────────────────────────────────────────────
     function onSliderChange(val) {
-      const n = parseInt(val);
-      document.getElementById('slider-value').textContent = n === 1 ? '1 mot' : `${n} mots`;
-      // Met à jour le label de la zone de texte
+      const n        = parseInt(val);
       const langInfo = getLang();
-      const label = n === 1
-        ? langInfo.sentencePrompt.replace('ces mots', 'ce mot').replace('these words', 'this word').replace('estas palabras', 'esta palabra').replace('αυτές τις λέξεις', 'αυτή τη λέξη')
-        : langInfo.sentencePrompt;
-      document.getElementById('sentence-label').textContent = label;
+      document.getElementById('slider-value').textContent = n === 1 ? '1 mot' : `${n} mots`;
+      document.getElementById('sentence-label').textContent =
+        n === 1 ? langInfo.sentencePromptSingle : langInfo.sentencePrompt;
+
+      // Auto-refresh : ajuste currentWords sans tout réinitialiser
+      if (allWords.length === 0) return; // pas encore chargé
+      if (n > currentWords.length) {
+        // Ajoute des mots supplémentaires
+        while (currentWords.length < n) {
+          currentWords.push(pickWeightedOne(currentWords));
+        }
+        renderWordDisplay();
+      } else if (n < currentWords.length) {
+        // Retire les derniers mots
+        currentWords = currentWords.slice(0, n);
+        renderWordDisplay();
+      }
+      // Met à jour le label du dropdown hint
+      document.getElementById('hint-dropdown-label-text').textContent =
+        langInfo.hintDropdownLabel;
     }
 
     // ── Sélection de langue ───────────────────────────────────
     async function selectLanguage(lang) {
       currentLang = lang;
       const langInfo = getLang();
-      document.getElementById('lang-tag').textContent = `← ${langInfo.name}`;
+      document.getElementById('lang-tag').textContent                  = `← ${langInfo.name}`;
+      document.getElementById('hint-dropdown-label-text').textContent  = langInfo.hintDropdownLabel;
+      document.getElementById('qcm-question').textContent              = langInfo.qcmQuestion;
       showScreen('screen-practice');
       resetPracticeUI();
-      onSliderChange(wordCount()); // ← met à jour le label dans la bonne langue
+      onSliderChange(wordCount());
       document.getElementById('word-count-label').textContent = 'chargement...';
       await Promise.all([ loadWords(lang), loadProgress(lang) ]);
       pickWords();
@@ -1054,15 +1088,25 @@ Respond entirely in ${feedbackLang}.`;
           await saveProgress(w, isCorrect);
         }
 
-        // Propose le QCM si ✗ et un seul mot (QCM sur le mot raté)
+        // Propose le QCM pour chaque mot raté
         if (!isCorrect) {
-          // En mode multi, propose le QCM pour le premier mot mentionné comme ✗
-          qcmWord = isSingle
-            ? currentWords[0]
-            : (currentWords.find(w => {
-                const line = lines.find(l => l.includes(w));
-                return line && line.includes('✗');
-              }) || currentWords[0]);
+          const langInfo   = getLang();
+          // Trouve les mots ratés
+          const failedWords = isSingle
+            ? [currentWords[0]]
+            : currentWords.filter(w => {
+                const line = lines.find(l => l.toLowerCase().includes(w.toLowerCase()));
+                return !line || line.includes('✗');
+              });
+          const wordsForQCM = failedWords.length > 0 ? failedWords : [currentWords[0]];
+
+          // Met à jour le label de la question QCM dans la bonne langue
+          document.getElementById('qcm-question').textContent = langInfo.qcmQuestion;
+
+          // Crée un bouton par mot raté
+          document.getElementById('qcm-offer-buttons').innerHTML = wordsForQCM
+            .map(w => `<button class="btn-qcm" onclick="startQCM('${w.replace(/'/g, "\\'")}')">🎯 QCM — ${w}</button>`)
+            .join('');
           document.getElementById('qcm-offer').classList.add('visible');
         }
 
@@ -1077,7 +1121,8 @@ Respond entirely in ${feedbackLang}.`;
     }
 
     // ── QCM ───────────────────────────────────────────────────
-    async function startQCM() {
+    async function startQCM(word) {
+      qcmWord = word;
       document.getElementById('qcm-offer').classList.remove('visible');
       const section  = document.getElementById('qcm-section');
       const choicesEl = document.getElementById('qcm-choices');
