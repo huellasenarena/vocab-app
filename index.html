@@ -162,6 +162,90 @@
     /* ── Header pratique ── */
     .practice-header { width: 100%; display: flex; align-items: center; justify-content: space-between; }
     .header-actions  { display: flex; gap: 0.5rem; align-items: center; }
+
+    /* ── Toggle mode ── */
+    .mode-toggle {
+      width: 100%;
+      display: flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .mode-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      padding: 0.6rem 0.5rem;
+      transition: background 0.2s, color 0.2s;
+      text-align: center;
+    }
+    .mode-btn.active {
+      background: var(--border);
+      color: var(--accent);
+    }
+    .due-count {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: center;
+      width: 100%;
+      margin-top: -0.75rem;
+    }
+    .due-count .highlight { color: var(--accent); }
+
+    /* ── Mots liés ── */
+    .related-box {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      display: none;
+      flex-direction: column;
+      gap: 0.75rem;
+      animation: fadeIn 0.4s ease;
+    }
+    .related-box.visible { display: flex; }
+    .related-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .related-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .related-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 0.3rem 0.75rem;
+      font-size: 0.88rem;
+      color: var(--text);
+    }
+    .related-chip .chip-add {
+      background: transparent;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0;
+      transition: transform 0.15s;
+    }
+    .related-chip .chip-add:hover  { transform: scale(1.3); }
+    .related-chip .chip-add:disabled { color: var(--success); cursor: default; transform: none; }
     .lang-tag {
       font-family: 'DM Mono', monospace; font-size: 0.78rem; color: var(--muted);
       background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
@@ -599,6 +683,13 @@
       </div>
     </div>
 
+    <!-- Toggle mode espacé / libre -->
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btn-mode-spaced" onclick="setMode('spaced')">📅 Révision espacée</button>
+      <button class="mode-btn"        id="btn-mode-free"   onclick="setMode('free')">🎲 Mode libre</button>
+    </div>
+    <p class="due-count" id="due-count"></p>
+
     <!-- Slider nombre de mots -->
     <div class="slider-section">
       <div class="slider-header">
@@ -660,6 +751,12 @@
     <!-- Offre QCM (après ✗) — un bouton par mot raté -->
     <div class="qcm-offer" id="qcm-offer">
       <div id="qcm-offer-buttons"></div>
+    </div>
+
+    <!-- Mots liés (après ✓) -->
+    <div class="related-box" id="related-box">
+      <div class="related-label">Mots du même univers</div>
+      <div class="related-chips" id="related-chips"></div>
     </div>
 
     <!-- Section QCM -->
@@ -740,10 +837,11 @@
     // ── État global ───────────────────────────────────────────
     let allWords      = [];
     let progressMap   = {};
-    let currentWords  = [];    // tableau — 1 ou plusieurs mots
+    let currentWords  = [];
     let currentLang   = "";
-    let hintUsedWords = new Set(); // mots pour lesquels l'aide a été demandée
-    let qcmWord       = "";    // mot en cours de QCM
+    let hintUsedWords = new Set();
+    let qcmWord       = "";
+    let practiceMode  = 'spaced'; // 'spaced' ou 'free'
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
@@ -899,6 +997,8 @@
       document.getElementById('qcm-offer').classList.remove('visible');
       document.getElementById('qcm-section').classList.remove('visible');
       document.getElementById('qcm-result').textContent       = '';
+      document.getElementById('related-box').classList.remove('visible');
+      document.getElementById('related-chips').innerHTML      = '';
     }
 
     // ── Lecture mots ──────────────────────────────────────────
@@ -915,24 +1015,55 @@
     // ── Lecture progression ───────────────────────────────────
     async function loadProgress(lang) {
       const token = localStorage.getItem(KEY_GG_TOKEN);
-      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:F`;
+      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`;
       progressMap = {};
       try {
         const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         const data = await res.json();
         (data.values || []).forEach((row, i) => {
           if (i === 0) return;
-          const word = row[0] || '', rowLang = row[1] || '';
-          const correct   = parseInt(row[2]) || 0;
-          const incorrect = parseInt(row[3]) || 0;
-          const hintUsed  = parseInt(row[5]) || 0;
+          const word       = row[0] || '', rowLang = row[1] || '';
+          const correct    = parseInt(row[2]) || 0;
+          const incorrect  = parseInt(row[3]) || 0;
+          const hintUsed   = parseInt(row[5]) || 0;
+          const nextReview = row[6] || null;
           if (word && rowLang === lang)
-            progressMap[word.toLowerCase()] = { correct, incorrect, hintUsed, rowIndex: i + 1 };
+            progressMap[word.toLowerCase()] = { correct, incorrect, hintUsed, nextReview, rowIndex: i + 1 };
         });
       } catch (e) {}
     }
 
-    // ── Tirage pondéré ────────────────────────────────────────
+    // ── Mode de pratique ─────────────────────────────────────
+    function setMode(mode) {
+      practiceMode = mode;
+      document.getElementById('btn-mode-spaced').classList.toggle('active', mode === 'spaced');
+      document.getElementById('btn-mode-free').classList.toggle('active', mode === 'free');
+      pickWords();
+    }
+
+    // ── SM-2 : calcule la prochaine date de révision ──────────
+    function calcNextReview(prog, isCorrect) {
+      const successes = prog ? prog.correct : 0;
+      if (!isCorrect) return addDays(1);          // échec → demain
+      if (successes <= 1) return addDays(1);       // 1er succès → +1j
+      if (successes <= 2) return addDays(6);       // 2e → +6j
+      const interval = Math.min(Math.pow(2, successes - 2) * 6, 180); // max 6 mois
+      return addDays(Math.round(interval));
+    }
+
+    function addDays(n) {
+      const d = new Date();
+      d.setDate(d.getDate() + n);
+      return d.toISOString().split('T')[0]; // YYYY-MM-DD
+    }
+
+    function isDue(word) {
+      const prog = progressMap[word.toLowerCase()];
+      if (!prog || !prog.nextReview) return true; // jamais pratiqué → toujours dû
+      return prog.nextReview <= new Date().toISOString().split('T')[0];
+    }
+
+    // ── Tirage pondéré (mode libre) ───────────────────────────
     function getWeight(word) {
       const prog = progressMap[word.toLowerCase()];
       if (!prog) return 10;
@@ -942,32 +1073,56 @@
       return 5;
     }
 
-    function pickWeightedOne(exclude = []) {
-      const pool = allWords.filter(w => !exclude.includes(w));
-      if (pool.length === 0) return allWords[Math.floor(Math.random() * allWords.length)];
-      const weights = pool.map(w => getWeight(w));
+    function pickWeightedOne(exclude = [], pool = null) {
+      const source = (pool || allWords).filter(w => !exclude.includes(w));
+      if (source.length === 0) return (pool || allWords)[Math.floor(Math.random() * (pool || allWords).length)];
+      const weights = source.map(w => getWeight(w));
       const total   = weights.reduce((a, b) => a + b, 0);
       let rand      = Math.random() * total;
-      for (let i = 0; i < pool.length; i++) {
+      for (let i = 0; i < source.length; i++) {
         rand -= weights[i];
-        if (rand <= 0) return pool[i];
+        if (rand <= 0) return source[i];
       }
-      return pool[pool.length - 1];
+      return source[source.length - 1];
     }
 
     function pickWords() {
       if (allWords.length === 0) {
-        document.getElementById('current-word').textContent    = '—';
+        document.getElementById('current-word').textContent     = '—';
         document.getElementById('word-count-label').textContent = 'aucun mot trouvé';
+        document.getElementById('due-count').textContent        = '';
         return;
       }
-      const n = wordCount();
-      currentWords = [];
-      for (let i = 0; i < n; i++) currentWords.push(pickWeightedOne(currentWords));
 
-      const remaining = allWords.filter(w => getWeight(w) > 1).length;
-      document.getElementById('word-count-label').textContent =
-        `${remaining} mot${remaining > 1 ? 's' : ''} à pratiquer`;
+      const n = wordCount();
+
+      if (practiceMode === 'spaced') {
+        const due = allWords.filter(w => isDue(w));
+        document.getElementById('due-count').innerHTML =
+          due.length > 0
+            ? `<span class="highlight">${due.length}</span> mot${due.length > 1 ? 's' : ''} à réviser aujourd'hui`
+            : `✓ Tous les mots sont à jour !`;
+
+        if (due.length === 0) {
+          // Plus rien à réviser — affiche message et propose mode libre
+          document.getElementById('current-word').textContent     = '✓';
+          document.getElementById('word-count-label').textContent = 'Reviens demain !';
+          currentWords = [];
+          return;
+        }
+        // Pioche dans les mots dus
+        currentWords = [];
+        for (let i = 0; i < Math.min(n, due.length); i++) {
+          currentWords.push(pickWeightedOne(currentWords, due));
+        }
+      } else {
+        // Mode libre — tirage pondéré habituel
+        const remaining = allWords.filter(w => getWeight(w) > 1).length;
+        document.getElementById('due-count').innerHTML =
+          `<span class="highlight">${remaining}</span> mot${remaining > 1 ? 's' : ''} à pratiquer`;
+        currentWords = [];
+        for (let i = 0; i < n; i++) currentWords.push(pickWeightedOne(currentWords));
+      }
 
       renderWordDisplay();
     }
@@ -1054,6 +1209,8 @@ Rules:
 
 Format exactly:
 **Définition :** ...
+**Registre :** (soutenu / courant / familier / littéraire / technique)
+**Collocations :** (2-3 mots ou expressions qui vont souvent avec ce mot)
 **Exemple :** ...
 
 Respond entirely in ${langName}.`;
@@ -1183,10 +1340,16 @@ Respond entirely in ${feedbackLang}.`;
           await saveProgress(w, wordResults[w.toLowerCase()] ?? isCorrect);
         }
 
+        // Mots liés après ✓ (seulement en mode 1 mot pour garder l'interface propre)
+        if (isCorrect && isSingle) {
+          fetchRelatedWords(currentWords[0]);
+        } else {
+          document.getElementById('related-box').classList.remove('visible');
+        }
+
         // Propose le QCM pour chaque mot raté
         if (!isCorrect) {
           const langInfo   = getLang();
-          // Trouve les mots ratés
           const failedWords = isSingle
             ? [currentWords[0]]
             : currentWords.filter(w => {
@@ -1194,11 +1357,7 @@ Respond entirely in ${feedbackLang}.`;
                 return !line || line.includes('✗');
               });
           const wordsForQCM = failedWords.length > 0 ? failedWords : [currentWords[0]];
-
-          // Met à jour le label de la question QCM dans la bonne langue
           document.getElementById('qcm-question').textContent = langInfo.qcmQuestion;
-
-          // Crée un bouton par mot raté
           document.getElementById('qcm-offer-buttons').innerHTML = wordsForQCM
             .map(w => `<button class="btn-qcm" onclick="startQCM('${w.replace(/'/g, "\\'")}')">🎯 QCM — ${w}</button>`)
             .join('');
@@ -1334,39 +1493,42 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
 
         if (existing) {
           // Mise à jour d'une ligne existante
-          const correct   = existing.correct   + (isCorrect ? 1 : 0);
-          const incorrect = existing.incorrect + (isCorrect ? 0 : 1);
-          const range     = `Progress!C${existing.rowIndex}:E${existing.rowIndex}`;
-          const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+          const correct    = existing.correct   + (isCorrect ? 1 : 0);
+          const incorrect  = existing.incorrect + (isCorrect ? 0 : 1);
+          const nextReview = calcNextReview({ correct: existing.correct }, isCorrect);
+          const range      = `Progress!C${existing.rowIndex}:G${existing.rowIndex}`;
+          const url        = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
           res  = await fetch(url, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [[correct, incorrect, now]] })
+            body: JSON.stringify({ values: [[correct, incorrect, now, existing.hintUsed || 0, nextReview]] })
           });
           data = await res.json();
           console.log(`[Sheets PUT] status=${res.status}`, data);
           if (res.status === 401) throw new Error('token_expired');
           if (!res.ok) throw new Error(`Sheets error ${res.status}: ${JSON.stringify(data.error)}`);
-          progressMap[key].correct   = correct;
-          progressMap[key].incorrect = incorrect;
+          progressMap[key].correct    = correct;
+          progressMap[key].incorrect  = incorrect;
+          progressMap[key].nextReview = nextReview;
 
         } else {
           // Ajout d'une nouvelle ligne
-          const correct   = isCorrect ? 1 : 0;
-          const incorrect = isCorrect ? 0 : 1;
-          const range     = encodeURIComponent('Progress!A:F');
-          const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+          const correct    = isCorrect ? 1 : 0;
+          const incorrect  = isCorrect ? 0 : 1;
+          const nextReview = calcNextReview(null, isCorrect);
+          const range      = encodeURIComponent('Progress!A:G');
+          const url        = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
           res  = await fetch(url, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [[word, currentLang, correct, incorrect, now, 0]] })
+            body: JSON.stringify({ values: [[word, currentLang, correct, incorrect, now, 0, nextReview]] })
           });
           data = await res.json();
           console.log(`[Sheets POST] status=${res.status}`, data);
           if (res.status === 401) throw new Error('token_expired');
           if (!res.ok) throw new Error(`Sheets error ${res.status}: ${JSON.stringify(data.error)}`);
           const match      = (data.updates?.updatedRange || '').match(/(\d+)$/);
-          progressMap[key] = { correct, incorrect, rowIndex: match ? parseInt(match[1]) : null };
+          progressMap[key] = { correct, incorrect, hintUsed: 0, nextReview, rowIndex: match ? parseInt(match[1]) : null };
         }
 
         if (currentWords.length === 1) updateStars(word);
@@ -1529,6 +1691,69 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
         }).join('');
       } catch (err) {
         grid.innerHTML = `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
+      }
+    }
+
+    // ── Mots liés ─────────────────────────────────────────────
+    async function fetchRelatedWords(word) {
+      const box    = document.getElementById('related-box');
+      const chips  = document.getElementById('related-chips');
+      box.classList.add('visible');
+      chips.innerHTML = '<span style="color:var(--muted);font-style:italic;font-size:0.85rem"><span class="spinner"></span> Chargement…</span>';
+
+      const langName = getLang().mistralName;
+      const prompt = `You are a vocabulary teacher. The learner just successfully used the word "${word}" in ${langName}.
+
+Suggest 3 semantically related words or expressions in ${langName} that belong to the same semantic field or are often used in similar contexts.
+
+Return ONLY a JSON array, no other text:
+[
+  {"word": "...", "note": "brief explanation of the relationship in ${langName}"},
+  {"word": "...", "note": "..."},
+  {"word": "...", "note": "..."}
+]`;
+
+      try {
+        const reply     = await callMistral(prompt);
+        const jsonMatch = reply.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) throw new Error('Format inattendu');
+        const related = JSON.parse(jsonMatch[0]);
+
+        chips.innerHTML = related.map((r, i) =>
+          `<div class="related-chip">
+            <span>${r.word}</span>
+            <span style="color:var(--muted);font-size:0.78rem;font-style:italic"> — ${r.note}</span>
+            <button class="chip-add" id="chip-add-${i}" onclick="addRelatedWord('${r.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">＋</button>
+          </div>`
+        ).join('');
+      } catch (err) {
+        chips.innerHTML = `<span style="color:var(--error);font-size:0.85rem">Erreur : ${err.message}</span>`;
+      }
+    }
+
+    async function addRelatedWord(word, btnIndex) {
+      const btn   = document.getElementById(`chip-add-${btnIndex}`);
+      btn.disabled = true;
+      btn.textContent = '…';
+
+      const token   = localStorage.getItem(KEY_GG_TOKEN);
+      const range   = encodeURIComponent(`${currentLang}!B:B`);
+      const url     = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [[word]] })
+        });
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        btn.textContent = '✓';
+        btn.style.color = 'var(--success)';
+        console.log(`[Sheets] ✓ Mot ajouté : ${word} → ${currentLang}`);
+      } catch (err) {
+        btn.textContent = '✗';
+        btn.disabled = false;
+        console.error(`[Sheets] Erreur addRelatedWord :`, err.message);
       }
     }
 
