@@ -804,7 +804,7 @@
     // ── Lecture progression ───────────────────────────────────
     async function loadProgress(lang) {
       const token = localStorage.getItem(KEY_GG_TOKEN);
-      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E`;
+      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:F`;
       progressMap = {};
       try {
         const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -812,9 +812,11 @@
         (data.values || []).forEach((row, i) => {
           if (i === 0) return;
           const word = row[0] || '', rowLang = row[1] || '';
-          const correct = parseInt(row[2]) || 0, incorrect = parseInt(row[3]) || 0;
+          const correct   = parseInt(row[2]) || 0;
+          const incorrect = parseInt(row[3]) || 0;
+          const hintUsed  = parseInt(row[5]) || 0;
           if (word && rowLang === lang)
-            progressMap[word.toLowerCase()] = { correct, incorrect, rowIndex: i + 1 };
+            progressMap[word.toLowerCase()] = { correct, incorrect, hintUsed, rowIndex: i + 1 };
         });
       } catch (e) {}
     }
@@ -953,6 +955,8 @@ Respond entirely in ${langName}.`;
         if (currentWords.length === 1) {
           document.getElementById('hint-used-badge').classList.add('visible');
         }
+        // Sauvegarde dans Sheets (colonne HintUsed)
+        await saveHint(word);
       } catch (err) {
         document.getElementById('hint-text').textContent = 'Erreur : ' + err.message;
         document.getElementById('hint-box').classList.add('visible');
@@ -1000,10 +1004,10 @@ Reject if:
 
 Accept only if the sentence places the word in a specific context that reveals its meaning — the reader should understand what the word means just from reading the sentence.
 
-- ✓ ONLY if BOTH criteria are met
+- ✓ ONLY if BOTH criteria are met — then briefly explain what's good, and on a new line add: **Version enrichie :** + an improved or more sophisticated version of the learner's sentence (keep their idea but make it richer/more precise)
 - ✗ if either fails — be specific about WHY the sentence doesn't demonstrate understanding, then give ONE strong example sentence that does
 
-Respond entirely in ${feedbackLang}. Be concise (3 sentences max).`
+Respond entirely in ${feedbackLang}. Be concise (4 sentences max).`
 
       : `You are a strict but encouraging ${langName} vocabulary teacher.
 
@@ -1035,14 +1039,13 @@ Respond entirely in ${feedbackLang}.`;
         feedbackText.innerHTML = renderMarkdown(reply);
         feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
 
-        // Progression — mots sans aide utilisée
-        const wordsToSave = currentWords.filter(w => !hintUsedWords.has(w.toLowerCase()));
+        // Progression — mots sans aide : correct/incorrect comptabilisé
+        // Mots avec aide : déjà sauvegardés via saveHint, on ne retouche pas le score
+        const wordsToSave   = currentWords.filter(w => !hintUsedWords.has(w.toLowerCase()));
         const wordsWithHelp = currentWords.filter(w => hintUsedWords.has(w.toLowerCase()));
 
-        if (wordsWithHelp.length > 0 && !isCorrect) {
-          noCountNotice.textContent = `(aide utilisée pour ${wordsWithHelp.join(', ')} — non comptabilisé)`;
-        } else if (wordsWithHelp.length > 0 && isCorrect) {
-          noCountNotice.textContent = `(aide utilisée pour ${wordsWithHelp.join(', ')} — non comptabilisé)`;
+        if (wordsWithHelp.length > 0) {
+          noCountNotice.textContent = `(aide utilisée pour ${wordsWithHelp.join(', ')} — score non comptabilisé)`;
         } else {
           noCountNotice.textContent = '';
         }
@@ -1142,6 +1145,43 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
       }
     }
 
+    // ── Sauvegarde hint utilisé ───────────────────────────────
+    async function saveHint(word) {
+      const token    = localStorage.getItem(KEY_GG_TOKEN);
+      const key      = word.toLowerCase();
+      const existing = progressMap[key];
+      const now      = new Date().toISOString();
+      try {
+        if (existing) {
+          // Met à jour HintUsed (col F) et LastPracticed (col E)
+          const hintUsed = (existing.hintUsed || 0) + 1;
+          const range    = `Progress!E${existing.rowIndex}:F${existing.rowIndex}`;
+          const url      = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+          await fetch(url, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: [[now, hintUsed]] })
+          });
+          progressMap[key].hintUsed = hintUsed;
+        } else {
+          // Nouvelle entrée avec HintUsed=1, Correct=0, Incorrect=0
+          const range = encodeURIComponent('Progress!A:F');
+          const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+          const res   = await fetch(url, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: [[word, currentLang, 0, 0, now, 1]] })
+          });
+          const data     = await res.json();
+          const match    = (data.updates?.updatedRange || '').match(/(\d+)$/);
+          progressMap[key] = { correct: 0, incorrect: 0, hintUsed: 1, rowIndex: match ? parseInt(match[1]) : null };
+        }
+        console.log(`[Sheets] ✓ Hint sauvegardé : ${word}`);
+      } catch (err) {
+        console.error(`[Sheets] Erreur saveHint :`, err.message);
+      }
+    }
+
     // ── Écriture progression ──────────────────────────────────
     async function saveProgress(word, isCorrect) {
       const token    = localStorage.getItem(KEY_GG_TOKEN);
@@ -1176,11 +1216,11 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
           const incorrect = isCorrect ? 0 : 1;
           // ← encodeURIComponent sur le range, :append reste hors de l'encodage
           const range     = encodeURIComponent('Progress!A:E');
-          const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+          const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
           res  = await fetch(url, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [[word, currentLang, correct, incorrect, now]] })
+            body: JSON.stringify({ values: [[word, currentLang, correct, incorrect, now, 0]] })
           });
           data = await res.json();
           console.log(`[Sheets POST] status=${res.status}`, data);
