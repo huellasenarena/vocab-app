@@ -1179,16 +1179,17 @@
       starsEl.className   = `stars ${info.cls}`;
     }
 
-    function nextWord() {
+    async function nextWord() {
       // Sauvegarde dans History les mots qui ont eu une première tentative
-      for (const word of currentWords) {
+      const wordsSnapshot = [...currentWords]; // copie avant resetPracticeUI
+      resetPracticeUI();
+      for (const word of wordsSnapshot) {
         const key = word.toLowerCase();
         if (sessionFirstResult.hasOwnProperty(key)) {
-          saveHistory(word, sessionFirstResult[key]);
+          await saveHistory(word, sessionFirstResult[key]);
           delete sessionFirstResult[key];
         }
       }
-      resetPracticeUI();
       pickWords();
       onSliderChange(wordCount());
     }
