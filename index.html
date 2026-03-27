@@ -835,13 +835,14 @@
     ];
 
     // ── État global ───────────────────────────────────────────
-    let allWords      = [];
-    let progressMap   = {};
-    let currentWords  = [];
-    let currentLang   = "";
-    let hintUsedWords = new Set();
-    let qcmWord       = "";
-    let practiceMode  = 'spaced'; // 'spaced' ou 'free'
+    let allWords           = [];
+    let progressMap        = {};
+    let currentWords       = [];
+    let currentLang        = "";
+    let hintUsedWords      = new Set();
+    let qcmWord            = "";
+    let practiceMode       = 'spaced';
+    let sessionFirstResult = {}; // { word.toLowerCase(): true/false } — premier résultat de la session
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
@@ -967,6 +968,15 @@
 
     // ── Sélection de langue ───────────────────────────────────
     async function selectLanguage(lang) {
+      // Sauvegarde les résultats en cours avant de changer de langue
+      for (const word of currentWords) {
+        const key = word.toLowerCase();
+        if (sessionFirstResult.hasOwnProperty(key)) {
+          await saveHistory(word, sessionFirstResult[key]);
+          delete sessionFirstResult[key];
+        }
+      }
+      sessionFirstResult = {};
       currentLang = lang;
       const langInfo = getLang();
       document.getElementById('lang-tag').textContent                  = `← ${langInfo.name}`;
@@ -981,8 +991,8 @@
     }
 
     function resetPracticeUI() {
-      hintUsedWords = new Set();
-      currentWords  = [];
+      hintUsedWords      = new Set();
+      currentWords       = [];
       document.getElementById('current-word').textContent     = '…';
       document.getElementById('word-stars').textContent       = '☆☆☆';
       document.getElementById('word-stars').className         = 'stars s0';
@@ -1170,9 +1180,16 @@
     }
 
     function nextWord() {
+      // Sauvegarde dans History les mots qui ont eu une première tentative
+      for (const word of currentWords) {
+        const key = word.toLowerCase();
+        if (sessionFirstResult.hasOwnProperty(key)) {
+          saveHistory(word, sessionFirstResult[key]);
+          delete sessionFirstResult[key];
+        }
+      }
       resetPracticeUI();
       pickWords();
-      // Réinitialise le slider label
       onSliderChange(wordCount());
     }
 
@@ -1309,6 +1326,14 @@ Respond entirely in ${feedbackLang}.`;
         feedbackText.innerHTML = renderMarkdown(reply);
         // Fix 1: couleur basée sur le résultat Mistral, pas sur l'utilisation de l'aide
         feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
+
+        // Enregistre le premier résultat de la session pour chaque mot
+        currentWords.forEach(w => {
+          const k = w.toLowerCase();
+          if (!sessionFirstResult.hasOwnProperty(k)) {
+            sessionFirstResult[k] = isSingle ? isCorrect : (wordResults[k] ?? isCorrect);
+          }
+        });
 
         // Fix 2: score indépendant par mot en mode multi
         // On détermine le résultat de chaque mot individuellement
@@ -1549,9 +1574,28 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
       }
     }
 
+    // ── Écriture historique ───────────────────────────────────
+    async function saveHistory(word, isCorrect) {
+      const token  = localStorage.getItem(KEY_GG_TOKEN);
+      const now    = new Date().toISOString();
+      const result = isCorrect ? '✓' : '✗';
+      const range  = encodeURIComponent('History!A:D');
+      const url    = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+      try {
+        await fetch(url, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [[now, word, currentLang, result]] })
+        });
+        console.log(`[History] ✓ ${word} → ${result}`);
+      } catch (err) {
+        console.error(`[History] Erreur :`, err.message);
+      }
+    }
+
     // ── Historique ────────────────────────────────────────────
-    let historyData    = [];  // toutes les entrées chargées
-    let historyFilter  = 'all'; // filtre actif
+    let historyData    = [];
+    let historyFilter  = 'all';
 
     async function showHistory() {
       showScreen('screen-history');
@@ -1559,30 +1603,47 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
         '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
 
       const token = localStorage.getItem(KEY_GG_TOKEN);
-      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`;
       try {
-        const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-        const data = await res.json();
-        const rows = (data.values || []).slice(1); // skip header
+        // Charge History et Progress en parallèle
+        const [histRes, progRes] = await Promise.all([
+          fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/History!A:D`,
+            { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`,
+            { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+        const histData = await histRes.json();
+        const progData = await progRes.json();
 
-        // Ne garde que les mots vraiment essayés (Correct + Incorrect > 0)
-        historyData = rows
-          .filter(row => {
-            const correct   = parseInt(row[2]) || 0;
-            const incorrect = parseInt(row[3]) || 0;
-            return correct + incorrect > 0;
-          })
-          .map(row => ({
-            word:      row[0] || '',
-            lang:      row[1] || '',
+        // Construit un index de progression : "word|lang" → { correct, incorrect, hintUsed }
+        const progIndex = {};
+        (progData.values || []).slice(1).forEach(row => {
+          const key = `${(row[0] || '').toLowerCase()}|${row[1] || ''}`;
+          progIndex[key] = {
             correct:   parseInt(row[2]) || 0,
             incorrect: parseInt(row[3]) || 0,
-            date:      row[4] || '',
-          }))
-          // Tri par date décroissante (plus récent en premier)
-          .sort((a, b) => b.date.localeCompare(a.date));
+            hintUsed:  parseInt(row[5]) || 0,
+          };
+        });
 
-        // Construit les filtres de langue
+        // Construit l'historique chronologique (plus récent en premier)
+        historyData = (histData.values || []).slice(1)
+          .filter(row => row[0] && row[1] && row[2] && row[3])
+          .map(row => ({
+            date:     row[0] || '',
+            word:     row[1] || '',
+            lang:     row[2] || '',
+            result:   row[3] || '',
+          }))
+          .reverse(); // plus récent en premier
+
+        // Enrichit avec les stats de Progress
+        historyData = historyData.map(e => {
+          const key  = `${e.word.toLowerCase()}|${e.lang}`;
+          const prog = progIndex[key] || { correct: 0, incorrect: 0, hintUsed: 0 };
+          return { ...e, ...prog };
+        });
+
+        // Filtres de langue (seulement les langues présentes dans l'historique)
         const langs = ['all', ...new Set(historyData.map(e => e.lang))];
         document.getElementById('history-filters').innerHTML = langs.map(l => {
           const info  = LANGS.find(x => x.key === l);
@@ -1615,27 +1676,30 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
         : historyData.filter(e => e.lang === historyFilter);
 
       if (filtered.length === 0) {
-        list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun mot essayé pour l\'instant.</p>';
+        list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun mot dans l\'historique pour l\'instant.</p>';
         return;
       }
 
       list.innerHTML = filtered.map(e => {
         const net = e.correct - e.incorrect;
-        let stars, cls;
-        if (net >= 3)      { stars = '★★★'; cls = 's3'; }
-        else if (net >= 2) { stars = '★★☆'; cls = 's2'; }
-        else if (net >= 1) { stars = '★☆☆'; cls = 's1'; }
-        else               { stars = '☆☆☆'; cls = 's0'; }
+        let stars, starsCls;
+        if (net >= 3)      { stars = '★★★'; starsCls = 's3'; }
+        else if (net >= 2) { stars = '★★☆'; starsCls = 's2'; }
+        else if (net >= 1) { stars = '★☆☆'; starsCls = 's1'; }
+        else               { stars = '☆☆☆'; starsCls = 's0'; }
 
-        // Formate la date
+        // Date + heure
         let dateStr = '';
         if (e.date) {
           const d = new Date(e.date);
-          dateStr = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+          dateStr = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+            + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
         }
 
-        const info  = LANGS.find(x => x.key === e.lang);
-        const flag  = info?.flag || '';
+        const info      = LANGS.find(x => x.key === e.lang);
+        const flag      = info?.flag || '';
+        const isCorrect = e.result === '✓';
+        const resultCls = isCorrect ? 'color:var(--success)' : 'color:var(--error)';
 
         return `<div class="history-item">
           <div class="history-item-left">
@@ -1643,7 +1707,8 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
             <span class="history-date">${dateStr}</span>
           </div>
           <div class="history-item-right">
-            <span class="history-stars ${cls}">${stars}</span>
+            <span style="font-size:1rem;font-weight:600;${resultCls}">${e.result}</span>
+            <span class="history-stars ${starsCls}">${stars}</span>
             <span class="history-score">✓${e.correct} ✗${e.incorrect}</span>
           </div>
         </div>`;
