@@ -1115,11 +1115,13 @@
         for (let i = 0; i < Math.min(n, due.length); i++) {
           currentWords.push(pickWeightedOne(currentWords, due));
         }
+        document.getElementById('word-count-label').textContent = '';
       } else {
         // Mode libre — tirage pondéré habituel
         const remaining = allWords.filter(w => getWeight(w) > 1).length;
         document.getElementById('due-count').innerHTML =
           `<span class="highlight">${remaining}</span> mot${remaining > 1 ? 's' : ''} à pratiquer`;
+        document.getElementById('word-count-label').textContent = '';
         currentWords = [];
         for (let i = 0; i < n; i++) currentWords.push(pickWeightedOne(currentWords));
       }
@@ -1298,9 +1300,9 @@ Respond entirely in ${feedbackLang}.`;
       try {
         const reply = await callMistral(prompt);
 
-        // Cherche le verdict global (dernière ligne qui commence par ✓ ou ✗)
+        // Cherche le verdict : priorité à la première ligne qui commence par ✓ ou ✗
         const lines     = reply.split('\n').map(l => l.trim()).filter(Boolean);
-        const verdict   = lines.findLast(l => l.startsWith('✓') || l.startsWith('✗')) || reply;
+        const verdict   = lines.find(l => l.startsWith('✓') || l.startsWith('✗')) || reply;
         const isCorrect = verdict.startsWith('✓');
 
         feedbackLabel.textContent = isCorrect ? '✓' : '✗';
@@ -1557,7 +1559,7 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
         '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
 
       const token = localStorage.getItem(KEY_GG_TOKEN);
-      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:F`;
+      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`;
       try {
         const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         const data = await res.json();
@@ -1656,7 +1658,7 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
       const token = localStorage.getItem(KEY_GG_TOKEN);
       try {
         const [progressRes, ...wordCountRes] = await Promise.all([
-          fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`, { headers: { Authorization: `Bearer ${token}` } }),
           ...LANGS.map(l => fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(l.key)}!B:B`, { headers: { Authorization: `Bearer ${token}` } }))
         ]);
         const progressData  = await progressRes.json();
