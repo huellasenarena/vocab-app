@@ -669,28 +669,59 @@
 
     // ── Google OAuth ──────────────────────────────────────────
     let tokenClient;
+    let pendingSaveAfterReauth = null; // sauvegarde en attente après reconnexion
+
     function initGoogleClient() {
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID, scope: SCOPES,
         callback: (response) => {
           if (response.error) {
-            document.getElementById('google-error-msg').textContent = 'Erreur Google : ' + response.error;
+            // Échec du refresh silencieux → affiche l'écran de connexion
+            document.getElementById('google-error-msg').textContent = '';
+            showScreen('screen-google');
             return;
           }
           const expiry = Date.now() + (response.expires_in - 60) * 1000;
           localStorage.setItem(KEY_GG_TOKEN, response.access_token);
           localStorage.setItem(KEY_GG_EXPIRY, expiry.toString());
-          showScreen('screen-lang');
+
+          // Si on était en train de sauvegarder quand le token a expiré, on réessaie
+          if (pendingSaveAfterReauth) {
+            const { word, isCorrect } = pendingSaveAfterReauth;
+            pendingSaveAfterReauth = null;
+            saveProgress(word, isCorrect);
+          } else {
+            showScreen('screen-lang');
+          }
         }
       });
     }
+
+    // Tente un refresh silencieux (sans popup) — fonctionne si déjà autorisé
+    function silentRefresh() {
+      if (!tokenClient) { setTimeout(silentRefresh, 200); return; }
+      tokenClient.requestAccessToken({ prompt: '' });
+    }
+
     function loginGoogle() {
       if (!tokenClient) { setTimeout(loginGoogle, 1000); return; }
-      tokenClient.requestAccessToken();
+      tokenClient.requestAccessToken({ prompt: 'consent' });
     }
+
     window.addEventListener('load', () => {
       const iv = setInterval(() => {
-        if (typeof google !== 'undefined' && google.accounts) { initGoogleClient(); clearInterval(iv); }
+        if (typeof google !== 'undefined' && google.accounts) {
+          initGoogleClient();
+          clearInterval(iv);
+
+          // Tente un refresh silencieux si le token est expiré
+          const pwdOk  = localStorage.getItem(KEY_PWD_OK) === "true";
+          const token  = localStorage.getItem(KEY_GG_TOKEN);
+          const expiry = parseInt(localStorage.getItem(KEY_GG_EXPIRY) || "0");
+          if (pwdOk && token && Date.now() >= expiry) {
+            silentRefresh(); // essaie sans popup d'abord
+          }
+        }
       }, 200);
     });
 
@@ -1096,32 +1127,46 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
       const key      = word.toLowerCase();
       const existing = progressMap[key];
       const now      = new Date().toISOString();
-      if (existing) {
-        const correct   = existing.correct   + (isCorrect ? 1 : 0);
-        const incorrect = existing.incorrect + (isCorrect ? 0 : 1);
-        const range     = `Progress!C${existing.rowIndex}:E${existing.rowIndex}`;
-        const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
-        await fetch(url, {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [[correct, incorrect, now]] })
-        });
-        progressMap[key].correct   = correct;
-        progressMap[key].incorrect = incorrect;
-      } else {
-        const correct   = isCorrect ? 1 : 0;
-        const incorrect = isCorrect ? 0 : 1;
-        const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [[word, currentLang, correct, incorrect, now]] })
-        });
-        const data     = await res.json();
-        const match    = (data.updates?.updatedRange || '').match(/(\d+)$/);
-        progressMap[key] = { correct, incorrect, rowIndex: match ? parseInt(match[1]) : null };
+
+      try {
+        let res;
+        if (existing) {
+          const correct   = existing.correct   + (isCorrect ? 1 : 0);
+          const incorrect = existing.incorrect + (isCorrect ? 0 : 1);
+          const range     = `Progress!C${existing.rowIndex}:E${existing.rowIndex}`;
+          const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+          res = await fetch(url, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: [[correct, incorrect, now]] })
+          });
+          if (res.status === 401) throw new Error('token_expired');
+          progressMap[key].correct   = correct;
+          progressMap[key].incorrect = incorrect;
+        } else {
+          const correct   = isCorrect ? 1 : 0;
+          const incorrect = isCorrect ? 0 : 1;
+          const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:E:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+          res = await fetch(url, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: [[word, currentLang, correct, incorrect, now]] })
+          });
+          if (res.status === 401) throw new Error('token_expired');
+          const data     = await res.json();
+          const match    = (data.updates?.updatedRange || '').match(/(\d+)$/);
+          progressMap[key] = { correct, incorrect, rowIndex: match ? parseInt(match[1]) : null };
+        }
+        if (currentWords.length === 1) updateStars(word);
+
+      } catch (err) {
+        if (err.message === 'token_expired') {
+          // Token expiré en pleine session → refresh silencieux puis réessaie
+          pendingSaveAfterReauth = { word, isCorrect };
+          silentRefresh();
+        }
+        // Autres erreurs ignorées silencieusement
       }
-      if (currentWords.length === 1) updateStars(word);
     }
 
     // ── Statistiques ──────────────────────────────────────────
