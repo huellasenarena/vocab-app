@@ -1737,14 +1737,15 @@ Return ONLY a JSON array, no other text:
       btn.textContent = '…';
 
       const token   = localStorage.getItem(KEY_GG_TOKEN);
-      const range   = encodeURIComponent(`${currentLang}!B:B`);
+      const range   = encodeURIComponent(`${currentLang}!A:B`);
       const url     = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+      const now     = new Date().toISOString();
 
       try {
         const res = await fetch(url, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [[word]] })
+          body: JSON.stringify({ values: [[now, word]] })
         });
         if (!res.ok) throw new Error(`status ${res.status}`);
         btn.textContent = '✓';
