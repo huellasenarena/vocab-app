@@ -432,6 +432,82 @@
 
     /* ── Stats ── */
     #screen-stats { max-width: 480px; }
+
+    /* ── Historique ── */
+    #screen-history { max-width: 480px; }
+
+    .history-filters {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .filter-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.78rem;
+      padding: 0.3rem 0.8rem;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .filter-btn:hover  { border-color: var(--accent); color: var(--text); }
+    .filter-btn.active { border-color: var(--accent); color: var(--accent); }
+
+    .history-list {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 65vh;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
+    .history-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .history-item-left {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .history-word {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .history-date {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+    .history-item-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.2rem;
+      flex-shrink: 0;
+    }
+    .history-stars { font-size: 0.85rem; }
+    .history-stars.s0 { color: var(--muted); }
+    .history-stars.s1 { color: #c9a96e88; }
+    .history-stars.s2 { color: var(--accent); }
+    .history-stars.s3 { color: var(--success); }
+    .history-score {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
     .stats-header { width: 100%; display: flex; align-items: center; justify-content: space-between; }
     .stats-grid   { width: 100%; display: flex; flex-direction: column; gap: 1rem; }
     .stats-lang-block {
@@ -508,6 +584,7 @@
       <button class="lang-btn" onclick="selectLanguage('Greek')"><span class="flag">🇬🇷</span><span class="lang-name">Ελληνικά</span></button>
     </div>
     <button class="btn-ghost" onclick="showStats()">📊 voir mes statistiques</button>
+    <button class="btn-ghost" onclick="showHistory()">📋 historique des mots</button>
     <p class="error-msg" id="lang-error-msg"></p>
   </div>
 
@@ -602,6 +679,20 @@
       <button class="btn-ghost" onclick="showScreen('screen-lang')">← retour</button>
     </div>
     <div class="stats-grid" id="stats-grid">
+      <p style="color:var(--muted);font-style:italic;">Chargement…</p>
+    </div>
+  </div>
+
+  <!-- ── Écran 6 : Historique ── -->
+  <div class="screen" id="screen-history">
+    <div class="stats-header">
+      <h1 class="app-title">Historique</h1>
+      <button class="btn-ghost" onclick="showScreen('screen-lang')">← retour</button>
+    </div>
+    <!-- Filtre par langue -->
+    <div class="history-filters" id="history-filters"></div>
+    <!-- Liste des mots -->
+    <div class="history-list" id="history-list">
       <p style="color:var(--muted);font-style:italic;">Chargement…</p>
     </div>
   </div>
@@ -1292,6 +1383,107 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
           if (notice) notice.textContent += ' ⚠️ Erreur de sauvegarde — vérifie ta connexion.';
         }
       }
+    }
+
+    // ── Historique ────────────────────────────────────────────
+    let historyData    = [];  // toutes les entrées chargées
+    let historyFilter  = 'all'; // filtre actif
+
+    async function showHistory() {
+      showScreen('screen-history');
+      document.getElementById('history-list').innerHTML =
+        '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
+
+      const token = localStorage.getItem(KEY_GG_TOKEN);
+      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:F`;
+      try {
+        const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        const rows = (data.values || []).slice(1); // skip header
+
+        // Ne garde que les mots vraiment essayés (Correct + Incorrect > 0)
+        historyData = rows
+          .filter(row => {
+            const correct   = parseInt(row[2]) || 0;
+            const incorrect = parseInt(row[3]) || 0;
+            return correct + incorrect > 0;
+          })
+          .map(row => ({
+            word:      row[0] || '',
+            lang:      row[1] || '',
+            correct:   parseInt(row[2]) || 0,
+            incorrect: parseInt(row[3]) || 0,
+            date:      row[4] || '',
+          }))
+          // Tri par date décroissante (plus récent en premier)
+          .sort((a, b) => b.date.localeCompare(a.date));
+
+        // Construit les filtres de langue
+        const langs = ['all', ...new Set(historyData.map(e => e.lang))];
+        document.getElementById('history-filters').innerHTML = langs.map(l => {
+          const info  = LANGS.find(x => x.key === l);
+          const label = l === 'all' ? '🌐 Tout' : `${info?.flag || ''} ${info?.name || l}`;
+          return `<button class="filter-btn ${l === historyFilter ? 'active' : ''}"
+            onclick="setHistoryFilter('${l}')">${label}</button>`;
+        }).join('');
+
+        renderHistory();
+      } catch (err) {
+        document.getElementById('history-list').innerHTML =
+          `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
+      }
+    }
+
+    function setHistoryFilter(lang) {
+      historyFilter = lang;
+      // Met à jour les boutons actifs
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.includes(lang) ||
+          (lang === 'all' && btn.textContent.includes('Tout')));
+      });
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const list = document.getElementById('history-list');
+      const filtered = historyFilter === 'all'
+        ? historyData
+        : historyData.filter(e => e.lang === historyFilter);
+
+      if (filtered.length === 0) {
+        list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun mot essayé pour l\'instant.</p>';
+        return;
+      }
+
+      list.innerHTML = filtered.map(e => {
+        const net = e.correct - e.incorrect;
+        let stars, cls;
+        if (net >= 3)      { stars = '★★★'; cls = 's3'; }
+        else if (net >= 2) { stars = '★★☆'; cls = 's2'; }
+        else if (net >= 1) { stars = '★☆☆'; cls = 's1'; }
+        else               { stars = '☆☆☆'; cls = 's0'; }
+
+        // Formate la date
+        let dateStr = '';
+        if (e.date) {
+          const d = new Date(e.date);
+          dateStr = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        const info  = LANGS.find(x => x.key === e.lang);
+        const flag  = info?.flag || '';
+
+        return `<div class="history-item">
+          <div class="history-item-left">
+            <span class="history-word">${flag} ${e.word}</span>
+            <span class="history-date">${dateStr}</span>
+          </div>
+          <div class="history-item-right">
+            <span class="history-stars ${cls}">${stars}</span>
+            <span class="history-score">✓${e.correct} ✗${e.incorrect}</span>
+          </div>
+        </div>`;
+      }).join('');
     }
 
     // ── Statistiques ──────────────────────────────────────────
