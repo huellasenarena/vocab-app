@@ -285,7 +285,7 @@
       width: 100%;
       display: none;
       flex-direction: column;
-      gap: 0.6rem;
+      gap: 0.75rem;
       animation: fadeIn 0.3s ease;
     }
     .hint-dropdown.visible { display: flex; }
@@ -351,6 +351,12 @@
       animation: fadeIn 0.4s ease;
     }
     .qcm-offer.visible { display: block; }
+
+    #qcm-offer-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
     .btn-qcm {
       width: 100%;
       background: transparent;
@@ -1259,9 +1265,8 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
           // Ajout d'une nouvelle ligne
           const correct   = isCorrect ? 1 : 0;
           const incorrect = isCorrect ? 0 : 1;
-          // ← encodeURIComponent sur le range, :append reste hors de l'encodage
-          const range     = encodeURIComponent('Progress!A:E');
-          const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+          const range     = encodeURIComponent('Progress!A:F');
+          const url       = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
           res  = await fetch(url, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
