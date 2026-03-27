@@ -655,7 +655,6 @@
     let qcmWord       = "";    // mot en cours de QCM
 
     // ── Au chargement ─────────────────────────────────────────
-    // On attend que la lib Google soit prête avant de décider quel écran afficher
     window.addEventListener('load', () => {
       const pwdOk      = localStorage.getItem(KEY_PWD_OK) === "true";
       const token      = localStorage.getItem(KEY_GG_TOKEN);
@@ -663,35 +662,18 @@
       const tokenValid = token && Date.now() < expiry;
 
       if (!pwdOk) {
-        // Première visite → mot de passe
         showScreen('screen-password');
-        return;
-      }
-
-      if (tokenValid) {
-        // Token encore valide → app directement
+      } else if (tokenValid) {
         showScreen('screen-lang');
-        // Initialise quand même Google en arrière-plan pour les futurs refreshs
-        const iv = setInterval(() => {
-          if (typeof google !== 'undefined' && google.accounts) {
-            initGoogleClient(); clearInterval(iv);
-          }
-        }, 200);
-        return;
+      } else {
+        // Token expiré → bouton Google directement, pas de popup surprise
+        showScreen('screen-google');
       }
 
-      // Token expiré → on attend la lib Google et on tente un refresh silencieux
-      // On affiche un écran de chargement pendant ce temps
-      showScreen('screen-loading');
+      // Initialise Google en arrière-plan dans tous les cas
       const iv = setInterval(() => {
         if (typeof google !== 'undefined' && google.accounts) {
-          initGoogleClient();
-          clearInterval(iv);
-          if (token) {
-            silentRefresh(); // tente sans popup → si succès, va à screen-lang
-          } else {
-            showScreen('screen-google'); // jamais connecté → bouton Google
-          }
+          initGoogleClient(); clearInterval(iv);
         }
       }, 200);
     });
@@ -731,23 +713,21 @@
 
     // ── Google OAuth ──────────────────────────────────────────
     let tokenClient;
-    let pendingSaveAfterReauth = null; // sauvegarde en attente après reconnexion
+    let pendingSaveAfterReauth = null;
 
     function initGoogleClient() {
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID, scope: SCOPES,
         callback: (response) => {
           if (response.error) {
-            // Échec du refresh silencieux → affiche l'écran de connexion
-            document.getElementById('google-error-msg').textContent = '';
-            showScreen('screen-google');
+            document.getElementById('google-error-msg').textContent =
+              'Erreur de connexion — réessaie.';
             return;
           }
           const expiry = Date.now() + (response.expires_in - 60) * 1000;
           localStorage.setItem(KEY_GG_TOKEN, response.access_token);
           localStorage.setItem(KEY_GG_EXPIRY, expiry.toString());
 
-          // Si on était en train de sauvegarder quand le token a expiré, on réessaie
           if (pendingSaveAfterReauth) {
             const { word, isCorrect } = pendingSaveAfterReauth;
             pendingSaveAfterReauth = null;
@@ -759,15 +739,15 @@
       });
     }
 
-    // Tente un refresh silencieux (sans popup) — fonctionne si déjà autorisé
-    function silentRefresh() {
-      if (!tokenClient) { setTimeout(silentRefresh, 200); return; }
-      tokenClient.requestAccessToken({ prompt: '' });
+    function loginGoogle() {
+      if (!tokenClient) { setTimeout(loginGoogle, 500); return; }
+      tokenClient.requestAccessToken();
     }
 
-    function loginGoogle() {
-      if (!tokenClient) { setTimeout(loginGoogle, 1000); return; }
-      tokenClient.requestAccessToken({ prompt: 'consent' });
+    // Refresh quand le token expire en pleine session
+    function silentRefresh() {
+      if (!tokenClient) { setTimeout(silentRefresh, 500); return; }
+      tokenClient.requestAccessToken();
     }
 
     // ── Slider ────────────────────────────────────────────────
