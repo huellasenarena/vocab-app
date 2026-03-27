@@ -1057,10 +1057,28 @@ Respond entirely in ${feedbackLang}.`;
 
         feedbackLabel.textContent = isCorrect ? '✓' : '✗';
         feedbackText.innerHTML = renderMarkdown(reply);
+        // Fix 1: couleur basée sur le résultat Mistral, pas sur l'utilisation de l'aide
         feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
 
-        // Progression — mots sans aide : correct/incorrect comptabilisé
-        // Mots avec aide : déjà sauvegardés via saveHint, on ne retouche pas le score
+        // Fix 2: score indépendant par mot en mode multi
+        // On détermine le résultat de chaque mot individuellement
+        const wordResults = {};
+        if (isSingle) {
+          wordResults[currentWords[0].toLowerCase()] = isCorrect;
+        } else {
+          // Analyse ligne par ligne : cherche "mot": ✓ ou ✗
+          currentWords.forEach(w => {
+            const line = lines.find(l => l.toLowerCase().includes(w.toLowerCase()));
+            if (line) {
+              wordResults[w.toLowerCase()] = line.includes('✓') && !line.includes('✗');
+            } else {
+              // Si pas de ligne trouvée, on applique le verdict global
+              wordResults[w.toLowerCase()] = isCorrect;
+            }
+          });
+        }
+
+        // Progression — mots sans aide : correct/incorrect comptabilisé individuellement
         const wordsToSave   = currentWords.filter(w => !hintUsedWords.has(w.toLowerCase()));
         const wordsWithHelp = currentWords.filter(w => hintUsedWords.has(w.toLowerCase()));
 
@@ -1071,7 +1089,7 @@ Respond entirely in ${feedbackLang}.`;
         }
 
         for (const w of wordsToSave) {
-          await saveProgress(w, isCorrect);
+          await saveProgress(w, wordResults[w.toLowerCase()] ?? isCorrect);
         }
 
         // Propose le QCM pour chaque mot raté
