@@ -388,9 +388,11 @@
       cursor: pointer;
       font-family: 'Lora', serif;
       font-size: 0.95rem;
-      padding: 0.75rem 1rem;
+      padding: 0.85rem 1.25rem;
       text-align: left;
       transition: border-color 0.2s;
+      display: block;
+      width: 100%;
     }
     .hint-word-btn:hover { border-color: var(--accent); }
 
@@ -801,7 +803,7 @@
     const SCOPES        = "https://www.googleapis.com/auth/spreadsheets";
     const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
     const MISTRAL_KEY   = "__MISTRAL_API_KEY__";
-    const MISTRAL_MODEL = "mistral-medium-latest";
+    const MISTRAL_MODEL = "mistral-large-latest";
 
     const KEY_PWD_OK    = "vocab_pwd_ok";
     const KEY_GG_TOKEN  = "vocab_google_token";
@@ -1272,6 +1274,8 @@ Respond entirely in ${langName}.`;
 
       const prompt = isSingle ? `You are a strict but encouraging ${langName} vocabulary teacher.
 
+IMPORTANT: Read the learner's sentence very carefully word by word before evaluating. Do not assume errors that are not present. If the learner wrote a conjugated form (e.g. "estaba", "fueron", "había"), accept it as the correct form of the word being practiced.
+
 The learner is practicing: "${currentWords[0]}" in ${langName}.
 Their sentence: "${sentence}"
 
@@ -1291,6 +1295,8 @@ Accept only if the sentence places the word in a specific context that reveals i
 Respond entirely in ${feedbackLang}. Be concise (4 sentences max).`
 
       : `You are a strict but encouraging ${langName} vocabulary teacher.
+
+IMPORTANT: Read the learner's text very carefully word by word before evaluating. Do not assume errors that are not present. Accept conjugated forms, inflections, and variants of the words being practiced.
 
 The learner is practicing these words: "${wordsList}" in ${langName}.
 Their text: "${sentence}"
@@ -1337,12 +1343,15 @@ Respond entirely in ${feedbackLang}.`;
         }
 
         // Enregistre dans History immédiatement (seulement la première tentative par session)
+        // Si aide utilisée → toujours ✗ dans l'historique
         currentWords.forEach(w => {
           const k = w.toLowerCase();
           if (!sessionFirstResult.hasOwnProperty(k)) {
-            const wordResult = wordResults[k] ?? isCorrect;
-            sessionFirstResult[k] = wordResult;
-            saveHistory(w, wordResult);
+            const rawResult    = wordResults[k] ?? isCorrect;
+            const hintWasUsed  = hintUsedWords.has(k);
+            const historyResult = hintWasUsed ? false : rawResult; // aide = échec dans History
+            sessionFirstResult[k] = historyResult;
+            saveHistory(w, historyResult);
           }
         });
 
@@ -1830,8 +1839,13 @@ Return ONLY a JSON array, no other text:
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
+        // Gras : **texte**
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        // Italique : *texte* (seulement si entouré de vrais délimiteurs, pas en début de ligne comme puce)
+        .replace(/(?<![*\n])\*(?!\*)(.+?)\*(?!\*)/g, '<em>$1</em>')
+        // Supprime les * résiduels utilisés comme puces en début de ligne
+        .replace(/^\s*\*\s+/gm, '• ')
+        // Sauts de ligne
         .replace(/\n/g, '<br>');
     }
 
@@ -1840,7 +1854,7 @@ Return ONLY a JSON array, no other text:
       const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
-        body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: 500, temperature: 0.4 })
+        body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: 500, temperature: 0.2 })
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
