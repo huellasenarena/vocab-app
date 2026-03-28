@@ -396,6 +396,12 @@
     }
     .hint-word-btn:hover { border-color: var(--accent); }
 
+    #hint-word-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
     /* ── Boîte définition ── */
     .hint-box {
       width: 100%; background: var(--surface); border: 1px solid var(--border);
@@ -1226,7 +1232,7 @@ Format exactly:
 **Définition :** ...
 **Registre :** (soutenu / courant / familier / littéraire / technique)
 **Collocations :** (2-3 mots ou expressions qui vont souvent avec ce mot)
-**Exemple :** ...
+**Exemple :** *...*
 
 Respond entirely in ${langName}.`;
 
@@ -1840,11 +1846,13 @@ Return ONLY a JSON array, no other text:
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         // Gras : **texte**
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        // Italique : *texte* (seulement si entouré de vrais délimiteurs, pas en début de ligne comme puce)
-        .replace(/(?<![*\n])\*(?!\*)(.+?)\*(?!\*)/g, '<em>$1</em>')
+        .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
+        // Italique sur une seule ligne : *texte* (pas de saut de ligne à l'intérieur)
+        .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
         // Supprime les * résiduels utilisés comme puces en début de ligne
         .replace(/^\s*\*\s+/gm, '• ')
+        // Supprime les * solitaires restants (début/fin de texte ou de ligne)
+        .replace(/\*/g, '')
         // Sauts de ligne
         .replace(/\n/g, '<br>');
     }
