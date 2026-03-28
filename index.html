@@ -1575,14 +1575,19 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
       const range  = encodeURIComponent('History!A:D');
       const url    = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
       try {
-        await fetch(url, {
+        const res  = await fetch(url, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ values: [[now, word, currentLang, result]] })
         });
-        console.log(`[History] ✓ ${word} → ${result}`);
+        const data = await res.json();
+        if (!res.ok) {
+          console.error(`[History] ✗ status=${res.status}`, JSON.stringify(data.error));
+        } else {
+          console.log(`[History] ✓ ${word} → ${result}`, data.updates?.updatedRange);
+        }
       } catch (err) {
-        console.error(`[History] Erreur :`, err.message);
+        console.error(`[History] Erreur réseau :`, err.message);
       }
     }
 
