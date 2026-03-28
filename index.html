@@ -1572,7 +1572,8 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
       const token  = localStorage.getItem(KEY_GG_TOKEN);
       const now    = new Date().toISOString();
       const result = isCorrect ? '✓' : '✗';
-      const url    = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/History%21A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+      const range  = encodeURIComponent('History!A:D');
+      const url    = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
       try {
         const res  = await fetch(url, {
           method: 'POST',
