@@ -691,10 +691,11 @@
       </div>
     </div>
 
-    <!-- Toggle mode espacé / libre -->
+    <!-- Toggle mode espacé / situation / libre -->
     <div class="mode-toggle">
-      <button class="mode-btn active" id="btn-mode-spaced" onclick="setMode('spaced')">📅 Révision espacée</button>
-      <button class="mode-btn"        id="btn-mode-free"   onclick="setMode('free')">🎲 Mode libre</button>
+      <button class="mode-btn active" id="btn-mode-spaced"    onclick="setMode('spaced')">📅 Espacée</button>
+      <button class="mode-btn"        id="btn-mode-situation" onclick="setMode('situation')">🎯 Situation</button>
+      <button class="mode-btn"        id="btn-mode-free"      onclick="setMode('free')">🎲 Libre</button>
     </div>
     <p class="due-count" id="due-count"></p>
 
@@ -740,13 +741,41 @@
       <div id="hint-text"></div>
     </div>
 
-    <!-- Zone phrase -->
-    <div class="sentence-section">
+    <!-- Zone phrase (modes espacé + libre) -->
+    <div class="sentence-section" id="sentence-section">
       <p class="sentence-label" id="sentence-label">Utilise ce mot dans une phrase :</p>
       <textarea id="sentence-input" rows="4" placeholder="Écris ta phrase ici…"></textarea>
       <button class="btn-primary" id="btn-submit" onclick="submitSentence()">
         Vérifier ✓
       </button>
+    </div>
+
+    <!-- Zone situation (mode situation) -->
+    <div class="situation-section" id="situation-section" style="display:none;">
+      <!-- Boîte situation générée par Mistral -->
+      <div class="hint-box" id="situation-box" style="display:none;">
+        <div class="hint-label">🎯 Situation</div>
+        <div id="situation-text"></div>
+      </div>
+      <!-- Champ de réponse -->
+      <div class="sentence-section" id="situation-answer-section" style="display:none;">
+        <p class="sentence-label" id="situation-prompt-label">Quel est ce mot ?</p>
+        <textarea id="situation-input" rows="2" placeholder="Écris le mot ici…"></textarea>
+        <div class="action-row">
+          <button class="btn-secondary" onclick="revealWord()">Je ne sais pas →</button>
+          <button class="btn-primary" id="btn-situation-submit" onclick="submitSituation()">Vérifier ✓</button>
+        </div>
+      </div>
+      <!-- Résultat situation -->
+      <div class="feedback-box" id="situation-feedback-box">
+        <div class="feedback-label" id="situation-feedback-label"></div>
+        <div id="situation-feedback-text"></div>
+      </div>
+      <!-- Mot révélé -->
+      <div class="hint-box" id="situation-reveal-box" style="display:none;">
+        <div class="hint-label">Le mot</div>
+        <div id="situation-revealed-word" style="font-size:1.4rem;font-weight:600;color:var(--accent);text-align:center;padding:0.5rem 0;"></div>
+      </div>
     </div>
 
     <!-- Feedback -->
@@ -1017,6 +1046,12 @@
       document.getElementById('qcm-result').textContent       = '';
       document.getElementById('related-box').classList.remove('visible');
       document.getElementById('related-chips').innerHTML      = '';
+      // Situation
+      document.getElementById('situation-box').style.display           = 'none';
+      document.getElementById('situation-answer-section').style.display = 'none';
+      document.getElementById('situation-feedback-box').classList.remove('visible', 'correct', 'incorrect');
+      document.getElementById('situation-reveal-box').style.display    = 'none';
+      document.getElementById('situation-input').value                 = '';
     }
 
     // ── Lecture mots ──────────────────────────────────────────
@@ -1054,8 +1089,14 @@
     // ── Mode de pratique ─────────────────────────────────────
     function setMode(mode) {
       practiceMode = mode;
-      document.getElementById('btn-mode-spaced').classList.toggle('active', mode === 'spaced');
-      document.getElementById('btn-mode-free').classList.toggle('active', mode === 'free');
+      document.getElementById('btn-mode-spaced').classList.toggle('active',    mode === 'spaced');
+      document.getElementById('btn-mode-free').classList.toggle('active',      mode === 'free');
+      // Ajoute le bouton situation s'il existe
+      const btnSit = document.getElementById('btn-mode-situation');
+      if (btnSit) btnSit.classList.toggle('active', mode === 'situation');
+      // Slider caché en mode situation
+      document.querySelector('.slider-section').style.display =
+        mode === 'situation' ? 'none' : '';
       pickWords();
     }
 
@@ -1112,6 +1153,15 @@
         return;
       }
 
+      // Affichage : mode situation cache la carte mot et les boutons hint/next
+      const isSituationMode = practiceMode === 'situation';
+      document.getElementById('sentence-section').style.display    = isSituationMode ? 'none' : '';
+      document.getElementById('situation-section').style.display   = isSituationMode ? '' : 'none';
+      document.getElementById('btn-hint').style.display            = isSituationMode ? 'none' : '';
+      document.getElementById('btn-next').style.display            = isSituationMode ? 'none' : '';
+      document.getElementById('single-word-card').style.display    = isSituationMode ? 'none' : '';
+      document.getElementById('multi-word-chips').style.display    = 'none';
+
       const n = wordCount();
 
       if (practiceMode === 'spaced') {
@@ -1122,29 +1172,54 @@
             : `✓ Tous les mots sont à jour !`;
 
         if (due.length === 0) {
-          // Plus rien à réviser — affiche message et propose mode libre
           document.getElementById('current-word').textContent     = '✓';
           document.getElementById('word-count-label').textContent = 'Reviens demain !';
           currentWords = [];
           return;
         }
-        // Pioche dans les mots dus
         currentWords = [];
         for (let i = 0; i < Math.min(n, due.length); i++) {
           currentWords.push(pickWeightedOne(currentWords, due));
         }
         document.getElementById('word-count-label').textContent = '';
+
+      } else if (practiceMode === 'situation') {
+        // Pioche uniquement les mots maîtrisés (★★★ = net >= 3)
+        const mastered = allWords.filter(w => {
+          const prog = progressMap[w.toLowerCase()];
+          return prog && (prog.correct - prog.incorrect) >= 3;
+        });
+
+        if (mastered.length === 0) {
+          document.getElementById('due-count').innerHTML =
+            `Aucun mot maîtrisé encore — continue à pratiquer pour débloquer ce mode !`;
+          document.getElementById('situation-section').style.display = 'none';
+          currentWords = [];
+          return;
+        }
+
+        document.getElementById('due-count').innerHTML =
+          `<span class="highlight">${mastered.length}</span> mot${mastered.length > 1 ? 's' : ''} maîtrisé${mastered.length > 1 ? 's' : ''}`;
+
+        // Choisit un mot aléatoire parmi les maîtrisés
+        const chosen = mastered[Math.floor(Math.random() * mastered.length)];
+        currentWords = [chosen];
+
+        // Lance la génération de la situation
+        generateSituation(chosen);
+
       } else {
-        // Mode libre — tirage pondéré habituel
+        // Mode libre
         const remaining = allWords.filter(w => getWeight(w) > 1).length;
         document.getElementById('due-count').innerHTML =
           `<span class="highlight">${remaining}</span> mot${remaining > 1 ? 's' : ''} à pratiquer`;
         document.getElementById('word-count-label').textContent = '';
         currentWords = [];
         for (let i = 0; i < n; i++) currentWords.push(pickWeightedOne(currentWords));
+        renderWordDisplay();
       }
 
-      renderWordDisplay();
+      if (practiceMode !== 'situation' && practiceMode !== 'free') renderWordDisplay();
     }
 
     function renderWordDisplay() {
@@ -1188,10 +1263,15 @@
     }
 
     async function nextWord() {
-      sessionFirstResult = {}; // réinitialise pour le prochain mot
+      sessionFirstResult = {};
       resetPracticeUI();
       pickWords();
       onSliderChange(wordCount());
+    }
+
+    function nextSituation() {
+      resetPracticeUI();
+      pickWords();
     }
 
     // ── Hint ─────────────────────────────────────────────────
@@ -1773,6 +1853,123 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
         grid.innerHTML = `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
       }
     }
+
+    // ── Mode Situation ────────────────────────────────────────
+    async function generateSituation(word) {
+      const sitBox  = document.getElementById('situation-box');
+      const sitText = document.getElementById('situation-text');
+      sitBox.style.display = 'block';
+      sitText.innerHTML = '<span class="spinner"></span>';
+      document.getElementById('situation-answer-section').style.display = 'none';
+
+      const langName = getLang().mistralName;
+      const prompt = `You are a language teacher. Create a vivid, concrete situation in ${langName} that clearly evokes the word or expression "${word}" WITHOUT mentioning the word itself, its direct synonyms, or its translation.
+
+The situation should be a short paragraph (2-4 sentences) describing a scene, a person, or an event that perfectly illustrates the meaning of "${word}". The reader who knows the word should immediately think of it.
+
+Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing else. Write entirely in ${langName}.`;
+
+      try {
+        const reply = await callMistral(prompt);
+        sitText.innerHTML = renderMarkdown(reply);
+        sitBox.style.display = 'block';
+        // Affiche le champ de réponse
+        const langInfo = getLang();
+        document.getElementById('situation-prompt-label').textContent =
+          langInfo.key === 'English' ? 'What is this word?' :
+          langInfo.key === 'Spanish' ? '¿Cuál es esta palabra?' :
+          langInfo.key === 'Greek'   ? 'Ποια είναι αυτή η λέξη;' :
+          'Quel est ce mot ?';
+        document.getElementById('situation-answer-section').style.display = '';
+        document.getElementById('situation-input').focus();
+      } catch (err) {
+        sitText.textContent = 'Erreur : ' + err.message;
+      }
+    }
+
+    async function submitSituation() {
+      const guess = document.getElementById('situation-input').value.trim();
+      if (!guess) return;
+
+      const btn = document.getElementById('btn-situation-submit');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+
+      const word     = currentWords[0];
+      const langName = getLang().mistralName;
+
+      const prompt = `The learner is trying to recall the ${langName} word or expression: "${word}".
+Their answer: "${guess}"
+
+Is their answer correct? Accept:
+- The exact word
+- Valid morphological variants (conjugated forms, gender/number variants)
+- Very close synonyms that demonstrate they understand the concept
+
+Respond with ONLY "✓" or "✗" on the first line, then one short sentence of explanation in ${langName}.`;
+
+      try {
+        const reply     = await callMistral(prompt);
+        const isCorrect = reply.startsWith('✓');
+        const fb        = document.getElementById('situation-feedback-box');
+        document.getElementById('situation-feedback-label').textContent = isCorrect ? '✓' : '✗';
+        document.getElementById('situation-feedback-text').innerHTML    = renderMarkdown(reply);
+        fb.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
+
+        if (!isCorrect) {
+          // Révèle le mot
+          document.getElementById('situation-revealed-word').textContent = word;
+          document.getElementById('situation-reveal-box').style.display  = 'block';
+        }
+
+        // Sauvegarde dans Progress et History
+        await saveProgress(word, isCorrect);
+        saveHistory(word, isCorrect);
+
+        // Bouton "Autre situation"
+        document.getElementById('situation-answer-section').style.display = 'none';
+        const nextBtn = document.createElement('button');
+        nextBtn.className   = 'btn-primary';
+        nextBtn.textContent = 'Autre situation →';
+        nextBtn.style.marginTop = '0.5rem';
+        nextBtn.onclick     = nextSituation;
+        document.getElementById('situation-feedback-box').after(nextBtn);
+
+      } catch (err) {
+        document.getElementById('situation-feedback-text').textContent = 'Erreur : ' + err.message;
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Vérifier ✓';
+    }
+
+    async function revealWord() {
+      const word = currentWords[0];
+      document.getElementById('situation-revealed-word').textContent = word;
+      document.getElementById('situation-reveal-box').style.display  = 'block';
+      document.getElementById('situation-answer-section').style.display = 'none';
+
+      // Pénalité légère : NextReview = demain
+      await saveProgress(word, false);
+      saveHistory(word, false);
+
+      // Bouton "Autre situation"
+      const nextBtn = document.createElement('button');
+      nextBtn.className   = 'btn-secondary';
+      nextBtn.textContent = 'Autre situation →';
+      nextBtn.style.marginTop = '0.5rem';
+      nextBtn.style.width = '100%';
+      nextBtn.onclick     = nextSituation;
+      document.getElementById('situation-reveal-box').after(nextBtn);
+    }
+
+    // Cmd+Enter pour soumettre la situation aussi
+    document.getElementById('situation-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        submitSituation();
+      }
+    });
 
     // ── Mots liés ─────────────────────────────────────────────
     async function fetchRelatedWords(word) {
