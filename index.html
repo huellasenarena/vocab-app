@@ -383,23 +383,23 @@
     .hint-word-btn {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 20px;
       color: var(--text);
       cursor: pointer;
       font-family: 'Lora', serif;
-      font-size: 0.95rem;
-      padding: 0.85rem 1.25rem;
-      text-align: left;
-      transition: border-color 0.2s;
-      display: block;
-      width: 100%;
+      font-size: 0.9rem;
+      padding: 0.4rem 1rem;
+      text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+      display: inline-block;
+      width: auto;
     }
-    .hint-word-btn:hover { border-color: var(--accent); }
+    .hint-word-btn:hover { border-color: var(--accent); background: #222; }
 
     #hint-word-buttons {
       display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
     }
 
     /* ── Boîte définition ── */
