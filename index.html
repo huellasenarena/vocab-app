@@ -1180,16 +1180,8 @@
     }
 
     async function nextWord() {
-      // Sauvegarde dans History les mots qui ont eu une première tentative
-      const wordsSnapshot = [...currentWords]; // copie avant resetPracticeUI
+      sessionFirstResult = {}; // réinitialise pour le prochain mot
       resetPracticeUI();
-      for (const word of wordsSnapshot) {
-        const key = word.toLowerCase();
-        if (sessionFirstResult.hasOwnProperty(key)) {
-          await saveHistory(word, sessionFirstResult[key]);
-          delete sessionFirstResult[key];
-        }
-      }
       pickWords();
       onSliderChange(wordCount());
     }
@@ -1329,31 +1321,30 @@ Respond entirely in ${feedbackLang}.`;
         // Fix 1: couleur basée sur le résultat Mistral, pas sur l'utilisation de l'aide
         feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
 
-        // Enregistre le premier résultat de la session pour chaque mot
-        currentWords.forEach(w => {
-          const k = w.toLowerCase();
-          if (!sessionFirstResult.hasOwnProperty(k)) {
-            sessionFirstResult[k] = isSingle ? isCorrect : (wordResults[k] ?? isCorrect);
-          }
-        });
-
         // Fix 2: score indépendant par mot en mode multi
-        // On détermine le résultat de chaque mot individuellement
         const wordResults = {};
         if (isSingle) {
           wordResults[currentWords[0].toLowerCase()] = isCorrect;
         } else {
-          // Analyse ligne par ligne : cherche "mot": ✓ ou ✗
           currentWords.forEach(w => {
             const line = lines.find(l => l.toLowerCase().includes(w.toLowerCase()));
             if (line) {
               wordResults[w.toLowerCase()] = line.includes('✓') && !line.includes('✗');
             } else {
-              // Si pas de ligne trouvée, on applique le verdict global
               wordResults[w.toLowerCase()] = isCorrect;
             }
           });
         }
+
+        // Enregistre dans History immédiatement (seulement la première tentative par session)
+        currentWords.forEach(w => {
+          const k = w.toLowerCase();
+          if (!sessionFirstResult.hasOwnProperty(k)) {
+            const wordResult = wordResults[k] ?? isCorrect;
+            sessionFirstResult[k] = wordResult;
+            saveHistory(w, wordResult);
+          }
+        });
 
         // Progression — mots sans aide : correct/incorrect comptabilisé individuellement
         const wordsToSave   = currentWords.filter(w => !hintUsedWords.has(w.toLowerCase()));
