@@ -1559,8 +1559,14 @@ Respond entirely in ${feedbackLang}.`;
           const hintWasUsed = hintUsedWords.has(k);
           const isNew      = isNewWord(w);
 
+          console.log(`[Debug] mot="${w}" isNew=${isNew} hintWasUsed=${hintWasUsed} wResult=${wResult} alreadySeen=${sessionFirstResult.hasOwnProperty(k)}`);
+          console.log(`[Debug] progressMap[k]=`, JSON.stringify(progressMap[k]));
+
           // Ignore les 2ème+ tentatives
-          if (sessionFirstResult.hasOwnProperty(k)) continue;
+          if (sessionFirstResult.hasOwnProperty(k)) {
+            console.log(`[Debug] → ignoré (2ème tentative)`);
+            continue;
+          }
 
           // Enregistre dans History (hint = ✗)
           const historyResult = hintWasUsed ? false : wResult;
@@ -1570,21 +1576,24 @@ Respond entirely in ${feedbackLang}.`;
           // Progression selon les règles
           if (isNew) {
             if (wResult) {
-              // Nouveau + ✓ → sort du pool, NextReview = demain, étoiles inchangées
+              console.log(`[Debug] → saveProgressNew`);
               await saveProgressNew(w);
               if (!sessionNewPracticed.has(k)) {
                 sessionNewPracticed.add(k);
                 todayNewCount++;
+                console.log(`[Debug] → saveTodayCount(${todayNewCount})`);
                 await saveTodayCount(todayNewCount);
               }
-            }
-            // Nouveau + ✗ → rien ne se passe
-          } else {
-            // Mot à réviser
-            if (hintWasUsed) {
-              await saveProgressReviewHint(w); // NextReview = demain, étoiles inchangées
             } else {
-              await saveProgress(w, wResult);  // SM-2 normal
+              console.log(`[Debug] → nouveau ✗, rien ne se passe`);
+            }
+          } else {
+            if (hintWasUsed) {
+              console.log(`[Debug] → saveProgressReviewHint`);
+              await saveProgressReviewHint(w);
+            } else {
+              console.log(`[Debug] → saveProgress SM-2`);
+              await saveProgress(w, wResult);
             }
           }
         }
