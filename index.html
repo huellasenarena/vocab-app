@@ -1171,10 +1171,26 @@
       const n = wordCount();
 
       if (practiceMode === 'spaced') {
-        const due = allWords.filter(w => isDue(w));
+        const MAX_NEW = 60; // max nouveaux mots jamais pratiqués par session
+
+        // Sépare les vrais mots à réviser des nouveaux jamais pratiqués
+        const trulyDue = allWords.filter(w => {
+          const prog = progressMap[w.toLowerCase()];
+          return prog && prog.nextReview && isDue(w);
+        });
+        const neverPracticed = allWords.filter(w => {
+          const prog = progressMap[w.toLowerCase()];
+          return !prog || !prog.nextReview;
+        });
+
+        const newToShow   = neverPracticed.slice(0, MAX_NEW);
+        const due         = [...trulyDue, ...newToShow];
+        const totalDue    = trulyDue.length;
+        const totalNew    = neverPracticed.length;
+
         document.getElementById('due-count').innerHTML =
           due.length > 0
-            ? `<span class="highlight">${due.length}</span> mot${due.length > 1 ? 's' : ''} à réviser aujourd'hui`
+            ? `<span class="highlight">${totalDue}</span> à réviser · <span class="highlight">${Math.min(MAX_NEW, totalNew)}</span> nouveaux (${totalNew} restants)`
             : `✓ Tous les mots sont à jour !`;
 
         if (due.length === 0) {
@@ -1310,29 +1326,22 @@ Give the definition and one rich example sentence for: "${word}"
 
 Rules:
 - Treat it as a word or expression in ${langName}. It may be archaic, obsolete, dialectal, literary, or rare — accept it as such and explain its historical or specialized usage.
-- Do NOT say the word doesn't exist. If it is archaic or obsolete, say so when describing its register.
+- Do NOT say the word doesn't exist. If it is archaic or obsolete, say so in the register field.
 - If it has multiple meanings, give the most useful one for a language learner.
 - The example must clearly illustrate the word's meaning in a realistic context.
 
-Structure your response in exactly four sections, using natural labels in ${langName} for each:
-1. The definition of the word
-2. Its register or stylistic level (e.g. formal, neutral, familiar, literary, technical, archaic)
-3. Two or three words or expressions often used together with this word
-4. One example sentence in italics
+Format exactly:
+**Définition :** ...
+**Registre :** (soutenu / courant / familier / littéraire / technique)
+**Collocations :** (2-3 mots ou expressions qui vont souvent avec ce mot)
+**Exemple :** *...*
 
 Respond entirely in ${langName}.`;
 
-      const hintTextEl = document.getElementById('hint-text');
-      const hintBox    = document.getElementById('hint-box');
-
       try {
-        hintTextEl.innerHTML = '';
-        hintBox.classList.add('visible');
-
-        await callMistralStream(prompt, fullText => {
-          hintTextEl.innerHTML = renderMarkdown(fullText);
-        });
-
+        const reply = await callMistral(prompt);
+        document.getElementById('hint-text').innerHTML = renderMarkdown(reply);
+        document.getElementById('hint-box').classList.add('visible');
         hintUsedWords.add(word.toLowerCase());
         if (currentWords.length === 1) {
           document.getElementById('hint-used-badge').classList.add('visible');
@@ -1340,8 +1349,8 @@ Respond entirely in ${langName}.`;
         // Sauvegarde dans Sheets (colonne HintUsed)
         await saveHint(word);
       } catch (err) {
-        hintTextEl.textContent = 'Erreur : ' + err.message;
-        hintBox.classList.add('visible');
+        document.getElementById('hint-text').textContent = 'Erreur : ' + err.message;
+        document.getElementById('hint-box').classList.add('visible');
       }
       btn.disabled = false;
       btn.textContent = '💡 Définition';
@@ -1371,66 +1380,50 @@ Respond entirely in ${langName}.`;
 
       const isSingle = currentWords.length === 1;
 
-      const prompt = isSingle ? `You are a strict but encouraging and fair ${langName} vocabulary teacher.
+      const prompt = isSingle ? `You are a strict but encouraging ${langName} vocabulary teacher.
 
-The learner is practicing the word or expression: "${currentWords[0]}" in ${langName}.
+IMPORTANT: Read the learner's sentence very carefully word by word before evaluating. Do not assume errors that are not present. If the learner wrote a conjugated form (e.g. "estaba", "fueron", "había"), accept it as the correct form of the word being practiced.
+
+The learner is practicing: "${currentWords[0]}" in ${langName}.
 Their sentence: "${sentence}"
 
-Reason through the following steps internally before responding:
-
-STEP 1 — Identify the exact form the learner used that corresponds to "${currentWords[0]}".
-
-STEP 2 — Is it valid? Accept any form that belongs to the same lexical root as "${currentWords[0]}" — including the infinitive, all conjugations, all tenses, gender/number variants, and derived forms. The target word may itself be a conjugated or inflected form; in that case, also accept the infinitive and all other conjugations of the same verb. Accept archaic, obsolete, literary, and dialectal forms in their appropriate register. Only reject if the form has no plausible relationship to the lexical root of "${currentWords[0]}".
-
-STEP 3 — Does the sentence place the word in a context that genuinely reveals its meaning?
+Evaluate using TWO criteria:
+CRITERION 1 — Correct usage: Is "${currentWords[0]}" (or any valid morphological variant: conjugated forms, tenses, gender/number agreements, comparative/superlative forms, etc.) used correctly? Accept any legitimate inflected form of the word. The word may be archaic, obsolete, dialectal, or literary — evaluate it in that context and do NOT reject it simply because it is rare or old-fashioned.
+CRITERION 2 — Demonstrated understanding: Does the sentence show the learner truly understands what "${currentWords[0]}" means?
 Reject if:
-- The sentence is a bare fragment (e.g. just the word alone)
-- The structure is only "subject + is/est/es + word" with no further context
-- The word could be swapped for any other word without changing the sentence structure
+- The sentence is a bare fragment (e.g. just the word alone, or "une enquête qui sera menée" with no context)
+- The structure is "subject + is/est/es + word" with nothing else (e.g. "he is insatiable", "il est insatiable") — this tells us nothing about what the word means
+- The word could be swapped for any adjective/noun/verb without changing the sentence structure
 
-STEP 4 — Form your verdict.
+Accept only if the sentence places the word in a specific context that reveals its meaning — the reader should understand what the word means just from reading the sentence.
 
-Do NOT display the steps or your internal reasoning. Show the learner only the final verdict:
-- ✓ ONLY if BOTH Step 2 and Step 3 pass — briefly explain what works, then on a new line: **Version enrichie :** + an improved or more sophisticated version of the learner's sentence (keep their idea, make it richer)
-- ✗ if either Step 2 or Step 3 fails — explain specifically why, then give ONE strong example sentence that demonstrates the word's meaning
+- ✓ ONLY if BOTH criteria are met — then briefly explain what's good, and on a new line add: **Version enrichie :** + an improved or more sophisticated version of the learner's sentence (keep their idea but make it richer/more precise)
+- ✗ if either fails — be specific about WHY the sentence doesn't demonstrate understanding, then give ONE strong example sentence that does
 
 Respond entirely in ${feedbackLang}. Be concise (4 sentences max).`
 
-      : `You are a strict but encouraging and fair ${langName} vocabulary teacher.
+      : `You are a strict but encouraging ${langName} vocabulary teacher.
+
+IMPORTANT: Read the learner's text very carefully word by word before evaluating. Do not assume errors that are not present. Accept conjugated forms, inflections, and variants of the words being practiced.
 
 The learner is practicing these words: "${wordsList}" in ${langName}.
 Their text: "${sentence}"
 
-Reason through the following steps internally before responding:
+For EACH word, evaluate:
+1. Is it used correctly (grammar and meaning)?
+2. Does the text demonstrate understanding of its meaning? (reject vague or generic usage)
 
-STEP 1 — For each word, identify the exact form the learner used.
-
-STEP 2 — For each word, is the form valid? Accept any form belonging to the same lexical root — including the infinitive, all conjugations, tenses, and gender/number variants. The target word may itself be a conjugated form; in that case, also accept the infinitive and all other conjugations of the same verb.
-
-STEP 3 — For each word, does the text show genuine understanding of its meaning? Reject vague or purely generic usage.
-
-STEP 4 — Form your verdict.
-
-Do NOT display the steps or your internal reasoning. Show the learner only:
-
-First line: overall verdict — ✓ if ALL words pass Steps 2 and 3, ✗ if any word fails.
-
-Then for each word, one line:
-- "${currentWords[0]}": ✓ or ✗ + brief comment on usage and demonstrated meaning
+Format your response as a list, one line per word:
+- "${currentWords[0]}": ✓ or ✗ + brief comment
 - "${currentWords[1]}": ✓ or ✗ + brief comment
-(continue for all words)
+(etc.)
 
-If the overall verdict is ✓, add on a new line: **Version enrichie :** + an improved or more sophisticated version of the learner's full text (keep their ideas, make it richer and more precise).
+Then on a new line: overall verdict — start with "✓" if ALL words are correct, "✗" if any word fails.
 
-Respond entirely in ${feedbackLang}.`
+Respond entirely in ${feedbackLang}.`;
 
       try {
-        feedbackText.innerHTML = '';
-        feedbackBox.classList.add('visible');
-
-        const reply = await callMistralStream(prompt, fullText => {
-          feedbackText.innerHTML = renderMarkdown(fullText);
-        });
+        const reply = await callMistral(prompt);
 
         // Cherche le verdict : priorité à la première ligne qui commence par ✓ ou ✗
         const lines     = reply.split('\n').map(l => l.trim()).filter(Boolean);
@@ -1438,7 +1431,9 @@ Respond entirely in ${feedbackLang}.`
         const isCorrect = verdict.startsWith('✓');
 
         feedbackLabel.textContent = isCorrect ? '✓' : '✗';
-        feedbackBox.classList.add(isCorrect ? 'correct' : 'incorrect');
+        feedbackText.innerHTML = renderMarkdown(reply);
+        // Fix 1: couleur basée sur le résultat Mistral, pas sur l'utilisation de l'aide
+        feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
 
         // Fix 2: score indépendant par mot en mode multi
         const wordResults = {};
@@ -1546,7 +1541,7 @@ Return ONLY a JSON array of 4 objects, no other text, no markdown:
   {"text": "...", "correct": false}
 ]
 
-Write all definitions in ${langName}.`;
+Write all definitions in ${langName}. Shuffle the order randomly.`;
 
       try {
         const reply = await callMistral(prompt);
@@ -1554,12 +1549,6 @@ Write all definitions in ${langName}.`;
         const jsonMatch = reply.match(/\[[\s\S]*\]/);
         if (!jsonMatch) throw new Error('Format inattendu');
         const choices = JSON.parse(jsonMatch[0]);
-
-        // Shuffle in JS for true randomness
-        for (let i = choices.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [choices[i], choices[j]] = [choices[j], choices[i]];
-        }
 
         choicesEl.innerHTML = choices.map((c, i) =>
           `<button class="qcm-choice" onclick="checkQCM(this, ${c.correct}, ${i})">${c.text}</button>`
@@ -1903,12 +1892,8 @@ The situation should be a short paragraph (2-4 sentences) describing a scene, a 
 Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing else. Write entirely in ${langName}.`;
 
       try {
-        sitText.innerHTML = '';
-
-        await callMistralStream(prompt, fullText => {
-          sitText.innerHTML = renderMarkdown(fullText);
-        });
-
+        const reply = await callMistral(prompt);
+        sitText.innerHTML = renderMarkdown(reply);
         sitBox.style.display = 'block';
         // Affiche le champ de réponse
         const langInfo = getLang();
@@ -1935,36 +1920,23 @@ Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing
       const word     = currentWords[0];
       const langName = getLang().mistralName;
 
-      const prompt = `You are a strict but encouraging and fair ${langName} vocabulary teacher.
-
-The learner is trying to recall the ${langName} word or expression: "${word}".
+      const prompt = `The learner is trying to recall the ${langName} word or expression: "${word}".
 Their answer: "${guess}"
 
-Reason through the following steps internally before responding:
+Is their answer correct? Accept:
+- The exact word
+- Valid morphological variants (conjugated forms, gender/number variants)
+- Very close synonyms that demonstrate they understand the concept
 
-STEP 1 — Note what the learner wrote.
-
-STEP 2 — Is it valid? Accept: the exact word, any form belonging to the same lexical root (infinitive, all conjugations, all tenses, gender/number variants), or a very close synonym that demonstrates genuine understanding of the concept. The target word may itself be a conjugated form; in that case, also accept the infinitive and all other conjugations of the same verb.
-
-STEP 3 — Form your verdict.
-
-Do NOT display the steps or your internal reasoning. Show the learner only:
-- ✓ on the first line if valid, then one short sentence of explanation in ${langName}
-- ✗ on the first line if invalid, then one short sentence explaining the correct answer in ${langName}`;
+Respond with ONLY "✓" or "✗" on the first line, then one short sentence of explanation in ${langName}.`;
 
       try {
-        const fb      = document.getElementById('situation-feedback-box');
-        const fbText  = document.getElementById('situation-feedback-text');
-        fbText.innerHTML = '';
-        fb.classList.add('visible');
-
-        const reply     = await callMistralStream(prompt, fullText => {
-          fbText.innerHTML = renderMarkdown(fullText);
-        });
-
+        const reply     = await callMistral(prompt);
         const isCorrect = reply.startsWith('✓');
+        const fb        = document.getElementById('situation-feedback-box');
         document.getElementById('situation-feedback-label').textContent = isCorrect ? '✓' : '✗';
-        fb.classList.add(isCorrect ? 'correct' : 'incorrect');
+        document.getElementById('situation-feedback-text').innerHTML    = renderMarkdown(reply);
+        fb.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
 
         if (!isCorrect) {
           // Révèle le mot
@@ -2104,7 +2076,7 @@ Return ONLY a JSON array, no other text:
         .replace(/\n/g, '<br>');
     }
 
-    // ── Appel Mistral (standard, pour JSON) ──────────────────
+    // ── Appel Mistral ─────────────────────────────────────────
     async function callMistral(prompt) {
       const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST',
@@ -2114,44 +2086,6 @@ Return ONLY a JSON array, no other text:
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
       return data.choices[0].message.content.trim();
-    }
-
-    // ── Appel Mistral (streaming, pour affichage progressif) ─
-    // onChunk(fullTextSoFar) est appelé à chaque nouveau fragment.
-    // Retourne le texte complet une fois terminé.
-    async function callMistralStream(prompt, onChunk) {
-      const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
-        body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: 500, temperature: 0.2, stream: true })
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error?.message || `HTTP ${res.status}`);
-      }
-      const reader  = res.body.getReader();
-      const decoder = new TextDecoder();
-      let fullText  = '';
-      let buffer    = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop(); // garde la dernière ligne incomplète
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const payload = line.slice(6).trim();
-          if (payload === '[DONE]') break;
-          try {
-            const parsed  = JSON.parse(payload);
-            const content = parsed.choices?.[0]?.delta?.content || '';
-            if (content) { fullText += content; onChunk(fullText); }
-          } catch {}
-        }
-      }
-      return fullText.trim();
     }
 
     // ── SHA-256 ───────────────────────────────────────────────
