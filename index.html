@@ -1310,15 +1310,15 @@ Give the definition and one rich example sentence for: "${word}"
 
 Rules:
 - Treat it as a word or expression in ${langName}. It may be archaic, obsolete, dialectal, literary, or rare — accept it as such and explain its historical or specialized usage.
-- Do NOT say the word doesn't exist. If it is archaic or obsolete, say so in the register field.
+- Do NOT say the word doesn't exist. If it is archaic or obsolete, say so when describing its register.
 - If it has multiple meanings, give the most useful one for a language learner.
 - The example must clearly illustrate the word's meaning in a realistic context.
 
-Format your response with exactly these four clearly labeled sections, all written in ${langName}:
-**Definition:** ...
-**Register:** (e.g. formal / neutral / familiar / literary / technical / archaic)
-**Collocations:** (2-3 words or expressions often used together with this word)
-**Example:** *...*
+Structure your response in exactly four sections, using natural labels in ${langName} for each:
+1. The definition of the word
+2. Its register or stylistic level (e.g. formal, neutral, familiar, literary, technical, archaic)
+3. Two or three words or expressions often used together with this word
+4. One example sentence in italics
 
 Respond entirely in ${langName}.`;
 
@@ -1369,23 +1369,25 @@ Respond entirely in ${langName}.`;
 The learner is practicing the word or expression: "${currentWords[0]}" in ${langName}.
 Their sentence: "${sentence}"
 
-Follow these steps explicitly and in order:
+Reason through the following steps internally before responding:
 
-STEP 1 — Identify the form used: Find the exact word or form the learner used in their sentence that corresponds to "${currentWords[0]}". State it clearly: "Form used: ..."
+STEP 1 — Identify the exact form the learner used that corresponds to "${currentWords[0]}".
 
-STEP 2 — Validate the form: Is the form identified in Step 1 a legitimate inflection, conjugation, or morphological variant of "${currentWords[0]}"? Answer YES or NO — do not list other possible variants. Accept archaic, obsolete, literary, and dialectal forms in their appropriate register. Only answer NO if the form used has no plausible relationship to "${currentWords[0]}".
+STEP 2 — Is it valid? Accept any form that belongs to the same lexical root as "${currentWords[0]}" — including the infinitive, all conjugations, all tenses, gender/number variants, and derived forms. The target word may itself be a conjugated or inflected form; in that case, also accept the infinitive and all other conjugations of the same verb. Accept archaic, obsolete, literary, and dialectal forms in their appropriate register. Only reject if the form has no plausible relationship to the lexical root of "${currentWords[0]}".
 
-STEP 3 — Evaluate meaning: Does the sentence place the word in a context that genuinely reveals its meaning?
+STEP 3 — Does the sentence place the word in a context that genuinely reveals its meaning?
 Reject if:
 - The sentence is a bare fragment (e.g. just the word alone)
 - The structure is only "subject + is/est/es + word" with no further context
 - The word could be swapped for any other word without changing the sentence structure
 
-STEP 4 — Verdict:
-- ✓ ONLY if BOTH Step 2 and Step 3 are YES — briefly explain what works, then on a new line: **Version enrichie :** + an improved or more sophisticated version of the learner's sentence (keep their idea, make it richer)
-- ✗ if either Step 2 or Step 3 fails — explain specifically which step failed and why, then give ONE strong example sentence that demonstrates the word's meaning
+STEP 4 — Form your verdict.
 
-Respond entirely in ${feedbackLang}. Be concise (5 sentences max).`
+Do NOT display the steps or your internal reasoning. Show the learner only the final verdict:
+- ✓ ONLY if BOTH Step 2 and Step 3 pass — briefly explain what works, then on a new line: **Version enrichie :** + an improved or more sophisticated version of the learner's sentence (keep their idea, make it richer)
+- ✗ if either Step 2 or Step 3 fails — explain specifically why, then give ONE strong example sentence that demonstrates the word's meaning
+
+Respond entirely in ${feedbackLang}. Be concise (4 sentences max).`
 
       : `You are a strict but fair ${langName} vocabulary teacher.
 
@@ -1400,9 +1402,8 @@ Then for each word, one line in this exact format:
 (continue for all words)
 
 For each word, check:
-1. Is it correctly used (grammar, appropriate inflected form)?
+1. Is it correctly used? Accept any form belonging to the same lexical root — including the infinitive, all conjugations, tenses, and gender/number variants. The target word may itself be a conjugated form; in that case, also accept the infinitive and all other conjugations of the same verb.
 2. Does the text show genuine understanding of its meaning? Reject vague or purely generic usage.
-Accept any legitimate morphological variant of each word (conjugated forms, gender/number, tenses). Do not list possible variants — simply accept or reject the form used.
 
 Respond entirely in ${feedbackLang}.`
 
@@ -1915,15 +1916,17 @@ Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing
 The learner is trying to recall the ${langName} word or expression: "${word}".
 Their answer: "${guess}"
 
-Follow these steps explicitly:
+Reason through the following steps internally before responding:
 
-STEP 1 — State what the learner wrote: "Answer given: ..."
+STEP 1 — Note what the learner wrote.
 
-STEP 2 — Is it valid? Accept: the exact word or expression, any legitimate morphological variant (conjugated form, gender/number variant), or a very close synonym that demonstrates genuine understanding of the concept. Do not list other valid forms — simply answer YES or NO.
+STEP 2 — Is it valid? Accept: the exact word, any form belonging to the same lexical root (infinitive, all conjugations, all tenses, gender/number variants), or a very close synonym that demonstrates genuine understanding of the concept. The target word may itself be a conjugated form; in that case, also accept the infinitive and all other conjugations of the same verb.
 
-STEP 3 — First line of your response must be ✓ or ✗ alone, then one short sentence of explanation in ${langName}.
-- ✓ if Step 2 is YES
-- ✗ if Step 2 is NO — briefly explain what the correct answer is`;
+STEP 3 — Form your verdict.
+
+Do NOT display the steps or your internal reasoning. Show the learner only:
+- ✓ on the first line if valid, then one short sentence of explanation in ${langName}
+- ✗ on the first line if invalid, then one short sentence explaining the correct answer in ${langName}`;
 
       try {
         const reply     = await callMistral(prompt);
