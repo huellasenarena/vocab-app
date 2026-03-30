@@ -880,12 +880,15 @@
     // ── État global ───────────────────────────────────────────
     let allWords           = [];
     let progressMap        = {};
-    let currentWords       = [];
+    let currentWords       = [];;
     let currentLang        = "";
     let hintUsedWords      = new Set();
     let qcmWord            = "";
     let practiceMode       = 'spaced';
     let sessionFirstResult = {}; // { word.toLowerCase(): true/false } — premier résultat de la session
+    let todayNewCount      = 0;  // nouveaux mots pratiqués aujourd'hui (chargé depuis Sheets)
+    let sessionNewPracticed = new Set(); // nouveaux mots pratiqués dans cette session (pour éviter double-comptage)
+    const MAX_NEW_PER_DAY  = 60;
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
@@ -1029,8 +1032,80 @@
       resetPracticeUI();
       onSliderChange(wordCount());
       document.getElementById('word-count-label').textContent = 'chargement...';
-      await Promise.all([ loadWords(lang), loadProgress(lang) ]);
+      await Promise.all([ loadWords(lang), loadProgress(lang), loadTodayCount() ]);
       pickWords();
+    }
+
+    // ── Session : compteur journalier dans Sheets ─────────────
+    function todayStr() {
+      return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    }
+
+    async function loadTodayCount() {
+      const token = localStorage.getItem(KEY_GG_TOKEN);
+      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Session!A:B`;
+      try {
+        const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        const rows = (data.values || []).slice(1); // skip header
+        const today = todayStr();
+        const row   = rows.find(r => r[0] === today);
+        todayNewCount = row ? (parseInt(row[1]) || 0) : 0;
+        sessionNewPracticed = new Set(); // reset pour cette session
+      } catch (e) {
+        todayNewCount = 0;
+      }
+    }
+
+    async function saveTodayCount(newCount) {
+      const token = localStorage.getItem(KEY_GG_TOKEN);
+      const today = todayStr();
+      // Cherche si une ligne existe déjà pour aujourd'hui
+      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Session!A:B`;
+      try {
+        const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        const rows = (data.values || []).slice(1);
+        const idx  = rows.findIndex(r => r[0] === today);
+
+        if (idx >= 0) {
+          // Met à jour la ligne existante (idx+2 car 1-indexed + header)
+          const range = encodeURIComponent(`Session!B${idx + 2}`);
+          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: [[newCount]] })
+          });
+        } else {
+          // Nouvelle ligne
+          const range = encodeURIComponent('Session!A:B');
+          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: [[today, newCount]] })
+          });
+        }
+      } catch (e) {
+        console.error('[Session] Erreur saveTodayCount:', e.message);
+      }
+    }
+
+    // Retourne true si le mot est "nouveau" (jamais eu de NextReview)
+    function isNewWord(word) {
+      const prog = progressMap[word.toLowerCase()];
+      return !prog || !prog.nextReview;
+    }
+
+    function updateDueCountDisplay(nDue, newRemaining, totalNew) {
+      const el = document.getElementById('due-count');
+      if (nDue === 0 && newRemaining === 0) {
+        el.innerHTML = `✓ Tout fait pour aujourd'hui — reviens demain !`;
+      } else {
+        const parts = [];
+        if (nDue > 0) parts.push(`<span class="highlight">${nDue}</span> à réviser`);
+        if (newRemaining > 0) parts.push(`<span class="highlight">${newRemaining}</span> nouveaux restants (${totalNew} au total)`);
+        el.innerHTML = parts.join(' · ');
+      }
     }
 
     function resetPracticeUI() {
@@ -1171,27 +1246,19 @@
       const n = wordCount();
 
       if (practiceMode === 'spaced') {
-        const MAX_NEW = 60; // max nouveaux mots jamais pratiqués par session
-
-        // Sépare les vrais mots à réviser des nouveaux jamais pratiqués
+        // Sépare les mots à réviser des nouveaux
         const trulyDue = allWords.filter(w => {
           const prog = progressMap[w.toLowerCase()];
           return prog && prog.nextReview && isDue(w);
         });
-        const neverPracticed = allWords.filter(w => {
-          const prog = progressMap[w.toLowerCase()];
-          return !prog || !prog.nextReview;
-        });
+        const neverPracticed = allWords.filter(w => isNewWord(w));
 
-        const newToShow   = neverPracticed.slice(0, MAX_NEW);
-        const due         = [...trulyDue, ...newToShow];
-        const totalDue    = trulyDue.length;
-        const totalNew    = neverPracticed.length;
+        // Nouveaux restants aujourd'hui
+        const newRemaining = Math.max(0, MAX_NEW_PER_DAY - todayNewCount);
+        const newToShow    = neverPracticed.slice(0, newRemaining);
+        const due          = [...trulyDue, ...newToShow];
 
-        document.getElementById('due-count').innerHTML =
-          due.length > 0
-            ? `<span class="highlight">${totalDue}</span> à réviser · <span class="highlight">${Math.min(MAX_NEW, totalNew)}</span> nouveaux (${totalNew} restants)`
-            : `✓ Tous les mots sont à jour !`;
+        updateDueCountDisplay(trulyDue.length, newRemaining, neverPracticed.length);
 
         if (due.length === 0) {
           document.getElementById('current-word').textContent     = '✓';
@@ -1204,6 +1271,13 @@
           currentWords.push(pickWeightedOne(currentWords, due));
         }
         document.getElementById('word-count-label').textContent = '';
+
+        // Cache le bouton hint pour les mots à réviser (mode 1 mot)
+        if (n === 1 && !isNewWord(currentWords[0])) {
+          document.getElementById('btn-hint').style.display = 'none';
+        } else {
+          document.getElementById('btn-hint').style.display = isSituationMode ? 'none' : '';
+        }
 
       } else if (practiceMode === 'situation') {
         // Pioche uniquement les mots maîtrisés (★★★ = net >= 3)
@@ -1264,6 +1338,12 @@
             <span class="chip-stars ${starsInfo.cls}">${starsInfo.str}</span>
           </div>`;
         }).join('');
+      }
+
+      // En mode espacé, cache le hint pour les mots à réviser (1 mot seulement)
+      if (practiceMode === 'spaced' && n === 1) {
+        const isNew = isNewWord(currentWords[0]);
+        document.getElementById('btn-hint').style.display = isNew ? '' : 'none';
       }
     }
 
@@ -1483,18 +1563,58 @@ Respond entirely in ${feedbackLang}.`;
           }
         });
 
-        // Progression — mots sans aide : correct/incorrect comptabilisé individuellement
-        const wordsToSave   = currentWords.filter(w => !hintUsedWords.has(w.toLowerCase()));
-        const wordsWithHelp = currentWords.filter(w => hintUsedWords.has(w.toLowerCase()));
+        // ── Nouvelles règles de progression ──────────────────
+        for (const w of currentWords) {
+          const k          = w.toLowerCase();
+          const wResult    = wordResults[k] ?? isCorrect;
+          const hintWasUsed = hintUsedWords.has(k);
+          const isNew      = isNewWord(w);
+          const isFirst    = !sessionFirstResult.hasOwnProperty(k);
 
+          if (!isFirst) continue; // 2ème+ tentative → ignoré
+
+          // Enregistre pour History (hint utilisé = ✗ dans l'historique)
+          sessionFirstResult[k] = hintWasUsed ? false : wResult;
+          saveHistory(w, sessionFirstResult[k]);
+
+          if (isNew) {
+            // MOT NOUVEAU
+            if (wResult) {
+              // ✓ (avec ou sans hint) → sort du pool, NextReview = demain, étoiles inchangées
+              await saveProgressNew(w, true, hintWasUsed);
+              if (!sessionNewPracticed.has(k)) {
+                sessionNewPracticed.add(k);
+                todayNewCount++;
+                await saveTodayCount(todayNewCount);
+              }
+            }
+            // ✗ → rien ne se passe (reste dans le pool)
+          } else {
+            // MOT À RÉVISER
+            if (hintWasUsed) {
+              // hint utilisé → NextReview = demain, étoiles inchangées
+              await saveProgressReviewHint(w);
+            } else {
+              // sans hint → SM-2 normal
+              await saveProgress(w, wResult);
+            }
+          }
+        }
+
+        // Affiche notice aide
+        const wordsWithHelp = currentWords.filter(w => hintUsedWords.has(w.toLowerCase()));
         if (wordsWithHelp.length > 0) {
-          noCountNotice.textContent = `(aide utilisée pour ${wordsWithHelp.join(', ')} — score non comptabilisé)`;
+          noCountNotice.textContent = `(aide utilisée — non comptabilisé dans les étoiles)`;
         } else {
           noCountNotice.textContent = '';
         }
 
-        for (const w of wordsToSave) {
-          await saveProgress(w, wordResults[w.toLowerCase()] ?? isCorrect);
+        // Met à jour le compteur affiché
+        if (practiceMode === 'spaced') {
+          const trulyDue     = allWords.filter(w => { const p = progressMap[w.toLowerCase()]; return p && p.nextReview && isDue(w); });
+          const neverPrac    = allWords.filter(w => isNewWord(w));
+          const newRemaining = Math.max(0, MAX_NEW_PER_DAY - todayNewCount);
+          updateDueCountDisplay(trulyDue.length, newRemaining, neverPrac.length);
         }
 
         // Mots liés après ✓ (seulement en mode 1 mot pour garder l'interface propre)
@@ -1638,7 +1758,69 @@ Write all definitions in ${langName}.`;
       }
     }
 
-    // ── Écriture progression ──────────────────────────────────
+    // ── Mot nouveau ✓ → NextReview = demain, étoiles inchangées ─
+    async function saveProgressNew(word, isCorrect, hintUsed) {
+      const token    = localStorage.getItem(KEY_GG_TOKEN);
+      const key      = word.toLowerCase();
+      const existing = progressMap[key];
+      const now      = new Date().toISOString();
+      const nextReview = addDays(1); // toujours demain pour les nouveaux
+
+      try {
+        if (existing) {
+          // Met à jour seulement NextReview et LastPracticed, pas les étoiles
+          const range = `Progress!E${existing.rowIndex}:G${existing.rowIndex}`;
+          const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+          await fetch(url, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: [[now, existing.hintUsed || 0, nextReview]] })
+          });
+          progressMap[key].nextReview = nextReview;
+        } else {
+          // Nouvelle entrée : correct/incorrect = 0 (étoiles neutres), NextReview = demain
+          const range = encodeURIComponent('Progress!A:G');
+          const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+          const res   = await fetch(url, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: [[word, currentLang, 0, 0, now, 0, nextReview]] })
+          });
+          const data   = await res.json();
+          const match  = (data.updates?.updatedRange || '').match(/(\d+)$/);
+          progressMap[key] = { correct: 0, incorrect: 0, hintUsed: 0, nextReview, rowIndex: match ? parseInt(match[1]) : null };
+        }
+        console.log(`[Session] Nouveau mot sorti du pool : ${word}`);
+      } catch (err) {
+        console.error('[Session] Erreur saveProgressNew:', err.message);
+      }
+    }
+
+    // ── Mot à réviser + hint → NextReview = demain, étoiles inchangées ─
+    async function saveProgressReviewHint(word) {
+      const token    = localStorage.getItem(KEY_GG_TOKEN);
+      const key      = word.toLowerCase();
+      const existing = progressMap[key];
+      const now      = new Date().toISOString();
+      const nextReview = addDays(1);
+
+      if (!existing) return;
+      try {
+        const range = `Progress!E${existing.rowIndex}:G${existing.rowIndex}`;
+        const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+        await fetch(url, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [[now, existing.hintUsed || 0, nextReview]] })
+        });
+        progressMap[key].nextReview = nextReview;
+        console.log(`[Session] Révision avec hint : ${word} → demain`);
+      } catch (err) {
+        console.error('[Session] Erreur saveProgressReviewHint:', err.message);
+      }
+    }
+
+    // ── Écriture progression (SM-2 normal) ────────────────────
     async function saveProgress(word, isCorrect) {
       const token    = localStorage.getItem(KEY_GG_TOKEN);
       const key      = word.toLowerCase();
@@ -1689,6 +1871,13 @@ Write all definitions in ${langName}.`;
         }
 
         if (currentWords.length === 1) updateStars(word);
+        // Met à jour le compteur en mode espacé
+        if (practiceMode === 'spaced') {
+          const trulyDue     = allWords.filter(w => { const p = progressMap[w.toLowerCase()]; return p && p.nextReview && isDue(w); });
+          const neverPrac    = allWords.filter(w => isNewWord(w));
+          const newRemaining = Math.max(0, MAX_NEW_PER_DAY - todayNewCount);
+          updateDueCountDisplay(trulyDue.length, newRemaining, neverPrac.length);
+        }
         console.log(`[Sheets] ✓ Progression sauvegardée : ${word} (${isCorrect ? '✓' : '✗'})`);
 
       } catch (err) {
@@ -1917,7 +2106,6 @@ Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing
         await callMistralStream(prompt, fullText => {
           sitText.innerHTML = renderMarkdown(fullText);
         });
-
         sitBox.style.display = 'block';
         // Affiche le champ de réponse
         const langInfo = getLang();
