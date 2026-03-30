@@ -1561,7 +1561,7 @@ Return ONLY a JSON array of 4 objects, no other text, no markdown:
   {"text": "...", "correct": false}
 ]
 
-Write all definitions in ${langName}. Shuffle the order randomly.`;
+Write all definitions in ${langName}.`;
 
       try {
         const reply = await callMistral(prompt);
@@ -1912,8 +1912,12 @@ The situation should be a short paragraph (2-4 sentences) describing a scene, a 
 Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing else. Write entirely in ${langName}.`;
 
       try {
-        const reply = await callMistral(prompt);
-        sitText.innerHTML = renderMarkdown(reply);
+        sitText.innerHTML = '';
+
+        await callMistralStream(prompt, fullText => {
+          sitText.innerHTML = renderMarkdown(fullText);
+        });
+
         sitBox.style.display = 'block';
         // Affiche le champ de réponse
         const langInfo = getLang();
