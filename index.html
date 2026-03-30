@@ -1364,7 +1364,7 @@ Respond entirely in ${langName}.`;
 
       const isSingle = currentWords.length === 1;
 
-      const prompt = isSingle ? `You are a strict but fair ${langName} vocabulary teacher.
+      const prompt = isSingle ? `You are a strict but encouraging and fair ${langName} vocabulary teacher.
 
 The learner is practicing the word or expression: "${currentWords[0]}" in ${langName}.
 Their sentence: "${sentence}"
@@ -1389,21 +1389,31 @@ Do NOT display the steps or your internal reasoning. Show the learner only the f
 
 Respond entirely in ${feedbackLang}. Be concise (4 sentences max).`
 
-      : `You are a strict but fair ${langName} vocabulary teacher.
+      : `You are a strict but encouraging and fair ${langName} vocabulary teacher.
 
 The learner is practicing these words: "${wordsList}" in ${langName}.
 Their text: "${sentence}"
 
-First line of your response: overall verdict — ✓ if ALL words are used correctly and meaningfully, ✗ if any word fails.
+Reason through the following steps internally before responding:
 
-Then for each word, one line in this exact format:
+STEP 1 — For each word, identify the exact form the learner used.
+
+STEP 2 — For each word, is the form valid? Accept any form belonging to the same lexical root — including the infinitive, all conjugations, tenses, and gender/number variants. The target word may itself be a conjugated form; in that case, also accept the infinitive and all other conjugations of the same verb.
+
+STEP 3 — For each word, does the text show genuine understanding of its meaning? Reject vague or purely generic usage.
+
+STEP 4 — Form your verdict.
+
+Do NOT display the steps or your internal reasoning. Show the learner only:
+
+First line: overall verdict — ✓ if ALL words pass Steps 2 and 3, ✗ if any word fails.
+
+Then for each word, one line:
 - "${currentWords[0]}": ✓ or ✗ + brief comment on usage and demonstrated meaning
 - "${currentWords[1]}": ✓ or ✗ + brief comment
 (continue for all words)
 
-For each word, check:
-1. Is it correctly used? Accept any form belonging to the same lexical root — including the infinitive, all conjugations, tenses, and gender/number variants. The target word may itself be a conjugated form; in that case, also accept the infinitive and all other conjugations of the same verb.
-2. Does the text show genuine understanding of its meaning? Reject vague or purely generic usage.
+If the overall verdict is ✓, add on a new line: **Version enrichie :** + an improved or more sophisticated version of the learner's full text (keep their ideas, make it richer and more precise).
 
 Respond entirely in ${feedbackLang}.`
 
@@ -1911,7 +1921,7 @@ Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing
       const word     = currentWords[0];
       const langName = getLang().mistralName;
 
-      const prompt = `You are a strict but fair ${langName} vocabulary teacher.
+      const prompt = `You are a strict but encouraging and fair ${langName} vocabulary teacher.
 
 The learner is trying to recall the ${langName} word or expression: "${word}".
 Their answer: "${guess}"
