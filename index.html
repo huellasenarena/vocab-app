@@ -1268,7 +1268,23 @@
         }
         currentWords = [];
         for (let i = 0; i < Math.min(n, due.length); i++) {
-          currentWords.push(pickWeightedOne(currentWords, due));
+          // Poids : révisions = 3x plus probable que nouveaux
+          const reviewAvailable = trulyDue.filter(w => !currentWords.includes(w));
+          const newAvailable    = newToShow.filter(w => !currentWords.includes(w));
+          let pool;
+          if (reviewAvailable.length === 0) {
+            pool = newAvailable;
+          } else if (newAvailable.length === 0) {
+            pool = reviewAvailable;
+          } else {
+            // Tirage pondéré : review=3, new=1
+            const totalWeight = reviewAvailable.length * 3 + newAvailable.length * 1;
+            const rand = Math.random() * totalWeight;
+            pool = rand < reviewAvailable.length * 3 ? reviewAvailable : newAvailable;
+          }
+          if (pool.length > 0) {
+            currentWords.push(pool[Math.floor(Math.random() * pool.length)]);
+          }
         }
         document.getElementById('word-count-label').textContent = '';
 
