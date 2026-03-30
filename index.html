@@ -1322,10 +1322,17 @@ Structure your response in exactly four sections, using natural labels in ${lang
 
 Respond entirely in ${langName}.`;
 
+      const hintTextEl = document.getElementById('hint-text');
+      const hintBox    = document.getElementById('hint-box');
+
       try {
-        const reply = await callMistral(prompt);
-        document.getElementById('hint-text').innerHTML = renderMarkdown(reply);
-        document.getElementById('hint-box').classList.add('visible');
+        hintTextEl.innerHTML = '';
+        hintBox.classList.add('visible');
+
+        await callMistralStream(prompt, fullText => {
+          hintTextEl.innerHTML = renderMarkdown(fullText);
+        });
+
         hintUsedWords.add(word.toLowerCase());
         if (currentWords.length === 1) {
           document.getElementById('hint-used-badge').classList.add('visible');
@@ -1333,8 +1340,8 @@ Respond entirely in ${langName}.`;
         // Sauvegarde dans Sheets (colonne HintUsed)
         await saveHint(word);
       } catch (err) {
-        document.getElementById('hint-text').textContent = 'Erreur : ' + err.message;
-        document.getElementById('hint-box').classList.add('visible');
+        hintTextEl.textContent = 'Erreur : ' + err.message;
+        hintBox.classList.add('visible');
       }
       btn.disabled = false;
       btn.textContent = '💡 Définition';
@@ -1418,7 +1425,12 @@ If the overall verdict is ✓, add on a new line: **Version enrichie :** + an im
 Respond entirely in ${feedbackLang}.`
 
       try {
-        const reply = await callMistral(prompt);
+        feedbackText.innerHTML = '';
+        feedbackBox.classList.add('visible');
+
+        const reply = await callMistralStream(prompt, fullText => {
+          feedbackText.innerHTML = renderMarkdown(fullText);
+        });
 
         // Cherche le verdict : priorité à la première ligne qui commence par ✓ ou ✗
         const lines     = reply.split('\n').map(l => l.trim()).filter(Boolean);
@@ -1426,9 +1438,7 @@ Respond entirely in ${feedbackLang}.`
         const isCorrect = verdict.startsWith('✓');
 
         feedbackLabel.textContent = isCorrect ? '✓' : '✗';
-        feedbackText.innerHTML = renderMarkdown(reply);
-        // Fix 1: couleur basée sur le résultat Mistral, pas sur l'utilisation de l'aide
-        feedbackBox.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
+        feedbackBox.classList.add(isCorrect ? 'correct' : 'incorrect');
 
         // Fix 2: score indépendant par mot en mode multi
         const wordResults = {};
@@ -1893,8 +1903,12 @@ The situation should be a short paragraph (2-4 sentences) describing a scene, a 
 Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing else. Write entirely in ${langName}.`;
 
       try {
-        const reply = await callMistral(prompt);
-        sitText.innerHTML = renderMarkdown(reply);
+        sitText.innerHTML = '';
+
+        await callMistralStream(prompt, fullText => {
+          sitText.innerHTML = renderMarkdown(fullText);
+        });
+
         sitBox.style.display = 'block';
         // Affiche le champ de réponse
         const langInfo = getLang();
@@ -1939,12 +1953,18 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
 - ✗ on the first line if invalid, then one short sentence explaining the correct answer in ${langName}`;
 
       try {
-        const reply     = await callMistral(prompt);
+        const fb      = document.getElementById('situation-feedback-box');
+        const fbText  = document.getElementById('situation-feedback-text');
+        fbText.innerHTML = '';
+        fb.classList.add('visible');
+
+        const reply     = await callMistralStream(prompt, fullText => {
+          fbText.innerHTML = renderMarkdown(fullText);
+        });
+
         const isCorrect = reply.startsWith('✓');
-        const fb        = document.getElementById('situation-feedback-box');
         document.getElementById('situation-feedback-label').textContent = isCorrect ? '✓' : '✗';
-        document.getElementById('situation-feedback-text').innerHTML    = renderMarkdown(reply);
-        fb.classList.add('visible', isCorrect ? 'correct' : 'incorrect');
+        fb.classList.add(isCorrect ? 'correct' : 'incorrect');
 
         if (!isCorrect) {
           // Révèle le mot
@@ -2084,7 +2104,7 @@ Return ONLY a JSON array, no other text:
         .replace(/\n/g, '<br>');
     }
 
-    // ── Appel Mistral ─────────────────────────────────────────
+    // ── Appel Mistral (standard, pour JSON) ──────────────────
     async function callMistral(prompt) {
       const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST',
@@ -2094,6 +2114,44 @@ Return ONLY a JSON array, no other text:
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
       return data.choices[0].message.content.trim();
+    }
+
+    // ── Appel Mistral (streaming, pour affichage progressif) ─
+    // onChunk(fullTextSoFar) est appelé à chaque nouveau fragment.
+    // Retourne le texte complet une fois terminé.
+    async function callMistralStream(prompt, onChunk) {
+      const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
+        body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: 500, temperature: 0.2, stream: true })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || `HTTP ${res.status}`);
+      }
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText  = '';
+      let buffer    = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // garde la dernière ligne incomplète
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6).trim();
+          if (payload === '[DONE]') break;
+          try {
+            const parsed  = JSON.parse(payload);
+            const content = parsed.choices?.[0]?.delta?.content || '';
+            if (content) { fullText += content; onChunk(fullText); }
+          } catch {}
+        }
+      }
+      return fullText.trim();
     }
 
     // ── SHA-256 ───────────────────────────────────────────────
