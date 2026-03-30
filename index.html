@@ -1314,11 +1314,11 @@ Rules:
 - If it has multiple meanings, give the most useful one for a language learner.
 - The example must clearly illustrate the word's meaning in a realistic context.
 
-Format exactly:
-**Définition :** ...
-**Registre :** (soutenu / courant / familier / littéraire / technique)
-**Collocations :** (2-3 mots ou expressions qui vont souvent avec ce mot)
-**Exemple :** *...*
+Format your response with exactly these four clearly labeled sections, all written in ${langName}:
+**Definition:** ...
+**Register:** (e.g. formal / neutral / familiar / literary / technical / archaic)
+**Collocations:** (2-3 words or expressions often used together with this word)
+**Example:** *...*
 
 Respond entirely in ${langName}.`;
 
@@ -1364,47 +1364,47 @@ Respond entirely in ${langName}.`;
 
       const isSingle = currentWords.length === 1;
 
-      const prompt = isSingle ? `You are a strict but encouraging ${langName} vocabulary teacher.
+      const prompt = isSingle ? `You are a strict but fair ${langName} vocabulary teacher.
 
-IMPORTANT: Read the learner's sentence very carefully word by word before evaluating. Do not assume errors that are not present. If the learner wrote a conjugated form (e.g. "estaba", "fueron", "había"), accept it as the correct form of the word being practiced.
-
-The learner is practicing: "${currentWords[0]}" in ${langName}.
+The learner is practicing the word or expression: "${currentWords[0]}" in ${langName}.
 Their sentence: "${sentence}"
 
-Evaluate using TWO criteria:
-CRITERION 1 — Correct usage: Is "${currentWords[0]}" (or any valid morphological variant: conjugated forms, tenses, gender/number agreements, comparative/superlative forms, etc.) used correctly? Accept any legitimate inflected form of the word. The word may be archaic, obsolete, dialectal, or literary — evaluate it in that context and do NOT reject it simply because it is rare or old-fashioned.
-CRITERION 2 — Demonstrated understanding: Does the sentence show the learner truly understands what "${currentWords[0]}" means?
+Follow these steps explicitly and in order:
+
+STEP 1 — Identify the form used: Find the exact word or form the learner used in their sentence that corresponds to "${currentWords[0]}". State it clearly: "Form used: ..."
+
+STEP 2 — Validate the form: Is the form identified in Step 1 a legitimate inflection, conjugation, or morphological variant of "${currentWords[0]}"? Answer YES or NO — do not list other possible variants. Accept archaic, obsolete, literary, and dialectal forms in their appropriate register. Only answer NO if the form used has no plausible relationship to "${currentWords[0]}".
+
+STEP 3 — Evaluate meaning: Does the sentence place the word in a context that genuinely reveals its meaning?
 Reject if:
-- The sentence is a bare fragment (e.g. just the word alone, or "une enquête qui sera menée" with no context)
-- The structure is "subject + is/est/es + word" with nothing else (e.g. "he is insatiable", "il est insatiable") — this tells us nothing about what the word means
-- The word could be swapped for any adjective/noun/verb without changing the sentence structure
+- The sentence is a bare fragment (e.g. just the word alone)
+- The structure is only "subject + is/est/es + word" with no further context
+- The word could be swapped for any other word without changing the sentence structure
 
-Accept only if the sentence places the word in a specific context that reveals its meaning — the reader should understand what the word means just from reading the sentence.
+STEP 4 — Verdict:
+- ✓ ONLY if BOTH Step 2 and Step 3 are YES — briefly explain what works, then on a new line: **Version enrichie :** + an improved or more sophisticated version of the learner's sentence (keep their idea, make it richer)
+- ✗ if either Step 2 or Step 3 fails — explain specifically which step failed and why, then give ONE strong example sentence that demonstrates the word's meaning
 
-- ✓ ONLY if BOTH criteria are met — then briefly explain what's good, and on a new line add: **Version enrichie :** + an improved or more sophisticated version of the learner's sentence (keep their idea but make it richer/more precise)
-- ✗ if either fails — be specific about WHY the sentence doesn't demonstrate understanding, then give ONE strong example sentence that does
+Respond entirely in ${feedbackLang}. Be concise (5 sentences max).`
 
-Respond entirely in ${feedbackLang}. Be concise (4 sentences max).`
-
-      : `You are a strict but encouraging ${langName} vocabulary teacher.
-
-IMPORTANT: Read the learner's text very carefully word by word before evaluating. Do not assume errors that are not present. Accept conjugated forms, inflections, and variants of the words being practiced.
+      : `You are a strict but fair ${langName} vocabulary teacher.
 
 The learner is practicing these words: "${wordsList}" in ${langName}.
 Their text: "${sentence}"
 
-For EACH word, evaluate:
-1. Is it used correctly (grammar and meaning)?
-2. Does the text demonstrate understanding of its meaning? (reject vague or generic usage)
+First line of your response: overall verdict — ✓ if ALL words are used correctly and meaningfully, ✗ if any word fails.
 
-Format your response as a list, one line per word:
-- "${currentWords[0]}": ✓ or ✗ + brief comment
+Then for each word, one line in this exact format:
+- "${currentWords[0]}": ✓ or ✗ + brief comment on usage and demonstrated meaning
 - "${currentWords[1]}": ✓ or ✗ + brief comment
-(etc.)
+(continue for all words)
 
-Then on a new line: overall verdict — start with "✓" if ALL words are correct, "✗" if any word fails.
+For each word, check:
+1. Is it correctly used (grammar, appropriate inflected form)?
+2. Does the text show genuine understanding of its meaning? Reject vague or purely generic usage.
+Accept any legitimate morphological variant of each word (conjugated forms, gender/number, tenses). Do not list possible variants — simply accept or reject the form used.
 
-Respond entirely in ${feedbackLang}.`;
+Respond entirely in ${feedbackLang}.`
 
       try {
         const reply = await callMistral(prompt);
@@ -1525,7 +1525,7 @@ Return ONLY a JSON array of 4 objects, no other text, no markdown:
   {"text": "...", "correct": false}
 ]
 
-Write all definitions in ${langName}. Shuffle the order randomly.`;
+Write all definitions in ${langName}.`;
 
       try {
         const reply = await callMistral(prompt);
@@ -1533,6 +1533,12 @@ Write all definitions in ${langName}. Shuffle the order randomly.`;
         const jsonMatch = reply.match(/\[[\s\S]*\]/);
         if (!jsonMatch) throw new Error('Format inattendu');
         const choices = JSON.parse(jsonMatch[0]);
+
+        // Shuffle in JS for true randomness
+        for (let i = choices.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [choices[i], choices[j]] = [choices[j], choices[i]];
+        }
 
         choicesEl.innerHTML = choices.map((c, i) =>
           `<button class="qcm-choice" onclick="checkQCM(this, ${c.correct}, ${i})">${c.text}</button>`
@@ -1904,15 +1910,20 @@ Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing
       const word     = currentWords[0];
       const langName = getLang().mistralName;
 
-      const prompt = `The learner is trying to recall the ${langName} word or expression: "${word}".
+      const prompt = `You are a strict but fair ${langName} vocabulary teacher.
+
+The learner is trying to recall the ${langName} word or expression: "${word}".
 Their answer: "${guess}"
 
-Is their answer correct? Accept:
-- The exact word
-- Valid morphological variants (conjugated forms, gender/number variants)
-- Very close synonyms that demonstrate they understand the concept
+Follow these steps explicitly:
 
-Respond with ONLY "✓" or "✗" on the first line, then one short sentence of explanation in ${langName}.`;
+STEP 1 — State what the learner wrote: "Answer given: ..."
+
+STEP 2 — Is it valid? Accept: the exact word or expression, any legitimate morphological variant (conjugated form, gender/number variant), or a very close synonym that demonstrates genuine understanding of the concept. Do not list other valid forms — simply answer YES or NO.
+
+STEP 3 — First line of your response must be ✓ or ✗ alone, then one short sentence of explanation in ${langName}.
+- ✓ if Step 2 is YES
+- ✗ if Step 2 is NO — briefly explain what the correct answer is`;
 
       try {
         const reply     = await callMistral(prompt);
