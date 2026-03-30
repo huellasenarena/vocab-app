@@ -880,7 +880,7 @@
     // ── État global ───────────────────────────────────────────
     let allWords           = [];
     let progressMap        = {};
-    let currentWords       = [];;
+    let currentWords       = [];
     let currentLang        = "";
     let hintUsedWords      = new Set();
     let qcmWord            = "";
@@ -1552,62 +1552,48 @@ Respond entirely in ${feedbackLang}.`;
 
         // Enregistre dans History immédiatement (seulement la première tentative par session)
         // Si aide utilisée → toujours ✗ dans l'historique
-        currentWords.forEach(w => {
-          const k = w.toLowerCase();
-          if (!sessionFirstResult.hasOwnProperty(k)) {
-            const rawResult    = wordResults[k] ?? isCorrect;
-            const hintWasUsed  = hintUsedWords.has(k);
-            const historyResult = hintWasUsed ? false : rawResult; // aide = échec dans History
-            sessionFirstResult[k] = historyResult;
-            saveHistory(w, historyResult);
-          }
-        });
-
-        // ── Nouvelles règles de progression ──────────────────
+        // ── Progression + History (première tentative seulement) ─
         for (const w of currentWords) {
           const k          = w.toLowerCase();
           const wResult    = wordResults[k] ?? isCorrect;
           const hintWasUsed = hintUsedWords.has(k);
           const isNew      = isNewWord(w);
-          const isFirst    = !sessionFirstResult.hasOwnProperty(k);
 
-          if (!isFirst) continue; // 2ème+ tentative → ignoré
+          // Ignore les 2ème+ tentatives
+          if (sessionFirstResult.hasOwnProperty(k)) continue;
 
-          // Enregistre pour History (hint utilisé = ✗ dans l'historique)
-          sessionFirstResult[k] = hintWasUsed ? false : wResult;
-          saveHistory(w, sessionFirstResult[k]);
+          // Enregistre dans History (hint = ✗)
+          const historyResult = hintWasUsed ? false : wResult;
+          sessionFirstResult[k] = historyResult;
+          saveHistory(w, historyResult);
 
+          // Progression selon les règles
           if (isNew) {
-            // MOT NOUVEAU
             if (wResult) {
-              // ✓ (avec ou sans hint) → sort du pool, NextReview = demain, étoiles inchangées
-              await saveProgressNew(w, true, hintWasUsed);
+              // Nouveau + ✓ → sort du pool, NextReview = demain, étoiles inchangées
+              await saveProgressNew(w);
               if (!sessionNewPracticed.has(k)) {
                 sessionNewPracticed.add(k);
                 todayNewCount++;
                 await saveTodayCount(todayNewCount);
               }
             }
-            // ✗ → rien ne se passe (reste dans le pool)
+            // Nouveau + ✗ → rien ne se passe
           } else {
-            // MOT À RÉVISER
+            // Mot à réviser
             if (hintWasUsed) {
-              // hint utilisé → NextReview = demain, étoiles inchangées
-              await saveProgressReviewHint(w);
+              await saveProgressReviewHint(w); // NextReview = demain, étoiles inchangées
             } else {
-              // sans hint → SM-2 normal
-              await saveProgress(w, wResult);
+              await saveProgress(w, wResult);  // SM-2 normal
             }
           }
         }
 
-        // Affiche notice aide
+        // Notice aide
         const wordsWithHelp = currentWords.filter(w => hintUsedWords.has(w.toLowerCase()));
-        if (wordsWithHelp.length > 0) {
-          noCountNotice.textContent = `(aide utilisée — non comptabilisé dans les étoiles)`;
-        } else {
-          noCountNotice.textContent = '';
-        }
+        noCountNotice.textContent = wordsWithHelp.length > 0
+          ? `(aide utilisée — non comptabilisé dans les étoiles)`
+          : '';
 
         // Met à jour le compteur affiché
         if (practiceMode === 'spaced') {
@@ -1759,7 +1745,7 @@ Write all definitions in ${langName}.`;
     }
 
     // ── Mot nouveau ✓ → NextReview = demain, étoiles inchangées ─
-    async function saveProgressNew(word, isCorrect, hintUsed) {
+    async function saveProgressNew(word) {
       const token    = localStorage.getItem(KEY_GG_TOKEN);
       const key      = word.toLowerCase();
       const existing = progressMap[key];
