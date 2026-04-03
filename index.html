@@ -45,6 +45,43 @@
       margin-top: 2rem;
     }
 
+    .token-warning {
+      color: #e0a030 !important;
+      font-size: 0.8rem;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.5; }
+    }
+
+    .token-banner {
+      width: 100%;
+      background: #2a1f00;
+      border: 1px solid #e0a030;
+      border-radius: 8px;
+      color: #e0a030;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .token-banner-btn {
+      background: #e0a030;
+      border: none;
+      border-radius: 6px;
+      color: #0f0f0f;
+      cursor: pointer;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.4rem 0.8rem;
+      white-space: nowrap;
+    }
+
     .screen {
       display: none;
       flex-direction: column;
@@ -693,8 +730,15 @@
       <h1 class="app-title">Vocab</h1>
       <div class="header-actions">
         <button class="btn-ghost" onclick="showStats()">📊</button>
+        <button class="btn-ghost token-warning" id="btn-token-warning" onclick="loginGoogle()" style="display:none;" title="Session expirée — clique pour te reconnecter">⚠️ Session</button>
         <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">← langue</span>
       </div>
+    </div>
+
+    <!-- Bannière token expiré -->
+    <div class="token-banner" id="token-banner" style="display:none;">
+      ⚠️ Session Google expirée — tes progrès ne sont pas sauvegardés.
+      <button class="token-banner-btn" onclick="loginGoogle()">Reconnecter →</button>
     </div>
 
     <!-- Toggle mode espacé / situation / libre -->
@@ -963,6 +1007,7 @@
           const expiry = Date.now() + (response.expires_in - 60) * 1000;
           localStorage.setItem(KEY_GG_TOKEN, response.access_token);
           localStorage.setItem(KEY_GG_EXPIRY, expiry.toString());
+          showTokenWarning(false); // cache la bannière après reconnexion
 
           if (pendingSaveAfterReauth) {
             const { word, isCorrect } = pendingSaveAfterReauth;
@@ -985,6 +1030,30 @@
       if (!tokenClient) { setTimeout(silentRefresh, 500); return; }
       tokenClient.requestAccessToken();
     }
+
+    // ── Surveillance expiration token ─────────────────────────
+    function showTokenWarning(show) {
+      document.getElementById('btn-token-warning').style.display = show ? '' : 'none';
+      document.getElementById('token-banner').style.display      = show ? 'flex' : 'none';
+    }
+
+    function checkTokenExpiry() {
+      const expiry = parseInt(localStorage.getItem(KEY_GG_EXPIRY) || '0');
+      if (!expiry) return;
+      const msLeft = expiry - Date.now();
+      if (msLeft <= 0) {
+        // Token déjà expiré
+        showTokenWarning(true);
+      } else if (msLeft < 5 * 60 * 1000) {
+        // Moins de 5 minutes → alerte proactive
+        showTokenWarning(true);
+      } else {
+        showTokenWarning(false);
+      }
+    }
+
+    // Lance la surveillance dès que l'app est chargée
+    setInterval(checkTokenExpiry, 30_000); // vérifie toutes les 30 secondes
 
     // ── Slider ────────────────────────────────────────────────
     function onSliderChange(val) {
@@ -1929,6 +1998,7 @@ Write all definitions in ${langName}.`;
         console.error(`[Sheets] Erreur saveProgress :`, err.message);
         if (err.message === 'token_expired') {
           pendingSaveAfterReauth = { word, isCorrect };
+          showTokenWarning(true);
           silentRefresh();
         } else {
           // Affiche un petit avertissement discret sous le feedback
