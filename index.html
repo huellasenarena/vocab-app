@@ -1521,72 +1521,61 @@ Respond entirely in ${langName}.`;
       const langInfo   = getLang();
       const langName   = langInfo.mistralName;
       const feedbackLang = langInfo.feedbackLang;
-      const wordsList  = currentWords.join('", "');
+      const wordsList    = currentWords.join('", "');
+      const isSingle     = currentWords.length === 1;
 
-      const isSingle = currentWords.length === 1;
+      const prompt = `You are a ${langName} language teacher preparing a student for a language proficiency exam.
 
-      const prompt = isSingle ? `You are a ${langName} language teacher preparing a student for a language proficiency exam.
-
-The learner is practicing the word or expression: "${currentWords[0]}" in ${langName}.
-Their sentence: "${sentence}"
-
-Reason through the following steps internally before responding:
-
-STEP 1 — Identify the exact form the learner used that corresponds to "${currentWords[0]}".
-
-STEP 2 — Is it valid? Accept any form that belongs to the same lexical root as "${currentWords[0]}" — including the infinitive, all conjugations, all tenses, gender/number variants, and derived forms. Accept archaic, obsolete, literary, and dialectal forms. Only reject if the form has no plausible relationship to the lexical root.
-
-STEP 3 — Does the sentence place the word in a context that genuinely reveals its meaning?
-Reject if:
-- The sentence is a bare fragment (e.g. just the word alone)
-- The structure is only "subject + is/est/es + word" with no further context
-- The word could be swapped for any other word without changing the sentence structure
-
-STEP 4 — Identify ALL grammar, spelling, register, and naturalness issues in the sentence, regardless of the verdict. Be thorough and precise — note gender/number agreement errors, wrong tenses, unnatural phrasing, spelling mistakes, and register mismatches. If the sentence is perfect, note it explicitly.
-
-STEP 5 — Form your verdict.
-
-Do NOT display the steps or your internal reasoning. Show the learner only the final verdict in this exact format:
-
-Line 1: ✓ or ✗
-
-Line 2: One sentence explaining whether the word is used correctly and why.
-
-Line 3: **Análisis lingüístico:** [List every grammar, spelling, register, or naturalness issue found in STEP 4. If none, write "Sin errores detectados."]
-
-Line 4: **Versión mejorada:** [A rich, natural, exam-level rewrite of the learner's sentence — always include this, whether ✓ or ✗]
-
-Respond entirely in ${feedbackLang}.`
-
-      : `You are a ${langName} language teacher preparing a student for a language proficiency exam.
-
-The learner is practicing these words: "${wordsList}" in ${langName}.
+The learner is practicing the following word(s) in ${langName}: "${wordsList}"
 Their text: "${sentence}"
 
-Reason through the following steps internally before responding:
+════════════════════════════════
+BLOC 1 — VERDICT (evaluate ONLY the target word(s), ignore all other errors)
+════════════════════════════════
 
-STEP 1 — For each word, identify the exact form the learner used.
+For EACH target word:
 
-STEP 2 — For each word, is the form valid? Accept any form belonging to the same lexical root — including all conjugations, tenses, and gender/number variants.
+B1-STEP 1 — Identify the exact form the learner used that corresponds to the target word.
 
-STEP 3 — For each word, does the text show genuine understanding of its meaning?
+B1-STEP 2 — Is it valid? Accept ANY form belonging to the same lexical root — infinitive, all conjugations, all tenses, gender/number variants, derived forms, archaic, obsolete, literary, and dialectal forms. Only reject if the form has NO plausible relationship to the lexical root.
 
-STEP 4 — Identify ALL grammar, spelling, register, and naturalness issues in the full text. Be thorough.
+B1-STEP 3 — Does the text place the word in a context that genuinely reveals its meaning?
+Reject ONLY if:
+- The word is absent or completely misused
+- The text is a bare fragment (just the word alone, no context)
+- The structure is only "subject + is/est/es + word" with nothing else
+- The word could be replaced by any random word without changing the sentence
 
-STEP 5 — Form your verdict.
+CRITICAL: Grammar errors, spelling mistakes, punctuation issues, or register problems in OTHER parts of the sentence must NEVER affect the verdict. The verdict is about comprehension of the target word(s) only.
 
-Do NOT display the steps. Show the learner only:
+════════════════════════════════
+BLOC 2 — LINGUISTIC ANALYSIS (completely independent of the verdict)
+════════════════════════════════
 
-Line 1: ✓ if ALL words are correct, ✗ if any word fails.
+B2-STEP 1 — Read the full text carefully. Note every grammar, spelling, punctuation, register, and naturalness issue.
 
-Then for each word:
-- "${currentWords[0]}": ✓ or ✗ + one sentence on usage and meaning
-- "${currentWords[1]}": ✓ or ✗ + one sentence
-(continue for all words)
+CRITICAL PUNCTUATION RULE: A period (.), semicolon (;), or colon (:) between sentences is ALWAYS grammatically correct. NEVER flag these as missing commas. Only flag actual errors.
 
-Then: **Análisis lingüístico:** [Every grammar, spelling, register, or naturalness issue found. If none, write "Sin errores detectados."]
+B2-STEP 2 — For each issue, explain what is wrong and what would be correct.
 
-Then: **Versión mejorada:** [A rich, natural, exam-level rewrite of the full text]
+B2-STEP 3 — Write a rich, natural, exam-level version of the learner's text.
+
+════════════════════════════════
+OUTPUT FORMAT — Do NOT show any steps or internal reasoning.
+════════════════════════════════
+
+${isSingle
+  ? `First: ✓ or ✗
+
+Then: One sentence in ${langName} explaining whether the target word is used correctly and why.`
+  : `First: ✓ if ALL words pass BLOC 1, ✗ if any word fails.
+
+Then for each word, one line:
+${currentWords.map(w => `- "${w}": ✓ or ✗ — one sentence on usage and meaning`).join('\n')}`}
+
+Then a blank line, then a section with a natural heading in ${langName} for the linguistic analysis (e.g. "Analyse linguistique" in French, "Análisis lingüístico" in Spanish, "Γλωσσική ανάλυση" in Greek, "Linguistic analysis" in English), followed by a numbered list of every issue. If none, write the equivalent of "No errors detected" in ${langName}.
+
+Then a blank line, then a section with a natural heading in ${langName} for an improved version (e.g. "Version enrichie" in French, "Versión mejorada" in Spanish), followed by the exam-level rewrite.
 
 Respond entirely in ${feedbackLang}.`;
 
