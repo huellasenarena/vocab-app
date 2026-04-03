@@ -1525,7 +1525,7 @@ Respond entirely in ${langName}.`;
 
       const isSingle = currentWords.length === 1;
 
-      const prompt = isSingle ? `You are a strict but encouraging and fair ${langName} vocabulary teacher.
+      const prompt = isSingle ? `You are a ${langName} language teacher preparing a student for a language proficiency exam.
 
 The learner is practicing the word or expression: "${currentWords[0]}" in ${langName}.
 Their sentence: "${sentence}"
@@ -1534,7 +1534,7 @@ Reason through the following steps internally before responding:
 
 STEP 1 — Identify the exact form the learner used that corresponds to "${currentWords[0]}".
 
-STEP 2 — Is it valid? Accept any form that belongs to the same lexical root as "${currentWords[0]}" — including the infinitive, all conjugations, all tenses, gender/number variants, and derived forms. The target word may itself be a conjugated or inflected form; in that case, also accept the infinitive and all other conjugations of the same verb. Accept archaic, obsolete, literary, and dialectal forms in their appropriate register. Only reject if the form has no plausible relationship to the lexical root of "${currentWords[0]}".
+STEP 2 — Is it valid? Accept any form that belongs to the same lexical root as "${currentWords[0]}" — including the infinitive, all conjugations, all tenses, gender/number variants, and derived forms. Accept archaic, obsolete, literary, and dialectal forms. Only reject if the form has no plausible relationship to the lexical root.
 
 STEP 3 — Does the sentence place the word in a context that genuinely reveals its meaning?
 Reject if:
@@ -1542,15 +1542,23 @@ Reject if:
 - The structure is only "subject + is/est/es + word" with no further context
 - The word could be swapped for any other word without changing the sentence structure
 
-STEP 4 — Form your verdict.
+STEP 4 — Identify ALL grammar, spelling, register, and naturalness issues in the sentence, regardless of the verdict. Be thorough and precise — note gender/number agreement errors, wrong tenses, unnatural phrasing, spelling mistakes, and register mismatches. If the sentence is perfect, note it explicitly.
 
-Do NOT display the steps or your internal reasoning. Show the learner only the final verdict:
-- ✓ ONLY if BOTH Step 2 and Step 3 pass — briefly explain what works, then on a new line: **Version enrichie :** + an improved or more sophisticated version of the learner's sentence (keep their idea, make it richer)
-- ✗ if either Step 2 or Step 3 fails — explain specifically why, then give ONE strong example sentence that demonstrates the word's meaning
+STEP 5 — Form your verdict.
 
-Respond entirely in ${feedbackLang}. Be concise (4 sentences max).`
+Do NOT display the steps or your internal reasoning. Show the learner only the final verdict in this exact format:
 
-      : `You are a strict but encouraging and fair ${langName} vocabulary teacher.
+Line 1: ✓ or ✗
+
+Line 2: One sentence explaining whether the word is used correctly and why.
+
+Line 3: **Análisis lingüístico:** [List every grammar, spelling, register, or naturalness issue found in STEP 4. If none, write "Sin errores detectados."]
+
+Line 4: **Versión mejorada:** [A rich, natural, exam-level rewrite of the learner's sentence — always include this, whether ✓ or ✗]
+
+Respond entirely in ${feedbackLang}.`
+
+      : `You are a ${langName} language teacher preparing a student for a language proficiency exam.
 
 The learner is practicing these words: "${wordsList}" in ${langName}.
 Their text: "${sentence}"
@@ -1559,22 +1567,26 @@ Reason through the following steps internally before responding:
 
 STEP 1 — For each word, identify the exact form the learner used.
 
-STEP 2 — For each word, is the form valid? Accept any form belonging to the same lexical root — including the infinitive, all conjugations, tenses, and gender/number variants. The target word may itself be a conjugated form; in that case, also accept the infinitive and all other conjugations of the same verb.
+STEP 2 — For each word, is the form valid? Accept any form belonging to the same lexical root — including all conjugations, tenses, and gender/number variants.
 
-STEP 3 — For each word, does the text show genuine understanding of its meaning? Reject vague or purely generic usage.
+STEP 3 — For each word, does the text show genuine understanding of its meaning?
 
-STEP 4 — Form your verdict.
+STEP 4 — Identify ALL grammar, spelling, register, and naturalness issues in the full text. Be thorough.
 
-Do NOT display the steps or your internal reasoning. Show the learner only:
+STEP 5 — Form your verdict.
 
-First line: overall verdict — ✓ if ALL words pass Steps 2 and 3, ✗ if any word fails.
+Do NOT display the steps. Show the learner only:
 
-Then for each word, one line:
-- "${currentWords[0]}": ✓ or ✗ + brief comment on usage and demonstrated meaning
-- "${currentWords[1]}": ✓ or ✗ + brief comment
+Line 1: ✓ if ALL words are correct, ✗ if any word fails.
+
+Then for each word:
+- "${currentWords[0]}": ✓ or ✗ + one sentence on usage and meaning
+- "${currentWords[1]}": ✓ or ✗ + one sentence
 (continue for all words)
 
-If the overall verdict is ✓, add on a new line: **Version enrichie :** + an improved or more sophisticated version of the learner's full text (keep their ideas, make it richer and more precise).
+Then: **Análisis lingüístico:** [Every grammar, spelling, register, or naturalness issue found. If none, write "Sin errores detectados."]
+
+Then: **Versión mejorada:** [A rich, natural, exam-level rewrite of the full text]
 
 Respond entirely in ${feedbackLang}.`;
 
