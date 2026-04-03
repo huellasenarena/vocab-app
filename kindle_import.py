@@ -54,16 +54,21 @@ def sep(char="─", n=55):
     print(char * n)
 
 def ask(prompt, choices=("o","n")):
-    """Pose une question o/n et retourne True si 'o'."""
+    """Pose une question o/n. Entrée seule = oui (premier choix)."""
+    label = f"[Entrée=oui/{choices[1]}]"
     while True:
-        r = input(f"{prompt} ({'/'.join(choices)}) : ").strip().lower()
+        r = input(f"{prompt} {label} : ").strip().lower()
+        if r == "":
+            return True
         if r in choices:
             return r == choices[0]
 
 def ask_choice(prompt, options):
-    """Affiche une liste numérotée et retourne les indices choisis."""
+    """Affiche une liste numérotée. Entrée seule = tous les livres."""
     while True:
-        raw = input(f"{prompt} : ").strip()
+        raw = input(f"{prompt} [Entrée=tous] : ").strip()
+        if raw == "":
+            return list(range(len(options)))
         try:
             indices = [int(x.strip()) - 1 for x in raw.split(",")]
             if all(0 <= i < len(options) for i in indices):
