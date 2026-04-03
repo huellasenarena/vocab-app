@@ -1541,10 +1541,12 @@ B1-STEP 2 — Is it valid? Accept ANY form belonging to the same lexical root �
 
 B1-STEP 3 — Does the text place the word in a context that genuinely reveals its meaning?
 Reject ONLY if:
-- The word is absent or completely misused
+- The word is absent from the text entirely → this is automatically ✗
 - The text is a bare fragment (just the word alone, no context)
 - The structure is only "subject + is/est/es + word" with nothing else
 - The word could be replaced by any random word without changing the sentence
+
+CRITICAL RULE ON GLOBAL VERDICT: If even ONE word is ✗, the first line MUST be ✗. No exceptions.
 
 CRITICAL: Grammar errors, spelling mistakes, punctuation issues, or register problems in OTHER parts of the sentence must NEVER affect the verdict. The verdict is about comprehension of the target word(s) only.
 
@@ -1595,7 +1597,7 @@ Respond entirely in ${feedbackLang}.`;
         feedbackLabel.textContent = isCorrect ? '✓' : '✗';
         feedbackBox.classList.add(isCorrect ? 'correct' : 'incorrect');
 
-        // Fix 2: score indépendant par mot en mode multi
+        // Score indépendant par mot en mode multi
         const wordResults = {};
         if (isSingle) {
           wordResults[currentWords[0].toLowerCase()] = isCorrect;
@@ -1605,13 +1607,12 @@ Respond entirely in ${feedbackLang}.`;
             if (line) {
               wordResults[w.toLowerCase()] = line.includes('✓') && !line.includes('✗');
             } else {
-              wordResults[w.toLowerCase()] = isCorrect;
+              // Mot non trouvé dans la réponse → ✗ par défaut (probablement absent du texte)
+              wordResults[w.toLowerCase()] = false;
             }
           });
         }
 
-        // Enregistre dans History immédiatement (seulement la première tentative par session)
-        // Si aide utilisée → toujours ✗ dans l'historique
         // ── Progression + History (première tentative seulement) ─
         for (const w of currentWords) {
           const k          = w.toLowerCase();
@@ -1619,16 +1620,10 @@ Respond entirely in ${feedbackLang}.`;
           const hintWasUsed = hintUsedWords.has(k);
           const isNew      = isNewWord(w);
 
-          console.log(`[Debug] mot="${w}" isNew=${isNew} hintWasUsed=${hintWasUsed} wResult=${wResult} alreadySeen=${sessionFirstResult.hasOwnProperty(k)}`);
-          console.log(`[Debug] progressMap[k]=`, JSON.stringify(progressMap[k]));
-
           // Ignore les 2ème+ tentatives
-          if (sessionFirstResult.hasOwnProperty(k)) {
-            console.log(`[Debug] → ignoré (2ème tentative)`);
-            continue;
-          }
+          if (sessionFirstResult.hasOwnProperty(k)) continue;
 
-          // Enregistre dans History (hint = ✗)
+          // Enregistre dans History (hint = ✗ seulement pour ce mot spécifique)
           const historyResult = hintWasUsed ? false : wResult;
           sessionFirstResult[k] = historyResult;
           saveHistory(w, historyResult);
@@ -1636,23 +1631,18 @@ Respond entirely in ${feedbackLang}.`;
           // Progression selon les règles
           if (isNew) {
             if (wResult) {
-              console.log(`[Debug] → saveProgressNew`);
               await saveProgressNew(w);
               if (!sessionNewPracticed.has(k)) {
                 sessionNewPracticed.add(k);
                 todayNewCount++;
-                console.log(`[Debug] → saveTodayCount(${todayNewCount})`);
                 await saveTodayCount(todayNewCount);
               }
-            } else {
-              console.log(`[Debug] → nouveau ✗, rien ne se passe`);
             }
+            // Nouveau + ✗ → rien ne se passe
           } else {
             if (hintWasUsed) {
-              console.log(`[Debug] → saveProgressReviewHint`);
               await saveProgressReviewHint(w);
             } else {
-              console.log(`[Debug] → saveProgress SM-2`);
               await saveProgress(w, wResult);
             }
           }
