@@ -1154,7 +1154,8 @@
       try {
         const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         const data = await res.json();
-        (data.values || []).forEach((row, i) => {
+        const rows = data.values || [];
+        (rows).forEach((row, i) => {
           if (i === 0) return;
           const word       = row[0] || '', rowLang = row[1] || '';
           const correct    = parseInt(row[2]) || 0;
@@ -1164,7 +1165,49 @@
           if (word && rowLang === lang)
             progressMap[word.toLowerCase()] = { correct, incorrect, hintUsed, nextReview, rowIndex: i + 1 };
         });
+
+        // ── Nettoyage automatique des orphelins ───────────────
+        // Attend que allWords soit chargé (peut être vide si appelé en parallèle)
+        // On planifie le nettoyage après le chargement complet
+        setTimeout(() => cleanOrphans(lang, rows), 500);
+
       } catch (e) {}
+    }
+
+    // Supprime les lignes Progress dont le mot n'existe plus dans la langue
+    async function cleanOrphans(lang, allRows) {
+      if (!allWords || allWords.length === 0) return;
+      const token      = localStorage.getItem(KEY_GG_TOKEN);
+      const wordSet    = new Set(allWords.map(w => w.toLowerCase()));
+      const toDelete   = []; // rowIndex des lignes orphelines
+
+      allRows.forEach((row, i) => {
+        if (i === 0) return; // skip header
+        const word    = (row[0] || '').toLowerCase();
+        const rowLang = row[1] || '';
+        if (rowLang === lang && word && !wordSet.has(word)) {
+          toDelete.push(i + 1); // rowIndex (1-indexed)
+        }
+      });
+
+      if (toDelete.length === 0) return;
+
+      console.log(`[Progress] ${toDelete.length} orphelin(s) trouvé(s) pour ${lang} — nettoyage...`);
+
+      // Supprime en ordre inverse pour ne pas décaler les indices
+      for (const rowIndex of toDelete.reverse()) {
+        try {
+          // Vide la ligne (on ne peut pas supprimer une ligne facilement sans batchUpdate)
+          const range = encodeURIComponent(`Progress!A${rowIndex}:G${rowIndex}`);
+          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:clear`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+          });
+          console.log(`[Progress] ✓ Ligne ${rowIndex} vidée`);
+        } catch (e) {
+          console.error(`[Progress] Erreur nettoyage ligne ${rowIndex}:`, e.message);
+        }
+      }
     }
 
     // ── Mode de pratique ─────────────────────────────────────
