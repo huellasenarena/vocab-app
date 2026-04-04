@@ -1488,10 +1488,16 @@
         }).join('');
       }
 
-      // En mode espacé, cache le hint pour les mots à réviser (1 mot seulement)
-      if (practiceMode === 'spaced' && n === 1) {
-        const isNew = isNewWord(currentWords[0]);
-        document.getElementById('btn-hint').style.display = isNew ? '' : 'none';
+      // En mode espacé, hint disponible seulement pour les nouveaux mots
+      if (practiceMode === 'spaced') {
+        const newWords = currentWords.filter(w => isNewWord(w));
+        if (newWords.length === 0) {
+          // Tous les mots sont à réviser → pas de hint
+          document.getElementById('btn-hint').style.display = 'none';
+        } else {
+          // Au moins un mot nouveau → hint visible
+          document.getElementById('btn-hint').style.display = '';
+        }
       }
     }
 
@@ -1526,14 +1532,19 @@
 
     // ── Hint ─────────────────────────────────────────────────
     function askHint() {
-      if (currentWords.length === 1) {
-        fetchHint(currentWords[0]);
-      } else {
-        // Affiche le dropdown
+      // En mode espacé, seulement les mots nouveaux peuvent avoir un hint
+      const eligibleWords = (practiceMode === 'spaced')
+        ? currentWords.filter(w => isNewWord(w))
+        : currentWords;
+
+      if (eligibleWords.length === 1) {
+        fetchHint(eligibleWords[0]);
+      } else if (eligibleWords.length > 1) {
+        // Affiche le dropdown avec seulement les mots éligibles
         const dropdown = document.getElementById('hint-dropdown');
         const btns     = document.getElementById('hint-word-buttons');
         dropdown.classList.toggle('visible');
-        btns.innerHTML = currentWords.map(w =>
+        btns.innerHTML = eligibleWords.map(w =>
           `<button class="hint-word-btn" onclick="fetchHint('${w.replace(/'/g, "\\'")}')">${w}</button>`
         ).join('');
       }
