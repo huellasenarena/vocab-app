@@ -448,14 +448,30 @@
     /* ── Boîte définition ── */
     .hint-box {
       width: 100%; background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; padding: 1.25rem; font-size: 0.92rem; line-height: 1.7;
+      border-radius: 8px; font-size: 0.92rem; line-height: 1.7;
       color: var(--text); display: none; animation: fadeIn 0.4s ease;
+      overflow: hidden;
     }
     .hint-box.visible { display: block; }
     .hint-box .hint-label {
       font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--accent);
-      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      user-select: none;
     }
+    .hint-box .hint-label:hover { background: rgba(255,255,255,0.03); }
+    .hint-box .hint-collapse-btn {
+      background: none; border: none; color: var(--muted);
+      font-size: 0.85rem; cursor: pointer; padding: 0;
+      transition: transform 0.2s;
+    }
+    .hint-box .hint-body {
+      padding: 0 1.25rem 1.25rem 1.25rem;
+    }
+    .hint-box.collapsed .hint-body { display: none; }
+    .hint-box.collapsed .hint-collapse-btn { transform: rotate(180deg); }
 
     /* ── Zone phrase ── */
     .sentence-section { width: 100%; display: flex; flex-direction: column; gap: 0.75rem; }
@@ -787,8 +803,11 @@
 
     <!-- Boîte définition -->
     <div class="hint-box" id="hint-box">
-      <div class="hint-label" id="hint-box-label">Définition</div>
-      <div id="hint-text"></div>
+      <div class="hint-label" id="hint-box-label" onclick="toggleHintCollapse()">
+        <span id="hint-box-label-text">Définition</span>
+        <button class="hint-collapse-btn">▲</button>
+      </div>
+      <div class="hint-body" id="hint-text"></div>
     </div>
 
     <!-- Zone phrase (modes espacé + libre) -->
@@ -933,6 +952,7 @@
     let todayNewCount      = 0;  // nouveaux mots pratiqués aujourd'hui (chargé depuis Sheets)
     let sessionNewPracticed = new Set(); // nouveaux mots pratiqués dans cette session (pour éviter double-comptage)
     const MAX_NEW_PER_DAY  = 60;
+    const definitionCache  = {}; // { "mot|lang": "texte définition" }
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
@@ -1519,13 +1539,36 @@
       }
     }
 
+    function toggleHintCollapse() {
+      const box = document.getElementById('hint-box');
+      box.classList.toggle('collapsed');
+    }
+
     async function fetchHint(word) {
       document.getElementById('hint-dropdown').classList.remove('visible');
       const btn = document.getElementById('btn-hint');
+      const hintTextEl = document.getElementById('hint-text');
+      const hintBox    = document.getElementById('hint-box');
+      const cacheKey   = `${word.toLowerCase()}|${currentLang}`;
+
+      // Met à jour le label et s'assure que la boîte est dépliée
+      document.getElementById('hint-box-label-text').textContent = `Définition — ${word}`;
+      hintBox.classList.remove('collapsed');
+
+      // ── Cache hit : affichage instantané ──────────────────
+      if (definitionCache[cacheKey]) {
+        hintTextEl.innerHTML = definitionCache[cacheKey];
+        hintBox.classList.add('visible');
+        hintUsedWords.add(word.toLowerCase());
+        if (currentWords.length === 1) {
+          document.getElementById('hint-used-badge').classList.add('visible');
+        }
+        return; // pas d'appel API, pas de saveHint (déjà enregistré)
+      }
+
+      // ── Cache miss : appel API ─────────────────────────────
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span>';
-      document.getElementById('hint-box').classList.remove('visible');
-      document.getElementById('hint-box-label').textContent = `Définition — ${word}`;
 
       const langName = getLang().mistralName;
       const prompt = `You are a vocabulary teacher. The learner is studying ${langName}.
@@ -1546,16 +1589,16 @@ Structure your response in exactly four sections, using natural labels in ${lang
 
 Respond entirely in ${langName}.`;
 
-      const hintTextEl = document.getElementById('hint-text');
-      const hintBox    = document.getElementById('hint-box');
-
       try {
         hintTextEl.innerHTML = '';
         hintBox.classList.add('visible');
 
-        await callMistralStream(prompt, fullText => {
-          hintTextEl.innerHTML = renderMarkdown(fullText);
+        const fullText = await callMistralStream(prompt, partial => {
+          hintTextEl.innerHTML = renderMarkdown(partial);
         });
+
+        // Sauvegarde dans le cache
+        definitionCache[cacheKey] = renderMarkdown(fullText);
 
         hintUsedWords.add(word.toLowerCase());
         if (currentWords.length === 1) {
