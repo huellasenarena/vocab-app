@@ -944,6 +944,7 @@
     let allWords           = [];
     let progressMap        = {};
     let currentWords       = [];
+    let previousWordsPool  = []; // garde tous les mots déjà vus dans la session slider
     let currentLang        = "";
     let hintUsedWords      = new Set();
     let qcmWord            = "";
@@ -1083,20 +1084,26 @@
       document.getElementById('sentence-label').textContent =
         n === 1 ? langInfo.sentencePromptSingle : langInfo.sentencePrompt;
 
-      // Auto-refresh : ajuste currentWords sans tout réinitialiser
-      if (allWords.length === 0) return; // pas encore chargé
+      if (allWords.length === 0) return;
+
       if (n > currentWords.length) {
-        // Ajoute des mots supplémentaires
+        // Ajoute des mots — réutilise les mots du pool si disponibles
         while (currentWords.length < n) {
-          currentWords.push(pickWeightedOne(currentWords));
+          const nextFromPool = previousWordsPool.find(w => !currentWords.includes(w));
+          if (nextFromPool) {
+            currentWords.push(nextFromPool);
+          } else {
+            const newWord = pickWeightedOne(currentWords);
+            currentWords.push(newWord);
+            previousWordsPool.push(newWord); // ajoute au pool
+          }
         }
         renderWordDisplay();
       } else if (n < currentWords.length) {
-        // Retire les derniers mots
+        // Réduit — garde les mots retirés dans le pool
         currentWords = currentWords.slice(0, n);
         renderWordDisplay();
       }
-      // Met à jour le label du dropdown hint
       document.getElementById('hint-dropdown-label-text').textContent =
         langInfo.hintDropdownLabel;
     }
@@ -1418,6 +1425,7 @@
             currentWords.push(pool[Math.floor(Math.random() * pool.length)]);
           }
         }
+        previousWordsPool = [...currentWords]; // initialise le pool slider
         document.getElementById('word-count-label').textContent = '';
 
         // Cache le bouton hint pour les mots à réviser (mode 1 mot)
@@ -1460,6 +1468,7 @@
         document.getElementById('word-count-label').textContent = '';
         currentWords = [];
         for (let i = 0; i < n; i++) currentWords.push(pickWeightedOne(currentWords));
+        previousWordsPool = [...currentWords]; // initialise le pool slider
         renderWordDisplay();
       }
 
@@ -1519,7 +1528,8 @@
     }
 
     async function nextWord() {
-      sessionFirstResult = {};
+      sessionFirstResult  = {};
+      previousWordsPool   = [];
       resetPracticeUI();
       pickWords();
       onSliderChange(wordCount());
@@ -1679,6 +1689,8 @@ BLOC 2 — LINGUISTIC ANALYSIS (completely independent of the verdict)
 
 B2-STEP 1 — Read the full text carefully. Note every grammar, spelling, punctuation, register, and naturalness issue.
 
+CRITICAL: Analyze ONLY the exact words and forms the learner actually wrote. Do NOT comment on forms, variants, or alternatives the learner did not use.
+
 CRITICAL PUNCTUATION RULE: A period (.), semicolon (;), or colon (:) between sentences is ALWAYS grammatically correct. NEVER flag these as missing commas. Only flag actual errors.
 
 B2-STEP 2 — For each issue, explain what is wrong and what would be correct.
@@ -1712,29 +1724,34 @@ Respond entirely in ${feedbackLang}.`;
           feedbackText.innerHTML = renderMarkdown(fullText);
         });
 
-        // Cherche le verdict : priorité à la première ligne qui commence par ✓ ou ✗
+        // Cherche le verdict global : première ligne commençant par ✓ ou ✗
         const lines     = reply.split('\n').map(l => l.trim()).filter(Boolean);
         const verdict   = lines.find(l => l.startsWith('✓') || l.startsWith('✗')) || reply;
-        const isCorrect = verdict.startsWith('✓');
-
-        feedbackLabel.textContent = isCorrect ? '✓' : '✗';
-        feedbackBox.classList.add(isCorrect ? 'correct' : 'incorrect');
 
         // Score indépendant par mot en mode multi
         const wordResults = {};
         if (isSingle) {
-          wordResults[currentWords[0].toLowerCase()] = isCorrect;
+          wordResults[currentWords[0].toLowerCase()] = verdict.startsWith('✓');
         } else {
           currentWords.forEach(w => {
             const line = lines.find(l => l.toLowerCase().includes(w.toLowerCase()));
             if (line) {
-              wordResults[w.toLowerCase()] = line.includes('✓') && !line.includes('✗');
+              // Cherche le PREMIER ✓ ou ✗ dans la ligne (pas n'importe où)
+              const firstCheck = line.match(/[✓✗]/);
+              wordResults[w.toLowerCase()] = firstCheck ? firstCheck[0] === '✓' : false;
             } else {
-              // Mot non trouvé dans la réponse → ✗ par défaut (probablement absent du texte)
-              wordResults[w.toLowerCase()] = false;
+              wordResults[w.toLowerCase()] = false; // absent → ✗
             }
           });
         }
+
+        // Force isCorrect=false si au moins un mot est ✗
+        const isCorrect = !isSingle
+          ? Object.values(wordResults).every(v => v)
+          : verdict.startsWith('✓');
+
+        feedbackLabel.textContent = isCorrect ? '✓' : '✗';
+        feedbackBox.classList.add(isCorrect ? 'correct' : 'incorrect');
 
         // ── Progression + History (première tentative seulement) ─
         for (const w of currentWords) {
