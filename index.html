@@ -2442,14 +2442,25 @@ Return ONLY a JSON array, no other text:
     }
 
     async function addRelatedWord(word, btnIndex) {
-      const btn   = document.getElementById(`chip-add-${btnIndex}`);
+      const btn = document.getElementById(`chip-add-${btnIndex}`);
+
+      // Vérifie si le mot existe déjà dans allWords (insensible à la casse)
+      const wordLower = word.toLowerCase();
+      if (allWords.some(w => w.toLowerCase() === wordLower)) {
+        btn.disabled = true;
+        btn.textContent = '↩';
+        btn.title = 'Mot déjà dans ta liste';
+        btn.style.color = 'var(--muted)';
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = '…';
 
-      const token   = localStorage.getItem(KEY_GG_TOKEN);
-      const range   = encodeURIComponent(`${currentLang}!A:B`);
-      const url     = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
-      const now     = new Date().toISOString();
+      const token = localStorage.getItem(KEY_GG_TOKEN);
+      const range = encodeURIComponent(`${currentLang}!A:B`);
+      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+      const now   = new Date().toISOString();
 
       try {
         const res = await fetch(url, {
@@ -2460,6 +2471,7 @@ Return ONLY a JSON array, no other text:
         if (!res.ok) throw new Error(`status ${res.status}`);
         btn.textContent = '✓';
         btn.style.color = 'var(--success)';
+        allWords.push(word); // ajoute en mémoire pour éviter un double-ajout immédiat
         console.log(`[Sheets] ✓ Mot ajouté : ${word} → ${currentLang}`);
       } catch (err) {
         btn.textContent = '✗';
