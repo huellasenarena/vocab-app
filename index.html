@@ -911,7 +911,7 @@
     const CLIENT_ID     = "742808037031-61r1roac158e5ltrosgahkemc4r9e7n1.apps.googleusercontent.com";
     const SCOPES        = "https://www.googleapis.com/auth/spreadsheets";
     const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
-    const MISTRAL_KEY   = "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";
+    const API_ENDPOINT  = "https://dark-brook-87cc.georg-dreym.workers.dev";
     const MISTRAL_MODEL = "gpt-5.4";
 
     const KEY_PWD_OK    = "vocab_pwd_ok";
@@ -2571,9 +2571,9 @@ Return ONLY a JSON array, no other text:
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30000);
       try {
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        const res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_completion_tokens: maxTokens }),
           signal: controller.signal
         });
@@ -2595,9 +2595,9 @@ Return ONLY a JSON array, no other text:
       const timer = setTimeout(() => controller.abort(), 30000);
       let res;
       try {
-        res = await fetch('https://api.openai.com/v1/chat/completions', {
+        res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_completion_tokens: maxTokens, stream: true }),
           signal: controller.signal
         });
