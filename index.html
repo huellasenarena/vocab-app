@@ -1656,7 +1656,7 @@ Rules:
 Structure your response in exactly four sections, using natural labels in ${langName} for each:
 1. The definition of the word
 2. Its register or stylistic level (e.g. formal, neutral, familiar, literary, technical, archaic)
-3. Two or three words or expressions often used together with this word. List each on its own line in the format: word/expression — one-sentence explanation of the relationship or usage
+3. Two or three words or expressions often used together with this word. List each as a bullet on its own line in this exact format: • *word or expression* — one-sentence explanation of the relationship or usage
 4. One example sentence in italics
 
 Respond entirely in ${langName}.`;
@@ -1672,7 +1672,7 @@ Respond entirely in ${langName}.`;
             hintScrolled = true;
             hintBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
-        });
+        }, 500, "low");
 
         // Sauvegarde dans le cache avec timestamp
         definitionCache[cacheKey] = { html: renderMarkdown(fullText), ts: Date.now() };
@@ -2598,15 +2598,15 @@ Return ONLY a JSON array, no other text:
 
     // ── Appel Mistral (streaming, pour affichage progressif) ──
     // onChunk(fullTextSoFar) est appelé à chaque nouveau fragment.
-    async function callMistralStream(prompt, onChunk, maxTokens = 500) {
+    async function callMistralStream(prompt, onChunk, maxTokens = 500, reasoningEffort = "medium") {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 30000);
+      const timer = setTimeout(() => controller.abort(), 60000);
       let res;
       try {
         res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_completion_tokens: maxTokens, reasoning_effort: "medium", stream: true }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_completion_tokens: maxTokens, reasoning_effort: reasoningEffort, stream: true }),
           signal: controller.signal
         });
       } catch (err) {
