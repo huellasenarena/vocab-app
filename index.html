@@ -911,8 +911,8 @@
     const CLIENT_ID     = "742808037031-61r1roac158e5ltrosgahkemc4r9e7n1.apps.googleusercontent.com";
     const SCOPES        = "https://www.googleapis.com/auth/spreadsheets";
     const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
-    const MISTRAL_KEY   = "__MISTRAL_API_KEY__";
-    const MISTRAL_MODEL = "mistral-large-latest";
+    const MISTRAL_KEY   = "__OPENAI_API_KEY__";
+    const MISTRAL_MODEL = "gpt-5.4";
 
     const KEY_PWD_OK    = "vocab_pwd_ok";
     const KEY_GG_TOKEN  = "vocab_google_token";
@@ -2571,7 +2571,7 @@ Return ONLY a JSON array, no other text:
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30000);
       try {
-        const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
           body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2 }),
@@ -2595,7 +2595,7 @@ Return ONLY a JSON array, no other text:
       const timer = setTimeout(() => controller.abort(), 30000);
       let res;
       try {
-        res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
           body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2, stream: true }),
