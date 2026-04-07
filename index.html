@@ -912,7 +912,7 @@
     const SCOPES        = "https://www.googleapis.com/auth/spreadsheets";
     const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
     const API_ENDPOINT  = "https://dark-brook-87cc.georg-dreym.workers.dev";
-    const MISTRAL_MODEL = "gpt-5.4";
+    const MISTRAL_MODEL = "gpt-4.1";
 
     const KEY_PWD_OK    = "vocab_pwd_ok";
     const KEY_GG_TOKEN  = "vocab_google_token";
@@ -1672,7 +1672,7 @@ Respond entirely in ${langName}.`;
             hintScrolled = true;
             hintBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
-        }, 500, "low");
+        });
 
         // Sauvegarde dans le cache avec timestamp
         definitionCache[cacheKey] = { html: renderMarkdown(fullText), ts: Date.now() };
@@ -2582,7 +2582,7 @@ Return ONLY a JSON array, no other text:
         const res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_completion_tokens: maxTokens, reasoning_effort: "medium" }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2 }),
           signal: controller.signal
         });
         const data = await res.json();
@@ -2598,15 +2598,15 @@ Return ONLY a JSON array, no other text:
 
     // ── Appel Mistral (streaming, pour affichage progressif) ──
     // onChunk(fullTextSoFar) est appelé à chaque nouveau fragment.
-    async function callMistralStream(prompt, onChunk, maxTokens = 500, reasoningEffort = "medium") {
+    async function callMistralStream(prompt, onChunk, maxTokens = 500) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 60000);
+      const timer = setTimeout(() => controller.abort(), 30000);
       let res;
       try {
         res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_completion_tokens: maxTokens, reasoning_effort: reasoningEffort, stream: true }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2, stream: true }),
           signal: controller.signal
         });
       } catch (err) {
