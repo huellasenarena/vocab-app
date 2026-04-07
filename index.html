@@ -1768,7 +1768,7 @@ Respond entirely in ${feedbackLang}.`;
       try {
         feedbackText.innerHTML = '';
         feedbackBox.classList.add('visible');
-        feedbackBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        requestAnimationFrame(() => feedbackBox.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 
         const evalMaxTokens = 800 + currentWords.length * 200;
         const reply = await callMistralStream(prompt, fullText => {
