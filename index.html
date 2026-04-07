@@ -2554,13 +2554,16 @@ Return ONLY a JSON array, no other text:
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
+        // Titres ## et ### → bold avec espacement
+        .replace(/^###\s+(.+)$/gm, '<strong>$1</strong>')
+        .replace(/^##\s+(.+)$/gm, '<br><strong>$1</strong>')
         // Gras : **texte**
         .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
-        // Italique sur une seule ligne : *texte* (pas de saut de ligne à l'intérieur)
+        // Italique sur une seule ligne : *texte*
         .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
         // Supprime les * résiduels utilisés comme puces en début de ligne
         .replace(/^\s*\*\s+/gm, '• ')
-        // Supprime les * solitaires restants (début/fin de texte ou de ligne)
+        // Supprime les * solitaires restants
         .replace(/\*/g, '')
         // Sauts de ligne
         .replace(/\n/g, '<br>');
