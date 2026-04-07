@@ -369,8 +369,8 @@
       font-weight: 600;
       color: var(--accent);
     }
-    .word-chip .chip-word.chip-md { font-size: 0.9rem; }
-    .word-chip .chip-word.chip-sm { font-size: 0.75rem; }
+    .word-chip .chip-word.chip-md { font-size: 0.85rem; }
+    .word-chip .chip-word.chip-sm { font-size: 0.7rem; }
     .word-chip .chip-stars {
       font-size: 0.75rem;
       color: var(--muted);
@@ -921,24 +921,28 @@
         sentencePromptSingle: 'Use this word in a sentence:',
         hintDropdownLabel: 'Which word would you like to clarify?',
         qcmQuestion: 'What is the correct definition?',
+        hintNotice: '(hint used — not counted towards stars)',
         feedbackLang: 'English' },
       { key: 'Spanish', flag: '🇪🇸', name: 'Español',   mistralName: 'Spanish',
         sentencePrompt: 'Usa estas palabras en un solo texto:',
         sentencePromptSingle: 'Usa esta palabra en una frase:',
         hintDropdownLabel: '¿Qué palabra quieres aclarar?',
         qcmQuestion: '¿Cuál es la definición correcta?',
+        hintNotice: '(ayuda utilizada — no contabilizado en las estrellas)',
         feedbackLang: 'Spanish' },
       { key: 'French',  flag: '🇫🇷', name: 'Français',  mistralName: 'French',
         sentencePrompt: 'Utilise ces mots dans un seul texte :',
         sentencePromptSingle: 'Utilise ce mot dans une phrase :',
         hintDropdownLabel: 'Quel mot veux-tu éclaircir ?',
         qcmQuestion: 'Quelle est la bonne définition ?',
+        hintNotice: '(aide utilisée — non comptabilisé dans les étoiles)',
         feedbackLang: 'French' },
       { key: 'Greek',   flag: '🇬🇷', name: 'Ελληνικά', mistralName: 'Modern Greek',
         sentencePrompt: 'Χρησιμοποίησε αυτές τις λέξεις σε ένα κείμενο:',
         sentencePromptSingle: 'Χρησιμοποίησε αυτή τη λέξη σε μια πρόταση:',
         hintDropdownLabel: 'Ποια λέξη θέλεις να ξεκαθαρίσεις;',
         qcmQuestion: 'Ποια είναι η σωστή ορισμός;',
+        hintNotice: '(χρησιμοποιήθηκε βοήθεια — δεν μετράει στα αστέρια)',
         feedbackLang: 'Modern Greek' },
     ];
 
@@ -1005,6 +1009,16 @@
     }
     document.getElementById('pwd-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') checkPassword();
+    });
+
+    // Ferme le dropdown hint en cliquant en dehors
+    document.addEventListener('click', e => {
+      const dropdown = document.getElementById('hint-dropdown');
+      const btnHint  = document.getElementById('btn-hint');
+      if (dropdown.classList.contains('visible') &&
+          !dropdown.contains(e.target) && e.target !== btnHint) {
+        dropdown.classList.remove('visible');
+      }
     });
 
     // Cmd+Enter (Mac) ou Ctrl+Enter (Windows) pour vérifier la phrase
@@ -1327,12 +1341,14 @@
 
     // ── SM-2 : calcule la prochaine date de révision ──────────
     function calcNextReview(prog, isCorrect) {
-      const successes = prog ? prog.correct : 0;
-      if (!isCorrect) return addDays(1);          // échec → demain
-      if (successes <= 1) return addDays(1);       // 1er succès → +1j
-      if (successes <= 2) return addDays(6);       // 2e → +6j
-      const interval = Math.min(Math.pow(2, successes - 2) * 6, 180); // max 6 mois
-      return addDays(Math.round(interval));
+      if (!isCorrect) return addDays(1);
+      const net = prog ? (prog.correct - prog.incorrect) : 0;
+      if (net <= 1) return addDays(1);
+      if (net === 2) return addDays(6);
+      if (net === 3) return addDays(14);
+      if (net === 4) return addDays(30);
+      if (net === 5) return addDays(60);
+      return addDays(120); // net >= 6
     }
 
     function addDays(n) {
@@ -1495,15 +1511,12 @@
         multi.style.display  = '';
         multi.innerHTML = currentWords.map(w => {
           const starsInfo = getStarsInfo(w);
-          const wordCount = w.trim().split(/\s+/).length;
-          const sizeClass = (wordCount > 2 || w.length > 20) ? 'chip-sm'
-                          : (w.length > 10)                  ? 'chip-md'
-                          : '';
           return `<div class="word-chip">
-            <span class="chip-word ${sizeClass}">${w}</span>
+            <span class="chip-word">${w}</span>
             <span class="chip-stars ${starsInfo.cls}">${starsInfo.str}</span>
           </div>`;
         }).join('');
+        requestAnimationFrame(adjustChipFontSizes);
       }
 
       // En mode espacé, hint disponible seulement pour les nouveaux mots
@@ -1570,6 +1583,29 @@
       }
     }
 
+    function adjustChipFontSizes() {
+      document.querySelectorAll('#multi-word-chips .word-chip').forEach(chip => {
+        const wordEl = chip.querySelector('.chip-word');
+        wordEl.classList.remove('chip-md', 'chip-sm');
+        const chipWidth = chip.clientWidth - 32; // subtract horizontal padding
+
+        // Measure natural text width with nowrap
+        wordEl.style.whiteSpace = 'nowrap';
+        const w1 = wordEl.scrollWidth;
+        wordEl.style.whiteSpace = '';
+        if (w1 <= chipWidth) return;
+
+        wordEl.classList.add('chip-md');
+        wordEl.style.whiteSpace = 'nowrap';
+        const w2 = wordEl.scrollWidth;
+        wordEl.style.whiteSpace = '';
+        if (w2 <= chipWidth) return;
+
+        wordEl.classList.remove('chip-md');
+        wordEl.classList.add('chip-sm');
+      });
+    }
+
     function toggleHintCollapse() {
       const box = document.getElementById('hint-box');
       box.classList.toggle('collapsed');
@@ -1586,9 +1622,10 @@
       document.getElementById('hint-box-label-text').textContent = `Définition — ${word}`;
       hintBox.classList.remove('collapsed');
 
-      // ── Cache hit : affichage instantané ──────────────────
-      if (definitionCache[cacheKey]) {
-        hintTextEl.innerHTML = definitionCache[cacheKey];
+      // ── Cache hit : affichage instantané (valide 24h) ────────
+      const cached = definitionCache[cacheKey];
+      if (cached && Date.now() - cached.ts < 86400000) {
+        hintTextEl.innerHTML = cached.html;
         hintBox.classList.add('visible');
         hintUsedWords.add(word.toLowerCase());
         if (currentWords.length === 1) {
@@ -1628,8 +1665,8 @@ Respond entirely in ${langName}.`;
           hintTextEl.innerHTML = renderMarkdown(partial);
         });
 
-        // Sauvegarde dans le cache
-        definitionCache[cacheKey] = renderMarkdown(fullText);
+        // Sauvegarde dans le cache avec timestamp
+        definitionCache[cacheKey] = { html: renderMarkdown(fullText), ts: Date.now() };
 
         hintUsedWords.add(word.toLowerCase());
         if (currentWords.length === 1) {
@@ -1748,7 +1785,8 @@ Respond entirely in ${feedbackLang}.`;
           wordResults[currentWords[0].toLowerCase()] = verdict.startsWith('✓');
         } else {
           currentWords.forEach(w => {
-            const line = lines.find(l => l.toLowerCase().includes(w.toLowerCase()));
+            const wEscaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const line = lines.find(l => new RegExp(`\\b${wEscaped}\\b`, 'i').test(l));
             if (line) {
               // Cherche le PREMIER ✓ ou ✗ dans la ligne (pas n'importe où)
               const firstCheck = line.match(/[✓✗]/);
@@ -1768,44 +1806,47 @@ Respond entirely in ${feedbackLang}.`;
         feedbackBox.classList.add(isCorrect ? 'correct' : 'incorrect');
 
         // ── Progression + History (première tentative seulement) ─
+        const savePromises  = [];
+        const historyRows   = [];
+        const prevNewCount  = todayNewCount;
+
         for (const w of currentWords) {
-          const k          = w.toLowerCase();
-          const wResult    = wordResults[k] ?? isCorrect;
+          const k           = w.toLowerCase();
+          const wResult     = wordResults[k] ?? isCorrect;
           const hintWasUsed = hintUsedWords.has(k);
-          const isNew      = isNewWord(w);
+          const isNew       = isNewWord(w);
 
           // Ignore les 2ème+ tentatives
           if (sessionFirstResult.hasOwnProperty(k)) continue;
 
-          // Enregistre dans History (hint = ✗ seulement pour ce mot spécifique)
+          // Collecte ligne History
           const historyResult = hintWasUsed ? false : wResult;
           sessionFirstResult[k] = historyResult;
-          saveHistory(w, historyResult);
+          historyRows.push([new Date().toISOString(), w, currentLang, historyResult ? '✓' : '✗']);
 
           // Progression selon les règles
           if (isNew) {
             if (wResult) {
-              await saveProgressNew(w);
+              savePromises.push(saveProgressNew(w));
               if (!sessionNewPracticed.has(k)) {
                 sessionNewPracticed.add(k);
                 todayNewCount++;
-                await saveTodayCount(todayNewCount);
               }
             }
-            // Nouveau + ✗ → rien ne se passe
           } else {
-            if (hintWasUsed) {
-              await saveProgressReviewHint(w);
-            } else {
-              await saveProgress(w, wResult);
-            }
+            savePromises.push(hintWasUsed ? saveProgressReviewHint(w) : saveProgress(w, wResult));
           }
         }
+
+        // Envoi groupé : history en un seul appel, progress en parallèle
+        if (historyRows.length > 0) savePromises.push(saveHistoryBatch(historyRows));
+        if (todayNewCount !== prevNewCount) savePromises.push(saveTodayCount(todayNewCount));
+        await Promise.all(savePromises);
 
         // Notice aide
         const wordsWithHelp = currentWords.filter(w => hintUsedWords.has(w.toLowerCase()));
         noCountNotice.textContent = wordsWithHelp.length > 0
-          ? `(aide utilisée — non comptabilisé dans les étoiles)`
+          ? getLang().hintNotice
           : '';
 
         // Met à jour le compteur affiché
@@ -2097,23 +2138,21 @@ Write all definitions in ${langName}.`;
 
     // ── Écriture historique ───────────────────────────────────
     async function saveHistory(word, isCorrect) {
-      const token  = localStorage.getItem(KEY_GG_TOKEN);
-      const now    = new Date().toISOString();
-      const result = isCorrect ? '✓' : '✗';
-      const range  = encodeURIComponent('History!A:D');
-      const url    = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+      await saveHistoryBatch([[new Date().toISOString(), word, currentLang, isCorrect ? '✓' : '✗']]);
+    }
+
+    async function saveHistoryBatch(rows) {
+      const token = localStorage.getItem(KEY_GG_TOKEN);
+      const range = encodeURIComponent('History!A:D');
+      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
       try {
         const res  = await fetch(url, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [[now, word, currentLang, result]] })
+          body: JSON.stringify({ values: rows })
         });
         const data = await res.json();
-        if (!res.ok) {
-          console.error(`[History] ✗ status=${res.status}`, JSON.stringify(data.error));
-        } else {
-          console.log(`[History] ✓ ${word} → ${result}`, data.updates?.updatedRange);
-        }
+        if (!res.ok) console.error(`[History] ✗ status=${res.status}`, JSON.stringify(data.error));
       } catch (err) {
         console.error(`[History] Erreur réseau :`, err.message);
       }
@@ -2444,6 +2483,7 @@ Return ONLY a JSON array, no other text:
         const jsonMatch = reply.match(/\[[\s\S]*\]/);
         if (!jsonMatch) throw new Error('Format inattendu');
         const related = JSON.parse(jsonMatch[0]);
+        if (!Array.isArray(related) || !related.every(r => r.word && r.note)) throw new Error('Format inattendu');
 
         chips.innerHTML = related.map((r, i) =>
           `<div class="related-chip">
@@ -2517,25 +2557,46 @@ Return ONLY a JSON array, no other text:
 
     // ── Appel Mistral (non-streaming, pour QCM et situations) ─
     async function callMistral(prompt, maxTokens = 500) {
-      const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
-        body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2 })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      return data.choices[0].message.content.trim();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      try {
+        const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
+          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2 }),
+          signal: controller.signal
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message);
+        return data.choices[0].message.content.trim();
+      } catch (err) {
+        if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
     }
 
     // ── Appel Mistral (streaming, pour affichage progressif) ──
     // onChunk(fullTextSoFar) est appelé à chaque nouveau fragment.
     async function callMistralStream(prompt, onChunk, maxTokens = 500) {
-      const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
-        body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2, stream: true })
-      });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      let res;
+      try {
+        res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
+          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2, stream: true }),
+          signal: controller.signal
+        });
+      } catch (err) {
+        clearTimeout(timer);
+        if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
+        throw err;
+      }
       if (!res.ok) {
+        clearTimeout(timer);
         const err = await res.json();
         throw new Error(err.error?.message || `HTTP ${res.status}`);
       }
@@ -2561,6 +2622,7 @@ Return ONLY a JSON array, no other text:
           } catch {}
         }
       }
+      clearTimeout(timer);
       return fullText.trim();
     }
 
