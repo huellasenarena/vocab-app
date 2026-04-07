@@ -369,6 +369,8 @@
       font-weight: 600;
       color: var(--accent);
     }
+    .word-chip .chip-word.chip-md { font-size: 0.9rem; }
+    .word-chip .chip-word.chip-sm { font-size: 0.75rem; }
     .word-chip .chip-stars {
       font-size: 0.75rem;
       color: var(--muted);
@@ -947,6 +949,7 @@
     let previousWordsPool  = []; // garde tous les mots déjà vus dans la session slider
     let currentLang        = "";
     let hintUsedWords      = new Set();
+    let sentenceSubmitted  = false;
     let qcmWord            = "";
     let practiceMode       = 'spaced';
     let sessionFirstResult = {}; // { word.toLowerCase(): true/false } — premier résultat de la session
@@ -1034,9 +1037,10 @@
             const { word, isCorrect } = pendingSaveAfterReauth;
             pendingSaveAfterReauth = null;
             saveProgress(word, isCorrect);
-          } else {
+          } else if (currentWords.length === 0) {
             showScreen('screen-lang');
           }
+          // else: user was mid-practice — stay on the practice screen with words intact
         }
       });
     }
@@ -1206,6 +1210,7 @@
 
     function resetPracticeUI() {
       hintUsedWords      = new Set();
+      sentenceSubmitted  = false;
       currentWords       = [];
       document.getElementById('current-word').textContent     = '…';
       document.getElementById('word-stars').textContent       = '☆☆☆';
@@ -1490,8 +1495,12 @@
         multi.style.display  = '';
         multi.innerHTML = currentWords.map(w => {
           const starsInfo = getStarsInfo(w);
+          const wordCount = w.trim().split(/\s+/).length;
+          const sizeClass = (wordCount > 2 || w.length > 20) ? 'chip-sm'
+                          : (w.length > 10)                  ? 'chip-md'
+                          : '';
           return `<div class="word-chip">
-            <span class="chip-word">${w}</span>
+            <span class="chip-word ${sizeClass}">${w}</span>
             <span class="chip-stars ${starsInfo.cls}">${starsInfo.str}</span>
           </div>`;
         }).join('');
@@ -1542,8 +1551,9 @@
 
     // ── Hint ─────────────────────────────────────────────────
     function askHint() {
-      // En mode espacé, seulement les mots nouveaux peuvent avoir un hint
-      const eligibleWords = (practiceMode === 'spaced')
+      // Après vérification, toutes les définitions sont accessibles (pour apprendre, pas pour scorer)
+      // En mode espacé avant vérification, seulement les mots nouveaux peuvent avoir un hint
+      const eligibleWords = (practiceMode === 'spaced' && !sentenceSubmitted)
         ? currentWords.filter(w => isNewWord(w))
         : currentWords;
 
@@ -1625,7 +1635,7 @@ Respond entirely in ${langName}.`;
         if (currentWords.length === 1) {
           document.getElementById('hint-used-badge').classList.add('visible');
         }
-        await saveHint(word);
+        if (!sentenceSubmitted) await saveHint(word);
       } catch (err) {
         hintTextEl.textContent = 'Erreur : ' + err.message;
         hintBox.classList.add('visible');
@@ -1687,15 +1697,17 @@ CRITICAL: Grammar errors, spelling mistakes, punctuation issues, or register pro
 BLOC 2 — LINGUISTIC ANALYSIS (completely independent of the verdict)
 ════════════════════════════════
 
-B2-STEP 1 — Read the full text carefully. Note every grammar, spelling, punctuation, register, and naturalness issue.
+B2-STEP 1 — Read the full text carefully. Note every potential grammar, spelling, punctuation, and register issue.
 
 CRITICAL: Analyze ONLY the exact words and forms the learner actually wrote. Do NOT comment on forms, variants, or alternatives the learner did not use.
 
-CRITICAL PUNCTUATION RULE: A period (.), semicolon (;), or colon (:) between sentences is ALWAYS grammatically correct. NEVER flag these as missing commas. Only flag actual errors.
+CRITICAL PUNCTUATION RULE: A period (.), semicolon (;), or colon (:) between sentences is ALWAYS grammatically correct. NEVER flag these as missing commas.
 
-B2-STEP 2 — For each issue, explain what is wrong and what would be correct.
+B2-STEP 2 — For each item noted in Step 1, verify: is this definitively wrong in the learner's specific sentence? If yes → keep it. If it is debatable, regional, literary, or arguably correct → discard it entirely. Do NOT include it even to say it is acceptable. Only confirmed errors survive this step.
 
-B2-STEP 3 — Write a rich, natural, exam-level version of the learner's text.
+B2-STEP 3 — For each confirmed error from Step 2, explain what is wrong and what would be correct.
+
+B2-STEP 4 — Write a rich, natural, exam-level version of the learner's text.
 
 ════════════════════════════════
 OUTPUT FORMAT — Do NOT show any steps or internal reasoning.
@@ -1710,7 +1722,7 @@ Then: One sentence in ${langName} explaining whether the target word is used cor
 Then for each word, one line:
 ${currentWords.map(w => `- "${w}": ✓ or ✗ — one sentence on usage and meaning`).join('\n')}`}
 
-Then a blank line, then a section with a natural heading in ${langName} for the linguistic analysis (e.g. "Analyse linguistique" in French, "Análisis lingüístico" in Spanish, "Γλωσσική ανάλυση" in Greek, "Linguistic analysis" in English), followed by a numbered list of every issue. If none, write the equivalent of "No errors detected" in ${langName}.
+Then a blank line, then a section with a natural heading in ${langName} for the linguistic analysis (e.g. "Analyse linguistique" in French, "Análisis lingüístico" in Spanish, "Γλωσσική ανάλυση" in Greek, "Linguistic analysis" in English), followed by a numbered list of confirmed errors from B2-STEP 2 only. Each item must cover exactly one error. The bold label must name that specific error — never a preliminary observation that is then contradicted. If none, write the equivalent of "No errors detected" in ${langName}.
 
 Then a blank line, then a section with a natural heading in ${langName} for an improved version (e.g. "Version enrichie" in French, "Versión mejorada" in Spanish), followed by the exam-level rewrite.
 
@@ -1719,10 +1731,12 @@ Respond entirely in ${feedbackLang}.`;
       try {
         feedbackText.innerHTML = '';
         feedbackBox.classList.add('visible');
+        feedbackBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+        const evalMaxTokens = 800 + currentWords.length * 200;
         const reply = await callMistralStream(prompt, fullText => {
           feedbackText.innerHTML = renderMarkdown(fullText);
-        });
+        }, evalMaxTokens);
 
         // Cherche le verdict global : première ligne commençant par ✓ ou ✗
         const lines     = reply.split('\n').map(l => l.trim()).filter(Boolean);
@@ -1834,6 +1848,8 @@ Respond entirely in ${feedbackLang}.`;
 
       btn.disabled = false;
       btn.textContent = 'Vérifier ✓';
+      sentenceSubmitted = true;
+      document.getElementById('btn-hint').style.display = '';
     }
 
     // ── QCM ───────────────────────────────────────────────────
@@ -2500,11 +2516,11 @@ Return ONLY a JSON array, no other text:
     }
 
     // ── Appel Mistral (non-streaming, pour QCM et situations) ─
-    async function callMistral(prompt) {
+    async function callMistral(prompt, maxTokens = 500) {
       const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
-        body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: 500, temperature: 0.2 })
+        body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2 })
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
@@ -2513,11 +2529,11 @@ Return ONLY a JSON array, no other text:
 
     // ── Appel Mistral (streaming, pour affichage progressif) ──
     // onChunk(fullTextSoFar) est appelé à chaque nouveau fragment.
-    async function callMistralStream(prompt, onChunk) {
+    async function callMistralStream(prompt, onChunk, maxTokens = 500) {
       const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
-        body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: 500, temperature: 0.2, stream: true })
+        body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2, stream: true })
       });
       if (!res.ok) {
         const err = await res.json();

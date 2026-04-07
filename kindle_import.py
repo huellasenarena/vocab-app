@@ -160,10 +160,12 @@ def get_credentials():
     return creds
 
 # ── Sheets API ───────────────────────────────────────────────────────────────
+TIMEOUT = 15  # secondes
+
 def sheets_get(creds, range_):
     url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID}/values/{urllib.request.quote(range_)}"
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {creds.token}"})
-    with urllib.request.urlopen(req) as r:
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
         return json.loads(r.read())
 
 def sheets_append(creds, range_, values):
@@ -172,15 +174,25 @@ def sheets_append(creds, range_, values):
     data = json.dumps({"values": values}).encode()
     req = urllib.request.Request(url, data=data, method="POST",
           headers={"Authorization": f"Bearer {creds.token}", "Content-Type": "application/json"})
-    with urllib.request.urlopen(req) as r:
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
         return json.loads(r.read())
 
 def get_existing_words(creds, sheet_name):
     try:
         data = sheets_get(creds, f"{sheet_name}!B:B")
         return {r[0].strip().lower() for r in data.get("values", []) if r}
-    except Exception:
-        return set()
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="ignore")
+        print(f"\n❌ Erreur HTTP {e.code} en lisant '{sheet_name}' : {body[:200]}")
+        print("   → Supprime token.json et relance pour te réauthentifier.")
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        print(f"\n❌ Impossible de joindre Google Sheets : {e.reason}")
+        print("   → Vérifie ta connexion internet.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ Erreur inattendue : {e}")
+        sys.exit(1)
 
 # ── Détection Kindle ─────────────────────────────────────────────────────────
 def find_kindle():
