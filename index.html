@@ -2574,7 +2574,7 @@ Return ONLY a JSON array, no other text:
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
-          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2 }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_completion_tokens: maxTokens }),
           signal: controller.signal
         });
         const data = await res.json();
@@ -2598,7 +2598,7 @@ Return ONLY a JSON array, no other text:
         res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_KEY}` },
-          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2, stream: true }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_completion_tokens: maxTokens, stream: true }),
           signal: controller.signal
         });
       } catch (err) {
