@@ -875,6 +875,9 @@
       <div class="qcm-result" id="qcm-result"></div>
     </div>
 
+    <!-- Spacer pour permettre le scroll jusqu'au feedback -->
+    <div id="scroll-spacer" style="display:none; height: 60vh;"></div>
+
   </div>
 
   <!-- ── Écran 5 : Statistiques ── -->
@@ -1237,6 +1240,7 @@
       document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
       document.getElementById('feedback-text').textContent    = '';
       document.getElementById('no-count-notice').textContent  = '';
+      document.getElementById('scroll-spacer').style.display  = 'none';
       document.getElementById('qcm-offer').classList.remove('visible');
       document.getElementById('qcm-section').classList.remove('visible');
       document.getElementById('qcm-result').textContent       = '';
@@ -1770,11 +1774,16 @@ Respond entirely in ${feedbackLang}.`;
       try {
         feedbackText.innerHTML = '';
         feedbackBox.classList.add('visible');
-        requestAnimationFrame(() => feedbackBox.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        document.getElementById('scroll-spacer').style.display = '';
 
         const evalMaxTokens = 800 + currentWords.length * 200;
+        let scrolledOnFirstChunk = false;
         const reply = await callMistralStream(prompt, fullText => {
           feedbackText.innerHTML = renderMarkdown(fullText);
+          if (!scrolledOnFirstChunk) {
+            scrolledOnFirstChunk = true;
+            feedbackBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         }, evalMaxTokens);
 
         // Cherche le verdict global : première ligne commençant par ✓ ou ✗
