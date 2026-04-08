@@ -1471,9 +1471,8 @@
       box.classList.toggle('collapsed');
     }
 
-    function startAutoScroll(box) {
+    function startAutoScroll(box, spacer) {
       let active = true;
-      const PAD_TOP = 8;
       const PAD_BOT = 16;
       function stop() { active = false; }
       window.addEventListener('wheel',     stop, { passive: true });
@@ -1483,6 +1482,13 @@
         const rect = box.getBoundingClientRect();
         if (rect.bottom <= window.innerHeight - PAD_BOT) return; // tout visible, rien à faire
         const bottomTarget = window.scrollY + rect.bottom - window.innerHeight + PAD_BOT;
+        // Agrandit le spacer si le document n'est pas assez grand pour scroller jusqu'au bas
+        if (spacer) {
+          const maxScroll = document.body.scrollHeight - window.innerHeight;
+          if (bottomTarget > maxScroll) {
+            spacer.style.height = (spacer.offsetHeight + bottomTarget - maxScroll + 16) + 'px';
+          }
+        }
         window.scrollTo({ top: bottomTarget, behavior: 'smooth' });
       }
       function cleanup() {
@@ -1679,7 +1685,7 @@ Respond entirely in ${feedbackLang}.`;
         }
 
         const evalMaxTokens = 800 + currentWords.length * 200;
-        const scroller = startAutoScroll(feedbackBox);
+        const scroller = startAutoScroll(feedbackBox, spacer);
         const reply = await callMistralStream(prompt, fullText => {
           feedbackText.innerHTML = renderMarkdown(stripVerdictLines(fullText));
           scroller.onChunk();
