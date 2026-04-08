@@ -7,23 +7,27 @@ Application web d'apprentissage de vocabulaire multilingue, single-file `index.h
 - **URL** : https://huellasenarena.github.io/vocab-app
 - **Repo local** : `~/Desktop/vocab-app/`
 - **Stack** : HTML/CSS/JS pur, GitHub Pages + GitHub Actions
-- **Backend** : Google Sheets (pas de serveur)
-- **IA** : Mistral AI (`mistral-large-latest`, température 0.2, streaming SSE)
+- **Backend** : Google Sheets via Cloudflare Worker (service account)
+- **IA** : OpenAI `gpt-4.1`, température 0.2, streaming SSE
 
 ---
 
 ## Configuration
 
-### Google OAuth
-- Client ID : `742808037031-61r1roac158e5ltrosgahkemc4r9e7n1.apps.googleusercontent.com`
-- Scopes : `https://www.googleapis.com/auth/spreadsheets`
-- Token stocké dans `localStorage` (`vocab_google_token`, `vocab_google_expiry`)
-- Durée de vie : 1 heure (limite Google, non contournable sans serveur)
+### Cloudflare Worker
+- **URL** : `https://dark-brook-87cc.georg-dreym.workers.dev`
+- Proxy pour **deux services** : OpenAI (route par défaut) et Google Sheets (route `/sheets`)
+- Secrets configurés dans le dashboard Cloudflare :
+  - `OPENAI_API_KEY` — clé OpenAI
+  - `SA_JSON` — JSON complet du service account Google (contient `client_email` et `private_key`)
+- Le Worker génère un JWT RS256 signé pour s'authentifier auprès de Google, avec cache du token (1h)
 
-### Google Sheets
+### Google Sheets (via service account)
 - Sheet ID : `1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc`
+- Partagé en **Éditeur** avec l'email du service account
 - Onglets : `English`, `Spanish`, `French`, `Greek`, `Progress`, `History`, `Session`
 - Mots dans colonne B, timestamp en colonne A
+- Tous les appels Sheets passent par `sheetsApi(sheetPath, method, body)` → Worker
 
 #### Structure Progress (A:G)
 ```
@@ -40,20 +44,20 @@ A: Date | B: Word | C: Language | D: Result (✓ ou ✗)
 A: Date (YYYY-MM-DD) | B: NewWordsPracticed
 ```
 
-### Mistral AI
-- Modèle : `mistral-large-latest`
+### OpenAI
+- Modèle : `gpt-4.1` (non-reasoning — streaming immédiat, pas de phase de réflexion interne)
 - Température : 0.2
 - Streaming activé pour définitions et évaluations
-- `callMistral()` pour appels non-streaming (QCM, mots liés, situation)
-- `callMistralStream(prompt, onChunk)` pour streaming progressif
-- Clé injectée via GitHub Actions secret `MISTRAL_API_KEY` (placeholder `__MISTRAL_API_KEY__`)
+- `callMistral(prompt, maxTokens)` pour appels non-streaming (QCM, mots liés, situation)
+- `callMistralStream(prompt, onChunk, maxTokens)` pour streaming progressif
+- Les appels passent tous par le Cloudflare Worker (pas d'Authorization header côté app)
 
 ### Déploiement
 ```bash
 git add index.html
 git commit -m "description"
 git push origin main
-# GitHub Actions déploie automatiquement sur gh-pages
+# GitHub Actions déploie automatiquement sur gh-pages (~1 minute)
 ```
 
 ---
@@ -62,11 +66,10 @@ git push origin main
 
 ### Écrans
 1. `screen-password` — mot de passe SHA-256
-2. `screen-google` — connexion Google OAuth
-3. `screen-lang` — sélection de langue
-4. `screen-practice` — pratique principale
-5. `screen-stats` — statistiques
-6. `screen-history` — historique chronologique
+2. `screen-lang` — sélection de langue (plus d'écran Google OAuth)
+3. `screen-practice` — pratique principale
+4. `screen-stats` — statistiques
+5. `screen-history` — historique chronologique
 
 ### Modes de pratique
 - **📅 Espacée** — révision espacée SM-2, limite 60 nouveaux/jour
@@ -89,7 +92,7 @@ let sessionFirstResult  = {};      // { word: bool } — premier résultat par s
 let todayNewCount       = 0;       // nouveaux mots pratiqués aujourd'hui (depuis Session sheet)
 let sessionNewPracticed = new Set();
 const MAX_NEW_PER_DAY   = 60;
-const definitionCache   = {};      // { "mot|lang": "HTML définition" }
+const definitionCache   = {};      // { "mot|lang": { html, ts } } — cache 24h
 ```
 
 ---
@@ -127,6 +130,7 @@ net ≥ 6  : +120 jours (max)
 ## Fonctions Sheets clés
 
 ```javascript
+sheetsApi(sheetPath, method, body) // proxy via Cloudflare Worker — remplace tous les fetch directs
 loadWords(lang)           // charge allWords depuis onglet langue
 loadProgress(lang)        // charge progressMap depuis Progress!A:G
 loadTodayCount()          // charge todayNewCount depuis Session
@@ -135,13 +139,13 @@ saveProgressNew(word)     // nouveau ✓ → NextReview=demain, étoiles neutres
 saveProgressReviewHint(w) // révision+hint → NextReview=demain
 saveProgress(w, bool)     // SM-2 normal (révision sans hint)
 saveHint(word)            // incrémente HintUsed dans Progress
-saveHistory(word, bool)   // écrit dans onglet History
-cleanOrphans(lang, rows)  // supprime lignes Progress dont le mot n'existe plus
+saveHistoryBatch(rows)    // écrit plusieurs lignes dans History en un seul appel
+cleanOrphans(lang, rows)  // vide les lignes Progress dont le mot n'existe plus
 ```
 
 ---
 
-## Prompts Mistral
+## Prompts GPT-4.1
 
 ### Évaluation (structure critique)
 Deux BLOCS **indépendants** :
@@ -151,15 +155,22 @@ Deux BLOCS **indépendants** :
 Règles importantes dans le prompt :
 - Mot absent du texte → ✗ automatique
 - Si un seul mot est ✗ → verdict global ✗
-- Period/semicolon/colon entre phrases = TOUJOURS correct, ne jamais signaler comme coma manquante
+- Period/semicolon/colon entre phrases = TOUJOURS correct, ne jamais signaler comme virgule manquante
 - Analyser UNIQUEMENT ce que l'apprenant a écrit, pas des variantes imaginaires
 - Accepter formes archaïques, dialectales, littéraires
+- CRITICAL FILTER RULE : items incertains ou corrects → silently dropped (ne pas les inclure du tout)
+- Version améliorée : uniquement si verdict ✓, en italique, doit utiliser le mot cible exact
+
+### Format de sortie évaluation
+- `## Verdict` → ✓ ou ✗ + une phrase d'explication
+- `## Analyse linguistique` → liste numérotée d'erreurs confirmées (ou "Aucune erreur")
+- `## Version améliorée` → (seulement si ✓) réécriture enrichie en italique
 
 ### Définition
-4 sections naturelles dans la langue cible :
+4 sections avec `##` headings dans la langue cible :
 1. Définition
 2. Registre
-3. Collocations
+3. Collocations — format `• *expression* — explication`
 4. Exemple en italique
 
 ### Situation (mode recall actif)
@@ -172,17 +183,21 @@ Génère une scène concrète **sans mentionner le mot**. Évaluation en 3 étap
 ## Fonctionnalités importantes
 
 ### Cache définitions
-`definitionCache["mot|lang"]` — évite les appels API répétés pour le même mot.
+`definitionCache["mot|lang"]` avec timestamp — valide 24h, évite les appels API répétés.
+
+### renderMarkdown
+Convertit `**gras**`, `*italique*`, `##` headings, `•` puces en HTML. Consomme les sauts de ligne après les headings pour éviter les espaces doubles. Limite à 2 `<br>` consécutifs max.
+
+### stripVerdictLines
+Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (le label `feedbackLabel` les affiche déjà).
 
 ### Hint en mode espacé
 - **Mots nouveaux** : hint disponible
 - **Mots à réviser** : hint caché
 - **Mix** : hint disponible mais dropdown filtré aux nouveaux seulement
 
-### Alerte token Google
-- Vérification toutes les 30 secondes
-- Badge ⚠️ + bannière si < 5 minutes ou expiré
-- `pendingSaveAfterReauth` mémorise la sauvegarde en attente
+### QCM
+Généré par gpt-4.1 avec distracteurs difficiles (mots sémantiquement proches). Mélangé côté JS (Fisher-Yates) pour que la bonne réponse ne soit pas toujours en première position.
 
 ### Nettoyage orphelins Progress
 Au chargement de chaque langue, `cleanOrphans()` vide les lignes Progress dont le mot n'existe plus dans l'onglet de langue.
@@ -197,15 +212,11 @@ L'onglet `History` est un journal pur (une ligne par tentative). `Progress` gard
 
 ## Problèmes connus / points d'attention
 
-1. **Mistral hallucinations** : Parfois Mistral commente des formes que l'apprenant n'a pas écrites, ou choisit un seul sens d'un mot polysémique. Le prompt atténue ça mais ne l'élimine pas.
+1. **gpt-4.1 hallucinations** : Rares mais possibles. Les prompts ont des garde-fous (CRITICAL FILTER RULE, B2-STEP 2, etc.) mais ne sont pas infaillibles.
 
-2. **max_tokens** : Actuellement 500. Avec 5 mots et une réponse longue, le texte peut être tronqué. Envisager 1000-1500 pour le mode multi-mots.
+2. **Apps Script** : Un script séparé gère l'ajout de mots depuis le raccourci iPhone. Il vérifie les doublons. L'URL du déploiement Apps Script est séparée du code principal.
 
-3. **Notice aide en français** : Le texte `"(aide utilisée — non comptabilisé dans les étoiles)"` est hardcodé en français dans le JS. À adapter selon `currentLang`.
-
-4. **Token Google** : Expire après 1h. Sans serveur backend, impossible de faire un vrai refresh token. La bannière d'alerte est le meilleur compromis.
-
-5. **Apps Script** : Un script séparé gère l'ajout de mots depuis le raccourci iPhone. Il vérifie les doublons. L'URL du déploiement Apps Script est séparée du code principal.
+3. **Cloudflare Worker cold start** : Première requête après une longue inactivité peut être légèrement plus lente (~100-200ms). Normal.
 
 ---
 
