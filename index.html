@@ -1489,7 +1489,7 @@
             spacer.style.height = (spacer.offsetHeight + bottomTarget - maxScroll + 16) + 'px';
           }
         }
-        window.scrollTo({ top: bottomTarget, behavior: 'smooth' });
+        window.scrollTo(0, bottomTarget);
       }
       function cleanup() {
         window.removeEventListener('wheel',     stop);
@@ -1692,12 +1692,24 @@ Respond entirely in ${feedbackLang}.`;
         }, evalMaxTokens);
         scroller.cleanup();
 
-        // Réduit le spacer au strict nécessaire pour maintenir la position de scroll actuelle
+        // Scroll final instantané pour coller le bas de la boîte au bas du viewport
         requestAnimationFrame(() => {
-          const naturalH = document.body.scrollHeight - spacer.offsetHeight;
-          const needed   = Math.max(0, window.scrollY + window.innerHeight - naturalH);
-          spacer.style.height = needed + 'px';
-          if (needed === 0) spacer.style.display = 'none';
+          const rect = feedbackBox.getBoundingClientRect();
+          if (rect.bottom > window.innerHeight - 16) {
+            const target = window.scrollY + rect.bottom - window.innerHeight + 16;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            if (target > maxScroll) {
+              spacer.style.height = (spacer.offsetHeight + target - maxScroll + 16) + 'px';
+            }
+            window.scrollTo(0, target);
+          }
+          // Réduit le spacer au strict nécessaire pour maintenir la position de scroll actuelle
+          requestAnimationFrame(() => {
+            const naturalH = document.body.scrollHeight - spacer.offsetHeight;
+            const needed   = Math.max(0, window.scrollY + window.innerHeight - naturalH);
+            spacer.style.height = needed + 'px';
+            if (needed === 0) spacer.style.display = 'none';
+          });
         });
 
         // Cherche le verdict global : première ligne commençant par ✓ ou ✗
