@@ -53,6 +53,14 @@
       0%, 100% { opacity: 1; }
       50%       { opacity: 0.5; }
     }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%       { transform: translateX(-6px); }
+      40%       { transform: translateX(6px); }
+      60%       { transform: translateX(-4px); }
+      80%       { transform: translateX(4px); }
+    }
+    .shake { animation: shake 0.5s ease; border-color: var(--error) !important; }
 
     .screen {
       display: none;
@@ -824,7 +832,7 @@
     </div>
 
     <!-- Spacer pour permettre le scroll jusqu'au feedback -->
-    <div id="scroll-spacer" style="display:none; height: 60vh;"></div>
+    <div id="scroll-spacer" style="display:none;"></div>
 
   </div>
 
@@ -900,7 +908,8 @@
     let previousWordsPool  = []; // garde tous les mots déjà vus dans la session slider
     let currentLang        = "";
     let hintUsedWords      = new Set();
-    let sentenceSubmitted  = false;
+    let sentenceSubmitted      = false;
+    let lastSubmittedSentence  = '';
     let qcmWord            = "";
     let practiceMode       = 'spaced';
     let sessionFirstResult = {}; // { word.toLowerCase(): true/false } — premier résultat de la session
@@ -1082,8 +1091,9 @@
     }
 
     function resetPracticeUI() {
-      hintUsedWords      = new Set();
-      sentenceSubmitted  = false;
+      hintUsedWords          = new Set();
+      sentenceSubmitted      = false;
+      lastSubmittedSentence  = '';
       currentWords       = [];
       document.getElementById('current-word').textContent     = '…';
       document.getElementById('word-stars').textContent       = '☆☆☆';
@@ -1461,6 +1471,36 @@
       box.classList.toggle('collapsed');
     }
 
+    function startAutoScroll(box) {
+      let active = true;
+      const PAD_TOP = 8;
+      const PAD_BOT = 16;
+      // topTarget calculé une seule fois ici, layout déjà stable (après double-RAF)
+      const topTarget = box.getBoundingClientRect().top + window.scrollY - PAD_TOP;
+      function stop() { active = false; }
+      window.addEventListener('wheel',     stop, { passive: true });
+      window.addEventListener('touchmove', stop, { passive: true });
+      function onChunk() {
+        if (!active) return;
+        const rect = box.getBoundingClientRect();
+        if (rect.bottom <= window.innerHeight - PAD_BOT) return; // tout visible, rien à faire
+        const bottomTarget = window.scrollY + rect.bottom - window.innerHeight + PAD_BOT;
+        if (bottomTarget >= topTarget) {
+          // boîte plus grande que le viewport : scroll jusqu'au haut et stop
+          active = false;
+          window.scrollTo(0, topTarget);
+        } else {
+          // boîte tient dans le viewport mais le bas est coupé : scroll pour montrer le bas
+          window.scrollTo({ top: bottomTarget, behavior: 'smooth' });
+        }
+      }
+      function cleanup() {
+        window.removeEventListener('wheel',     stop);
+        window.removeEventListener('touchmove', stop);
+      }
+      return { onChunk, cleanup };
+    }
+
     async function fetchHint(word) {
       document.getElementById('hint-dropdown').classList.remove('visible');
       const btn = document.getElementById('btn-hint');
@@ -1511,14 +1551,13 @@ Respond entirely in ${langName}.`;
         hintTextEl.innerHTML = '';
         hintBox.classList.add('visible');
 
-        let hintScrolled = false;
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const scroller = startAutoScroll(hintBox);
         const fullText = await callMistralStream(prompt, partial => {
           hintTextEl.innerHTML = renderMarkdown(partial);
-          if (!hintScrolled) {
-            hintScrolled = true;
-            hintBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
+          scroller.onChunk();
         });
+        scroller.cleanup();
 
         // Sauvegarde dans le cache avec timestamp
         definitionCache[cacheKey] = { html: renderMarkdown(fullText), ts: Date.now() };
@@ -1540,6 +1579,15 @@ Respond entirely in ${langName}.`;
     async function submitSentence() {
       const sentence = document.getElementById('sentence-input').value.trim();
       if (!sentence) return;
+
+      // Même réponse qu'avant : shake et ignore
+      if (sentence === lastSubmittedSentence) {
+        const ta = document.getElementById('sentence-input');
+        ta.classList.add('shake');
+        setTimeout(() => ta.classList.remove('shake'), 600);
+        return;
+      }
+      lastSubmittedSentence = sentence;
 
       const btn = document.getElementById('btn-submit');
       btn.disabled = true;
@@ -1624,18 +1672,36 @@ Respond entirely in ${feedbackLang}.`;
       try {
         feedbackText.innerHTML = '';
         feedbackBox.classList.add('visible');
-        document.getElementById('scroll-spacer').style.display = '';
+        const spacer = document.getElementById('scroll-spacer');
+        spacer.style.height  = window.innerHeight + 'px';
+        spacer.style.display = '';
 
-        // Scroll immédiatement après mise à jour du layout (double RAF pour garantir le rendu)
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          const top = feedbackBox.getBoundingClientRect().top + window.scrollY - 8;
-          window.scrollTo({ top, behavior: 'smooth' });
-        }));
+        // Attendre que le layout se stabilise avant de pré-calculer topTarget
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        // Recalcule le spacer en fonction de la vraie position du feedbackBox (hint peut être ouvert)
+        const boxTopInDoc = feedbackBox.getBoundingClientRect().top + window.scrollY;
+        const neededDocH  = boxTopInDoc - 8 + window.innerHeight;
+        const naturalH    = document.body.scrollHeight - spacer.offsetHeight;
+        if (neededDocH > naturalH) {
+          spacer.style.height = (neededDocH - naturalH + 32) + 'px';
+        }
 
         const evalMaxTokens = 800 + currentWords.length * 200;
+        const scroller = startAutoScroll(feedbackBox);
         const reply = await callMistralStream(prompt, fullText => {
           feedbackText.innerHTML = renderMarkdown(stripVerdictLines(fullText));
+          scroller.onChunk();
         }, evalMaxTokens);
+        scroller.cleanup();
+
+        // Réduit le spacer au strict nécessaire pour maintenir la position de scroll actuelle
+        requestAnimationFrame(() => {
+          const naturalH = document.body.scrollHeight - spacer.offsetHeight;
+          const needed   = Math.max(0, window.scrollY + window.innerHeight - naturalH);
+          spacer.style.height = needed + 'px';
+          if (needed === 0) spacer.style.display = 'none';
+        });
 
         // Cherche le verdict global : première ligne commençant par ✓ ou ✗
         const lines     = reply.split('\n').map(l => l.trim()).filter(Boolean);
