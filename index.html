@@ -931,28 +931,28 @@
         sentencePromptSingle: 'Use this word in a sentence:',
         hintDropdownLabel: 'Which word would you like to clarify?',
         qcmQuestion: 'In which situation would you use this word?',
-        hintNotice: '(hint used — not counted towards stars)',
+        hintNotice: '(hint used: {words} — not counted towards stars)',
         feedbackLang: 'English' },
       { key: 'Spanish', flag: '🇪🇸', name: 'Español',   mistralName: 'Spanish',
         sentencePrompt: 'Usa estas palabras en un solo texto:',
         sentencePromptSingle: 'Usa esta palabra en una frase:',
         hintDropdownLabel: '¿Qué palabra quieres aclarar?',
         qcmQuestion: '¿En cuál situación usarías esta palabra?',
-        hintNotice: '(ayuda utilizada — no contabilizado en las estrellas)',
+        hintNotice: '(ayuda utilizada: {words} — no contabilizado en las estrellas)',
         feedbackLang: 'Spanish' },
       { key: 'French',  flag: '🇫🇷', name: 'Français',  mistralName: 'French',
         sentencePrompt: 'Utilise ces mots dans un seul texte :',
         sentencePromptSingle: 'Utilise ce mot dans une phrase :',
         hintDropdownLabel: 'Quel mot veux-tu éclaircir ?',
         qcmQuestion: 'Dans quelle situation utiliserais-tu ce mot ?',
-        hintNotice: '(aide utilisée — non comptabilisé dans les étoiles)',
+        hintNotice: '(aide utilisée : {words} — non comptabilisé dans les étoiles)',
         feedbackLang: 'French' },
       { key: 'Greek',   flag: '🇬🇷', name: 'Ελληνικά', mistralName: 'Modern Greek',
         sentencePrompt: 'Χρησιμοποίησε αυτές τις λέξεις σε ένα κείμενο:',
         sentencePromptSingle: 'Χρησιμοποίησε αυτή τη λέξη σε μια πρόταση:',
         hintDropdownLabel: 'Ποια λέξη θέλεις να ξεκαθαρίσεις;',
         qcmQuestion: 'Σε ποια περίσταση θα χρησιμοποιούσες αυτή τη λέξη;',
-        hintNotice: '(χρησιμοποιήθηκε βοήθεια — δεν μετράει στα αστέρια)',
+        hintNotice: '(χρησιμοποιήθηκε βοήθεια: {words} — δεν μετράει στα αστέρια)',
         feedbackLang: 'Modern Greek' },
     ];
 
@@ -1589,6 +1589,9 @@
     function startAutoScroll(box, spacer) {
       let active = true;
       const PAD_BOT = 16;
+      const PAD_TOP = 8;
+      // topTarget : position de scroll où le haut de la boîte touche le haut du viewport
+      const topTarget = box.getBoundingClientRect().top + window.scrollY - PAD_TOP;
       function stop() { active = false; }
       window.addEventListener('wheel',     stop, { passive: true });
       window.addEventListener('touchmove', stop, { passive: true });
@@ -1597,6 +1600,18 @@
         const rect = box.getBoundingClientRect();
         if (rect.bottom <= window.innerHeight - PAD_BOT) return; // tout visible, rien à faire
         const bottomTarget = window.scrollY + rect.bottom - window.innerHeight + PAD_BOT;
+        if (bottomTarget >= topTarget) {
+          // Haut de la boîte atteint le haut du viewport : stop
+          active = false;
+          if (spacer) {
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            if (topTarget > maxScroll) {
+              spacer.style.height = (spacer.offsetHeight + topTarget - maxScroll + 16) + 'px';
+            }
+          }
+          window.scrollTo(0, topTarget);
+          return;
+        }
         // Agrandit le spacer si le document n'est pas assez grand pour scroller jusqu'au bas
         if (spacer) {
           const maxScroll = document.body.scrollHeight - window.innerHeight;
@@ -1799,6 +1814,12 @@ Respond entirely in ${feedbackLang}.`;
           spacer.style.height = (neededDocH - naturalH + 32) + 'px';
         }
 
+        // Notice aide — affichée avant le streaming pour être incluse dans le scroll
+        const wordsWithHelpEarly = currentWords.filter(w => hintUsedWords.has(w.toLowerCase()));
+        noCountNotice.textContent = wordsWithHelpEarly.length > 0
+          ? getLang().hintNotice.replace('{words}', wordsWithHelpEarly.join(', '))
+          : '';
+
         const evalMaxTokens = 800 + currentWords.length * 200;
         const scroller = startAutoScroll(feedbackBox, spacer);
         const reply = await callMistralStream(prompt, fullText => {
@@ -1894,12 +1915,6 @@ Respond entirely in ${feedbackLang}.`;
         if (historyRows.length > 0) savePromises.push(saveHistoryBatch(historyRows));
         if (todayNewCount !== prevNewCount) savePromises.push(saveTodayCount(todayNewCount));
         await Promise.all(savePromises);
-
-        // Notice aide
-        const wordsWithHelp = currentWords.filter(w => hintUsedWords.has(w.toLowerCase()));
-        noCountNotice.textContent = wordsWithHelp.length > 0
-          ? getLang().hintNotice
-          : '';
 
         // Met à jour le compteur affiché
         if (practiceMode === 'spaced') {
