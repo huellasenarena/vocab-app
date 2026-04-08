@@ -1475,8 +1475,6 @@
       let active = true;
       const PAD_TOP = 8;
       const PAD_BOT = 16;
-      // topTarget calculé une seule fois ici, layout déjà stable (après double-RAF)
-      const topTarget = box.getBoundingClientRect().top + window.scrollY - PAD_TOP;
       function stop() { active = false; }
       window.addEventListener('wheel',     stop, { passive: true });
       window.addEventListener('touchmove', stop, { passive: true });
@@ -1485,14 +1483,7 @@
         const rect = box.getBoundingClientRect();
         if (rect.bottom <= window.innerHeight - PAD_BOT) return; // tout visible, rien à faire
         const bottomTarget = window.scrollY + rect.bottom - window.innerHeight + PAD_BOT;
-        if (bottomTarget >= topTarget) {
-          // boîte plus grande que le viewport : scroll jusqu'au haut et stop
-          active = false;
-          window.scrollTo(0, topTarget);
-        } else {
-          // boîte tient dans le viewport mais le bas est coupé : scroll pour montrer le bas
-          window.scrollTo({ top: bottomTarget, behavior: 'smooth' });
-        }
+        window.scrollTo({ top: bottomTarget, behavior: 'smooth' });
       }
       function cleanup() {
         window.removeEventListener('wheel',     stop);
