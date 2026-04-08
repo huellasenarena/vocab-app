@@ -1588,6 +1588,7 @@
 
     function startAutoScroll(box, spacer) {
       let active = true;
+      let stoppedAtTop = false;
       const PAD_BOT = 16;
       const PAD_TOP = 8;
       // topTarget : position de scroll où le haut de la boîte touche le haut du viewport
@@ -1603,6 +1604,7 @@
         if (bottomTarget >= topTarget) {
           // Haut de la boîte atteint le haut du viewport : stop
           active = false;
+          stoppedAtTop = true;
           if (spacer) {
             const maxScroll = document.body.scrollHeight - window.innerHeight;
             if (topTarget > maxScroll) {
@@ -1625,7 +1627,7 @@
         window.removeEventListener('wheel',     stop);
         window.removeEventListener('touchmove', stop);
       }
-      return { onChunk, cleanup };
+      return { onChunk, cleanup, get stoppedAtTop() { return stoppedAtTop; } };
     }
 
     async function fetchHint(word) {
@@ -1828,16 +1830,18 @@ Respond entirely in ${feedbackLang}.`;
         }, evalMaxTokens);
         scroller.cleanup();
 
-        // Scroll final instantané pour coller le bas de la boîte au bas du viewport
+        // Scroll final : seulement si on n'a pas déjà stoppé au haut de la boîte
         requestAnimationFrame(() => {
-          const rect = feedbackBox.getBoundingClientRect();
-          if (rect.bottom > window.innerHeight - 16) {
-            const target = window.scrollY + rect.bottom - window.innerHeight + 16;
-            const maxScroll = document.body.scrollHeight - window.innerHeight;
-            if (target > maxScroll) {
-              spacer.style.height = (spacer.offsetHeight + target - maxScroll + 16) + 'px';
+          if (!scroller.stoppedAtTop) {
+            const rect = feedbackBox.getBoundingClientRect();
+            if (rect.bottom > window.innerHeight - 16) {
+              const target = window.scrollY + rect.bottom - window.innerHeight + 16;
+              const maxScroll = document.body.scrollHeight - window.innerHeight;
+              if (target > maxScroll) {
+                spacer.style.height = (spacer.offsetHeight + target - maxScroll + 16) + 'px';
+              }
+              window.scrollTo(0, target);
             }
-            window.scrollTo(0, target);
           }
           // Réduit le spacer au strict nécessaire pour maintenir la position de scroll actuelle
           requestAnimationFrame(() => {
@@ -1983,6 +1987,8 @@ Generate exactly 4 short scenarios (1-2 sentences each):
 - 1 scenario where "${qcmWord}" is the natural, correct word to use
 - 3 distractor scenarios: situations that sound plausible but where "${qcmWord}" would be wrong or unnatural — use semantically close contexts that could genuinely fool a learner who doesn't know the word well
 
+CRITICAL: Do NOT include the word "${qcmWord}" (or any of its inflected forms) in any of the 4 scenarios. The learner must identify the correct context without seeing the word.
+
 Return ONLY a JSON array of 4 objects, no other text, no markdown:
 [
   {"text": "...", "correct": true},
@@ -2009,6 +2015,15 @@ Write all scenarios in ${langName}.`;
         choicesEl.innerHTML = choices.map((c, i) =>
           `<button class="qcm-choice" onclick="checkQCM(this, ${c.correct}, ${i})">${c.text}</button>`
         ).join('');
+
+        // Scroll vers la section QCM
+        requestAnimationFrame(() => {
+          const rect = section.getBoundingClientRect();
+          if (rect.bottom > window.innerHeight - 16) {
+            const target = window.scrollY + rect.bottom - window.innerHeight + 16;
+            window.scrollTo({ top: target, behavior: 'smooth' });
+          }
+        });
       } catch (err) {
         choicesEl.innerHTML = `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
       }
