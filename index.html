@@ -1763,10 +1763,8 @@ OUTPUT FORMAT — Do NOT show any steps or internal reasoning.
 ════════════════════════════════
 
 ${isSingle
-  ? `First: ✓ or ✗
-
-Then: One sentence in ${langName} explaining whether the target word is used correctly and why.`
-  : `First: ✓ if ALL words pass BLOC 1, ✗ if any word fails.
+  ? `First: a ## markdown heading in ${langName} for the overall verdict (e.g. "## Verdict" in English, "## Veredicto" in Spanish, "## Verdict" in French, "## Ετυμηγορία" in Greek), then ✓ or ✗, then one sentence explaining whether the target word is used correctly and why.`
+  : `First: a ## markdown heading in ${langName} for the overall verdict (e.g. "## Verdict"), then ✓ if ALL words pass BLOC 1, ✗ if any word fails.
 
 Then for each word, one line:
 ${currentWords.map(w => `- "${w}": ✓ or ✗ — one sentence on usage and meaning`).join('\n')}`}
@@ -1788,7 +1786,10 @@ Respond entirely in ${feedbackLang}.`;
           feedbackText.innerHTML = renderMarkdown(stripVerdictLines(fullText));
           if (!scrolledOnFirstChunk) {
             scrolledOnFirstChunk = true;
-            window.scrollTo({ top: feedbackBox.offsetTop - 8, behavior: 'smooth' });
+            requestAnimationFrame(() => {
+              const top = feedbackBox.getBoundingClientRect().top + window.scrollY - 8;
+              window.scrollTo({ top, behavior: 'smooth' });
+            });
           }
         }, evalMaxTokens);
 
@@ -2576,9 +2577,9 @@ Return ONLY a JSON array, no other text:
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        // Titres ## et ### → bold, consomme le saut de ligne suivant pour éviter l'espace double
-        .replace(/^###\s+(.+)\n?/gm, '<strong>$1</strong><br>')
-        .replace(/^##\s+(.+)\n?/gm, '<br><strong>$1</strong><br>')
+        // Titres ## et ### → bold, consomme tous les sauts de ligne suivants
+        .replace(/^###\s+(.+)\n*/gm, '<strong>$1</strong><br>')
+        .replace(/^##\s+(.+)\n*/gm, '<br><strong>$1</strong><br>')
         // Gras : **texte**
         .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
         // Italique sur une seule ligne : *texte*
@@ -2588,7 +2589,9 @@ Return ONLY a JSON array, no other text:
         // Supprime les * solitaires restants
         .replace(/\*/g, '')
         // Sauts de ligne
-        .replace(/\n/g, '<br>');
+        .replace(/\n/g, '<br>')
+        // Pas plus d'un saut de ligne entre sections
+        .replace(/(<br>\s*){3,}/g, '<br><br>');
     }
 
     // ── Appel Mistral (non-streaming, pour QCM et situations) ─
