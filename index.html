@@ -13,7 +13,6 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f0f0f'/%3E%3Ctext y='74' x='50' text-anchor='middle' font-size='68' font-family='Georgia,serif' fill='%23c9a96e'%3EV%3C/text%3E%3C/svg%3E" />
 
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
     :root {
@@ -53,33 +52,6 @@
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50%       { opacity: 0.5; }
-    }
-
-    .token-banner {
-      width: 100%;
-      background: #2a1f00;
-      border: 1px solid #e0a030;
-      border-radius: 8px;
-      color: #e0a030;
-      font-family: 'DM Mono', monospace;
-      font-size: 0.82rem;
-      padding: 0.75rem 1rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-    .token-banner-btn {
-      background: #e0a030;
-      border: none;
-      border-radius: 6px;
-      color: #0f0f0f;
-      cursor: pointer;
-      font-family: 'DM Mono', monospace;
-      font-size: 0.8rem;
-      font-weight: 600;
-      padding: 0.4rem 0.8rem;
-      white-space: nowrap;
     }
 
     .screen {
@@ -709,24 +681,7 @@
     </div>
   </div>
 
-  <!-- ── Écran 2 : Connexion Google ── -->
-  <div class="screen" id="screen-google">
-    <h1 class="app-title">Vocab</h1>
-    <p class="app-subtitle">ton espace de pratique</p>
-    <p class="info-msg">Connecte ton compte Google pour accéder<br/>à ta liste de vocabulaire.</p>
-    <button class="btn-google" onclick="loginGoogle()">
-      <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-        <path fill="#EA4335" d="M24 9.5c3.14 0 5.95 1.08 8.17 2.86l6.09-6.09C34.46 3.09 29.5 1 24 1 14.82 1 7.07 6.48 3.64 14.22l7.08 5.5C12.43 13.61 17.74 9.5 24 9.5z"/>
-        <path fill="#4285F4" d="M46.1 24.5c0-1.64-.15-3.22-.42-4.75H24v9h12.42c-.54 2.9-2.18 5.36-4.65 7.01l7.19 5.59C43.18 37.13 46.1 31.27 46.1 24.5z"/>
-        <path fill="#FBBC05" d="M10.72 28.28A14.6 14.6 0 0 1 9.5 24c0-1.49.26-2.93.72-4.28l-7.08-5.5A22.9 22.9 0 0 0 1 24c0 3.68.88 7.16 2.64 10.22l7.08-5.94z"/>
-        <path fill="#34A853" d="M24 47c5.5 0 10.12-1.82 13.49-4.95l-7.19-5.59c-1.82 1.22-4.15 1.94-6.3 1.94-6.26 0-11.57-4.11-13.28-9.72l-7.08 5.94C7.07 41.52 14.82 47 24 47z"/>
-      </svg>
-      Se connecter avec Google
-    </button>
-    <p class="error-msg" id="google-error-msg"></p>
-  </div>
-
-  <!-- ── Écran 3 : Sélecteur de langue ── -->
+  <!-- ── Écran 2 : Sélecteur de langue ── -->
   <div class="screen" id="screen-lang">
     <h1 class="app-title">Vocab</h1>
     <p class="app-subtitle">quelle langue aujourd'hui ?</p>
@@ -748,15 +703,8 @@
       <h1 class="app-title">Vocab</h1>
       <div class="header-actions">
         <button class="btn-ghost" onclick="showStats()">📊</button>
-        <button class="btn-ghost token-warning" id="btn-token-warning" onclick="loginGoogle()" style="display:none;" title="Session expirée — clique pour te reconnecter">⚠️ Session</button>
         <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">← langue</span>
       </div>
-    </div>
-
-    <!-- Bannière token expiré -->
-    <div class="token-banner" id="token-banner" style="display:none;">
-      ⚠️ Session Google expirée — tes progrès ne sont pas sauvegardés.
-      <button class="token-banner-btn" onclick="loginGoogle()">Reconnecter →</button>
     </div>
 
     <!-- Toggle mode espacé / situation / libre -->
@@ -908,15 +856,11 @@
   <script>
     // ── Configuration ─────────────────────────────────────────
     const PASSWORD_HASH = "37a3fe961eeb61778465d62305d999d7c1d550ee99af1efd530a61f1a03be39b";
-    const CLIENT_ID     = "742808037031-61r1roac158e5ltrosgahkemc4r9e7n1.apps.googleusercontent.com";
-    const SCOPES        = "https://www.googleapis.com/auth/spreadsheets";
     const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
     const API_ENDPOINT  = "https://dark-brook-87cc.georg-dreym.workers.dev";
     const MISTRAL_MODEL = "gpt-4.1";
 
     const KEY_PWD_OK    = "vocab_pwd_ok";
-    const KEY_GG_TOKEN  = "vocab_google_token";
-    const KEY_GG_EXPIRY = "vocab_google_expiry";
 
     const LANGS = [
       { key: 'English', flag: '🇬🇧', name: 'English',   mistralName: 'English',
@@ -967,26 +911,8 @@
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
-      const pwdOk      = localStorage.getItem(KEY_PWD_OK) === "true";
-      const token      = localStorage.getItem(KEY_GG_TOKEN);
-      const expiry     = parseInt(localStorage.getItem(KEY_GG_EXPIRY) || "0");
-      const tokenValid = token && Date.now() < expiry;
-
-      if (!pwdOk) {
-        showScreen('screen-password');
-      } else if (tokenValid) {
-        showScreen('screen-lang');
-      } else {
-        // Token expiré → bouton Google directement, pas de popup surprise
-        showScreen('screen-google');
-      }
-
-      // Initialise Google en arrière-plan dans tous les cas
-      const iv = setInterval(() => {
-        if (typeof google !== 'undefined' && google.accounts) {
-          initGoogleClient(); clearInterval(iv);
-        }
-      }, 200);
+      const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
+      showScreen(pwdOk ? 'screen-lang' : 'screen-password');
     });
 
     function showScreen(id) {
@@ -1003,7 +929,7 @@
       const hash  = await sha256(input);
       if (hash === PASSWORD_HASH) {
         localStorage.setItem(KEY_PWD_OK, "true");
-        showScreen('screen-google');
+        showScreen('screen-lang');
       } else {
         document.getElementById('error-msg').textContent = 'mot de passe incorrect';
         document.getElementById('pwd-input').value = '';
@@ -1032,70 +958,17 @@
       }
     });
 
-    // ── Google OAuth ──────────────────────────────────────────
-    let tokenClient;
-    let pendingSaveAfterReauth = null;
-
-    function initGoogleClient() {
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID, scope: SCOPES,
-        callback: (response) => {
-          if (response.error) {
-            document.getElementById('google-error-msg').textContent =
-              'Erreur de connexion — réessaie.';
-            return;
-          }
-          const expiry = Date.now() + (response.expires_in - 60) * 1000;
-          localStorage.setItem(KEY_GG_TOKEN, response.access_token);
-          localStorage.setItem(KEY_GG_EXPIRY, expiry.toString());
-          showTokenWarning(false); // cache la bannière après reconnexion
-
-          if (pendingSaveAfterReauth) {
-            const { word, isCorrect } = pendingSaveAfterReauth;
-            pendingSaveAfterReauth = null;
-            saveProgress(word, isCorrect);
-          } else if (currentWords.length === 0) {
-            showScreen('screen-lang');
-          }
-          // else: user was mid-practice — stay on the practice screen with words intact
-        }
+    // ── Proxy Sheets via Cloudflare Worker (service account) ──
+    async function sheetsApi(sheetPath, method = 'GET', body = null) {
+      const res = await fetch(`${API_ENDPOINT}/sheets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheetPath, method, body })
       });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+      return data;
     }
-
-    function loginGoogle() {
-      if (!tokenClient) { setTimeout(loginGoogle, 500); return; }
-      tokenClient.requestAccessToken();
-    }
-
-    // Refresh quand le token expire en pleine session
-    function silentRefresh() {
-      if (!tokenClient) { setTimeout(silentRefresh, 500); return; }
-      tokenClient.requestAccessToken();
-    }
-
-    // ── Surveillance expiration token ─────────────────────────
-    function showTokenWarning(show) {
-      document.getElementById('btn-token-warning').style.display = show ? '' : 'none';
-      document.getElementById('token-banner').style.display      = show ? 'flex' : 'none';
-    }
-
-    function checkTokenExpiry() {
-      const expiry = parseInt(localStorage.getItem(KEY_GG_EXPIRY) || '0');
-      if (!expiry) return;
-      const msLeft = expiry - Date.now();
-      if (msLeft <= 0) {
-        // Token déjà expiré
-        showTokenWarning(true);
-      } else if (msLeft < 5 * 60 * 1000) {
-        // Moins de 5 minutes → alerte proactive
-        showTokenWarning(true);
-      } else {
-        showTokenWarning(false);
-      }
-    }
-
-    // Lance la surveillance dès que l'app est chargée
-    setInterval(checkTokenExpiry, 30_000); // vérifie toutes les 30 secondes
 
     // ── Slider ────────────────────────────────────────────────
     function onSliderChange(val) {
@@ -1159,11 +1032,8 @@
     }
 
     async function loadTodayCount() {
-      const token = localStorage.getItem(KEY_GG_TOKEN);
-      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Session!A:B`;
       try {
-        const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-        const data = await res.json();
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Session!A:B`);
         const rows = (data.values || []).slice(1); // skip header
         const today = todayStr();
         const row   = rows.find(r => r[0] === today);
@@ -1175,32 +1045,18 @@
     }
 
     async function saveTodayCount(newCount) {
-      const token = localStorage.getItem(KEY_GG_TOKEN);
       const today = todayStr();
-      // Cherche si une ligne existe déjà pour aujourd'hui
-      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Session!A:B`;
       try {
-        const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-        const data = await res.json();
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Session!A:B`);
         const rows = (data.values || []).slice(1);
         const idx  = rows.findIndex(r => r[0] === today);
 
         if (idx >= 0) {
-          // Met à jour la ligne existante (idx+2 car 1-indexed + header)
           const range = encodeURIComponent(`Session!B${idx + 2}`);
-          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, {
-            method: 'PUT',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [[newCount]] })
-          });
+          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[newCount]] });
         } else {
-          // Nouvelle ligne
           const range = encodeURIComponent('Session!A:B');
-          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [[today, newCount]] })
-          });
+          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[today, newCount]] });
         }
       } catch (e) {
         console.error('[Session] Erreur saveTodayCount:', e.message);
@@ -1256,23 +1112,17 @@
 
     // ── Lecture mots ──────────────────────────────────────────
     async function loadWords(sheetName) {
-      const token = localStorage.getItem(KEY_GG_TOKEN);
-      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!B:B`;
       try {
-        const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-        const data = await res.json();
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!B:B`);
         allWords = (data.values || []).map(r => r[0]).filter(w => w && w.trim());
       } catch (e) { allWords = []; }
     }
 
     // ── Lecture progression ───────────────────────────────────
     async function loadProgress(lang) {
-      const token = localStorage.getItem(KEY_GG_TOKEN);
-      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`;
       progressMap = {};
       try {
-        const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-        const data = await res.json();
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`);
         const rows = data.values || [];
         (rows).forEach((row, i) => {
           if (i === 0) return;
@@ -1296,7 +1146,6 @@
     // Supprime les lignes Progress dont le mot n'existe plus dans la langue
     async function cleanOrphans(lang, allRows) {
       if (!allWords || allWords.length === 0) return;
-      const token      = localStorage.getItem(KEY_GG_TOKEN);
       const wordSet    = new Set(allWords.map(w => w.toLowerCase()));
       const toDelete   = []; // rowIndex des lignes orphelines
 
@@ -1318,10 +1167,7 @@
         try {
           // Vide la ligne (on ne peut pas supprimer une ligne facilement sans batchUpdate)
           const range = encodeURIComponent(`Progress!A${rowIndex}:G${rowIndex}`);
-          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:clear`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
-          });
+          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:clear`, 'POST');
           console.log(`[Progress] ✓ Ligne ${rowIndex} vidée`);
         } catch (e) {
           console.error(`[Progress] Erreur nettoyage ligne ${rowIndex}:`, e.message);
@@ -1780,17 +1626,15 @@ Respond entirely in ${feedbackLang}.`;
         feedbackBox.classList.add('visible');
         document.getElementById('scroll-spacer').style.display = '';
 
+        // Scroll immédiatement après mise à jour du layout (double RAF pour garantir le rendu)
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const top = feedbackBox.getBoundingClientRect().top + window.scrollY - 8;
+          window.scrollTo({ top, behavior: 'smooth' });
+        }));
+
         const evalMaxTokens = 800 + currentWords.length * 200;
-        let scrolledOnFirstChunk = false;
         const reply = await callMistralStream(prompt, fullText => {
           feedbackText.innerHTML = renderMarkdown(stripVerdictLines(fullText));
-          if (!scrolledOnFirstChunk) {
-            scrolledOnFirstChunk = true;
-            requestAnimationFrame(() => {
-              const top = feedbackBox.getBoundingClientRect().top + window.scrollY - 8;
-              window.scrollTo({ top, behavior: 'smooth' });
-            });
-          }
         }, evalMaxTokens);
 
         // Cherche le verdict global : première ligne commençant par ✓ ou ✗
@@ -1989,33 +1833,19 @@ Write all definitions in ${langName}.`;
 
     // ── Sauvegarde hint utilisé ───────────────────────────────
     async function saveHint(word) {
-      const token    = localStorage.getItem(KEY_GG_TOKEN);
       const key      = word.toLowerCase();
       const existing = progressMap[key];
       const now      = new Date().toISOString();
       try {
         if (existing) {
-          // Met à jour HintUsed (col F) et LastPracticed (col E)
           const hintUsed = (existing.hintUsed || 0) + 1;
           const range    = `Progress!E${existing.rowIndex}:F${existing.rowIndex}`;
-          const url      = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
-          await fetch(url, {
-            method: 'PUT',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [[now, hintUsed]] })
-          });
+          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, 'PUT', { values: [[now, hintUsed]] });
           progressMap[key].hintUsed = hintUsed;
         } else {
-          // Nouvelle entrée avec HintUsed=1, Correct=0, Incorrect=0
           const range = encodeURIComponent('Progress!A:F');
-          const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
-          const res   = await fetch(url, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [[word, currentLang, 0, 0, now, 1]] })
-          });
-          const data     = await res.json();
-          const match    = (data.updates?.updatedRange || '').match(/(\d+)$/);
+          const data  = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[word, currentLang, 0, 0, now, 1]] });
+          const match = (data.updates?.updatedRange || '').match(/(\d+)$/);
           progressMap[key] = { correct: 0, incorrect: 0, hintUsed: 1, rowIndex: match ? parseInt(match[1]) : null };
         }
         console.log(`[Sheets] ✓ Hint sauvegardé : ${word}`);
@@ -2026,34 +1856,20 @@ Write all definitions in ${langName}.`;
 
     // ── Mot nouveau ✓ → NextReview = demain, étoiles inchangées ─
     async function saveProgressNew(word) {
-      const token    = localStorage.getItem(KEY_GG_TOKEN);
       const key      = word.toLowerCase();
       const existing = progressMap[key];
       const now      = new Date().toISOString();
-      const nextReview = addDays(1); // toujours demain pour les nouveaux
+      const nextReview = addDays(1);
 
       try {
         if (existing) {
-          // Met à jour seulement NextReview et LastPracticed, pas les étoiles
           const range = `Progress!E${existing.rowIndex}:G${existing.rowIndex}`;
-          const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
-          await fetch(url, {
-            method: 'PUT',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [[now, existing.hintUsed || 0, nextReview]] })
-          });
+          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, 'PUT', { values: [[now, existing.hintUsed || 0, nextReview]] });
           progressMap[key].nextReview = nextReview;
         } else {
-          // Nouvelle entrée : correct/incorrect = 0 (étoiles neutres), NextReview = demain
           const range = encodeURIComponent('Progress!A:G');
-          const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
-          const res   = await fetch(url, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [[word, currentLang, 0, 0, now, 0, nextReview]] })
-          });
-          const data   = await res.json();
-          const match  = (data.updates?.updatedRange || '').match(/(\d+)$/);
+          const data  = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[word, currentLang, 0, 0, now, 0, nextReview]] });
+          const match = (data.updates?.updatedRange || '').match(/(\d+)$/);
           progressMap[key] = { correct: 0, incorrect: 0, hintUsed: 0, nextReview, rowIndex: match ? parseInt(match[1]) : null };
         }
         console.log(`[Session] Nouveau mot sorti du pool : ${word}`);
@@ -2064,7 +1880,6 @@ Write all definitions in ${langName}.`;
 
     // ── Mot à réviser + hint → NextReview = demain, étoiles inchangées ─
     async function saveProgressReviewHint(word) {
-      const token    = localStorage.getItem(KEY_GG_TOKEN);
       const key      = word.toLowerCase();
       const existing = progressMap[key];
       const now      = new Date().toISOString();
@@ -2073,12 +1888,7 @@ Write all definitions in ${langName}.`;
       if (!existing) return;
       try {
         const range = `Progress!E${existing.rowIndex}:G${existing.rowIndex}`;
-        const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
-        await fetch(url, {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [[now, existing.hintUsed || 0, nextReview]] })
-        });
+        await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, 'PUT', { values: [[now, existing.hintUsed || 0, nextReview]] });
         progressMap[key].nextReview = nextReview;
         console.log(`[Session] Révision avec hint : ${word} → demain`);
       } catch (err) {
@@ -2088,50 +1898,29 @@ Write all definitions in ${langName}.`;
 
     // ── Écriture progression (SM-2 normal) ────────────────────
     async function saveProgress(word, isCorrect) {
-      const token    = localStorage.getItem(KEY_GG_TOKEN);
       const key      = word.toLowerCase();
       const existing = progressMap[key];
       const now      = new Date().toISOString();
 
       try {
-        let res, data;
+        let data;
 
         if (existing) {
-          // Mise à jour d'une ligne existante
           const correct    = existing.correct   + (isCorrect ? 1 : 0);
           const incorrect  = existing.incorrect + (isCorrect ? 0 : 1);
           const nextReview = calcNextReview({ correct: existing.correct }, isCorrect);
           const range      = `Progress!C${existing.rowIndex}:G${existing.rowIndex}`;
-          const url        = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
-          res  = await fetch(url, {
-            method: 'PUT',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [[correct, incorrect, now, existing.hintUsed || 0, nextReview]] })
-          });
-          data = await res.json();
-          console.log(`[Sheets PUT] status=${res.status}`, data);
-          if (res.status === 401) throw new Error('token_expired');
-          if (!res.ok) throw new Error(`Sheets error ${res.status}: ${JSON.stringify(data.error)}`);
+          data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, 'PUT', { values: [[correct, incorrect, now, existing.hintUsed || 0, nextReview]] });
           progressMap[key].correct    = correct;
           progressMap[key].incorrect  = incorrect;
           progressMap[key].nextReview = nextReview;
 
         } else {
-          // Ajout d'une nouvelle ligne
           const correct    = isCorrect ? 1 : 0;
           const incorrect  = isCorrect ? 0 : 1;
           const nextReview = calcNextReview(null, isCorrect);
           const range      = encodeURIComponent('Progress!A:G');
-          const url        = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
-          res  = await fetch(url, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [[word, currentLang, correct, incorrect, now, 0, nextReview]] })
-          });
-          data = await res.json();
-          console.log(`[Sheets POST] status=${res.status}`, data);
-          if (res.status === 401) throw new Error('token_expired');
-          if (!res.ok) throw new Error(`Sheets error ${res.status}: ${JSON.stringify(data.error)}`);
+          data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[word, currentLang, correct, incorrect, now, 0, nextReview]] });
           const match      = (data.updates?.updatedRange || '').match(/(\d+)$/);
           progressMap[key] = { correct, incorrect, hintUsed: 0, nextReview, rowIndex: match ? parseInt(match[1]) : null };
         }
@@ -2148,15 +1937,8 @@ Write all definitions in ${langName}.`;
 
       } catch (err) {
         console.error(`[Sheets] Erreur saveProgress :`, err.message);
-        if (err.message === 'token_expired') {
-          pendingSaveAfterReauth = { word, isCorrect };
-          showTokenWarning(true);
-          silentRefresh();
-        } else {
-          // Affiche un petit avertissement discret sous le feedback
-          const notice = document.getElementById('no-count-notice');
-          if (notice) notice.textContent += ' ⚠️ Erreur de sauvegarde — vérifie ta connexion.';
-        }
+        const notice = document.getElementById('no-count-notice');
+        if (notice) notice.textContent += ' ⚠️ Erreur de sauvegarde — vérifie ta connexion.';
       }
     }
 
@@ -2166,17 +1948,9 @@ Write all definitions in ${langName}.`;
     }
 
     async function saveHistoryBatch(rows) {
-      const token = localStorage.getItem(KEY_GG_TOKEN);
       const range = encodeURIComponent('History!A:D');
-      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
       try {
-        const res  = await fetch(url, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: rows })
-        });
-        const data = await res.json();
-        if (!res.ok) console.error(`[History] ✗ status=${res.status}`, JSON.stringify(data.error));
+        await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, 'POST', { values: rows });
       } catch (err) {
         console.error(`[History] Erreur réseau :`, err.message);
       }
@@ -2191,17 +1965,11 @@ Write all definitions in ${langName}.`;
       document.getElementById('history-list').innerHTML =
         '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
 
-      const token = localStorage.getItem(KEY_GG_TOKEN);
       try {
-        // Charge History et Progress en parallèle
-        const [histRes, progRes] = await Promise.all([
-          fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/History!A:D`,
-            { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`,
-            { headers: { Authorization: `Bearer ${token}` } })
+        const [histData, progData] = await Promise.all([
+          sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/History!A:D`),
+          sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`)
         ]);
-        const histData = await histRes.json();
-        const progData = await progRes.json();
 
         // Construit un index de progression : "word|lang" → { correct, incorrect, hintUsed }
         const progIndex = {};
@@ -2309,14 +2077,11 @@ Write all definitions in ${langName}.`;
       showScreen('screen-stats');
       const grid  = document.getElementById('stats-grid');
       grid.innerHTML = '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
-      const token = localStorage.getItem(KEY_GG_TOKEN);
       try {
-        const [progressRes, ...wordCountRes] = await Promise.all([
-          fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`, { headers: { Authorization: `Bearer ${token}` } }),
-          ...LANGS.map(l => fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(l.key)}!B:B`, { headers: { Authorization: `Bearer ${token}` } }))
+        const [progressData, ...wordCountData] = await Promise.all([
+          sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`),
+          ...LANGS.map(l => sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(l.key)}!B:B`))
         ]);
-        const progressData  = await progressRes.json();
-        const wordCountData = await Promise.all(wordCountRes.map(r => r.json()));
         const wordCounts    = {};
         LANGS.forEach((l, i) => { wordCounts[l.key] = (wordCountData[i].values || []).filter(r => r[0] && r[0].trim()).length; });
 
@@ -2537,18 +2302,11 @@ Return ONLY a JSON array, no other text:
       btn.disabled = true;
       btn.textContent = '…';
 
-      const token = localStorage.getItem(KEY_GG_TOKEN);
       const range = encodeURIComponent(`${currentLang}!A:B`);
-      const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
       const now   = new Date().toISOString();
 
       try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [[now, word]] })
-        });
-        if (!res.ok) throw new Error(`status ${res.status}`);
+        await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[now, word]] });
         btn.textContent = '✓';
         btn.style.color = 'var(--success)';
         allWords.push(word); // ajoute en mémoire pour éviter un double-ajout immédiat
