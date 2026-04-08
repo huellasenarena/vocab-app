@@ -23,9 +23,10 @@ Application web d'apprentissage de vocabulaire multilingue, single-file `index.h
 - Le Worker génère un JWT RS256 signé pour s'authentifier auprès de Google, avec cache du token (1h)
 
 ### Google Sheets (via service account)
-- Sheet ID : `1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc`
-- Partagé en **Éditeur** avec l'email du service account
-- Onglets : `English`, `Spanish`, `French`, `Greek`, `Progress`, `History`, `Session`
+- Sheet ID vocab : `1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc`
+- Sheet ID formes grammaticales : `1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs`
+- Partagés en **Éditeur/Lecteur** avec l'email du service account
+- Onglets vocab : `English`, `Spanish`, `French`, `Greek`, `Progress`, `History`, `Session`
 - Mots dans colonne B, timestamp en colonne A
 - Tous les appels Sheets passent par `sheetsApi(sheetPath, method, body)` → Worker
 
@@ -43,6 +44,11 @@ A: Date | B: Word | C: Language | D: Result (✓ ou ✗)
 ```
 A: Date (YYYY-MM-DD) | B: NewWordsPracticed
 ```
+
+#### Structure formes grammaticales (sheet séparé)
+- Onglet `Spanish` — row 1 = catégories (presente, pasado, futuro, subjuntivo, condicional, imperativo, misc.)
+- Rows 2+ = formes spécifiques sous chaque catégorie
+- Aplati en liste : `"${catégorie} ${forme}"` ex: `"futuro simple"`, `"subjuntivo imperfecto"`
 
 ### OpenAI
 - Modèle : `gpt-4.1` (non-reasoning — streaming immédiat, pas de phase de réflexion interne)
@@ -66,7 +72,7 @@ git push origin main
 
 ### Écrans
 1. `screen-password` — mot de passe SHA-256
-2. `screen-lang` — sélection de langue (plus d'écran Google OAuth)
+2. `screen-lang` — sélection de langue
 3. `screen-practice` — pratique principale
 4. `screen-stats` — statistiques
 5. `screen-history` — historique chronologique
@@ -91,8 +97,12 @@ let practiceMode        = 'spaced';
 let sessionFirstResult  = {};      // { word: bool } — premier résultat par session
 let todayNewCount       = 0;       // nouveaux mots pratiqués aujourd'hui (depuis Session sheet)
 let sessionNewPracticed = new Set();
+let grammarForms        = [];      // formes grammaticales espagnoles aplaties
+let grammarFormsEnabled = ...;     // toggle localStorage KEY_GRAMMAR
+let jeNeSaisPasWord     = null;    // mot en attente de confirmation "Je ne sais pas"
 const MAX_NEW_PER_DAY   = 60;
 const definitionCache   = {};      // { "mot|lang": { html, ts } } — cache 24h
+const GRAMMAR_SHEET_ID  = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 ```
 
 ---
@@ -106,6 +116,7 @@ const definitionCache   = {};      // { "mot|lang": { html, ts } } — cache 24h
 | À réviser + ✓ sans hint | inchangé | SM-2 | +1 |
 | À réviser + ✓ avec hint | inchangé | +1 jour | inchangées |
 | À réviser + ✗ | inchangé | +1 jour | inchangées |
+| "Je ne sais pas" | inchangé | +1 jour | inchangées (= ✗) |
 | 2ème+ tentative | ignoré | ignoré | ignoré |
 
 ### Calcul SM-2
@@ -141,6 +152,7 @@ saveProgress(w, bool)     // SM-2 normal (révision sans hint)
 saveHint(word)            // incrémente HintUsed dans Progress
 saveHistoryBatch(rows)    // écrit plusieurs lignes dans History en un seul appel
 cleanOrphans(lang, rows)  // vide les lignes Progress dont le mot n'existe plus
+loadGrammarForms()        // charge les formes grammaticales depuis le sheet séparé (Spanish seulement)
 ```
 
 ---
@@ -173,6 +185,9 @@ Règles importantes dans le prompt :
 3. Collocations — format `• *expression* — explication`
 4. Exemple en italique
 
+### QCM
+4 scénarios courts (1-2 phrases) — 1 correct, 3 distracteurs plausibles. Le mot cible **ne doit pas apparaître** dans aucun des scénarios. Mélangé côté JS (Fisher-Yates).
+
 ### Situation (mode recall actif)
 Génère une scène concrète **sans mentionner le mot**. Évaluation en 3 étapes internes.
 
@@ -191,33 +206,60 @@ Convertit `**gras**`, `*italique*`, `##` headings, `•` puces en HTML. Consomme
 ### stripVerdictLines
 Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (le label `feedbackLabel` les affiche déjà).
 
-### Hint en mode espacé
-- **Mots nouveaux** : hint disponible
-- **Mots à réviser** : hint caché
-- **Mix** : hint disponible mais dropdown filtré aux nouveaux seulement
+### Bouton hint / "Je ne sais pas" (`updateHintButton`)
+`updateHintButton()` centralise le label et la visibilité du bouton hint selon le contexte :
+- **Mode espacé, mot nouveau** : "💡 Définition"
+- **Mode espacé, mot à réviser (avant soumission)** : "🤔 Je ne sais pas ?"
+- **Mode espacé, mix** : "💡 Définition / QCM"
+- **Après soumission / autres modes** : "💡 Définition"
+
+### "Je ne sais pas" (mots à réviser)
+- Appuyer le bouton → panneau de confirmation inline (textarea bloqué)
+- Confirmer → `saveProgress(word, false)` + `startQCM(word)`
+- Annuler → retour normal
+- En mode multi-mots : chips des mots à réviser affichées en doré, dropdown avec routing (new→définition, review→QCM)
+- `jeNeSaisPasWord` stocke le mot en attente de confirmation
 
 ### QCM
-Généré par gpt-4.1 avec distracteurs difficiles (mots sémantiquement proches). Mélangé côté JS (Fisher-Yates) pour que la bonne réponse ne soit pas toujours en première position.
+- Proposé après ✗ ou via "Je ne sais pas"
+- 4 scénarios sans le mot cible — identifie la situation correcte
+- Auto-scroll vers la section QCM après rendu des choix
+- QCM incorrect → `saveProgress(word, false)` supplémentaire
+
+### Formes grammaticales (Español uniquement)
+- Chargées depuis `GRAMMAR_SHEET_ID`, onglet `Spanish`, au choix de la langue espagnole
+- Aplaties : `"${catégorie} ${forme}"` — ex: `"futuro simple"`, `"subjuntivo pluscuamperfecto"`
+- N formes aléatoires affichées en pills sous le prompt de phrase (N = nombre de mots du set)
+- Mise à jour au changement du slider
+- Toggle ⚙️ dans le header → panneau réglages → switch "Formes grammaticales (Español)"
+- État persisté dans `localStorage` (clé `vocab_grammar_enabled`), activé par défaut
+- Ignorées lors de la vérification — purement indicatives
+
+### Auto-scroll streaming (`startAutoScroll(box, spacer)`)
+- `topTarget` calculé une seule fois après double-RAF (layout stable)
+- Suit le **bas** de la boîte chunk par chunk (scroll instant)
+- S'arrête quand le **haut** de la boîte atteint le haut du viewport (`stoppedAtTop = true`)
+- Le scroll final post-streaming respecte `stoppedAtTop` (ne ré-impose pas le bas si déjà stoppé au haut)
+- Spacer agrandi dynamiquement si `bottomTarget > maxScrollY`
+- Scroll interrompu si l'utilisateur scrolle manuellement (`wheel`/`touchmove`)
+- Utilisé pour : définition (hintBox) et feedback (feedbackBox, avec spacer)
+
+### Protection double soumission
+`lastSubmittedSentence` — si même réponse qu'avant, shake + ignore. Remis à `null` en cas d'erreur API pour permettre de réessayer.
+
+### Notice aide utilisée
+Affichée **avant** le streaming (incluse dans le layout dès le départ). Précise les mots concernés :
+`(ayuda utilizada: tapar, guiar — no contabilizado en las estrellas)`
+Template `{words}` dans `hintNotice` de chaque langue.
 
 ### Nettoyage orphelins Progress
 Au chargement de chaque langue, `cleanOrphans()` vide les lignes Progress dont le mot n'existe plus dans l'onglet de langue.
 
 ### Slider multi-mots
-`previousWordsPool` mémorise tous les mots vus dans la session. Réduire puis augmenter le slider réutilise les mots précédents.
+`previousWordsPool` mémorise tous les mots vus dans la session. Réduire puis augmenter le slider réutilise les mots précédents. Le slider met aussi à jour les formes grammaticales.
 
 ### Historique chronologique
 L'onglet `History` est un journal pur (une ligne par tentative). `Progress` garde les scores cumulés. Les deux sont lus en parallèle pour enrichir l'affichage historique.
-
-### Auto-scroll streaming
-`startAutoScroll(box)` gère le scroll pendant le streaming (définition + feedback) :
-- `topTarget` calculé une seule fois après double-RAF (layout stable), avant tout chunk
-- Si la boîte tient dans le viewport : scroll pour montrer le bas de la boîte
-- Si la boîte dépasse le viewport : scroll jusqu'au haut de la boîte et stop
-- Scroll interrompu définitivement si l'utilisateur scrolle manuellement (`wheel`/`touchmove`)
-- Spacer recalculé dynamiquement selon la vraie position du feedbackBox (tient compte de la hint-box ouverte)
-
-### Protection double soumission
-`lastSubmittedSentence` (réinitialisé dans `resetPracticeUI`) — si l'utilisateur clique "Vérifier" avec la même réponse qu'avant, le textarea shake et l'appel API est ignoré.
 
 ---
 
