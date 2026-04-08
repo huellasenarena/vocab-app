@@ -1060,10 +1060,12 @@
           }
         }
         renderWordDisplay();
+        renderGrammarForms();
       } else if (n < currentWords.length) {
         // Réduit — garde les mots retirés dans le pool
         currentWords = currentWords.slice(0, n);
         renderWordDisplay();
+        renderGrammarForms();
       }
       document.getElementById('hint-dropdown-label-text').textContent =
         langInfo.hintDropdownLabel;
