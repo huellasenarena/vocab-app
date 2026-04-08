@@ -577,6 +577,29 @@
       font-style: italic;
     }
 
+    /* ── Chip révision (mot déjà vu) ── */
+    .word-chip.chip-review .chip-word { color: var(--accent); }
+
+    /* ── Bouton hint "révision" dans le dropdown ── */
+    .hint-word-btn.review { color: var(--accent); border-color: var(--accent); }
+
+    /* ── Panneau confirmation "Je ne sais pas" ── */
+    .confirm-panel {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--error);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      display: none;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .confirm-panel.visible { display: flex; }
+    .confirm-panel-text { font-size: 0.88rem; color: var(--text); font-style: italic; }
+    .confirm-panel-actions { display: flex; gap: 0.6rem; }
+    .confirm-panel-actions .btn-primary,
+    .confirm-panel-actions .btn-secondary { flex: 1; padding: 0.65rem; font-size: 0.88rem; }
+
     /* ── Panneau réglages ── */
     .settings-panel {
       width: 100%;
@@ -824,6 +847,14 @@
     <div class="sentence-section" id="sentence-section">
       <p class="sentence-label" id="sentence-label">Utilise ce mot dans une phrase :</p>
       <div class="grammar-forms-zone" id="grammar-forms-zone" style="display:none;"></div>
+      <!-- Confirmation "Je ne sais pas" -->
+      <div class="confirm-panel" id="confirm-panel">
+        <span class="confirm-panel-text" id="confirm-panel-text">Es-tu sûr ? Ce sera compté comme incorrect.</span>
+        <div class="confirm-panel-actions">
+          <button class="btn-primary"    onclick="confirmJeNeSaisPas()">Confirmer</button>
+          <button class="btn-secondary"  onclick="cancelJeNeSaisPas()">Annuler</button>
+        </div>
+      </div>
       <textarea id="sentence-input" rows="4" placeholder="Écris ta phrase ici…"></textarea>
       <button class="btn-primary" id="btn-submit" onclick="submitSentence()">
         Vérifier ✓
@@ -967,8 +998,9 @@
     let lastSubmittedSentence  = '';
     let qcmWord            = "";
     let practiceMode       = 'spaced';
-    let grammarForms       = [];   // liste aplatie des formes grammaticales espagnoles
+    let grammarForms        = [];   // liste aplatie des formes grammaticales espagnoles
     let grammarFormsEnabled = localStorage.getItem(KEY_GRAMMAR) !== 'false'; // true par défaut
+    let jeNeSaisPasWord     = null; // mot en attente de confirmation "Je ne sais pas"
     let sessionFirstResult = {}; // { word.toLowerCase(): true/false } — premier résultat de la session
     let todayNewCount      = 0;  // nouveaux mots pratiqués aujourd'hui (chargé depuis Sheets)
     let sessionNewPracticed = new Set(); // nouveaux mots pratiqués dans cette session (pour éviter double-comptage)
@@ -1170,6 +1202,9 @@
       document.getElementById('feedback-text').textContent    = '';
       document.getElementById('no-count-notice').textContent  = '';
       document.getElementById('scroll-spacer').style.display  = 'none';
+      document.getElementById('confirm-panel').classList.remove('visible');
+      document.getElementById('sentence-input').disabled = false;
+      jeNeSaisPasWord = null;
       document.getElementById('qcm-offer').classList.remove('visible');
       document.getElementById('qcm-section').classList.remove('visible');
       document.getElementById('qcm-result').textContent       = '';
@@ -1423,12 +1458,7 @@
         previousWordsPool = [...currentWords]; // initialise le pool slider
         document.getElementById('word-count-label').textContent = '';
 
-        // Cache le bouton hint pour les mots à réviser (mode 1 mot)
-        if (n === 1 && !isNewWord(currentWords[0])) {
-          document.getElementById('btn-hint').style.display = 'none';
-        } else {
-          document.getElementById('btn-hint').style.display = isSituationMode ? 'none' : '';
-        }
+        updateHintButton();
 
       } else if (practiceMode === 'situation') {
         // Pioche uniquement les mots maîtrisés (★★★ = net >= 3)
@@ -1485,8 +1515,9 @@
         single.style.display = 'none';
         multi.style.display  = '';
         multi.innerHTML = currentWords.map(w => {
-          const starsInfo = getStarsInfo(w);
-          return `<div class="word-chip">
+          const starsInfo  = getStarsInfo(w);
+          const reviewCls  = (practiceMode === 'spaced' && !isNewWord(w)) ? ' chip-review' : '';
+          return `<div class="word-chip${reviewCls}">
             <span class="chip-word">${w}</span>
             <span class="chip-stars ${starsInfo.cls}">${starsInfo.str}</span>
           </div>`;
@@ -1494,17 +1525,7 @@
         requestAnimationFrame(adjustChipFontSizes);
       }
 
-      // En mode espacé, hint disponible seulement pour les nouveaux mots
-      if (practiceMode === 'spaced') {
-        const newWords = currentWords.filter(w => isNewWord(w));
-        if (newWords.length === 0) {
-          // Tous les mots sont à réviser → pas de hint
-          document.getElementById('btn-hint').style.display = 'none';
-        } else {
-          // Au moins un mot nouveau → hint visible
-          document.getElementById('btn-hint').style.display = '';
-        }
-      }
+      updateHintButton();
     }
 
     function getStarsInfo(word) {
@@ -1537,25 +1558,84 @@
       pickWords();
     }
 
+    // ── Bouton hint : label et visibilité ────────────────────
+    function updateHintButton() {
+      const btn = document.getElementById('btn-hint');
+      if (practiceMode === 'situation' || currentWords.length === 0) {
+        btn.style.display = 'none'; return;
+      }
+      btn.style.display = '';
+      // Après soumission ou hors mode espacé → toujours "Définition"
+      if (sentenceSubmitted || practiceMode !== 'spaced') {
+        btn.textContent = '💡 Définition'; return;
+      }
+      // Mode espacé, avant soumission
+      const newWords    = currentWords.filter(w => isNewWord(w));
+      const reviewWords = currentWords.filter(w => !isNewWord(w));
+      if (newWords.length === 0)    btn.textContent = '🤔 Je ne sais pas ?';
+      else if (reviewWords.length === 0) btn.textContent = '💡 Définition';
+      else                          btn.textContent = '💡 Définition / QCM';
+    }
+
     // ── Hint ─────────────────────────────────────────────────
     function askHint() {
-      // Après vérification, toutes les définitions sont accessibles (pour apprendre, pas pour scorer)
-      // En mode espacé avant vérification, seulement les mots nouveaux peuvent avoir un hint
-      const eligibleWords = (practiceMode === 'spaced' && !sentenceSubmitted)
-        ? currentWords.filter(w => isNewWord(w))
-        : currentWords;
+      const spaced = practiceMode === 'spaced' && !sentenceSubmitted;
 
-      if (eligibleWords.length === 1) {
-        fetchHint(eligibleWords[0]);
-      } else if (eligibleWords.length > 1) {
-        // Affiche le dropdown avec seulement les mots éligibles
-        const dropdown = document.getElementById('hint-dropdown');
-        const btns     = document.getElementById('hint-word-buttons');
-        dropdown.classList.toggle('visible');
-        btns.innerHTML = eligibleWords.map(w =>
+      // Mode 1 mot
+      if (currentWords.length === 1) {
+        const w = currentWords[0];
+        if (spaced && !isNewWord(w)) showJeNeSaisPas(w);
+        else fetchHint(w);
+        return;
+      }
+
+      // Mode multi-mots : dropdown avec routing par mot
+      const dropdown = document.getElementById('hint-dropdown');
+      const btns     = document.getElementById('hint-word-buttons');
+      dropdown.classList.toggle('visible');
+      if (!spaced) {
+        // Après soumission ou mode libre : toutes définitions
+        btns.innerHTML = currentWords.map(w =>
           `<button class="hint-word-btn" onclick="fetchHint('${w.replace(/'/g, "\\'")}')">${w}</button>`
         ).join('');
+      } else {
+        // Mode espacé avant soumission : routing new→définition, review→QCM
+        btns.innerHTML = currentWords.map(w => {
+          const isNew = isNewWord(w);
+          const cls   = isNew ? '' : ' review';
+          const label = isNew ? w : `${w} (QCM)`;
+          const fn    = isNew
+            ? `fetchHint('${w.replace(/'/g, "\\'")}')`
+            : `showJeNeSaisPas('${w.replace(/'/g, "\\'")}')`;
+          return `<button class="hint-word-btn${cls}" onclick="${fn}">${label}</button>`;
+        }).join('');
       }
+    }
+
+    // ── "Je ne sais pas" ──────────────────────────────────────
+    function showJeNeSaisPas(word) {
+      document.getElementById('hint-dropdown').classList.remove('visible');
+      jeNeSaisPasWord = word;
+      const n = currentWords.length;
+      const text = n > 1
+        ? `Es-tu sûr pour "${word}" ? Ce sera compté comme incorrect.`
+        : `Es-tu sûr ? Ce sera compté comme incorrect.`;
+      document.getElementById('confirm-panel-text').textContent = text;
+      document.getElementById('confirm-panel').classList.add('visible');
+      document.getElementById('sentence-input').disabled = true;
+    }
+
+    function cancelJeNeSaisPas() {
+      jeNeSaisPasWord = null;
+      document.getElementById('confirm-panel').classList.remove('visible');
+      document.getElementById('sentence-input').disabled = false;
+    }
+
+    async function confirmJeNeSaisPas() {
+      const word = jeNeSaisPasWord;
+      cancelJeNeSaisPas();
+      await saveProgress(word, false);
+      startQCM(word);
     }
 
     function adjustChipFontSizes() {
@@ -1962,7 +2042,7 @@ Respond entirely in ${feedbackLang}.`;
       btn.disabled = false;
       btn.textContent = 'Vérifier ✓';
       sentenceSubmitted = true;
-      document.getElementById('btn-hint').style.display = '';
+      updateHintButton();
     }
 
     // ── QCM ───────────────────────────────────────────────────
