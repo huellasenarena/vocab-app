@@ -208,6 +208,17 @@ Au chargement de chaque langue, `cleanOrphans()` vide les lignes Progress dont l
 ### Historique chronologique
 L'onglet `History` est un journal pur (une ligne par tentative). `Progress` garde les scores cumulés. Les deux sont lus en parallèle pour enrichir l'affichage historique.
 
+### Auto-scroll streaming
+`startAutoScroll(box)` gère le scroll pendant le streaming (définition + feedback) :
+- `topTarget` calculé une seule fois après double-RAF (layout stable), avant tout chunk
+- Si la boîte tient dans le viewport : scroll pour montrer le bas de la boîte
+- Si la boîte dépasse le viewport : scroll jusqu'au haut de la boîte et stop
+- Scroll interrompu définitivement si l'utilisateur scrolle manuellement (`wheel`/`touchmove`)
+- Spacer recalculé dynamiquement selon la vraie position du feedbackBox (tient compte de la hint-box ouverte)
+
+### Protection double soumission
+`lastSubmittedSentence` (réinitialisé dans `resetPracticeUI`) — si l'utilisateur clique "Vérifier" avec la même réponse qu'avant, le textarea shake et l'appel API est ignoré.
+
 ---
 
 ## Problèmes connus / points d'attention
