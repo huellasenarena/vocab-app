@@ -558,6 +558,49 @@
     .qcm-result.correct   { color: var(--success); }
     .qcm-result.incorrect { color: var(--error); }
 
+    /* ── Formes grammaticales ── */
+    .grammar-forms-zone {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 0.5rem;
+    }
+    .grammar-pill {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.7rem;
+      font-style: italic;
+    }
+
+    /* ── Panneau réglages ── */
+    .settings-panel {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      display: none;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .settings-panel.visible { display: flex; }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--text);
+      cursor: pointer;
+      gap: 1rem;
+    }
+    .settings-row input[type="checkbox"] { cursor: pointer; width: 1.1rem; height: 1.1rem; accent-color: var(--accent); }
+
     /* ── Boutons action ── */
     .action-row { width: 100%; display: flex; gap: 0.75rem; }
     .action-row .btn-secondary { font-size: 0.9rem; padding: 0.75rem; }
@@ -710,9 +753,18 @@
     <div class="practice-header">
       <h1 class="app-title">Vocab</h1>
       <div class="header-actions">
+        <button class="btn-ghost" onclick="toggleSettings()">⚙️</button>
         <button class="btn-ghost" onclick="showStats()">📊</button>
         <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">← langue</span>
       </div>
+    </div>
+
+    <!-- Panneau réglages -->
+    <div class="settings-panel" id="settings-panel">
+      <label class="settings-row">
+        <span>Formes grammaticales (Español)</span>
+        <input type="checkbox" id="toggle-grammar" onchange="setGrammarEnabled(this.checked)">
+      </label>
     </div>
 
     <!-- Toggle mode espacé / situation / libre -->
@@ -771,6 +823,7 @@
     <!-- Zone phrase (modes espacé + libre) -->
     <div class="sentence-section" id="sentence-section">
       <p class="sentence-label" id="sentence-label">Utilise ce mot dans une phrase :</p>
+      <div class="grammar-forms-zone" id="grammar-forms-zone" style="display:none;"></div>
       <textarea id="sentence-input" rows="4" placeholder="Écris ta phrase ici…"></textarea>
       <button class="btn-primary" id="btn-submit" onclick="submitSentence()">
         Vérifier ✓
@@ -868,35 +921,37 @@
     const API_ENDPOINT  = "https://dark-brook-87cc.georg-dreym.workers.dev";
     const MISTRAL_MODEL = "gpt-4.1";
 
-    const KEY_PWD_OK    = "vocab_pwd_ok";
+    const KEY_PWD_OK      = "vocab_pwd_ok";
+    const KEY_GRAMMAR     = "vocab_grammar_enabled";
+    const GRAMMAR_SHEET_ID = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 
     const LANGS = [
       { key: 'English', flag: '🇬🇧', name: 'English',   mistralName: 'English',
         sentencePrompt: 'Use these words in a single text:',
         sentencePromptSingle: 'Use this word in a sentence:',
         hintDropdownLabel: 'Which word would you like to clarify?',
-        qcmQuestion: 'What is the correct definition?',
+        qcmQuestion: 'In which situation would you use this word?',
         hintNotice: '(hint used — not counted towards stars)',
         feedbackLang: 'English' },
       { key: 'Spanish', flag: '🇪🇸', name: 'Español',   mistralName: 'Spanish',
         sentencePrompt: 'Usa estas palabras en un solo texto:',
         sentencePromptSingle: 'Usa esta palabra en una frase:',
         hintDropdownLabel: '¿Qué palabra quieres aclarar?',
-        qcmQuestion: '¿Cuál es la definición correcta?',
+        qcmQuestion: '¿En cuál situación usarías esta palabra?',
         hintNotice: '(ayuda utilizada — no contabilizado en las estrellas)',
         feedbackLang: 'Spanish' },
       { key: 'French',  flag: '🇫🇷', name: 'Français',  mistralName: 'French',
         sentencePrompt: 'Utilise ces mots dans un seul texte :',
         sentencePromptSingle: 'Utilise ce mot dans une phrase :',
         hintDropdownLabel: 'Quel mot veux-tu éclaircir ?',
-        qcmQuestion: 'Quelle est la bonne définition ?',
+        qcmQuestion: 'Dans quelle situation utiliserais-tu ce mot ?',
         hintNotice: '(aide utilisée — non comptabilisé dans les étoiles)',
         feedbackLang: 'French' },
       { key: 'Greek',   flag: '🇬🇷', name: 'Ελληνικά', mistralName: 'Modern Greek',
         sentencePrompt: 'Χρησιμοποίησε αυτές τις λέξεις σε ένα κείμενο:',
         sentencePromptSingle: 'Χρησιμοποίησε αυτή τη λέξη σε μια πρόταση:',
         hintDropdownLabel: 'Ποια λέξη θέλεις να ξεκαθαρίσεις;',
-        qcmQuestion: 'Ποια είναι η σωστή ορισμός;',
+        qcmQuestion: 'Σε ποια περίσταση θα χρησιμοποιούσες αυτή τη λέξη;',
         hintNotice: '(χρησιμοποιήθηκε βοήθεια — δεν μετράει στα αστέρια)',
         feedbackLang: 'Modern Greek' },
     ];
@@ -912,6 +967,8 @@
     let lastSubmittedSentence  = '';
     let qcmWord            = "";
     let practiceMode       = 'spaced';
+    let grammarForms       = [];   // liste aplatie des formes grammaticales espagnoles
+    let grammarFormsEnabled = localStorage.getItem(KEY_GRAMMAR) !== 'false'; // true par défaut
     let sessionFirstResult = {}; // { word.toLowerCase(): true/false } — premier résultat de la session
     let todayNewCount      = 0;  // nouveaux mots pratiqués aujourd'hui (chargé depuis Sheets)
     let sessionNewPracticed = new Set(); // nouveaux mots pratiqués dans cette session (pour éviter double-comptage)
@@ -922,6 +979,7 @@
     window.addEventListener('load', () => {
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
       showScreen(pwdOk ? 'screen-lang' : 'screen-password');
+      document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
     });
 
     function showScreen(id) {
@@ -1031,7 +1089,10 @@
       resetPracticeUI();
       onSliderChange(wordCount());
       document.getElementById('word-count-label').textContent = 'chargement...';
-      await Promise.all([ loadWords(lang), loadProgress(lang), loadTodayCount() ]);
+      const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount() ];
+      if (lang === 'Spanish') loadFns.push(loadGrammarForms());
+      else grammarForms = [];
+      await Promise.all(loadFns);
       pickWords();
     }
 
@@ -1246,6 +1307,57 @@
       return source[source.length - 1];
     }
 
+    // ── Formes grammaticales ──────────────────────────────────
+    async function loadGrammarForms() {
+      try {
+        const data = await sheetsApi(`/v4/spreadsheets/${GRAMMAR_SHEET_ID}/values/Spanish!A:G`);
+        const rows = data.values || [];
+        if (rows.length < 2) { grammarForms = []; return; }
+        const headers = rows[0]; // ex: ["presente","pasado","futuro",...]
+        grammarForms = [];
+        for (let r = 1; r < rows.length; r++) {
+          for (let c = 0; c < headers.length; c++) {
+            const cat  = (headers[c] || '').trim();
+            const form = (rows[r][c] || '').trim();
+            if (cat && form) grammarForms.push(`${cat} ${form}`);
+          }
+        }
+      } catch (e) {
+        console.error('[Grammar] Erreur chargement:', e.message);
+        grammarForms = [];
+      }
+    }
+
+    function renderGrammarForms() {
+      const zone = document.getElementById('grammar-forms-zone');
+      if (!zone) return;
+      const show = grammarFormsEnabled && currentLang === 'Spanish' && grammarForms.length > 0 && currentWords.length > 0;
+      if (!show) { zone.style.display = 'none'; return; }
+      const n = currentWords.length;
+      const pool = [...grammarForms];
+      const picked = [];
+      for (let i = 0; i < n && pool.length > 0; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        picked.push(pool.splice(idx, 1)[0]);
+      }
+      zone.innerHTML = picked.map(f => `<span class="grammar-pill">${f}</span>`).join('');
+      zone.style.display = '';
+    }
+
+    function toggleSettings() {
+      const panel = document.getElementById('settings-panel');
+      panel.classList.toggle('visible');
+      if (panel.classList.contains('visible')) {
+        document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
+      }
+    }
+
+    function setGrammarEnabled(val) {
+      grammarFormsEnabled = val;
+      localStorage.setItem(KEY_GRAMMAR, val ? 'true' : 'false');
+      renderGrammarForms();
+    }
+
     function pickWords() {
       if (allWords.length === 0) {
         document.getElementById('current-word').textContent     = '—';
@@ -1354,6 +1466,7 @@
       }
 
       if (practiceMode !== 'situation' && practiceMode !== 'free') renderWordDisplay();
+      if (practiceMode !== 'situation') renderGrammarForms();
     }
 
     function renderWordDisplay() {
@@ -1819,6 +1932,7 @@ Respond entirely in ${feedbackLang}.`;
         }
 
       } catch (err) {
+        lastSubmittedSentence = null; // permet de réessayer la même phrase après une erreur
         feedbackLabel.textContent = 'Erreur';
         feedbackText.textContent  = err.message;
         feedbackBox.classList.add('visible', 'incorrect');
@@ -1848,9 +1962,9 @@ Respond entirely in ${feedbackLang}.`;
 
 The word to test is: "${qcmWord}"
 
-Generate exactly 4 definitions:
-- 1 correct definition of "${qcmWord}"
-- 3 distractors: plausible, well-written definitions of OTHER real words that could fool a learner. They must NOT be obviously wrong — pick semantically close words, words from the same domain, or words with a similar feel. A learner who doesn't know "${qcmWord}" well should find it genuinely hard to choose.
+Generate exactly 4 short scenarios (1-2 sentences each):
+- 1 scenario where "${qcmWord}" is the natural, correct word to use
+- 3 distractor scenarios: situations that sound plausible but where "${qcmWord}" would be wrong or unnatural — use semantically close contexts that could genuinely fool a learner who doesn't know the word well
 
 Return ONLY a JSON array of 4 objects, no other text, no markdown:
 [
@@ -1860,7 +1974,7 @@ Return ONLY a JSON array of 4 objects, no other text, no markdown:
   {"text": "...", "correct": false}
 ]
 
-Write all definitions in ${langName}.`;
+Write all scenarios in ${langName}.`;
 
       try {
         const reply = await callMistral(prompt);
@@ -1901,7 +2015,7 @@ Write all definitions in ${langName}.`;
         document.getElementById('qcm-result').className    = 'qcm-result incorrect';
       } else {
         // Résultat neutre — ni ✓ ni ✗ dans la progression
-        document.getElementById('qcm-result').textContent = '✓ Bonne définition !';
+        document.getElementById('qcm-result').textContent = '✓ Bonne situation !';
         document.getElementById('qcm-result').className   = 'qcm-result correct';
       }
     }
