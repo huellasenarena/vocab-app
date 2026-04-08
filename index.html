@@ -1653,7 +1653,7 @@ Rules:
 - If it has multiple meanings, give the most useful one for a language learner.
 - The example must clearly illustrate the word's meaning in a realistic context.
 
-Structure your response in exactly four sections, using natural labels in ${langName} for each:
+Structure your response in exactly four sections. Use a ## markdown heading (in ${langName}) before each section, then the content on the next line(s):
 1. The definition of the word
 2. Its register or stylistic level (e.g. formal, neutral, familiar, literary, technical, archaic)
 3. Two or three words or expressions often used together with this word. List each as a bullet on its own line in this exact format: • *word or expression* — one-sentence explanation of the relationship or usage
@@ -1704,6 +1704,7 @@ Respond entirely in ${langName}.`;
       const feedbackText  = document.getElementById('feedback-text');
       const noCountNotice = document.getElementById('no-count-notice');
       feedbackBox.classList.remove('visible', 'correct', 'incorrect');
+      feedbackLabel.textContent = '';
       document.getElementById('qcm-offer').classList.remove('visible');
       document.getElementById('qcm-section').classList.remove('visible');
 
@@ -1772,7 +1773,7 @@ ${currentWords.map(w => `- "${w}": ✓ or ✗ — one sentence on usage and mean
 
 Then a blank line, then a section with a ## markdown heading in ${langName} for the linguistic analysis (e.g. "## Analyse linguistique" in French, "## Análisis lingüístico" in Spanish, "## Γλωσσική ανάλυση" in Greek, "## Linguistic analysis" in English), followed by a numbered list of confirmed errors from B2-STEP 2 only. Each item must cover exactly one error. The bold label must name that specific error — never a preliminary observation that is then contradicted. If none, write the equivalent of "No errors detected" in ${langName}.
 
-Then a blank line, then a section with a ## markdown heading in ${langName} for an improved version (e.g. "## Version enrichie" in French, "## Versión mejorada" in Spanish), followed by the improved sentence. The improved version MUST use the exact target word(s) as given in the vocabulary list — never replace archaic, literary, or dialectal forms with modern equivalents (e.g. if the target word is "e'en", the improved version must contain "e'en", not "even"). The improved version must be a genuinely enriched, exam-level rewrite: improve the vocabulary, structure, register, and style. Do not merely fix mechanical errors — transform the sentence into something a proficient, educated speaker would naturally write.
+If and only if the global verdict is ✓: then a blank line, then a section with a ## markdown heading in ${langName} for an improved version (e.g. "## Version enrichie" in French, "## Versión mejorada" in Spanish), followed by the improved sentence. The improved version MUST use the exact target word(s) as given in the vocabulary list — never replace archaic, literary, or dialectal forms with modern equivalents (e.g. if the target word is "e'en", the improved version must contain "e'en", not "even"). The improved version must be a genuinely enriched, exam-level rewrite: improve the vocabulary, structure, register, and style. Do not merely fix mechanical errors — transform the sentence into something a proficient, educated speaker would naturally write. If the global verdict is ✗, do not output an improved version section at all.
 
 Respond entirely in ${feedbackLang}.`;
 
@@ -1787,7 +1788,7 @@ Respond entirely in ${feedbackLang}.`;
           feedbackText.innerHTML = renderMarkdown(stripVerdictLines(fullText));
           if (!scrolledOnFirstChunk) {
             scrolledOnFirstChunk = true;
-            feedbackBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            window.scrollTo({ top: feedbackBox.offsetTop - 8, behavior: 'smooth' });
           }
         }, evalMaxTokens);
 
@@ -1923,13 +1924,13 @@ Respond entirely in ${feedbackLang}.`;
 
       const langName = getLang().mistralName;
 
-      const prompt = `You are a vocabulary teacher creating a multiple-choice quiz in ${langName}.
+      const prompt = `You are a vocabulary teacher creating a challenging multiple-choice quiz in ${langName}.
 
 The word to test is: "${qcmWord}"
 
 Generate exactly 4 definitions:
 - 1 correct definition of "${qcmWord}"
-- 3 plausible but incorrect definitions (they could be definitions of OTHER words, not "${qcmWord}")
+- 3 distractors: plausible, well-written definitions of OTHER real words that could fool a learner. They must NOT be obviously wrong — pick semantically close words, words from the same domain, or words with a similar feel. A learner who doesn't know "${qcmWord}" well should find it genuinely hard to choose.
 
 Return ONLY a JSON array of 4 objects, no other text, no markdown:
 [
@@ -1947,6 +1948,12 @@ Write all definitions in ${langName}.`;
         const jsonMatch = reply.match(/\[[\s\S]*\]/);
         if (!jsonMatch) throw new Error('Format inattendu');
         const choices = JSON.parse(jsonMatch[0]);
+
+        // Shuffle so the correct answer isn't always first
+        for (let i = choices.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [choices[i], choices[j]] = [choices[j], choices[i]];
+        }
 
         choicesEl.innerHTML = choices.map((c, i) =>
           `<button class="qcm-choice" onclick="checkQCM(this, ${c.correct}, ${i})">${c.text}</button>`
@@ -2569,9 +2576,9 @@ Return ONLY a JSON array, no other text:
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        // Titres ## et ### → bold avec espacement
-        .replace(/^###\s+(.+)$/gm, '<strong>$1</strong>')
-        .replace(/^##\s+(.+)$/gm, '<br><strong>$1</strong>')
+        // Titres ## et ### → bold, consomme le saut de ligne suivant pour éviter l'espace double
+        .replace(/^###\s+(.+)\n?/gm, '<strong>$1</strong><br>')
+        .replace(/^##\s+(.+)\n?/gm, '<br><strong>$1</strong><br>')
         // Gras : **texte**
         .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
         // Italique sur une seule ligne : *texte*
