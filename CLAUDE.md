@@ -169,7 +169,7 @@ Règles importantes dans le prompt :
 - Si un seul mot est ✗ → verdict global ✗
 - Period/semicolon/colon entre phrases = TOUJOURS correct, ne jamais signaler comme virgule manquante
 - Analyser UNIQUEMENT ce que l'apprenant a écrit, pas des variantes imaginaires
-- Accepter formes archaïques, dialectales, littéraires
+- Accepter formes archaïques, dialectales, littéraires **et mots archaïques autonomes** (ex: vieux espagnol "desque", "maguer") — B1-STEP 2 les couvre explicitement
 - CRITICAL FILTER RULE : items incertains ou corrects → silently dropped (ne pas les inclure du tout)
 - Version améliorée : uniquement si verdict ✓, en italique, doit utiliser le mot cible exact
 
@@ -201,10 +201,13 @@ Génère une scène concrète **sans mentionner le mot**. Évaluation en 3 étap
 `definitionCache["mot|lang"]` avec timestamp — valide 24h, évite les appels API répétés.
 
 ### renderMarkdown
-Convertit `**gras**`, `*italique*`, `##` headings, `•` puces en HTML. Consomme les sauts de ligne après les headings pour éviter les espaces doubles. Limite à 2 `<br>` consécutifs max.
+Convertit `**gras**`, `*italique*`, `##` headings, `•` puces en HTML. Consomme les sauts de ligne après les headings pour éviter les espaces doubles. Limite à 2 `<br>` consécutifs max. Supprime les `<br>` en tête du résultat (évite l'espace vide quand le heading `## Verdict` est le premier élément).
+
+### feedbackLabel
+Élément DOM présent mais `display: none`. Le ✓/✗ du verdict apparaît uniquement dans la section `## Verdict` du texte rendu. Le `feedbackBox` reçoit la classe `correct`/`incorrect` pour la couleur. Les erreurs API s'affichent directement dans `feedbackText`.
 
 ### stripVerdictLines
-Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (le label `feedbackLabel` les affiche déjà).
+Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le doublon avec le ✓/✗ déjà présent dans la section Verdict).
 
 ### Bouton hint / "Je ne sais pas" (`updateHintButton`)
 `updateHintButton()` centralise le label et la visibilité du bouton hint selon le contexte :
@@ -236,7 +239,7 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (le label 
 - Ignorées lors de la vérification — purement indicatives
 
 ### Auto-scroll streaming (`startAutoScroll(box, spacer)`)
-- `topTarget` calculé une seule fois après double-RAF (layout stable)
+- `topTarget` calculé une seule fois après double-RAF (layout stable), avec `PAD_TOP = 20px`
 - Suit le **bas** de la boîte chunk par chunk (scroll instant)
 - S'arrête quand le **haut** de la boîte atteint le haut du viewport (`stoppedAtTop = true`)
 - Le scroll final post-streaming respecte `stoppedAtTop` (ne ré-impose pas le bas si déjà stoppé au haut)
@@ -248,9 +251,9 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (le label 
 `lastSubmittedSentence` — si même réponse qu'avant, shake + ignore. Remis à `null` en cas d'erreur API pour permettre de réessayer.
 
 ### Notice aide utilisée
-Affichée **avant** le streaming (incluse dans le layout dès le départ). Précise les mots concernés :
+Affichée **après** le streaming (peuplée synchrone après `scroller.cleanup()`, avant le `requestAnimationFrame` du scroll final). Précise les mots concernés :
 `(ayuda utilizada: tapar, guiar — no contabilizado en las estrellas)`
-Template `{words}` dans `hintNotice` de chaque langue.
+Template `{words}` dans `hintNotice` de chaque langue. Vidée au début de chaque nouvelle soumission (`noCountNotice.textContent = ''`).
 
 ### Nettoyage orphelins Progress
 Au chargement de chaque langue, `cleanOrphans()` vide les lignes Progress dont le mot n'existe plus dans l'onglet de langue.
