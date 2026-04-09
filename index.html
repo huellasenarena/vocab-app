@@ -468,12 +468,7 @@
     .feedback-box.correct   { background: #0e2018; border: 1px solid var(--success); color: var(--success); }
     .feedback-box.incorrect { background: #200e0e; border: 1px solid var(--error);   color: var(--error); }
     .feedback-box .feedback-label {
-      font-family: 'DM Mono', monospace;
-      font-size: 0.85rem;
-      font-style: normal;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 0.5rem;
+      display: none;
     }
     .no-count-notice { font-size: 0.78rem; font-style: italic; opacity: 0.7; margin-top: 0.5rem; }
 
@@ -1672,7 +1667,7 @@
       let active = true;
       let stoppedAtTop = false;
       const PAD_BOT = 16;
-      const PAD_TOP = 8;
+      const PAD_TOP = 20;
       // topTarget : position de scroll où le haut de la boîte touche le haut du viewport
       const topTarget = box.getBoundingClientRect().top + window.scrollY - PAD_TOP;
       function stop() { active = false; }
@@ -1810,6 +1805,7 @@ Respond entirely in ${langName}.`;
       const noCountNotice = document.getElementById('no-count-notice');
       feedbackBox.classList.remove('visible', 'correct', 'incorrect');
       feedbackLabel.textContent = '';
+      noCountNotice.textContent = '';
       document.getElementById('qcm-offer').classList.remove('visible');
       document.getElementById('qcm-section').classList.remove('visible');
 
@@ -1832,7 +1828,7 @@ For EACH target word:
 
 B1-STEP 1 — Identify the exact form the learner used that corresponds to the target word.
 
-B1-STEP 2 — Is it valid? Accept ANY form belonging to the same lexical root — infinitive, all conjugations, all tenses, gender/number variants, derived forms, archaic, obsolete, literary, and dialectal forms. Only reject if the form has NO plausible relationship to the lexical root.
+B1-STEP 2 — Is it valid? Accept ANY form belonging to the same lexical root — infinitive, all conjugations, all tenses, gender/number variants, derived forms, archaic, obsolete, literary, and dialectal forms. Also accept standalone archaic words, historical conjunctions, or obsolete expressions that were valid in an earlier period of the language (e.g. old Spanish "desque", "maguer", medieval French "icelle"). Only reject if the word is clearly a modern spelling error or has no documented existence in any period of the language.
 
 B1-STEP 3 — Does the text place the word in a context that genuinely reveals its meaning?
 Reject ONLY if:
@@ -1898,12 +1894,6 @@ Respond entirely in ${feedbackLang}.`;
           spacer.style.height = (neededDocH - naturalH + 32) + 'px';
         }
 
-        // Notice aide — affichée avant le streaming pour être incluse dans le scroll
-        const wordsWithHelpEarly = currentWords.filter(w => hintUsedWords.has(w.toLowerCase()));
-        noCountNotice.textContent = wordsWithHelpEarly.length > 0
-          ? getLang().hintNotice.replace('{words}', wordsWithHelpEarly.join(', '))
-          : '';
-
         const evalMaxTokens = 800 + currentWords.length * 200;
         const scroller = startAutoScroll(feedbackBox, spacer);
         const reply = await callMistralStream(prompt, fullText => {
@@ -1911,6 +1901,12 @@ Respond entirely in ${feedbackLang}.`;
           scroller.onChunk();
         }, evalMaxTokens);
         scroller.cleanup();
+
+        // Notice aide — affichée après le streaming (le scroll final voit la hauteur complète)
+        const wordsWithHelp = currentWords.filter(w => hintUsedWords.has(w.toLowerCase()));
+        noCountNotice.textContent = wordsWithHelp.length > 0
+          ? getLang().hintNotice.replace('{words}', wordsWithHelp.join(', '))
+          : '';
 
         // Scroll final : seulement si on n'a pas déjà stoppé au haut de la boîte
         requestAnimationFrame(() => {
@@ -2036,8 +2032,7 @@ Respond entirely in ${feedbackLang}.`;
 
       } catch (err) {
         lastSubmittedSentence = null; // permet de réessayer la même phrase après une erreur
-        feedbackLabel.textContent = 'Erreur';
-        feedbackText.textContent  = err.message;
+        feedbackText.textContent = 'Erreur : ' + err.message;
         feedbackBox.classList.add('visible', 'incorrect');
       }
 
@@ -2652,7 +2647,9 @@ Return ONLY a JSON array, no other text:
         // Sauts de ligne
         .replace(/\n/g, '<br>')
         // Pas plus d'un saut de ligne entre sections
-        .replace(/(<br>\s*){3,}/g, '<br><br>');
+        .replace(/(<br>\s*){3,}/g, '<br><br>')
+        // Supprime les <br> en tête (heading ## en première position)
+        .replace(/^(<br>\s*)+/, '');
     }
 
     // ── Appel Mistral (non-streaming, pour QCM et situations) ─
