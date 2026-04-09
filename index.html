@@ -1486,7 +1486,7 @@
         // Mode libre
         const remaining = allWords.filter(w => getWeight(w) > 1).length;
         document.getElementById('due-count').innerHTML =
-          `<span class="highlight">${remaining}</span> mot${remaining > 1 ? 's' : ''} à pratiquer`;
+          `<span class="highlight">${remaining}</span> mot${remaining > 1 ? 's' : ''} à pratiquer <span style="color:var(--muted);font-size:0.85em">(${allWords.length} au total)</span>`;
         document.getElementById('word-count-label').textContent = '';
         currentWords = [];
         for (let i = 0; i < n; i++) currentWords.push(pickWeightedOne(currentWords));
