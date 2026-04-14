@@ -100,8 +100,8 @@ let todayNewCount       = 0;       // nouveaux mots pratiqués aujourd'hui (depu
 let sessionNewPracticed = new Set();
 let grammarForms        = [];      // formes grammaticales espagnoles aplaties
 let grammarFormsEnabled = ...;     // toggle localStorage KEY_GRAMMAR
+let maxNewPerDay        = 60;      // configurable via réglages ⚙️, localStorage KEY_MAX_NEW (5–100)
 let jeNeSaisPasWord     = null;    // mot en attente de confirmation "Je ne sais pas"
-const MAX_NEW_PER_DAY   = 60;
 const definitionCache   = {};      // { "mot|lang": { html, ts } } — cache 24h
 const GRAMMAR_SHEET_ID  = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 ```
@@ -238,6 +238,13 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 - Toggle ⚙️ dans le header → panneau réglages → switch "Formes grammaticales (Español)"
 - État persisté dans `localStorage` (clé `vocab_grammar_enabled`), activé par défaut
 - Ignorées lors de la vérification — purement indicatives
+
+### Limite nouveaux mots / jour (mode espacé)
+- Configurable via slider ⚙️ dans le panneau réglages : "Nouveaux mots / jour (espacé)"
+- Plage : 5–100, pas de 5, défaut 60
+- Persisté dans `localStorage` (clé `vocab_max_new_per_day`)
+- Met à jour le compteur `due-count` immédiatement au changement du slider
+- Remplace la constante `MAX_NEW_PER_DAY` — désormais variable `maxNewPerDay`
 
 ### Auto-scroll streaming (`startAutoScroll(box, spacer)`)
 - `topTarget` calculé une seule fois après double-RAF (layout stable), avec `PAD_TOP = 20px`
