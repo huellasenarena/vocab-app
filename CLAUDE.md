@@ -57,6 +57,7 @@ A: Date (YYYY-MM-DD) | B: NewWordsPracticed
 - `callMistral(prompt, maxTokens)` pour appels non-streaming (QCM, mots liés, situation)
 - `callMistralStream(prompt, onChunk, maxTokens)` pour streaming progressif
 - Les appels passent tous par le Cloudflare Worker (pas d'Authorization header côté app)
+- **Note** : les fonctions gardent le nom `callMistral` par héritage historique (ancien backend Mistral)
 
 ### Déploiement
 ```bash
@@ -80,7 +81,7 @@ git push origin main
 ### Modes de pratique
 - **📅 Espacée** — révision espacée SM-2, limite 60 nouveaux/jour
 - **🎯 Situation** — recall actif, mots ★★★ seulement
-- **🎲 Libre** — tirage pondéré classique
+- **🎲 Libre** — tirage pondéré classique. Affiche `X mots à pratiquer (N au total)` où N = `allWords.length`
 
 ---
 
@@ -99,8 +100,8 @@ let todayNewCount       = 0;       // nouveaux mots pratiqués aujourd'hui (depu
 let sessionNewPracticed = new Set();
 let grammarForms        = [];      // formes grammaticales espagnoles aplaties
 let grammarFormsEnabled = ...;     // toggle localStorage KEY_GRAMMAR
+let maxNewPerDay        = 60;      // configurable via réglages ⚙️, localStorage KEY_MAX_NEW (5–100)
 let jeNeSaisPasWord     = null;    // mot en attente de confirmation "Je ne sais pas"
-const MAX_NEW_PER_DAY   = 60;
 const definitionCache   = {};      // { "mot|lang": { html, ts } } — cache 24h
 const GRAMMAR_SHEET_ID  = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 ```
@@ -238,6 +239,13 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 - État persisté dans `localStorage` (clé `vocab_grammar_enabled`), activé par défaut
 - Ignorées lors de la vérification — purement indicatives
 
+### Limite nouveaux mots / jour (mode espacé)
+- Configurable via slider ⚙️ dans le panneau réglages : "Nouveaux mots / jour (espacé)"
+- Plage : 5–100, pas de 5, défaut 60
+- Persisté dans `localStorage` (clé `vocab_max_new_per_day`)
+- Met à jour le compteur `due-count` immédiatement au changement du slider
+- Remplace la constante `MAX_NEW_PER_DAY` — désormais variable `maxNewPerDay`
+
 ### Auto-scroll streaming (`startAutoScroll(box, spacer)`)
 - `topTarget` calculé une seule fois après double-RAF (layout stable), avec `PAD_TOP = 20px`
 - Suit le **bas** de la boîte chunk par chunk (scroll instant)
@@ -270,7 +278,12 @@ L'onglet `History` est un journal pur (une ligne par tentative). `Progress` gard
 
 1. **gpt-4.1 hallucinations** : Rares mais possibles. Les prompts ont des garde-fous (CRITICAL FILTER RULE, B2-STEP 2, etc.) mais ne sont pas infaillibles.
 
-2. **Apps Script** : Un script séparé gère l'ajout de mots depuis le raccourci iPhone. Il vérifie les doublons. L'URL du déploiement Apps Script est séparée du code principal.
+2. **Apps Script** : Un script séparé (`doPost`) gère l'ajout de mots depuis le raccourci iPhone. L'URL du déploiement est séparée du code principal. Comportements :
+   - Normalise le mot : supprime astérisques Markdown, point(s) final(aux), trim, **met en minuscules**
+   - Doublon exact → bloqué, retourne `"Doublon : '…' existe déjà."`
+   - Quasi-doublon (substring ou même mot après suppression d'article) → retourne `"SIMILAR:motExistant"` sauf si `force=true`
+   - `force=true` en paramètre POST → bypass la vérification de similarité, ajoute directement
+   - Le raccourci iPhone gère la réponse `SIMILAR:` : affiche une alerte de confirmation, puis rappelle avec `&force=true` si l'utilisateur confirme
 
 3. **Cloudflare Worker cold start** : Première requête après une longue inactivité peut être légèrement plus lente (~100-200ms). Normal.
 
