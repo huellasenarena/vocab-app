@@ -1570,6 +1570,8 @@
     }
 
     async function nextWord() {
+      const draft = document.getElementById('sentence-input').value.trim();
+      if (draft && draft !== lastSubmittedSentence && !confirm('Tu as une phrase non vérifiée. Continuer quand même ?')) return;
       sessionFirstResult  = {};
       previousWordsPool   = [];
       resetPracticeUI();
