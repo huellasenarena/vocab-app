@@ -258,6 +258,11 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 ### Protection double soumission
 `lastSubmittedSentence` — si même réponse qu'avant, shake + ignore. Remis à `null` en cas d'erreur API pour permettre de réessayer.
 
+### Protection "Autre mot" avec phrase non vérifiée
+Au début de `nextWord()` : si le textarea est non vide **et** différent de `lastSubmittedSentence`, un `confirm()` natif demande confirmation. Couvre deux cas :
+- Phrase écrite mais jamais vérifiée (`lastSubmittedSentence` est null)
+- Phrase vérifiée puis modifiée sans re-vérifier
+
 ### Notice aide utilisée
 Affichée **après** le streaming (peuplée synchrone après `scroller.cleanup()`, avant le `requestAnimationFrame` du scroll final). Précise les mots concernés :
 `(ayuda utilizada: tapar, guiar — no contabilizado en las estrellas)`
