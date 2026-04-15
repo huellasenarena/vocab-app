@@ -53,6 +53,32 @@ TOO_COMMON = {
 def sep(char="─", n=55):
     print(char * n)
 
+ARTICLES_RE = re.compile(
+    r'^(el|la|los|las|un|una|unos|unas|the|a|an|le|les|une|des|o|η|τα|τον|την)\s+',
+    re.IGNORECASE
+)
+
+def strip_article(s):
+    return ARTICLES_RE.sub('', s).strip()
+
+def are_similar(new_word, existing):
+    a, b = new_word.lower().strip(), existing.lower().strip()
+    if not b:
+        return False
+    if a in b or b in a:
+        return True
+    a_core, b_core = strip_article(a), strip_article(b)
+    if len(a_core) >= 3 and a_core == b_core:
+        return True
+    return False
+
+def find_similar(word, existing_set):
+    """Retourne le premier mot existant similaire, ou None."""
+    for e in existing_set:
+        if are_similar(word, e):
+            return e
+    return None
+
 def ask(prompt, choices=("o","n")):
     """Pose une question o/n. Entrée seule = oui (premier choix)."""
     label = f"[Entrée=oui/{choices[1]}]"
@@ -463,10 +489,20 @@ def main():
         new_words = []
         dups = 0
         for w in words:
-            if w.strip().lower() not in existing:
-                new_words.append([today, w])
-            else:
+            w_low = w.strip().lower()
+            if w_low in existing:
                 dups += 1
+            else:
+                similar = find_similar(w_low, existing)
+                if similar:
+                    sep()
+                    print(f"⚠️  « {w} » ressemble à « {similar} » déjà dans '{sheet}'")
+                    if ask("   Importer quand même ?"):
+                        new_words.append([today, w])
+                    else:
+                        dups += 1
+                else:
+                    new_words.append([today, w])
         ready[sheet] = new_words
         total_new += len(new_words)
         total_dup += dups
