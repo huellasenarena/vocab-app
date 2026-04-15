@@ -285,7 +285,12 @@ L'onglet `History` est un journal pur (une ligne par tentative). `Progress` gard
    - `force=true` en paramètre POST → bypass la vérification de similarité, ajoute directement
    - Le raccourci iPhone gère la réponse `SIMILAR:` : affiche une alerte de confirmation, puis rappelle avec `&force=true` si l'utilisateur confirme
 
-3. **Cloudflare Worker cold start** : Première requête après une longue inactivité peut être légèrement plus lente (~100-200ms). Normal.
+3. **kindle_import.py** : Script Python d'import Kindle → Google Sheets. Utilise l'API Sheets v4 directement (OAuth2, `credentials.json` + `token.json`) — pas d'Apps Script. Lit `vocab.db` et `My Clippings.txt`. Logique de déduplication :
+   - Doublons exacts → ignorés silencieusement
+   - Similarité contre Sheets existants (substring ou même mot après suppression d'article) → question interactive, même logique que `areSimilar()` dans l'Apps Script
+   - `deduplicate_clips()` : déduplication inter-clips (doublons partiels + SequenceMatcher ≥ 0.80)
+
+4. **Cloudflare Worker cold start** : Première requête après une longue inactivité peut être légèrement plus lente (~100-200ms). Normal.
 
 ---
 
