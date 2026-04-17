@@ -26,7 +26,7 @@ Application web d'apprentissage de vocabulaire multilingue, single-file `index.h
 - Sheet ID vocab : `1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc`
 - Sheet ID formes grammaticales : `1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs`
 - Partagés en **Éditeur/Lecteur** avec l'email du service account
-- Onglets vocab : `English`, `Spanish`, `French`, `Greek`, `Progress`, `History`, `Session`
+- Onglets vocab : `English`, `Spanish`, `French`, `Greek`, `Progress`, `History`, `Session`, `Tokens`
 - Mots dans colonne B, timestamp en colonne A
 - Tous les appels Sheets passent par `sheetsApi(sheetPath, method, body)` → Worker
 
@@ -45,6 +45,12 @@ A: Date | B: Word | C: Language | D: Result (✓ ou ✗)
 A: Date (YYYY-MM-DD) | B: NewWordsPracticed
 ```
 
+#### Structure Tokens (A:C)
+```
+A: Date (YYYY-MM-DD) | B: InputTokens | C: OutputTokens
+```
+Une ligne par jour. Chargé au démarrage via `loadTodayTokens()`, mis à jour après chaque appel API via `trackTokens(usage)`. Header row 1 requis.
+
 #### Structure formes grammaticales (sheet séparé)
 - Onglet `Spanish` — row 1 = catégories (presente, pasado, futuro, subjuntivo, condicional, imperativo, misc.)
 - Rows 2+ = formes spécifiques sous chaque catégorie
@@ -56,7 +62,9 @@ A: Date (YYYY-MM-DD) | B: NewWordsPracticed
 - Streaming activé pour définitions et évaluations
 - `callMistral(prompt, maxTokens)` pour appels non-streaming (QCM, mots liés, situation)
 - `callMistralStream(prompt, onChunk, maxTokens)` pour streaming progressif
+- `callMistralVision(imageUrl, prompt, maxTokens)` pour appels vision (image + texte, non-streaming)
 - Les appels passent tous par le Cloudflare Worker (pas d'Authorization header côté app)
+- Chaque appel capture `data.usage` et appelle `trackTokens(usage)` pour le compteur journalier
 - **Note** : les fonctions gardent le nom `callMistral` par héritage historique (ancien backend Mistral)
 
 ### Déploiement
@@ -82,6 +90,7 @@ git push origin main
 - **📅 Espacée** — révision espacée SM-2, limite 60 nouveaux/jour
 - **🎯 Situation** — recall actif, mots ★★★ seulement
 - **🎲 Libre** — tirage pondéré classique. Affiche `X mots à pratiquer (N au total)` où N = `allWords.length`
+- **📸 Imagen** — description de photo aléatoire (Picsum Photos) en espagnol, analysée par GPT-4.1 vision. Indépendant de la liste de mots. Feedback : `## Precisión` + `## Análisis lingüístico`
 
 ---
 
@@ -102,6 +111,10 @@ let grammarForms        = [];      // formes grammaticales espagnoles aplaties
 let grammarFormsEnabled = ...;     // toggle localStorage KEY_GRAMMAR
 let maxNewPerDay        = 60;      // configurable via réglages ⚙️, localStorage KEY_MAX_NEW (5–100)
 let jeNeSaisPasWord     = null;    // mot en attente de confirmation "Je ne sais pas"
+let todayInputTokens    = 0;       // tokens input consommés aujourd'hui
+let todayOutputTokens   = 0;       // tokens output consommés aujourd'hui
+let showTokenCounter    = true;    // toggle localStorage KEY_SHOW_TOKENS
+let currentPhotoSeed    = '';      // seed Picsum pour la photo en cours (mode Imagen)
 const definitionCache   = {};      // { "mot|lang": { html, ts } } — cache 24h
 const GRAMMAR_SHEET_ID  = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 ```
@@ -147,6 +160,9 @@ loadWords(lang)           // charge allWords depuis onglet langue
 loadProgress(lang)        // charge progressMap depuis Progress!A:G
 loadTodayCount()          // charge todayNewCount depuis Session
 saveTodayCount(n)         // sauvegarde compteur dans Session
+loadTodayTokens()         // charge todayInputTokens/todayOutputTokens depuis Tokens
+saveTodayTokens()         // met à jour la ligne du jour dans Tokens (même pattern que saveTodayCount)
+trackTokens(usage)        // incrémente les compteurs + appelle saveTodayTokens (fire-and-forget)
 saveProgressNew(word)     // nouveau ✓ → NextReview=demain, étoiles neutres
 saveProgressReviewHint(w) // révision+hint → NextReview=demain
 saveProgress(w, bool)     // SM-2 normal (révision sans hint)
@@ -154,6 +170,8 @@ saveHint(word)            // incrémente HintUsed dans Progress
 saveHistoryBatch(rows)    // écrit plusieurs lignes dans History en un seul appel
 cleanOrphans(lang, rows)  // vide les lignes Progress dont le mot n'existe plus
 loadGrammarForms()        // charge les formes grammaticales depuis le sheet séparé (Spanish seulement)
+newPracticePhoto()        // charge une nouvelle photo Picsum (mode Imagen)
+analyzePhoto()            // soumet description + image à callMistralVision, affiche dans feedback-box
 ```
 
 ---
@@ -238,6 +256,22 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 - Toggle ⚙️ dans le header → panneau réglages → switch "Formes grammaticales (Español)"
 - État persisté dans `localStorage` (clé `vocab_grammar_enabled`), activé par défaut
 - Ignorées lors de la vérification — purement indicatives
+
+### Compteur tokens
+- Affiché dans le header (`X tokens`) à côté du bouton ⚙️
+- Toggle dans le panneau ⚙️ : "Afficher compteur tokens", persisté en `localStorage` (clé `vocab_show_tokens`)
+- Synchronisé dans Sheets onglet `Tokens` (multi-appareils) — même pattern que l'onglet `Session`
+- `trackTokens(usage)` appelé automatiquement après chaque appel `callMistral`, `callMistralStream`, `callMistralVision`
+- Pour le streaming, OpenAI envoie l'usage dans le dernier chunk SSE avant `[DONE]`
+
+### Mode Imagen (📸)
+- Photo aléatoire via `https://picsum.photos/seed/${seed}/800/600` (Picsum Photos, pas de clé API)
+- `currentPhotoSeed` identifie la photo en cours — même seed → même image
+- `#vocab-section` utilise `display: contents` pour hériter du gap flex de `.screen` sans wrapper visuel
+- `#image-section` est un flex-column avec photo + bouton "🔄 Nueva foto" en dessous
+- Bouton "Vérifier ✓" existant redirige vers `analyzePhoto()` quand `practiceMode === 'image'`
+- Prompt vision : `## Precisión` (précision description vs image) + `## Análisis lingüístico` (grammaire/vocab)
+- Timeout 45s (vs 30s pour les autres appels, images plus lentes)
 
 ### Limite nouveaux mots / jour (mode espacé)
 - Configurable via slider ⚙️ dans le panneau réglages : "Nouveaux mots / jour (espacé)"

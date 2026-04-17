@@ -455,6 +455,17 @@
     .hint-box.collapsed .hint-body { display: none; }
     .hint-box.collapsed .hint-collapse-btn { transform: rotate(180deg); }
 
+    /* ── Mode image ── */
+    #vocab-section { display: contents; } /* hérite du gap flex du parent .screen */
+    #image-section { display: none; flex-direction: column; gap: 0.75rem; width: 100%; }
+    #image-section.visible { display: flex; }
+    .photo-wrap { border-radius: 12px; overflow: hidden; background: #222; width: 100%; }
+    .photo-wrap img { width: 100%; height: auto; display: block; transition: opacity 0.3s; }
+    .photo-wrap img.photo-loading { opacity: 0.35; }
+    .btn-new-photo { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 0.55rem; font-size: 0.85rem; cursor: pointer; font-family: 'DM Mono', monospace; }
+    .btn-new-photo:hover { border-color: var(--accent); color: var(--accent); }
+    .token-display { font-size: 0.72rem; color: var(--muted); opacity: 0.7; white-space: nowrap; }
+
     /* ── Zone phrase ── */
     .sentence-section { width: 100%; display: flex; flex-direction: column; gap: 0.75rem; }
     .sentence-label   { font-size: 0.85rem; color: var(--muted); font-style: italic; }
@@ -771,6 +782,7 @@
     <div class="practice-header">
       <h1 class="app-title">Vocab</h1>
       <div class="header-actions">
+        <span class="token-display" id="token-display" style="display:none"></span>
         <button class="btn-ghost" onclick="toggleSettings()">⚙️</button>
         <button class="btn-ghost" onclick="showStats()">📊</button>
         <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">← langue</span>
@@ -792,6 +804,10 @@
           style="width:100%; accent-color: var(--accent);"
           oninput="setMaxNewPerDay(+this.value)">
       </div>
+      <label class="settings-row">
+        <span>Afficher compteur tokens</span>
+        <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
+      </label>
     </div>
 
     <!-- Toggle mode espacé / situation / libre -->
@@ -799,7 +815,10 @@
       <button class="mode-btn active" id="btn-mode-spaced"    onclick="setMode('spaced')">📅 Espacée</button>
       <button class="mode-btn"        id="btn-mode-situation" onclick="setMode('situation')">🎯 Situation</button>
       <button class="mode-btn"        id="btn-mode-free"      onclick="setMode('free')">🎲 Libre</button>
+      <button class="mode-btn"        id="btn-mode-image"     onclick="setMode('image')">📸 Imagen</button>
     </div>
+    <!-- Section vocab (cachée en mode image) -->
+    <div id="vocab-section">
     <p class="due-count" id="due-count"></p>
 
     <!-- Slider nombre de mots -->
@@ -846,8 +865,17 @@
       </div>
       <div class="hint-body" id="hint-text"></div>
     </div>
+    </div><!-- /vocab-section -->
 
-    <!-- Zone phrase (modes espacé + libre) -->
+    <!-- Section photo (mode image) -->
+    <div id="image-section">
+      <div class="photo-wrap">
+        <img id="practice-photo" alt="Describe esta foto">
+      </div>
+      <button class="btn-new-photo" onclick="newPracticePhoto()">🔄 Nueva foto</button>
+    </div>
+
+    <!-- Zone phrase (modes espacé + libre + image) -->
     <div class="sentence-section" id="sentence-section">
       <p class="sentence-label" id="sentence-label">Utilise ce mot dans une phrase :</p>
       <div class="grammar-forms-zone" id="grammar-forms-zone" style="display:none;"></div>
@@ -959,6 +987,7 @@
     const KEY_PWD_OK      = "vocab_pwd_ok";
     const KEY_GRAMMAR     = "vocab_grammar_enabled";
     const KEY_MAX_NEW     = "vocab_max_new_per_day";
+    const KEY_SHOW_TOKENS = "vocab_show_tokens";
     const GRAMMAR_SHEET_ID = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 
     const LANGS = [
@@ -1010,6 +1039,10 @@
     let todayNewCount      = 0;  // nouveaux mots pratiqués aujourd'hui (chargé depuis Sheets)
     let sessionNewPracticed = new Set(); // nouveaux mots pratiqués dans cette session (pour éviter double-comptage)
     let maxNewPerDay       = parseInt(localStorage.getItem(KEY_MAX_NEW)) || 60;
+    let todayInputTokens   = 0;
+    let todayOutputTokens  = 0;
+    let showTokenCounter   = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
+    let currentPhotoSeed   = '';
     const definitionCache  = {}; // { "mot|lang": "texte définition" }
 
     // ── Au chargement ─────────────────────────────────────────
@@ -1019,6 +1052,7 @@
       document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
       document.getElementById('max-new-slider').value = maxNewPerDay;
       document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
+      document.getElementById('toggle-tokens').checked = showTokenCounter;
     });
 
     function showScreen(id) {
@@ -1130,7 +1164,7 @@
       resetPracticeUI();
       onSliderChange(wordCount());
       document.getElementById('word-count-label').textContent = 'chargement...';
-      const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount() ];
+      const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(), loadTodayTokens() ];
       if (lang === 'Spanish') loadFns.push(loadGrammarForms());
       else grammarForms = [];
       await Promise.all(loadFns);
@@ -1171,6 +1205,116 @@
         }
       } catch (e) {
         console.error('[Session] Erreur saveTodayCount:', e.message);
+      }
+    }
+
+    // ── Tokens : compteur journalier dans Sheets ─────────────
+    async function loadTodayTokens() {
+      try {
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:C`);
+        const rows = (data.values || []).slice(1);
+        const today = todayStr();
+        const row = rows.find(r => r[0] === today);
+        todayInputTokens  = row ? (parseInt(row[1]) || 0) : 0;
+        todayOutputTokens = row ? (parseInt(row[2]) || 0) : 0;
+        updateTokenDisplay();
+      } catch (e) {
+        todayInputTokens = todayOutputTokens = 0;
+      }
+    }
+
+    async function saveTodayTokens() {
+      const today = todayStr();
+      try {
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:C`);
+        const rows = (data.values || []).slice(1);
+        const idx  = rows.findIndex(r => r[0] === today);
+        if (idx >= 0) {
+          const range = encodeURIComponent(`Tokens!B${idx + 2}:C${idx + 2}`);
+          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[todayInputTokens, todayOutputTokens]] });
+        } else {
+          const range = encodeURIComponent('Tokens!A:C');
+          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[today, todayInputTokens, todayOutputTokens]] });
+        }
+      } catch (e) {
+        console.error('[Tokens] Erreur saveTodayTokens:', e.message);
+      }
+    }
+
+    function trackTokens(usage) {
+      if (!usage) return;
+      todayInputTokens  += usage.prompt_tokens    || usage.input_tokens    || 0;
+      todayOutputTokens += usage.completion_tokens || usage.output_tokens   || 0;
+      updateTokenDisplay();
+      saveTodayTokens();
+    }
+
+    function updateTokenDisplay() {
+      const el = document.getElementById('token-display');
+      if (!el) return;
+      if (!showTokenCounter) { el.style.display = 'none'; return; }
+      const total = todayInputTokens + todayOutputTokens;
+      el.textContent = total > 0 ? `${total.toLocaleString()} tokens` : '';
+      el.style.display = total > 0 ? '' : 'none';
+    }
+
+    function setShowTokens(val) {
+      showTokenCounter = val;
+      localStorage.setItem(KEY_SHOW_TOKENS, val ? 'true' : 'false');
+      updateTokenDisplay();
+    }
+
+    // ── Mode image ────────────────────────────────────────────
+    function newPracticePhoto() {
+      currentPhotoSeed = Math.random().toString(36).slice(2, 9);
+      const img = document.getElementById('practice-photo');
+      if (!img) return;
+      img.classList.add('photo-loading');
+      img.onload = () => img.classList.remove('photo-loading');
+      img.src = `https://picsum.photos/seed/${currentPhotoSeed}/800/600`;
+    }
+
+    async function analyzePhoto() {
+      const text = document.getElementById('sentence-input').value.trim();
+      if (!text) return;
+
+      const btn = document.getElementById('btn-submit');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+
+      const feedbackBox  = document.getElementById('feedback-box');
+      const feedbackText = document.getElementById('feedback-text');
+      feedbackBox.classList.remove('visible', 'correct', 'incorrect');
+      feedbackText.innerHTML = '';
+
+      const prompt = `Eres un profesor de español. Un estudiante ha visto la foto adjunta y ha escrito esta descripción:
+
+"${text}"
+
+Analiza en dos secciones:
+
+## Precisión
+Evalúa qué tan bien describe el estudiante lo que aparece realmente en la imagen. Menciona los elementos que describió correctamente, los que omitió de forma notable, y cualquier inexactitud. Sé específico y constructivo.
+
+## Análisis lingüístico
+Analiza la calidad del español escrito: gramática, vocabulario, registro, naturalidad. Menciona ÚNICAMENTE errores confirmados. Aplica el CRITICAL FILTER: si tienes dudas sobre si algo es error, no lo menciones. Si no hay errores, escribe simplemente "Sin errores detectados."
+
+Responde completamente en español.`;
+
+      try {
+        const result = await callMistralVision(
+          `https://picsum.photos/seed/${currentPhotoSeed}/800/600`,
+          prompt, 1000
+        );
+        feedbackBox.classList.add('visible');
+        feedbackText.innerHTML = renderMarkdown(result);
+      } catch (err) {
+        feedbackBox.classList.add('visible');
+        feedbackText.innerHTML = `<span style="color:var(--error)">${err.message}</span>`;
+        lastSubmittedSentence = '';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Vérifier ✓';
       }
     }
 
@@ -1295,13 +1439,31 @@
       practiceMode = mode;
       document.getElementById('btn-mode-spaced').classList.toggle('active',    mode === 'spaced');
       document.getElementById('btn-mode-free').classList.toggle('active',      mode === 'free');
-      // Ajoute le bouton situation s'il existe
-      const btnSit = document.getElementById('btn-mode-situation');
-      if (btnSit) btnSit.classList.toggle('active', mode === 'situation');
-      // Slider caché en mode situation
-      document.querySelector('.slider-section').style.display =
-        mode === 'situation' ? 'none' : '';
-      pickWords();
+      document.getElementById('btn-mode-situation').classList.toggle('active', mode === 'situation');
+      document.getElementById('btn-mode-image').classList.toggle('active',     mode === 'image');
+
+      const isImage = mode === 'image';
+      document.getElementById('vocab-section').style.display  = isImage ? 'none' : '';
+      document.getElementById('image-section').classList.toggle('visible', isImage);
+      document.querySelector('.slider-section').style.display = (mode === 'situation' || isImage) ? 'none' : '';
+
+      // Adapter la zone phrase
+      document.getElementById('sentence-section').style.display = mode === 'situation' ? 'none' : '';
+      document.getElementById('sentence-label').textContent = isImage
+        ? 'Describe esta foto en español :'
+        : (getLang().sentencePromptSingle || 'Utilise ce mot dans une phrase :');
+      document.getElementById('confirm-panel').style.display    = isImage ? 'none' : '';
+      document.getElementById('grammar-forms-zone').style.display = isImage ? 'none' : '';
+
+      if (isImage) {
+        document.getElementById('sentence-input').value = '';
+        document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
+        document.getElementById('feedback-text').innerHTML = '';
+        lastSubmittedSentence = '';
+        newPracticePhoto();
+      } else {
+        pickWords();
+      }
     }
 
     // ── SM-2 : calcule la prochaine date de révision ──────────
@@ -1397,6 +1559,7 @@
         document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
         document.getElementById('max-new-slider').value = maxNewPerDay;
         document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
+        document.getElementById('toggle-tokens').checked = showTokenCounter;
       }
     }
 
@@ -1812,6 +1975,8 @@ Respond entirely in ${langName}.`;
 
     // ── Évaluation ────────────────────────────────────────────
     async function submitSentence() {
+      if (practiceMode === 'image') { await analyzePhoto(); return; }
+
       const sentence = document.getElementById('sentence-input').value.trim();
       if (!sentence) return;
 
@@ -2694,6 +2859,38 @@ Return ONLY a JSON array, no other text:
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
+        trackTokens(data.usage);
+        return data.choices[0].message.content.trim();
+      } catch (err) {
+        if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    // ── Appel vision (image + texte, non-streaming) ───────────
+    async function callMistralVision(imageUrl, prompt, maxTokens = 1000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 45000);
+      try {
+        const res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: MISTRAL_MODEL,
+            messages: [{ role: 'user', content: [
+              { type: 'image_url', image_url: { url: imageUrl } },
+              { type: 'text', text: prompt }
+            ]}],
+            max_tokens: maxTokens,
+            temperature: 0.2
+          }),
+          signal: controller.signal
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message);
+        trackTokens(data.usage);
         return data.choices[0].message.content.trim();
       } catch (err) {
         if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
@@ -2743,6 +2940,7 @@ Return ONLY a JSON array, no other text:
           if (payload === '[DONE]') break;
           try {
             const parsed  = JSON.parse(payload);
+            if (parsed.usage) trackTokens(parsed.usage);
             const content = parsed.choices?.[0]?.delta?.content || '';
             if (content) { fullText += content; onChunk(fullText); }
           } catch {}
