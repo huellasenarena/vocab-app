@@ -16,11 +16,13 @@ Application web d'apprentissage de vocabulaire multilingue, single-file `index.h
 
 ### Cloudflare Worker
 - **URL** : `https://dark-brook-87cc.georg-dreym.workers.dev`
-- Proxy pour **deux services** : OpenAI (route par défaut) et Google Sheets (route `/sheets`)
+- Proxy pour **trois services** : OpenAI (route par défaut), Google Sheets (route `/sheets`), Unsplash (route `/unsplash`)
 - Secrets configurés dans le dashboard Cloudflare :
   - `OPENAI_API_KEY` — clé OpenAI
   - `SA_JSON` — JSON complet du service account Google (contient `client_email` et `private_key`)
+  - `UNSPLASH_KEY` — clé API Unsplash (Access Key)
 - Le Worker génère un JWT RS256 signé pour s'authentifier auprès de Google, avec cache du token (1h)
+- La route `/unsplash` proxy les requêtes vers `https://api.unsplash.com/photos/random` en injectant `UNSPLASH_KEY`
 
 ### Google Sheets (via service account)
 - Sheet ID vocab : `1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc`
@@ -62,7 +64,7 @@ Une ligne par jour. Chargé au démarrage via `loadTodayTokens()`, mis à jour a
 - Streaming activé pour définitions et évaluations
 - `callMistral(prompt, maxTokens)` pour appels non-streaming (QCM, mots liés, situation)
 - `callMistralStream(prompt, onChunk, maxTokens)` pour streaming progressif
-- `callMistralVision(imageUrl, prompt, maxTokens)` pour appels vision (image + texte, non-streaming)
+- `callMistralVision(imageUrl, prompt, maxTokens)` pour appels vision (image + texte, non-streaming, timeout 45s)
 - Les appels passent tous par le Cloudflare Worker (pas d'Authorization header côté app)
 - Chaque appel capture `data.usage` et appelle `trackTokens(usage)` pour le compteur journalier
 - **Note** : les fonctions gardent le nom `callMistral` par héritage historique (ancien backend Mistral)
@@ -90,7 +92,7 @@ git push origin main
 - **📅 Espacée** — révision espacée SM-2, limite 60 nouveaux/jour
 - **🎯 Situation** — recall actif, mots ★★★ seulement
 - **🎲 Libre** — tirage pondéré classique. Affiche `X mots à pratiquer (N au total)` où N = `allWords.length`
-- **📸 Imagen** — description de photo aléatoire (Picsum Photos) en espagnol, analysée par GPT-4.1 vision. Indépendant de la liste de mots. Feedback : `## Precisión` + `## Análisis lingüístico`
+- **📸 Imagen** — description de photo aléatoire (Unsplash via Worker) en espagnol, analysée par GPT-4.1 vision. Indépendant de la liste de mots.
 
 ---
 
@@ -114,7 +116,8 @@ let jeNeSaisPasWord     = null;    // mot en attente de confirmation "Je ne sais
 let todayInputTokens    = 0;       // tokens input consommés aujourd'hui
 let todayOutputTokens   = 0;       // tokens output consommés aujourd'hui
 let showTokenCounter    = true;    // toggle localStorage KEY_SHOW_TOKENS
-let currentPhotoSeed    = '';      // seed Picsum pour la photo en cours (mode Imagen)
+let currentPhotoUrl     = '';      // URL complète de la photo en cours (mode Imagen)
+let imageTheme          = '';      // thème Unsplash en cours, localStorage KEY_IMAGE_THEME
 const definitionCache   = {};      // { "mot|lang": { html, ts } } — cache 24h
 const GRAMMAR_SHEET_ID  = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 ```
@@ -170,8 +173,9 @@ saveHint(word)            // incrémente HintUsed dans Progress
 saveHistoryBatch(rows)    // écrit plusieurs lignes dans History en un seul appel
 cleanOrphans(lang, rows)  // vide les lignes Progress dont le mot n'existe plus
 loadGrammarForms()        // charge les formes grammaticales depuis le sheet séparé (Spanish seulement)
-newPracticePhoto()        // charge une nouvelle photo Picsum (mode Imagen)
-analyzePhoto()            // soumet description + image à callMistralVision, affiche dans feedback-box
+newPracticePhoto()        // async — appelle Worker /unsplash, met à jour currentPhotoUrl (mode Imagen)
+analyzePhoto()            // soumet description + image à callMistralVision, affiche dans feedback-box.image
+addImageVocabWord(word, i) // ajoute un mot du Vocabulario sugerido à l'onglet Spanish de Sheets
 ```
 
 ---
@@ -210,6 +214,16 @@ Règles importantes dans le prompt :
 ### Situation (mode recall actif)
 Génère une scène concrète **sans mentionner le mot**. Évaluation en 3 étapes internes.
 
+### Mode Imagen — prompt vision
+Prompt écrit en anglais, réponse en espagnol. Structure imposée :
+- `## Precisión` — précision de la description vs image. Éléments corrects en **gras**, omissions notables. 2–4 phrases.
+- `## Análisis lingüístico` — liste numérotée d'erreurs confirmées uniquement. Format : *forma incorrecta* → **forma correcta** — explication. CRITICAL FILTER. Si aucune erreur : "Sin errores detectados."
+- `## Vocabulario sugerido` — JSON array 3–5 mots/expressions utiles pour décrire ce type d'image : `[{"word": "...", "note": "breve explicación en español"}]`
+
+Convention `(?)` : si l'utilisateur écrit `(?)` pour marquer un mot inconnu, le prompt demande à l'IA d'identifier le mot voulu et de l'intégrer dans l'analyse linguistique.
+
+Le JSON `## Vocabulario sugerido` est extrait côté JS (regex), retiré du texte principal, et rendu en chips avec bouton `＋` pour ajouter le mot à l'onglet Spanish. Fonction : `addImageVocabWord(word, btnIndex)`.
+
 ### Tous les prompts répondent entièrement dans `feedbackLang` (la langue cible)
 
 ---
@@ -220,10 +234,17 @@ Génère une scène concrète **sans mentionner le mot**. Évaluation en 3 étap
 `definitionCache["mot|lang"]` avec timestamp — valide 24h, évite les appels API répétés.
 
 ### renderMarkdown
-Convertit `**gras**`, `*italique*`, `##` headings, `•` puces en HTML. Consomme les sauts de ligne après les headings pour éviter les espaces doubles. Limite à 2 `<br>` consécutifs max. Supprime les `<br>` en tête du résultat (évite l'espace vide quand le heading `## Verdict` est le premier élément).
+Convertit `**gras**`, `*italique*`, `##` headings, `•` puces en HTML. Les `##` headings deviennent `<br><strong class="md-h2">Heading</strong><br>`. Limite à 2 `<br>` consécutifs max. Supprime les `<br>` en tête du résultat.
+
+La classe `md-h2` est utilisée pour styler différemment les headings selon le contexte :
+- Dans `.feedback-box.image` : DM Mono, uppercase, couleur accent, border-bottom (style label)
+- Dans `.feedback-box.correct/incorrect` : héritage couleur (vert/rouge), gras — comportement identique à l'ancien `<strong>`
 
 ### feedbackLabel
 Élément DOM présent mais `display: none`. Le ✓/✗ du verdict apparaît uniquement dans la section `## Verdict` du texte rendu. Le `feedbackBox` reçoit la classe `correct`/`incorrect` pour la couleur. Les erreurs API s'affichent directement dans `feedbackText`.
+
+### Feedback mode image
+Le `feedbackBox` reçoit la classe `image` (au lieu de `correct`/`incorrect`) : fond `var(--surface)`, bordure `var(--border)`, couleur `var(--text)`. Autoscroll vers la boîte après réception de la réponse (non-streaming → `requestAnimationFrame` + `window.scrollTo`).
 
 ### stripVerdictLines
 Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le doublon avec le ✓/✗ déjà présent dans la section Verdict).
@@ -258,20 +279,21 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 - Ignorées lors de la vérification — purement indicatives
 
 ### Compteur tokens
-- Affiché dans le header (`X tokens`) à côté du bouton ⚙️
+- Affiché sous le `<h1>Vocab</h1>` dans le header (`X tokens`), police DM Mono
 - Toggle dans le panneau ⚙️ : "Afficher compteur tokens", persisté en `localStorage` (clé `vocab_show_tokens`)
 - Synchronisé dans Sheets onglet `Tokens` (multi-appareils) — même pattern que l'onglet `Session`
 - `trackTokens(usage)` appelé automatiquement après chaque appel `callMistral`, `callMistralStream`, `callMistralVision`
 - Pour le streaming, OpenAI envoie l'usage dans le dernier chunk SSE avant `[DONE]`
 
 ### Mode Imagen (📸)
-- Photo aléatoire via `https://picsum.photos/seed/${seed}/800/600` (Picsum Photos, pas de clé API)
-- `currentPhotoSeed` identifie la photo en cours — même seed → même image
+- Photos via Unsplash API, proxiée par le Worker `/unsplash` — requiert `UNSPLASH_KEY` dans les secrets Cloudflare
+- `currentPhotoUrl` stocke l'URL complète retournée par Unsplash (inclut le paramètre `w=800`)
+- Thème sélectionnable dans ⚙️ : 🎲 Aléatoire, 👥 Personnes, 🏙️ Ville, 🌿 Nature, 🍽️ Nourriture, ✈️ Voyage, 🏛️ Architecture, 🐾 Animaux. Persisté en `localStorage` (clé `vocab_image_theme`)
 - `#vocab-section` utilise `display: contents` pour hériter du gap flex de `.screen` sans wrapper visuel
 - `#image-section` est un flex-column avec photo + bouton "🔄 Nueva foto" en dessous
 - Bouton "Vérifier ✓" existant redirige vers `analyzePhoto()` quand `practiceMode === 'image'`
-- Prompt vision : `## Precisión` (précision description vs image) + `## Análisis lingüístico` (grammaire/vocab)
-- Timeout 45s (vs 30s pour les autres appels, images plus lentes)
+- Timeout 45s pour `callMistralVision` (vs 30s pour les autres appels, images plus lentes)
+- Chips "Vocabulario sugerido" rendues sous le feedback avec bouton ＋ pour ajouter à l'onglet Spanish
 
 ### Limite nouveaux mots / jour (mode espacé)
 - Configurable via slider ⚙️ dans le panneau réglages : "Nouveaux mots / jour (espacé)"
@@ -287,7 +309,8 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 - Le scroll final post-streaming respecte `stoppedAtTop` (ne ré-impose pas le bas si déjà stoppé au haut)
 - Spacer agrandi dynamiquement si `bottomTarget > maxScrollY`
 - Scroll interrompu si l'utilisateur scrolle manuellement (`wheel`/`touchmove`)
-- Utilisé pour : définition (hintBox) et feedback (feedbackBox, avec spacer)
+- Utilisé pour : définition (hintBox) et feedback vocab (feedbackBox, avec spacer)
+- Mode Imagen : scroll simple non-streaming via `requestAnimationFrame` + `window.scrollTo` après réception
 
 ### Protection double soumission
 `lastSubmittedSentence` — si même réponse qu'avant, shake + ignore. Remis à `null` en cas d'erreur API pour permettre de réessayer.
