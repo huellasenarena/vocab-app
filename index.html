@@ -20,7 +20,7 @@
       --surface: #1a1a1a;
       --border:  #2e2e2e;
       --text:    #e8e3d9;
-      --muted:   #6b6560;
+      --muted:   #9e9790;
       --accent:  #c9a96e;
       --error:   #c96e6e;
       --success: #6ec98a;
@@ -202,10 +202,12 @@
       color: var(--muted);
       cursor: pointer;
       font-family: 'DM Mono', monospace;
-      font-size: 0.8rem;
-      padding: 0.6rem 0.5rem;
+      font-size: 0.72rem;
+      padding: 0.6rem 0.25rem;
       transition: background 0.2s, color 0.2s;
       text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
     }
     .mode-btn.active {
       background: var(--border);
