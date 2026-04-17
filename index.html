@@ -480,6 +480,19 @@
     .feedback-box.visible   { display: block; }
     .feedback-box.correct   { background: #0e2018; border: 1px solid var(--success); color: var(--success); }
     .feedback-box.incorrect { background: #200e0e; border: 1px solid var(--error);   color: var(--error); }
+    .feedback-box.image     { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+    .feedback-box.image .md-h2 {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.3rem;
+      display: block;
+      margin-top: 1.1rem;
+    }
     .feedback-box .feedback-label {
       display: none;
     }
@@ -1079,6 +1092,7 @@
       document.getElementById('max-new-slider').value = maxNewPerDay;
       document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
       document.getElementById('toggle-tokens').checked = showTokenCounter;
+      document.getElementById('image-theme-select').value = imageTheme;
     });
 
     function showScreen(id) {
@@ -1313,7 +1327,7 @@
       img.onload = () => img.classList.remove('photo-loading');
       img.src = currentPhotoUrl;
       document.getElementById('sentence-input').value = '';
-      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
+      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'image');
       document.getElementById('feedback-text').innerHTML = '';
       lastSubmittedSentence = '';
     }
@@ -1335,7 +1349,7 @@
       const feedbackText = document.getElementById('feedback-text');
       const vocabBox     = document.getElementById('image-vocab-box');
       const vocabChips   = document.getElementById('image-vocab-chips');
-      feedbackBox.classList.remove('visible', 'correct', 'incorrect');
+      feedbackBox.classList.remove('visible', 'correct', 'incorrect', 'image');
       feedbackText.innerHTML = '';
       vocabBox.classList.remove('visible');
       vocabChips.innerHTML = '';
@@ -1367,8 +1381,12 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         const vocabMatch = result.match(/##\s*Vocabulario sugerido[\s\S]*?(\[[\s\S]*?\])/);
         const mainText   = result.replace(/##\s*Vocabulario sugerido[\s\S]*$/, '').trim();
 
-        feedbackBox.classList.add('visible');
+        feedbackBox.classList.add('visible', 'image');
         feedbackText.innerHTML = renderMarkdown(mainText);
+        requestAnimationFrame(() => {
+          const top = feedbackBox.getBoundingClientRect().top + window.scrollY - 20;
+          window.scrollTo({ top, behavior: 'smooth' });
+        });
 
         if (vocabMatch) {
           try {
@@ -1452,7 +1470,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('hint-dropdown').classList.remove('visible');
       document.getElementById('hint-text').textContent        = '';
       document.getElementById('sentence-input').value         = '';
-      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
+      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'image');
       document.getElementById('feedback-text').textContent    = '';
       document.getElementById('no-count-notice').textContent  = '';
       document.getElementById('scroll-spacer').style.display  = 'none';
@@ -1562,7 +1580,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
       if (isImage) {
         document.getElementById('sentence-input').value = '';
-        document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
+        document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'image');
         document.getElementById('feedback-text').innerHTML = '';
         lastSubmittedSentence = '';
         newPracticePhoto();
@@ -2935,7 +2953,7 @@ Return ONLY a JSON array, no other text:
         .replace(/>/g, '&gt;')
         // Titres ## et ### → bold, consomme tous les sauts de ligne suivants
         .replace(/^###\s+(.+)\n*/gm, '<strong>$1</strong><br>')
-        .replace(/^##\s+(.+)\n*/gm, '<br><strong>$1</strong><br>')
+        .replace(/^##\s+(.+)\n*/gm, '<br><strong class="md-h2">$1</strong><br>')
         // Gras : **texte**
         .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
         // Italique sur une seule ligne : *texte*
