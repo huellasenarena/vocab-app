@@ -812,6 +812,20 @@
         <span>Afficher compteur tokens</span>
         <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
       </label>
+      <div class="settings-row" style="cursor:default;">
+        <span>Thème photos (Imagen)</span>
+        <select id="image-theme-select" onchange="setImageTheme(this.value)"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          <option value="">🎲 Aléatoire</option>
+          <option value="people">👥 Personnes</option>
+          <option value="city street">🏙️ Ville</option>
+          <option value="nature landscape">🌿 Nature</option>
+          <option value="food">🍽️ Nourriture</option>
+          <option value="travel">✈️ Voyage</option>
+          <option value="architecture">🏛️ Architecture</option>
+          <option value="animals">🐾 Animaux</option>
+        </select>
+      </div>
     </div>
 
     <!-- Toggle mode espacé / situation / libre -->
@@ -991,7 +1005,8 @@
     const KEY_PWD_OK      = "vocab_pwd_ok";
     const KEY_GRAMMAR     = "vocab_grammar_enabled";
     const KEY_MAX_NEW     = "vocab_max_new_per_day";
-    const KEY_SHOW_TOKENS = "vocab_show_tokens";
+    const KEY_SHOW_TOKENS  = "vocab_show_tokens";
+    const KEY_IMAGE_THEME  = "vocab_image_theme";
     const GRAMMAR_SHEET_ID = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 
     const LANGS = [
@@ -1046,7 +1061,8 @@
     let todayInputTokens   = 0;
     let todayOutputTokens  = 0;
     let showTokenCounter   = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
-    let currentPhotoSeed   = '';
+    let currentPhotoUrl    = '';
+    let imageTheme         = localStorage.getItem(KEY_IMAGE_THEME) || '';
     const definitionCache  = {}; // { "mot|lang": "texte définition" }
 
     // ── Au chargement ─────────────────────────────────────────
@@ -1269,13 +1285,36 @@
     }
 
     // ── Mode image ────────────────────────────────────────────
-    function newPracticePhoto() {
-      currentPhotoSeed = Math.random().toString(36).slice(2, 9);
+    async function newPracticePhoto() {
       const img = document.getElementById('practice-photo');
       if (!img) return;
       img.classList.add('photo-loading');
+      currentPhotoUrl = '';
+      try {
+        const resp = await fetch(`${API_ENDPOINT}/unsplash`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: imageTheme })
+        });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error.message);
+        currentPhotoUrl = data.url;
+      } catch (e) {
+        // fallback Picsum
+        const seed = Math.random().toString(36).slice(2, 9);
+        currentPhotoUrl = `https://picsum.photos/seed/${seed}/800/600`;
+      }
       img.onload = () => img.classList.remove('photo-loading');
-      img.src = `https://picsum.photos/seed/${currentPhotoSeed}/800/600`;
+      img.src = currentPhotoUrl;
+      document.getElementById('sentence-input').value = '';
+      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect');
+      document.getElementById('feedback-text').innerHTML = '';
+      lastSubmittedSentence = '';
+    }
+
+    function setImageTheme(val) {
+      imageTheme = val;
+      localStorage.setItem(KEY_IMAGE_THEME, val);
     }
 
     async function analyzePhoto() {
@@ -1306,10 +1345,7 @@ Analiza la calidad del español escrito: gramática, vocabulario, registro, natu
 Responde completamente en español.`;
 
       try {
-        const result = await callMistralVision(
-          `https://picsum.photos/seed/${currentPhotoSeed}/800/600`,
-          prompt, 1000
-        );
+        const result = await callMistralVision(currentPhotoUrl, prompt, 1000);
         feedbackBox.classList.add('visible');
         feedbackText.innerHTML = renderMarkdown(result);
       } catch (err) {
@@ -1564,6 +1600,7 @@ Responde completamente en español.`;
         document.getElementById('max-new-slider').value = maxNewPerDay;
         document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
         document.getElementById('toggle-tokens').checked = showTokenCounter;
+        document.getElementById('image-theme-select').value = imageTheme;
       }
     }
 
