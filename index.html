@@ -957,6 +957,12 @@
       <div class="related-chips" id="related-chips"></div>
     </div>
 
+    <!-- Vocabulario sugerido (mode image) -->
+    <div class="related-box" id="image-vocab-box">
+      <div class="related-label">Vocabulario sugerido</div>
+      <div class="related-chips" id="image-vocab-chips"></div>
+    </div>
+
     <!-- Section QCM -->
     <div class="qcm-section" id="qcm-section">
       <span class="qcm-question" id="qcm-question">Quelle est la bonne définition ?</span>
@@ -1327,27 +1333,58 @@
 
       const feedbackBox  = document.getElementById('feedback-box');
       const feedbackText = document.getElementById('feedback-text');
+      const vocabBox     = document.getElementById('image-vocab-box');
+      const vocabChips   = document.getElementById('image-vocab-chips');
       feedbackBox.classList.remove('visible', 'correct', 'incorrect');
       feedbackText.innerHTML = '';
+      vocabBox.classList.remove('visible');
+      vocabChips.innerHTML = '';
 
-      const prompt = `Eres un profesor de español. Un estudiante ha visto la foto adjunta y ha escrito esta descripción:
+      const questionHint = text.includes('(?)')
+        ? `\n\nNote: the student used "(?" to mark words or phrases they were unsure about. For each such marker: identify what they most likely intended, provide the correct Spanish, and include it naturally in your linguistic analysis.`
+        : '';
 
-"${text}"
+      const prompt = `You are a Spanish language teacher. A student has looked at the attached photo and written this description in Spanish:
 
-Analiza en dos secciones:
+"${text}"${questionHint}
+
+Respond entirely in Spanish. Use this exact structure:
 
 ## Precisión
-Evalúa qué tan bien describe el estudiante lo que aparece realmente en la imagen. Menciona los elementos que describió correctamente, los que omitió de forma notable, y cualquier inexactitud. Sé específico y constructivo.
+Evaluate how accurately the student described what is actually in the image. Bold (**elementos clave**) things they mentioned correctly. Note significant omissions. Be specific and constructive. 2–4 sentences.
 
 ## Análisis lingüístico
-Analiza la calidad del español escrito: gramática, vocabulario, registro, naturalidad. Menciona ÚNICAMENTE errores confirmados. Aplica el CRITICAL FILTER: si tienes dudas sobre si algo es error, no lo menciones. Si no hay errores, escribe simplemente "Sin errores detectados."
+Numbered list of confirmed errors only (grammar, vocabulary, register, naturalness). For each error: *forma incorrecta* → **forma correcta** — brief explanation. CRITICAL FILTER: if uncertain whether something is an error, do not include it. If no errors, write simply "Sin errores detectados."
 
-Responde completamente en español.`;
+## Vocabulario sugerido
+A JSON array of 3–5 Spanish words or expressions directly useful for describing this type of image (no other text on this line or after):
+[{"word": "...", "note": "breve explicación en español"}]`;
 
       try {
-        const result = await callMistralVision(currentPhotoUrl, prompt, 1000);
+        const result = await callMistralVision(currentPhotoUrl, prompt, 1200);
+
+        // Split vocab JSON from main analysis
+        const vocabMatch = result.match(/##\s*Vocabulario sugerido[\s\S]*?(\[[\s\S]*?\])/);
+        const mainText   = result.replace(/##\s*Vocabulario sugerido[\s\S]*$/, '').trim();
+
         feedbackBox.classList.add('visible');
-        feedbackText.innerHTML = renderMarkdown(result);
+        feedbackText.innerHTML = renderMarkdown(mainText);
+
+        if (vocabMatch) {
+          try {
+            const vocab = JSON.parse(vocabMatch[1]);
+            if (Array.isArray(vocab) && vocab.length) {
+              vocabBox.classList.add('visible');
+              vocabChips.innerHTML = vocab.map((v, i) =>
+                `<div class="related-chip">
+                  <span>${v.word}</span>
+                  <span style="color:var(--muted);font-size:0.78rem;font-style:italic"> — ${v.note}</span>
+                  <button class="chip-add" id="img-chip-add-${i}" onclick="addImageVocabWord('${v.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">＋</button>
+                </div>`
+              ).join('');
+            }
+          } catch (_) {}
+        }
       } catch (err) {
         feedbackBox.classList.add('visible');
         feedbackText.innerHTML = `<span style="color:var(--error)">${err.message}</span>`;
@@ -1355,6 +1392,32 @@ Responde completamente en español.`;
       } finally {
         btn.disabled = false;
         btn.innerHTML = 'Vérifier ✓';
+      }
+    }
+
+    async function addImageVocabWord(word, btnIndex) {
+      const btn = document.getElementById(`img-chip-add-${btnIndex}`);
+      const wordLower = word.toLowerCase();
+      if (allWords.some(w => w.toLowerCase() === wordLower)) {
+        btn.disabled = true;
+        btn.textContent = '↩';
+        btn.title = 'Mot déjà dans ta liste';
+        btn.style.color = 'var(--muted)';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = '…';
+      const range = encodeURIComponent(`${currentLang}!A:B`);
+      const now   = new Date().toISOString();
+      try {
+        await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[now, word]] });
+        allWords.push(word);
+        btn.textContent = '✓';
+        btn.style.color = 'var(--success)';
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = '＋';
+        btn.title = 'Erreur : ' + err.message;
       }
     }
 
@@ -1401,6 +1464,8 @@ Responde completamente en español.`;
       document.getElementById('qcm-result').textContent       = '';
       document.getElementById('related-box').classList.remove('visible');
       document.getElementById('related-chips').innerHTML      = '';
+      document.getElementById('image-vocab-box').classList.remove('visible');
+      document.getElementById('image-vocab-chips').innerHTML  = '';
       // Situation
       document.getElementById('situation-box').style.display           = 'none';
       document.getElementById('situation-answer-section').style.display = 'none';
