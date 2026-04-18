@@ -222,7 +222,7 @@ Prompt écrit en anglais, réponse en espagnol. Structure imposée :
 
 Convention `(?)` : si l'utilisateur écrit `(?)` pour marquer un mot inconnu, le prompt demande à l'IA d'identifier le mot voulu et de l'intégrer dans l'analyse linguistique.
 
-Le JSON `## Vocabulario sugerido` est extrait côté JS (regex), retiré du texte principal, et rendu en chips avec bouton `＋` pour ajouter le mot à l'onglet Spanish. Fonction : `addImageVocabWord(word, btnIndex)`.
+Le JSON `## Vocabulario sugerido` est extrait côté JS (regex), retiré du texte principal, et rendu en chips avec bouton `＋` pour ajouter le mot à l'onglet Spanish. Fonction : `addImageVocabWord(word, btnIndex)`. Les mots déjà présents dans `allWords` sont filtrés avant affichage — les chips ne montrent que les mots nouveaux.
 
 ### Tous les prompts répondent entièrement dans `feedbackLang` (la langue cible)
 
@@ -280,6 +280,7 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 
 ### Compteur tokens
 - Affiché sous le `<h1>Vocab</h1>` dans le header (`X tokens`), police DM Mono
+- Affiche "0 tokens" dès que le toggle est actif, même si aucun appel API n'a été fait dans la journée
 - Toggle dans le panneau ⚙️ : "Afficher compteur tokens", persisté en `localStorage` (clé `vocab_show_tokens`)
 - Synchronisé dans Sheets onglet `Tokens` (multi-appareils) — même pattern que l'onglet `Session`
 - `trackTokens(usage)` appelé automatiquement après chaque appel `callMistral`, `callMistralStream`, `callMistralVision`
