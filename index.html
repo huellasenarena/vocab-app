@@ -1294,8 +1294,8 @@
       if (!el) return;
       if (!showTokenCounter) { el.style.display = 'none'; return; }
       const total = todayInputTokens + todayOutputTokens;
-      el.textContent = total > 0 ? `${total.toLocaleString()} tokens` : '';
-      el.style.display = total > 0 ? 'block' : 'none';
+      el.textContent = `${total.toLocaleString()} tokens`;
+      el.style.display = 'block';
     }
 
     function setShowTokens(val) {
@@ -1355,7 +1355,7 @@
       vocabChips.innerHTML = '';
 
       const questionHint = text.includes('(?)')
-        ? `\n\nNote: the student used "(?" to mark words or phrases they were unsure about. For each such marker: identify what they most likely intended, provide the correct Spanish, and include it naturally in your linguistic analysis.`
+        ? `\n\nNote: the student used "(?)" to mark words or phrases they were unsure about. For each such marker: identify what they most likely intended, provide the correct Spanish, and include it naturally in your linguistic analysis.`
         : '';
 
       const prompt = `You are a Spanish language teacher. A student has looked at the attached photo and written this description in Spanish:
@@ -1365,7 +1365,7 @@
 Respond entirely in Spanish. Use this exact structure:
 
 ## Precisión
-Evaluate how accurately the student described what is actually in the image. Bold (**elementos clave**) things they mentioned correctly. Note significant omissions. Be specific and constructive. 2–4 sentences.
+Evaluate how accurately the student described what is actually in the image. Bold (**elementos clave**) things they mentioned correctly. Note significant omissions. Be specific and constructive. 2–5 sentences.
 
 ## Análisis lingüístico
 Numbered list of confirmed errors only (grammar, vocabulary, register, naturalness). For each error: *forma incorrecta* → **forma correcta** — brief explanation. CRITICAL FILTER: if uncertain whether something is an error, do not include it. If no errors, write simply "Sin errores detectados."
@@ -1391,9 +1391,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         if (vocabMatch) {
           try {
             const vocab = JSON.parse(vocabMatch[1]);
-            if (Array.isArray(vocab) && vocab.length) {
+            const newVocab = Array.isArray(vocab) ? vocab.filter(v => !allWords.some(w => w.toLowerCase() === v.word.toLowerCase())) : [];
+            if (newVocab.length) {
               vocabBox.classList.add('visible');
-              vocabChips.innerHTML = vocab.map((v, i) =>
+              vocabChips.innerHTML = newVocab.map((v, i) =>
                 `<div class="related-chip">
                   <span>${v.word}</span>
                   <span style="color:var(--muted);font-size:0.78rem;font-style:italic"> — ${v.note}</span>
