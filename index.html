@@ -852,6 +852,7 @@
           style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
           <option value="gpt4">GPT-4.1</option>
           <option value="gemini">Gemini 2.5 Pro</option>
+          <option value="geminiflash">Gemini 3 Flash</option>
         </select>
       </div>
       <label class="settings-row">
@@ -1060,6 +1061,7 @@
     const KEY_SHOW_TOKENS  = "vocab_show_tokens";
     const KEY_IMAGE_THEME  = "vocab_image_theme";
     const KEY_MODEL        = "vocab_model";
+    const GEMINI_MODEL_IDS = { gemini: 'gemini-2.5-pro', geminiflash: 'gemini-3-flash-preview' };
     const GRAMMAR_SHEET_ID = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 
     const LANGS = [
@@ -1339,8 +1341,8 @@
       const el = document.getElementById('token-display');
       if (!el) return;
       if (!showTokenCounter) { el.style.display = 'none'; return; }
-      if (currentModel === 'gemini') {
-        el.textContent = `${todayGeminiRequests} / 100 req`;
+      if (isGemini()) {
+        el.textContent = `${todayGeminiRequests} req`;
       } else {
         const total = todayInputTokens + todayOutputTokens;
         el.textContent = `${total.toLocaleString()} tokens`;
@@ -3047,9 +3049,11 @@ Return ONLY a JSON array, no other text:
     }
 
     // ── Wrappers modèle-agnostiques ───────────────────────────
-    function callAI(prompt, maxTokens)               { return currentModel === 'gemini' ? callGemini(prompt, maxTokens)              : callMistral(prompt, maxTokens); }
-    function callAIStream(prompt, onChunk, maxTokens) { return currentModel === 'gemini' ? callGeminiStream(prompt, onChunk, maxTokens) : callMistralStream(prompt, onChunk, maxTokens); }
-    function callAIVision(imageUrl, prompt, maxTokens){ return currentModel === 'gemini' ? callGeminiVision(imageUrl, prompt, maxTokens): callMistralVision(imageUrl, prompt, maxTokens); }
+    function isGemini() { return currentModel === 'gemini' || currentModel === 'geminiflash'; }
+    function geminiModelId() { return GEMINI_MODEL_IDS[currentModel] || 'gemini-2.5-pro'; }
+    function callAI(prompt, maxTokens)               { return isGemini() ? callGemini(prompt, maxTokens)              : callMistral(prompt, maxTokens); }
+    function callAIStream(prompt, onChunk, maxTokens) { return isGemini() ? callGeminiStream(prompt, onChunk, maxTokens) : callMistralStream(prompt, onChunk, maxTokens); }
+    function callAIVision(imageUrl, prompt, maxTokens){ return isGemini() ? callGeminiVision(imageUrl, prompt, maxTokens): callMistralVision(imageUrl, prompt, maxTokens); }
 
     // ── Gemini (non-streaming) ─────────────────────────────────
     async function callGemini(prompt, maxTokens = 1000) {
@@ -3059,7 +3063,7 @@ Return ONLY a JSON array, no other text:
         const res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt, maxTokens, stream: false }),
+          body: JSON.stringify({ prompt, maxTokens, stream: false, geminiModel: geminiModelId() }),
           signal: controller.signal
         });
         const data = await res.json();
@@ -3082,7 +3086,7 @@ Return ONLY a JSON array, no other text:
         const res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt, maxTokens, imageUrl, stream: false }),
+          body: JSON.stringify({ prompt, maxTokens, imageUrl, stream: false, geminiModel: geminiModelId() }),
           signal: controller.signal
         });
         const data = await res.json();
@@ -3106,7 +3110,7 @@ Return ONLY a JSON array, no other text:
         res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt, maxTokens, stream: true }),
+          body: JSON.stringify({ prompt, maxTokens, stream: true, geminiModel: geminiModelId() }),
           signal: controller.signal
         });
       } catch (err) {
