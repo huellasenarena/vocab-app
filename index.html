@@ -952,7 +952,7 @@
         </div>
       </div>
       <div class="textarea-wrap">
-        <textarea id="sentence-input" rows="4" placeholder="Écris ta phrase ici…"></textarea>
+        <textarea id="sentence-input" rows="1" placeholder="Écris ta phrase ici…"></textarea>
         <button class="btn-submit-inline" id="btn-submit" onclick="submitSentence()" title="Vérifier">↑</button>
       </div>
     </div>
@@ -1174,6 +1174,14 @@
         submitSentence();
       }
     });
+
+    // Auto-resize textarea
+    const _ta = document.getElementById('sentence-input');
+    function autoResizeTextarea() {
+      _ta.style.height = 'auto';
+      _ta.style.height = _ta.scrollHeight + 'px';
+    }
+    _ta.addEventListener('input', autoResizeTextarea);
 
     // ── Proxy Sheets via Cloudflare Worker (service account) ──
     async function sheetsApi(sheetPath, method = 'GET', body = null) {
@@ -1525,6 +1533,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('hint-dropdown').classList.remove('visible');
       document.getElementById('hint-text').textContent        = '';
       document.getElementById('sentence-input').value         = '';
+      document.getElementById('sentence-input').style.height  = '';
       document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'image');
       document.getElementById('feedback-text').textContent    = '';
       document.getElementById('no-count-notice').textContent  = '';
