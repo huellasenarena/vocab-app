@@ -846,6 +846,14 @@
           style="width:100%; accent-color: var(--accent);"
           oninput="setMaxNewPerDay(+this.value)">
       </div>
+      <div class="settings-row" style="cursor:default;">
+        <span>Modèle IA</span>
+        <select id="model-select" onchange="setModel(this.value)"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          <option value="gpt4">GPT-4.1</option>
+          <option value="gemini">Gemini 2.5 Pro</option>
+        </select>
+      </div>
       <label class="settings-row">
         <span>Afficher compteur tokens</span>
         <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
@@ -1051,6 +1059,7 @@
     const KEY_MAX_NEW     = "vocab_max_new_per_day";
     const KEY_SHOW_TOKENS  = "vocab_show_tokens";
     const KEY_IMAGE_THEME  = "vocab_image_theme";
+    const KEY_MODEL        = "vocab_model";
     const GRAMMAR_SHEET_ID = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 
     const LANGS = [
@@ -1102,9 +1111,11 @@
     let todayNewCount      = 0;  // nouveaux mots pratiqués aujourd'hui (chargé depuis Sheets)
     let sessionNewPracticed = new Set(); // nouveaux mots pratiqués dans cette session (pour éviter double-comptage)
     let maxNewPerDay       = parseInt(localStorage.getItem(KEY_MAX_NEW)) || 60;
-    let todayInputTokens   = 0;
-    let todayOutputTokens  = 0;
-    let showTokenCounter   = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
+    let todayInputTokens    = 0;
+    let todayOutputTokens   = 0;
+    let todayGeminiRequests = 0;
+    let showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
+    let currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4'; // 'gpt4' | 'gemini'
     let currentPhotoUrl    = '';
     let imageTheme         = localStorage.getItem(KEY_IMAGE_THEME) || '';
     const definitionCache  = {}; // { "mot|lang": "texte définition" }
@@ -1118,6 +1129,7 @@
       document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
       document.getElementById('toggle-tokens').checked = showTokenCounter;
       document.getElementById('image-theme-select').value = imageTheme;
+      document.getElementById('model-select').value = currentModel;
     });
 
     function showScreen(id) {
@@ -1276,30 +1288,31 @@
     // ── Tokens : compteur journalier dans Sheets ─────────────
     async function loadTodayTokens() {
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:C`);
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:D`);
         const rows = (data.values || []).slice(1);
         const today = todayStr();
         const row = rows.find(r => r[0] === today);
-        todayInputTokens  = row ? (parseInt(row[1]) || 0) : 0;
-        todayOutputTokens = row ? (parseInt(row[2]) || 0) : 0;
+        todayInputTokens     = row ? (parseInt(row[1]) || 0) : 0;
+        todayOutputTokens    = row ? (parseInt(row[2]) || 0) : 0;
+        todayGeminiRequests  = row ? (parseInt(row[3]) || 0) : 0;
         updateTokenDisplay();
       } catch (e) {
-        todayInputTokens = todayOutputTokens = 0;
+        todayInputTokens = todayOutputTokens = todayGeminiRequests = 0;
       }
     }
 
     async function saveTodayTokens() {
       const today = todayStr();
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:C`);
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:D`);
         const rows = (data.values || []).slice(1);
         const idx  = rows.findIndex(r => r[0] === today);
         if (idx >= 0) {
-          const range = encodeURIComponent(`Tokens!B${idx + 2}:C${idx + 2}`);
-          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[todayInputTokens, todayOutputTokens]] });
+          const range = encodeURIComponent(`Tokens!B${idx + 2}:D${idx + 2}`);
+          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[todayInputTokens, todayOutputTokens, todayGeminiRequests]] });
         } else {
-          const range = encodeURIComponent('Tokens!A:C');
-          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[today, todayInputTokens, todayOutputTokens]] });
+          const range = encodeURIComponent('Tokens!A:D');
+          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[today, todayInputTokens, todayOutputTokens, todayGeminiRequests]] });
         }
       } catch (e) {
         console.error('[Tokens] Erreur saveTodayTokens:', e.message);
@@ -1318,8 +1331,12 @@
       const el = document.getElementById('token-display');
       if (!el) return;
       if (!showTokenCounter) { el.style.display = 'none'; return; }
-      const total = todayInputTokens + todayOutputTokens;
-      el.textContent = `${total.toLocaleString()} tokens`;
+      if (currentModel === 'gemini') {
+        el.textContent = `${todayGeminiRequests} / 100 req`;
+      } else {
+        const total = todayInputTokens + todayOutputTokens;
+        el.textContent = `${total.toLocaleString()} tokens`;
+      }
       el.style.display = 'block';
     }
 
@@ -1327,6 +1344,18 @@
       showTokenCounter = val;
       localStorage.setItem(KEY_SHOW_TOKENS, val ? 'true' : 'false');
       updateTokenDisplay();
+    }
+
+    function setModel(val) {
+      currentModel = val;
+      localStorage.setItem(KEY_MODEL, val);
+      updateTokenDisplay();
+    }
+
+    function trackGeminiRequest() {
+      todayGeminiRequests++;
+      updateTokenDisplay();
+      saveTodayTokens();
     }
 
     // ── Mode image ────────────────────────────────────────────
@@ -1400,7 +1429,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 [{"word": "...", "note": "breve explicación en español"}]`;
 
       try {
-        const result = await callMistralVision(currentPhotoUrl, prompt, 1200);
+        const result = await callAIVision(currentPhotoUrl, prompt, 1200);
 
         // Split vocab JSON from main analysis
         const vocabMatch = result.match(/##\s*Vocabulario sugerido[\s\S]*?(\[[\s\S]*?\])/);
@@ -1716,6 +1745,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
         document.getElementById('toggle-tokens').checked = showTokenCounter;
         document.getElementById('image-theme-select').value = imageTheme;
+        document.getElementById('model-select').value = currentModel;
       }
     }
 
@@ -2107,7 +2137,7 @@ Respond entirely in ${langName}.`;
 
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         const scroller = startAutoScroll(hintBox);
-        const fullText = await callMistralStream(prompt, partial => {
+        const fullText = await callAIStream(prompt, partial => {
           hintTextEl.innerHTML = renderMarkdown(partial);
           scroller.onChunk();
         });
@@ -2246,7 +2276,7 @@ Respond entirely in ${feedbackLang}.`;
 
         const evalMaxTokens = 800 + currentWords.length * 200;
         const scroller = startAutoScroll(feedbackBox, spacer);
-        const reply = await callMistralStream(prompt, fullText => {
+        const reply = await callAIStream(prompt, fullText => {
           feedbackText.innerHTML = renderMarkdown(stripVerdictLines(fullText));
           scroller.onChunk();
         }, evalMaxTokens);
@@ -2427,7 +2457,7 @@ Return ONLY a JSON array of 4 objects, no other text, no markdown:
 Write all scenarios in ${langName}.`;
 
       try {
-        const reply = await callMistral(prompt);
+        const reply = await callAI(prompt);
         // Extrait le JSON
         const jsonMatch = reply.match(/\[[\s\S]*\]/);
         if (!jsonMatch) throw new Error('Format inattendu');
@@ -2781,7 +2811,7 @@ Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing
       try {
         sitText.innerHTML = '';
 
-        await callMistralStream(prompt, fullText => {
+        await callAIStream(prompt, fullText => {
           sitText.innerHTML = renderMarkdown(fullText);
         });
         sitBox.style.display = 'block';
@@ -2833,7 +2863,7 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
         fbText.innerHTML = '';
         fb.classList.add('visible');
 
-        const reply     = await callMistralStream(prompt, fullText => {
+        const reply     = await callAIStream(prompt, fullText => {
           fbText.innerHTML = renderMarkdown(fullText);
         });
 
@@ -2916,7 +2946,7 @@ Return ONLY a JSON array, no other text:
 ]`;
 
       try {
-        const reply     = await callMistral(prompt);
+        const reply     = await callAI(prompt);
         const jsonMatch = reply.match(/\[[\s\S]*\]/);
         if (!jsonMatch) throw new Error('Format inattendu');
         const related = JSON.parse(jsonMatch[0]);
@@ -3007,6 +3037,104 @@ Return ONLY a JSON array, no other text:
         .replace(/^(<br>\s*)+/, '');
     }
 
+    // ── Wrappers modèle-agnostiques ───────────────────────────
+    function callAI(prompt, maxTokens)               { return currentModel === 'gemini' ? callGemini(prompt, maxTokens)              : callMistral(prompt, maxTokens); }
+    function callAIStream(prompt, onChunk, maxTokens) { return currentModel === 'gemini' ? callGeminiStream(prompt, onChunk, maxTokens) : callMistralStream(prompt, onChunk, maxTokens); }
+    function callAIVision(imageUrl, prompt, maxTokens){ return currentModel === 'gemini' ? callGeminiVision(imageUrl, prompt, maxTokens): callMistralVision(imageUrl, prompt, maxTokens); }
+
+    // ── Gemini (non-streaming) ─────────────────────────────────
+    async function callGemini(prompt, maxTokens = 500) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      try {
+        const res = await fetch(`${API_ENDPOINT}/gemini`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, maxTokens, stream: false }),
+          signal: controller.signal
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message || String(data.error));
+        trackGeminiRequest();
+        return data.text;
+      } catch (err) {
+        if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    // ── Gemini vision (non-streaming) ─────────────────────────
+    async function callGeminiVision(imageUrl, prompt, maxTokens = 1000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 60000);
+      try {
+        const res = await fetch(`${API_ENDPOINT}/gemini`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, maxTokens, imageUrl, stream: false }),
+          signal: controller.signal
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message || String(data.error));
+        trackGeminiRequest();
+        return data.text;
+      } catch (err) {
+        if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    // ── Gemini streaming ───────────────────────────────────────
+    async function callGeminiStream(prompt, onChunk, maxTokens = 500) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      let res;
+      try {
+        res = await fetch(`${API_ENDPOINT}/gemini`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, maxTokens, stream: true }),
+          signal: controller.signal
+        });
+      } catch (err) {
+        clearTimeout(timer);
+        if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
+        throw err;
+      }
+      if (!res.ok) {
+        clearTimeout(timer);
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `HTTP ${res.status}`);
+      }
+      trackGeminiRequest();
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText  = '';
+      let buffer    = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6).trim();
+          try {
+            const parsed = JSON.parse(payload);
+            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (text) { fullText += text; onChunk(fullText); }
+          } catch {}
+        }
+      }
+      clearTimeout(timer);
+      return fullText.trim();
+    }
+
     // ── Appel Mistral (non-streaming, pour QCM et situations) ─
     async function callMistral(prompt, maxTokens = 500) {
       const controller = new AbortController();
@@ -3031,7 +3159,7 @@ Return ONLY a JSON array, no other text:
     }
 
     // ── Appel vision (image + texte, non-streaming) ───────────
-    async function callMistralVision(imageUrl, prompt, maxTokens = 1000) {
+    async function callAIVision(imageUrl, prompt, maxTokens = 1000) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 45000);
       try {
