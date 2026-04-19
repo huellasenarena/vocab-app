@@ -101,9 +101,6 @@
 
     input[type="password"], textarea {
       width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
       color: var(--text);
       font-family: 'Lora', serif;
       font-size: 1rem;
@@ -112,22 +109,33 @@
       transition: border-color 0.2s;
       resize: none;
     }
-    input[type="password"] { font-family: 'DM Mono', monospace; }
-    input[type="password"]:focus, textarea:focus { border-color: var(--accent); }
+    input[type="password"] {
+      font-family: 'DM Mono', monospace;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    input[type="password"]:focus { border-color: var(--accent); }
+    textarea { background: transparent; border: none; border-radius: 0; }
 
-    .textarea-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; }
-    .textarea-wrap textarea { padding-bottom: 3.2rem; overflow: hidden; }
+    .textarea-wrap {
+      position: relative; width: 100%;
+      border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
+      background: var(--surface); transition: border-color 0.2s;
+    }
+    .textarea-wrap:focus-within { border-color: var(--accent); }
+    .textarea-wrap textarea { padding-bottom: 3.2rem; }
     .btn-submit-inline {
       position: absolute;
-      bottom: 0.45rem;
-      right: 0.45rem;
-      width: 2.2rem;
-      height: 2.2rem;
+      bottom: 0.6rem;
+      right: 0.6rem;
+      width: 2.4rem;
+      height: 2.4rem;
       border-radius: 50%;
       background: var(--accent);
       color: #1a1408;
       border: none;
-      font-size: 1.15rem;
+      font-size: 1.2rem;
       font-weight: bold;
       cursor: pointer;
       display: flex;
