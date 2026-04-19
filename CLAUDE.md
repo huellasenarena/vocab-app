@@ -22,8 +22,12 @@ Application web d'apprentissage de vocabulaire multilingue, single-file `index.h
   - `SA_JSON` — JSON complet du service account Google (contient `client_email` et `private_key`)
   - `UNSPLASH_KEY` — clé API Unsplash (Access Key)
   - `GEMINI_KEY` — clé Google AI Studio (Gemini API)
+  - `WORKER_SECRET` — secret partagé pour authentifier les requêtes depuis `index.html`
 - Le Worker génère un JWT RS256 signé pour s'authentifier auprès de Google, avec cache du token (1h)
 - La route `/unsplash` proxy les requêtes vers `https://api.unsplash.com/photos/random` en injectant `UNSPLASH_KEY`
+- **Sécurité** : toutes les requêtes doivent inclure le header `X-Worker-Secret` — sinon rejet 403. La route `/sheets` valide que le `sheetPath` contient uniquement les Sheet IDs autorisés (`ALLOWED_SHEET_IDS`). Le proxy OpenAI est protégé par un `try/catch`.
+- **Code Worker** : géré localement dans `~/Desktop/vocab-app/dark-brook-87cc/` (exclu du repo git via `.gitignore`). Déploiement via `wrangler deploy` depuis ce dossier. Ne jamais commiter ce dossier sur GitHub.
+- **Wrangler** : outil CLI Cloudflare pour gérer le Worker. `wrangler deploy` pour déployer, `wrangler secret put NOM` pour ajouter un secret.
 
 ### Google Sheets (via service account)
 - Sheet ID vocab : `1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc`
@@ -420,9 +424,27 @@ const LANGS = [
 
 ## Workflow de développement
 
+### Modifier l'app (`index.html`)
 1. Modifier `~/Desktop/vocab-app/index.html`
 2. Tester localement (ouvrir dans Safari)
 3. `git add index.html && git commit -m "..." && git push origin main`
 4. GitHub Actions déploie en ~1 minute sur `gh-pages`
 
 **Ne jamais modifier directement la branche `gh-pages`.**
+
+### Modifier le Worker Cloudflare
+1. Modifier `~/Desktop/vocab-app/dark-brook-87cc/src/worker.js`
+2. `cd ~/Desktop/vocab-app/dark-brook-87cc && wrangler deploy`
+3. Ne pas commiter ce dossier sur GitHub (`.gitignore`)
+
+Pour ajouter/modifier un secret Cloudflare :
+```bash
+cd ~/Desktop/vocab-app/dark-brook-87cc && wrangler secret put NOM_SECRET
+```
+
+---
+
+## Idées futures
+
+### Authentification Google OAuth (non implémenté)
+Remplacer le mot de passe SHA-256 actuel par Google OAuth. L'écran de connexion deviendrait un bouton "Se connecter avec Google" ; ensuite l'app fonctionnerait identiquement. Le Worker vérifierait le token Google au lieu du `WORKER_SECRET`, éliminant ainsi le secret visible dans le code source. La reconnexion serait automatique (token stocké en `localStorage`, refresh silencieux). Complexité estimée : ~20h. Non prioritaire pour une app mono-utilisateur perso.
