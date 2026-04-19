@@ -122,6 +122,7 @@
       position: relative; width: 100%;
       border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
       background: var(--surface); transition: border-color 0.2s;
+      -webkit-transform: translateZ(0); transform: translateZ(0);
     }
     .textarea-wrap:focus-within { border-color: var(--accent); }
     .textarea-wrap textarea { padding-bottom: 3.2rem; }
@@ -1146,12 +1147,7 @@
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
       if (window.navigator.standalone) {
-        const probe = document.createElement('div');
-        probe.style.paddingTop = 'env(safe-area-inset-top)';
-        document.body.appendChild(probe);
-        const h = parseInt(getComputedStyle(probe).paddingTop) || 0;
-        document.body.removeChild(probe);
-        document.documentElement.style.setProperty('--status-bar-height', Math.max(h, 44) + 'px');
+        document.documentElement.style.setProperty('--status-bar-height', '50px');
       }
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
       showScreen(pwdOk ? 'screen-lang' : 'screen-password');
