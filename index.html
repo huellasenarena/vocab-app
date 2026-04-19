@@ -2199,14 +2199,24 @@ Respond entirely in ${langName}.`;
 
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         const scroller = startAutoScroll(hintBox);
+        let headingFound = false;
         const fullText = await callAIStream(prompt, partial => {
-          hintTextEl.innerHTML = renderMarkdown(partial);
+          let display = partial;
+          if (!headingFound) {
+            const idx = partial.indexOf('## ');
+            if (idx === -1) return; // supprime le texte avant le premier heading (checklist Gemma)
+            headingFound = true;
+            display = partial.slice(idx);
+          }
+          hintTextEl.innerHTML = renderMarkdown(display);
           scroller.onChunk();
         });
         scroller.cleanup();
 
-        // Sauvegarde dans le cache avec timestamp
-        definitionCache[cacheKey] = { html: renderMarkdown(fullText), ts: Date.now() };
+        // Sauvegarde dans le cache avec timestamp (trimé si nécessaire)
+        const trimIdx = fullText.indexOf('## ');
+        const trimmedText = trimIdx >= 0 ? fullText.slice(trimIdx) : fullText;
+        definitionCache[cacheKey] = { html: renderMarkdown(trimmedText), ts: Date.now() };
 
         hintUsedWords.add(word.toLowerCase());
         if (currentWords.length === 1) {
