@@ -1149,16 +1149,9 @@
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
 
-      // Sonde env(safe-area-inset-top) pour le rideau status bar
+      // Rideau status bar iOS — 50px couvre Dynamic Island et notch
       if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-        const probe = document.createElement('div');
-        probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;padding-top:env(safe-area-inset-top,0px);pointer-events:none;visibility:hidden;';
-        document.documentElement.appendChild(probe);
-        requestAnimationFrame(() => {
-          const safeTop = parseFloat(getComputedStyle(probe).paddingTop) || 0;
-          probe.remove();
-          document.documentElement.style.setProperty('--safe-top', (safeTop > 0 ? safeTop : 50) + 'px');
-        });
+        document.documentElement.style.setProperty('--safe-top', '50px');
       }
 
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
@@ -2135,8 +2128,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       let active = true;
       let stoppedAtTop = false;
       const PAD_BOT = 16;
-      const PAD_TOP = 20;
-      // topTarget : position de scroll où le haut de la boîte touche le haut du viewport
+      const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
+      const PAD_TOP = safeTop + 8;
+      // topTarget : position de scroll où le haut de la boîte touche le bas du rideau status bar
       const topTarget = box.getBoundingClientRect().top + window.scrollY - PAD_TOP;
       function stop() { active = false; }
       window.addEventListener('wheel',     stop, { passive: true });
