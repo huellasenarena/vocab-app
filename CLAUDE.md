@@ -8,7 +8,7 @@ Application web d'apprentissage de vocabulaire multilingue, single-file `index.h
 - **Repo local** : `~/Desktop/vocab-app/`
 - **Stack** : HTML/CSS/JS pur, GitHub Pages + GitHub Actions
 - **Backend** : Google Sheets via Cloudflare Worker (service account)
-- **IA** : OpenAI `gpt-4.1` (défaut), Google `gemma-4-31b-it`, `gemini-3.1-flash-lite-preview`, `gemini-3-flash-preview` — sélectionnable dans ⚙️
+- **IA** : OpenAI `gpt-5.4` (défaut), Google `gemma-4-31b-it`, `gemini-3.1-flash-lite-preview`, `gemini-3-flash-preview` — sélectionnable dans ⚙️
 
 ---
 
@@ -67,8 +67,11 @@ Une ligne par jour. Date en **heure du Pacifique** (reset Google à minuit PT) v
 
 Sélectionnable dans ⚙️, persisté en `localStorage` (`vocab_model`). Variable `currentModel` : `'gpt4'` | `'gemma'` | `'geminiflash'` | `'geminiflashlite'`.
 
-#### GPT-4.1 (OpenAI)
-- Non-reasoning, streaming immédiat, température 0.2
+#### GPT-5.4 (OpenAI)
+- Reasoning model, `reasoning: { effort: 'low' }`, pas de `temperature`
+- Utilise la **Responses API** (`/v1/responses`) — body : `input` (au lieu de `messages`), `max_output_tokens` (au lieu de `max_tokens`)
+- Réponse non-streaming : `data.output_text` ; streaming SSE : event `response.output_text.delta` → `parsed.delta`, usage dans `response.done`
+- Vision : content types `input_text` / `input_image` (format Responses API)
 - Appels via route par défaut du Worker (Authorization Bearer injectée par le Worker)
 - `callMistral(prompt, maxTokens)` — non-streaming
 - `callMistralStream(prompt, onChunk, maxTokens)` — streaming SSE
@@ -278,7 +281,7 @@ Le JSON `## Vocabulario sugerido` est extrait côté JS (regex), retiré du text
 `definitionCache["mot|lang|model"]` avec timestamp — valide 24h, évite les appels API répétés. La clé inclut le modèle : changer de modèle puis ré-appuyer sur Définition recharge avec le nouveau modèle.
 
 ### Stream définition — gate `## ` (Gemma)
-Gemma 4 génère parfois du texte de vérification avant la réponse. Le stream est gaté : les chunks sont supprimés silencieusement jusqu'au premier `## ` dans le texte accumulé. Le cache stocke aussi la version trimée. Transparent pour GPT-4.1 (commence directement par `## `).
+Gemma 4 génère parfois du texte de vérification avant la réponse. Le stream est gaté : les chunks sont supprimés silencieusement jusqu'au premier `## ` dans le texte accumulé. Le cache stocke aussi la version trimée. Transparent pour GPT-5.4 (commence directement par `## `).
 
 ### renderMarkdown
 Convertit `**gras**`, `*italique*`, `##` headings, `•` puces en HTML. Les `##` headings deviennent `<br><strong class="md-h2">Heading</strong><br>`. Limite à 2 `<br>` consécutifs max. Supprime les `<br>` en tête du résultat.
@@ -343,13 +346,13 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 - `viewport-fit=cover` dans le meta viewport → le contenu peut passer derrière la status bar
 - Au chargement : `--safe-top: 50px` hardcodé sur iOS via `navigator.userAgent` (couvre Dynamic Island et notch)
 - `body { padding-top: var(--safe-top, 0px) }` — espace initial sous la status bar
-- `body::before { position: fixed; top: 0; height: var(--safe-top, 0px); background: var(--bg); z-index: 9999 }` — rideau fixe qui cache le contenu qui scrolle derrière la status bar
+- **Rideau** : `html { background: #0f0f0f }` (couvre la safe area au niveau du `<html>`) + `<div id="status-curtain">` réel (`position: fixed; top: 0; height: var(--safe-top); background: var(--bg); z-index: 9999`) — remplace l'ancien `body::before` qui ne fonctionnait pas avec `body { display: flex }` sur iOS Safari
 
 ### iOS — Autoscroll au focus textarea
 Au focus sur le textarea (`sentence-input`), le clavier iOS s'ouvre et la page doit scroller pour que le textarea soit visible juste au-dessus du clavier :
 - On note `origHeight = visualViewport.height` au moment du focus
 - On écoute `visualViewport resize` — mais on ignore les resize < 150px (barre URL Safari qui rétrécit) — on attend une réduction > 150px qui confirme l'ouverture du clavier
-- Une fois confirmé : `gap = rect.bottom - vv.height + 12` → `window.scrollBy({ top: gap, behavior: 'smooth' })`
+- Une fois confirmé : `gap = rect.bottom - vv.height + 12` → `window.scrollBy({ top: gap, behavior: 'smooth' })` — **toujours exécuté, même si gap négatif** (gap négatif = scroll vers le haut = le contenu descend = textarea se rapproche du clavier)
 - Fallback setTimeout 800ms si le clavier était déjà ouvert
 
 ### Auto-scroll streaming (`startAutoScroll(box, spacer)`)
@@ -389,7 +392,7 @@ L'onglet `History` est un journal pur (une ligne par tentative). `Progress` gard
 
 ## Problèmes connus / points d'attention
 
-1. **gpt-4.1 hallucinations** : Rares mais possibles. Les prompts ont des garde-fous (CRITICAL FILTER RULE, B2-STEP 2, etc.) mais ne sont pas infaillibles.
+1. **gpt-5.4 hallucinations** : Rares mais possibles. Les prompts ont des garde-fous (CRITICAL FILTER RULE, B2-STEP 2, etc.) mais ne sont pas infaillibles.
 
 2. **Apps Script** : Un script séparé (`doPost`) gère l'ajout de mots depuis le raccourci iPhone. L'URL du déploiement est séparée du code principal. Comportements :
    - Normalise le mot : supprime astérisques Markdown, point(s) final(aux), trim, **met en minuscules**
