@@ -1209,6 +1209,9 @@
       _ta.style.height = _ta.scrollHeight + 'px';
     }
     _ta.addEventListener('input', autoResizeTextarea);
+    _ta.addEventListener('focus', () => {
+      setTimeout(() => _ta.scrollIntoView({ block: 'end', behavior: 'smooth' }), 500);
+    });
 
     // ── Proxy Sheets via Cloudflare Worker (service account) ──
     async function sheetsApi(sheetPath, method = 'GET', body = null) {
