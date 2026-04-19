@@ -1353,6 +1353,12 @@
     }
 
     // ── Tokens : compteur journalier dans Sheets ─────────────
+    let _saveTokensTimer = null;
+    function saveTodayTokensDebounced() {
+      clearTimeout(_saveTokensTimer);
+      _saveTokensTimer = setTimeout(saveTodayTokens, 2000);
+    }
+
     async function loadTodayTokens() {
       try {
         const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:F`);
@@ -1393,7 +1399,7 @@
       todayInputTokens  += usage.prompt_tokens    || usage.input_tokens    || 0;
       todayOutputTokens += usage.completion_tokens || usage.output_tokens   || 0;
       updateTokenDisplay();
-      saveTodayTokens();
+      saveTodayTokensDebounced();
     }
 
     function updateTokenDisplay() {
@@ -1431,7 +1437,7 @@
       else if (currentModel === 'geminiflashlite') todayGeminiFlashLiteRequests++;
       else todayGemmaRequests++;
       updateTokenDisplay();
-      saveTodayTokens();
+      saveTodayTokensDebounced();
     }
 
     // ── Mode image ────────────────────────────────────────────
