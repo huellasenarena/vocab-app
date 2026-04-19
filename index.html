@@ -43,7 +43,7 @@
       content: '';
       position: fixed;
       top: 0; left: 0; right: 0;
-      height: env(safe-area-inset-top);
+      height: var(--status-bar-height, 0px);
       background: var(--bg);
       z-index: 9999;
     }
@@ -103,7 +103,7 @@
       width: 100%;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 12px;
       color: var(--text);
       font-family: 'Lora', serif;
       font-size: 1rem;
@@ -115,12 +115,12 @@
     input[type="password"] { font-family: 'DM Mono', monospace; }
     input[type="password"]:focus, textarea:focus { border-color: var(--accent); }
 
-    .textarea-wrap { position: relative; width: 100%; border-radius: 6px; overflow: hidden; }
+    .textarea-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; }
     .textarea-wrap textarea { padding-bottom: 3.2rem; overflow: hidden; }
     .btn-submit-inline {
       position: absolute;
-      bottom: 0;
-      right: 0;
+      bottom: 0.45rem;
+      right: 0.45rem;
       width: 2.2rem;
       height: 2.2rem;
       border-radius: 50%;
@@ -1137,6 +1137,14 @@
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
+      if (window.navigator.standalone) {
+        const probe = document.createElement('div');
+        probe.style.paddingTop = 'env(safe-area-inset-top)';
+        document.body.appendChild(probe);
+        const h = parseInt(getComputedStyle(probe).paddingTop) || 0;
+        document.body.removeChild(probe);
+        document.documentElement.style.setProperty('--status-bar-height', Math.max(h, 44) + 'px');
+      }
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
       showScreen(pwdOk ? 'screen-lang' : 'screen-password');
       document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
@@ -3230,7 +3238,7 @@ Return ONLY a JSON array, no other text:
         res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2, stream: true }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2, stream: true, stream_options: { include_usage: true } }),
           signal: controller.signal
         });
       } catch (err) {
