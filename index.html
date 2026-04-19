@@ -69,7 +69,7 @@
       flex-direction: column;
       align-items: center;
       gap: 1.5rem;
-      padding: max(2rem, calc(env(safe-area-inset-top) + 0.75rem)) 2rem 2rem;
+      padding: 2rem;
       width: 100%;
       max-width: 480px;
       animation: fadeIn 0.6s ease;
@@ -107,12 +107,12 @@
     input[type="password"] { font-family: 'DM Mono', monospace; }
     input[type="password"]:focus, textarea:focus { border-color: var(--accent); }
 
-    .textarea-wrap { position: relative; width: 100%; }
+    .textarea-wrap { position: relative; width: 100%; border-radius: 6px; overflow: hidden; }
     .textarea-wrap textarea { padding-bottom: 3.2rem; overflow: hidden; }
     .btn-submit-inline {
       position: absolute;
-      bottom: 0.9rem;
-      right: 0.9rem;
+      bottom: 0.45rem;
+      right: 0.45rem;
       width: 2.2rem;
       height: 2.2rem;
       border-radius: 50%;
