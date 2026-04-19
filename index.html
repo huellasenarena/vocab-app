@@ -15,6 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
   <style>
+    html { background: #0f0f0f; }
     :root {
       --bg:      #0f0f0f;
       --surface: #1a1a1a;
@@ -38,14 +39,6 @@
       justify-content: center;
       padding-top: var(--safe-top, 0px);
       padding-bottom: env(safe-area-inset-bottom);
-    }
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      height: var(--safe-top, 0px);
-      background: var(--bg);
-      z-index: 9999;
     }
 
     /* L'écran de pratique s'ancre toujours en haut */
@@ -802,6 +795,7 @@
   </style>
 </head>
 <body>
+<div id="status-curtain" style="position:fixed;top:0;left:0;right:0;height:var(--safe-top,0px);background:var(--bg);z-index:9999;pointer-events:none"></div>
 
   <!-- ── Écran 0 : Chargement ── -->
   <div class="screen" id="screen-loading">
@@ -1230,7 +1224,7 @@
         window.visualViewport.removeEventListener('resize', tryScroll);
         const rect = _ta.getBoundingClientRect();
         const gap = rect.bottom - vv.height + 12;
-        if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
+        window.scrollBy({ top: gap, behavior: 'smooth' });
       };
       window.visualViewport.addEventListener('resize', tryScroll);
       // Fallback si le clavier est déjà ouvert ou si resize ne fire pas
@@ -1240,7 +1234,7 @@
           const vv = window.visualViewport;
           const rect = _ta.getBoundingClientRect();
           const gap = rect.bottom - vv.height + 12;
-          if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
+          window.scrollBy({ top: gap, behavior: 'smooth' });
         }
       }, 800);
     });
