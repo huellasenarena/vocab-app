@@ -2362,7 +2362,7 @@ Respond entirely in ${feedbackLang}.`;
           spacer.style.height = (neededDocH - naturalH + 32) + 'px';
         }
 
-        const evalMaxTokens = 800 + currentWords.length * 200;
+        const evalMaxTokens = isGemini() ? 2000 + currentWords.length * 400 : 800 + currentWords.length * 200;
         const scroller = startAutoScroll(feedbackBox, spacer);
         const reply = await callAIStream(prompt, fullText => {
           feedbackText.innerHTML = renderMarkdown(stripVerdictLines(fullText));
@@ -3034,7 +3034,7 @@ Return ONLY a JSON array, no other text:
 ]`;
 
       try {
-        const reply     = await callAI(prompt);
+        const reply     = await callAI(prompt, 800);
         const jsonMatch = reply.match(/\[[\s\S]*\]/);
         if (!jsonMatch) throw new Error('Format inattendu');
         const related = JSON.parse(jsonMatch[0]);
@@ -3238,6 +3238,7 @@ Return ONLY a JSON array, no other text:
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
+        if (!data.output_text) throw new Error('Réponse vide — réessaie (limite de tokens atteinte)');
         trackTokens(data.usage);
         return data.output_text.trim();
       } catch (err) {
@@ -3269,6 +3270,7 @@ Return ONLY a JSON array, no other text:
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
+        if (!data.output_text) throw new Error('Réponse vide — réessaie (limite de tokens atteinte)');
         trackTokens(data.usage);
         return data.output_text.trim();
       } catch (err) {
