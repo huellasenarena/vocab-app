@@ -1053,6 +1053,7 @@
     const PASSWORD_HASH = "37a3fe961eeb61778465d62305d999d7c1d550ee99af1efd530a61f1a03be39b";
     const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
     const API_ENDPOINT  = "https://dark-brook-87cc.georg-dreym.workers.dev";
+    const WORKER_SECRET = "5dd5455d513ad167c20fe10a77eab16c978adf6e12f61eee";
     const MISTRAL_MODEL = "gpt-4.1";
 
     const KEY_PWD_OK      = "vocab_pwd_ok";
@@ -1190,7 +1191,7 @@
     async function sheetsApi(sheetPath, method = 'GET', body = null) {
       const res = await fetch(`${API_ENDPOINT}/sheets`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({ sheetPath, method, body })
       });
       const data = await res.json();
@@ -1382,7 +1383,7 @@
       try {
         const resp = await fetch(`${API_ENDPOINT}/unsplash`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({ query: imageTheme })
         });
         const data = await resp.json();
@@ -3067,7 +3068,7 @@ Return ONLY a JSON array, no other text:
       try {
         const res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({ prompt, maxTokens, stream: false, geminiModel: geminiModelId() }),
           signal: controller.signal
         });
@@ -3090,7 +3091,7 @@ Return ONLY a JSON array, no other text:
       try {
         const res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({ prompt, maxTokens, imageUrl, stream: false, geminiModel: geminiModelId() }),
           signal: controller.signal
         });
@@ -3160,7 +3161,7 @@ Return ONLY a JSON array, no other text:
       try {
         const res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2 }),
           signal: controller.signal
         });
@@ -3183,7 +3184,7 @@ Return ONLY a JSON array, no other text:
       try {
         const res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({
             model: MISTRAL_MODEL,
             messages: [{ role: 'user', content: [
