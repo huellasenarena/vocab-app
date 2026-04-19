@@ -8,7 +8,7 @@ Application web d'apprentissage de vocabulaire multilingue, single-file `index.h
 - **Repo local** : `~/Desktop/vocab-app/`
 - **Stack** : HTML/CSS/JS pur, GitHub Pages + GitHub Actions
 - **Backend** : Google Sheets via Cloudflare Worker (service account)
-- **IA** : OpenAI `gpt-4.1` (défaut), Google `gemini-2.5-pro` ou `gemini-3-flash-preview` — sélectionnable dans ⚙️
+- **IA** : OpenAI `gpt-4.1` (défaut), Google `gemma-4-31b-it`, `gemini-3.1-flash-lite-preview`, `gemini-3-flash-preview` — sélectionnable dans ⚙️
 
 ---
 
@@ -52,11 +52,11 @@ A: Date | B: Word | C: Language | D: Result (✓ ou ✗)
 A: Date (YYYY-MM-DD) | B: NewWordsPracticed
 ```
 
-#### Structure Tokens (A:E)
+#### Structure Tokens (A:F)
 ```
-A: Date (YYYY-MM-DD) | B: InputTokens | C: OutputTokens | D: GeminiProRequests | E: GeminiFlashRequests
+A: Date (YYYY-MM-DD PT) | B: InputTokens | C: OutputTokens | D: GemmaRequests | E: GeminiFlashRequests | F: GeminiFlashLiteRequests
 ```
-Une ligne par jour. Chargé au démarrage via `loadTodayTokens()`, mis à jour après chaque appel API via `trackTokens(usage)` (GPT) ou `trackGeminiRequest()` (Gemini). Header row 1 requis.
+Une ligne par jour. Date en **heure du Pacifique** (reset Google à minuit PT) via `todayStrPT()`. Chargé au démarrage via `loadTodayTokens()`, mis à jour après chaque appel API. Header row 1 requis.
 
 #### Structure formes grammaticales (sheet séparé)
 - Onglet `Spanish` — row 1 = catégories (presente, pasado, futuro, subjuntivo, condicional, imperativo, misc.)
@@ -65,7 +65,7 @@ Une ligne par jour. Chargé au démarrage via `loadTodayTokens()`, mis à jour a
 
 ### Modèles IA
 
-Sélectionnable dans ⚙️, persisté en `localStorage` (`vocab_model`). Variable `currentModel` : `'gpt4'` | `'gemini'` | `'geminiflash'`.
+Sélectionnable dans ⚙️, persisté en `localStorage` (`vocab_model`). Variable `currentModel` : `'gpt4'` | `'gemma'` | `'geminiflash'` | `'geminiflashlite'`.
 
 #### GPT-4.1 (OpenAI)
 - Non-reasoning, streaming immédiat, température 0.2
@@ -75,29 +75,36 @@ Sélectionnable dans ⚙️, persisté en `localStorage` (`vocab_model`). Variab
 - `callMistralVision(imageUrl, prompt, maxTokens)` — vision, timeout 45s
 - **Note** : noms `callMistral*` conservés par héritage historique
 
-#### Gemini 2.5 Pro
-- Reasoning model, route Worker `/gemini`, clé `GEMINI_KEY`
-- Quota gratuit : 100 req/jour (spending cap > $0 requis dans Google Cloud)
+#### Gemma 4 31B (`gemma`)
+- Reasoning model (thinking tokens) — quota gratuit : **1500 req/jour** (reset minuit PT)
+- Route Worker `/gemini`, clé `GEMINI_KEY`, model ID : `gemma-4-31b-it`
+- Worker : `thinkingConfig: { thinkingLevel: 'MINIMAL' }` pour limiter le temps de reasoning
+- Worker : filtre les chunks `thought: true` du stream SSE et des parts non-streaming — seule la réponse finale est envoyée au client
+- Supporte la vision (mode Imagen)
 - `maxOutputTokens` default : 1000 (non-streaming), 1500 (streaming)
 
-#### Gemini 3 Flash Preview
-- Non-reasoning, route Worker `/gemini`, même clé `GEMINI_KEY`
-- Quota gratuit : 20 req/jour
-- Model ID : `gemini-3-flash-preview`
+#### Gemini 3.1 Flash Lite (`geminiflashlite`)
+- Non-reasoning, quota gratuit : **500 req/jour** (reset minuit PT)
+- Route Worker `/gemini`, clé `GEMINI_KEY`, model ID : `gemini-3.1-flash-lite-preview`
+
+#### Gemini 3 Flash (`geminiflash`)
+- Non-reasoning, quota gratuit : **20 req/jour** (reset minuit PT)
+- Route Worker `/gemini`, clé `GEMINI_KEY`, model ID : `gemini-3-flash-preview`
 
 #### Wrappers modèle-agnostiques
 - `callAI(prompt, maxTokens)` → dispatch selon `currentModel`
 - `callAIStream(prompt, onChunk, maxTokens)` → idem
 - `callAIVision(imageUrl, prompt, maxTokens)` → idem
-- `isGemini()` → true si `currentModel` est `'gemini'` ou `'geminiflash'`
+- `isGemini()` → true si `currentModel` est `'gemma'`, `'geminiflash'` ou `'geminiflashlite'`
 - `geminiModelId()` → retourne l'ID exact du modèle Gemini actif depuis `GEMINI_MODEL_IDS`
 - Le nom du modèle est envoyé au Worker via `geminiModel` dans le body — le Worker l'utilise dynamiquement
 
 #### Compteur tokens/requêtes
 - GPT : `todayInputTokens` + `todayOutputTokens` → affiché `X tokens`
-- Gemini Pro : `todayGeminiProRequests` → affiché `X / 100 req`
+- Gemma : `todayGemmaRequests` → affiché `X / 1500 req`
 - Gemini Flash : `todayGeminiFlashRequests` → affiché `X / 20 req`
-- `trackTokens(usage)` pour GPT, `trackGeminiRequest()` pour Gemini (s'auto-route selon `currentModel`)
+- Gemini Flash Lite : `todayGeminiFlashLiteRequests` → affiché `X / 500 req`
+- `trackTokens(usage)` pour GPT, `trackGeminiRequest()` pour Google (s'auto-route selon `currentModel`)
 
 ### Déploiement
 ```bash
@@ -143,15 +150,16 @@ let grammarForms        = [];      // formes grammaticales espagnoles aplaties
 let grammarFormsEnabled = ...;     // toggle localStorage KEY_GRAMMAR
 let maxNewPerDay        = 60;      // configurable via réglages ⚙️, localStorage KEY_MAX_NEW (5–100)
 let jeNeSaisPasWord     = null;    // mot en attente de confirmation "Je ne sais pas"
-let todayInputTokens         = 0;  // tokens input GPT aujourd'hui
-let todayOutputTokens        = 0;  // tokens output GPT aujourd'hui
-let todayGeminiProRequests   = 0;  // requêtes Gemini 2.5 Pro aujourd'hui
-let todayGeminiFlashRequests = 0;  // requêtes Gemini 3 Flash aujourd'hui
-let currentModel        = 'gpt4';  // 'gpt4' | 'gemini' | 'geminiflash', localStorage KEY_MODEL
+let todayInputTokens             = 0;  // tokens input GPT aujourd'hui
+let todayOutputTokens            = 0;  // tokens output GPT aujourd'hui
+let todayGemmaRequests           = 0;  // requêtes Gemma 4 31B aujourd'hui
+let todayGeminiFlashRequests     = 0;  // requêtes Gemini 3 Flash aujourd'hui
+let todayGeminiFlashLiteRequests = 0;  // requêtes Gemini 3.1 Flash Lite aujourd'hui
+let currentModel        = 'gpt4';  // 'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'
 let showTokenCounter    = true;    // toggle localStorage KEY_SHOW_TOKENS
 let currentPhotoUrl     = '';      // URL complète de la photo en cours (mode Imagen)
 let imageTheme          = '';      // thème Unsplash en cours, localStorage KEY_IMAGE_THEME
-const definitionCache   = {};      // { "mot|lang": { html, ts } } — cache 24h
+const definitionCache   = {};      // { "mot|lang|model": { html, ts } } — cache 24h par modèle
 const GRAMMAR_SHEET_ID  = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 ```
 
@@ -196,9 +204,10 @@ loadWords(lang)           // charge allWords depuis onglet langue
 loadProgress(lang)        // charge progressMap depuis Progress!A:G
 loadTodayCount()          // charge todayNewCount depuis Session
 saveTodayCount(n)         // sauvegarde compteur dans Session
-loadTodayTokens()         // charge todayInputTokens/todayOutputTokens depuis Tokens
-saveTodayTokens()         // met à jour la ligne du jour dans Tokens (même pattern que saveTodayCount)
-trackTokens(usage)        // incrémente les compteurs + appelle saveTodayTokens (fire-and-forget)
+loadTodayTokens()         // charge compteurs depuis Tokens!A:F (date PT)
+saveTodayTokens()         // met à jour la ligne du jour dans Tokens (date PT)
+trackTokens(usage)        // incrémente les compteurs GPT + appelle saveTodayTokens (fire-and-forget)
+trackGeminiRequest()      // incrémente le compteur du modèle Google actif + appelle saveTodayTokens
 saveProgressNew(word)     // nouveau ✓ → NextReview=demain, étoiles neutres
 saveProgressReviewHint(w) // révision+hint → NextReview=demain
 saveProgress(w, bool)     // SM-2 normal (révision sans hint)
@@ -207,13 +216,15 @@ saveHistoryBatch(rows)    // écrit plusieurs lignes dans History en un seul app
 cleanOrphans(lang, rows)  // vide les lignes Progress dont le mot n'existe plus
 loadGrammarForms()        // charge les formes grammaticales depuis le sheet séparé (Spanish seulement)
 newPracticePhoto()        // async — appelle Worker /unsplash, met à jour currentPhotoUrl (mode Imagen)
-analyzePhoto()            // soumet description + image à callMistralVision, affiche dans feedback-box.image
+analyzePhoto()            // soumet description + image à callAIVision, affiche dans feedback-box.image
 addImageVocabWord(word, i) // ajoute un mot du Vocabulario sugerido à l'onglet Spanish de Sheets
+todayStr()                // date YYYY-MM-DD UTC (Session)
+todayStrPT()              // date YYYY-MM-DD heure Pacifique (Tokens Google)
 ```
 
 ---
 
-## Prompts GPT-4.1
+## Prompts IA
 
 ### Évaluation (structure critique)
 Deux BLOCS **indépendants** :
@@ -264,7 +275,10 @@ Le JSON `## Vocabulario sugerido` est extrait côté JS (regex), retiré du text
 ## Fonctionnalités importantes
 
 ### Cache définitions
-`definitionCache["mot|lang"]` avec timestamp — valide 24h, évite les appels API répétés.
+`definitionCache["mot|lang|model"]` avec timestamp — valide 24h, évite les appels API répétés. La clé inclut le modèle : changer de modèle puis ré-appuyer sur Définition recharge avec le nouveau modèle.
+
+### Stream définition — gate `## ` (Gemma)
+Gemma 4 génère parfois du texte de vérification avant la réponse. Le stream est gaté : les chunks sont supprimés silencieusement jusqu'au premier `## ` dans le texte accumulé. Le cache stocke aussi la version trimée. Transparent pour GPT-4.1 (commence directement par `## `).
 
 ### renderMarkdown
 Convertit `**gras**`, `*italique*`, `##` headings, `•` puces en HTML. Les `##` headings deviennent `<br><strong class="md-h2">Heading</strong><br>`. Limite à 2 `<br>` consécutifs max. Supprime les `<br>` en tête du résultat.
@@ -312,61 +326,45 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 - Ignorées lors de la vérification — purement indicatives
 
 ### Compteur tokens
-- Affiché sous le `<h1>Vocab</h1>` dans le header (`X tokens`), police DM Mono
-- Affiche "0 tokens" dès que le toggle est actif, même si aucun appel API n'a été fait dans la journée
+- Affiché sous le `<h1>Vocab</h1>` dans le header, police DM Mono
+- GPT : `X tokens` | Gemma : `X / 1500 req` | Flash : `X / 20 req` | Flash Lite : `X / 500 req`
 - Toggle dans le panneau ⚙️ : "Afficher compteur tokens", persisté en `localStorage` (clé `vocab_show_tokens`)
-- Synchronisé dans Sheets onglet `Tokens` (multi-appareils) — même pattern que l'onglet `Session`
-- `trackTokens(usage)` appelé automatiquement après chaque appel `callMistral`, `callMistralStream`, `callMistralVision`
-- Pour le streaming, OpenAI envoie l'usage dans le dernier chunk SSE avant `[DONE]`
+- Synchronisé dans Sheets onglet `Tokens` (multi-appareils)
 
 ### Bouton Vérifier inline (mobile)
 - Le bouton Vérifier est intégré **dans** le textarea (coin bas-droit), style iMessage — toujours visible même clavier ouvert sur iPhone
 - Structure HTML : `<div class="textarea-wrap">` contient le textarea + `<button class="btn-submit-inline" id="btn-submit">`
-- CSS : `.textarea-wrap` en `position: relative`, bouton en `position: absolute; bottom: 0.55rem; right: 0.55rem`, rond (2.2rem), fond `var(--accent)`
+- CSS : `.textarea-wrap` en `position: relative`, bouton en `position: absolute; bottom: 0.6rem; right: 0.6rem`, rond (2.4rem), fond `var(--accent)`
 - Textarea : `padding-bottom: 3.2rem; overflow: hidden` pour laisser l'espace visuel sans scrollbar
+- `.textarea-wrap` a `-webkit-transform: translateZ(0)` pour forcer le clipping sur iOS Safari
 - Icône : `↑` au repos, `<span class="spinner"></span>` pendant le chargement
-- Le bouton `id="btn-submit"` est le même qu'avant — tous les appels JS (`btn.disabled`, `btn.innerHTML`) restent inchangés
 
-### Mots du même univers
-- Affichés après un ✓ en mode single-mot (sauf mode Situation et Imagen) via `fetchRelatedWords(word)`
-- 3 mots suggérés par GPT-4.1, en JSON : `[{"word": "...", "note": "..."}]`
-- **Filtre** : les mots déjà présents dans `allWords` sont exclus avant affichage — les chips ne montrent que les mots nouveaux. Si tous existent déjà, message "Tous les mots suggérés sont déjà dans ta liste."
-- Bouton ＋ → `addRelatedWord(word, btnIndex)` : vérifie à nouveau contre `allWords` (défense), puis append dans l'onglet langue courant, met à jour `allWords` en mémoire
-- Section `#related-box` + `#related-chips`
+### iOS — Status bar et safe area
+- `viewport-fit=cover` dans le meta viewport → le contenu peut passer derrière la status bar
+- Au chargement : `--safe-top: 50px` hardcodé sur iOS via `navigator.userAgent` (couvre Dynamic Island et notch)
+- `body { padding-top: var(--safe-top, 0px) }` — espace initial sous la status bar
+- `body::before { position: fixed; top: 0; height: var(--safe-top, 0px); background: var(--bg); z-index: 9999 }` — rideau fixe qui cache le contenu qui scrolle derrière la status bar
 
-### Nettoyage au changement de mode (`setMode`)
-- `setMode()` nettoie **systématiquement** au changement de mode : `related-box`, `image-vocab-box`, `feedback-box`, `sentence-input`, `lastSubmittedSentence`
-- Évite l'accumulation ou la persistance de sections entre modes
-
-### Mode Imagen (📸)
-- Photos via Unsplash API, proxiée par le Worker `/unsplash` — requiert `UNSPLASH_KEY` dans les secrets Cloudflare
-- `currentPhotoUrl` stocke l'URL complète retournée par Unsplash (inclut le paramètre `w=800`)
-- Thème sélectionnable dans ⚙️ : 🎲 Aléatoire, 👥 Personnes, 🏙️ Ville, 🌿 Nature, 🍽️ Nourriture, ✈️ Voyage, 🏛️ Architecture, 🐾 Animaux. Persisté en `localStorage` (clé `vocab_image_theme`)
-- `#vocab-section` utilise `display: contents` pour hériter du gap flex de `.screen` sans wrapper visuel
-- `#image-section` est un flex-column avec photo + bouton "🔄 Nueva foto" en dessous
-- Bouton Vérifier inline (`btn-submit`) redirige vers `analyzePhoto()` quand `practiceMode === 'image'`
-- Timeout 45s pour `callMistralVision` (vs 30s pour les autres appels, images plus lentes)
-- Chips "Vocabulario sugerido" rendues sous le feedback avec bouton ＋ pour ajouter à l'onglet Spanish — filtrées contre `allWords` avant affichage
-
-### Limite nouveaux mots / jour (mode espacé)
-- Configurable via slider ⚙️ dans le panneau réglages : "Nouveaux mots / jour (espacé)"
-- Plage : 5–100, pas de 5, défaut 60
-- Persisté dans `localStorage` (clé `vocab_max_new_per_day`)
-- Met à jour le compteur `due-count` immédiatement au changement du slider
-- Remplace la constante `MAX_NEW_PER_DAY` — désormais variable `maxNewPerDay`
+### iOS — Autoscroll au focus textarea
+Au focus sur le textarea (`sentence-input`), le clavier iOS s'ouvre et la page doit scroller pour que le textarea soit visible juste au-dessus du clavier :
+- On note `origHeight = visualViewport.height` au moment du focus
+- On écoute `visualViewport resize` — mais on ignore les resize < 150px (barre URL Safari qui rétrécit) — on attend une réduction > 150px qui confirme l'ouverture du clavier
+- Une fois confirmé : `gap = rect.bottom - vv.height + 12` → `window.scrollBy({ top: gap, behavior: 'smooth' })`
+- Fallback setTimeout 800ms si le clavier était déjà ouvert
 
 ### Auto-scroll streaming (`startAutoScroll(box, spacer)`)
-- `topTarget` calculé une seule fois après double-RAF (layout stable), avec `PAD_TOP = 20px`
-- Suit le **bas** de la boîte chunk par chunk (scroll instant)
-- S'arrête quand le **haut** de la boîte atteint le haut du viewport (`stoppedAtTop = true`)
-- Le scroll final post-streaming respecte `stoppedAtTop` (ne ré-impose pas le bas si déjà stoppé au haut)
+- `PAD_TOP = safeTop + 8` (58px sur iOS, 8px ailleurs) — s'arrête juste sous le rideau status bar
+- `topTarget` calculé une seule fois (layout stable), avec `PAD_TOP`
+- Suit le **bas** de la boîte chunk par chunk
+- S'arrête quand le **haut** de la boîte atteint `PAD_TOP` du viewport (`stoppedAtTop = true`)
+- Le scroll final post-streaming respecte `stoppedAtTop`
 - Spacer agrandi dynamiquement si `bottomTarget > maxScrollY`
 - Scroll interrompu si l'utilisateur scrolle manuellement (`wheel`/`touchmove`)
 - Utilisé pour : définition (hintBox) et feedback vocab (feedbackBox, avec spacer)
 - Mode Imagen : scroll simple non-streaming via `requestAnimationFrame` + `window.scrollTo` après réception
 
 ### Protection double soumission
-`lastSubmittedSentence` — si même réponse qu'avant, shake + ignore. Remis à `null` en cas d'erreur API pour permettre de réessayer.
+`lastSubmittedSentence` — si même réponse qu'avant, shake + ignore. Remis à `null` en cas d'erreur API pour permettre de réessayer. Remis à `''` au changement de modèle pour permettre de re-vérifier avec le nouveau modèle.
 
 ### Protection "Autre mot" avec phrase non vérifiée
 Au début de `nextWord()` : si le textarea est non vide **et** différent de `lastSubmittedSentence`, un `confirm()` natif demande confirmation. Couvre deux cas :
@@ -406,6 +404,8 @@ L'onglet `History` est un journal pur (une ligne par tentative). `Progress` gard
    - `deduplicate_clips()` : déduplication inter-clips (doublons partiels + SequenceMatcher ≥ 0.80)
 
 4. **Cloudflare Worker cold start** : Première requête après une longue inactivité peut être légèrement plus lente (~100-200ms). Normal.
+
+5. **Gemma 4 thinking** : `thinkingBudget: 0` et `thinkingLevel: 'NONE'` ne sont pas supportés. Les niveaux valides sont `'MINIMAL'` et `'HIGH'`. Le Worker filtre les parts `thought: true` côté stream et non-streaming pour ne jamais exposer les pensées au client.
 
 ---
 
