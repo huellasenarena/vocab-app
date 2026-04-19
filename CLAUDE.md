@@ -8,7 +8,7 @@ Application web d'apprentissage de vocabulaire multilingue, single-file `index.h
 - **Repo local** : `~/Desktop/vocab-app/`
 - **Stack** : HTML/CSS/JS pur, GitHub Pages + GitHub Actions
 - **Backend** : Google Sheets via Cloudflare Worker (service account)
-- **IA** : OpenAI `gpt-4.1`, température 0.2, streaming SSE
+- **IA** : OpenAI `gpt-4.1` (défaut), Google `gemini-2.5-pro` ou `gemini-3-flash-preview` — sélectionnable dans ⚙️
 
 ---
 
@@ -16,11 +16,12 @@ Application web d'apprentissage de vocabulaire multilingue, single-file `index.h
 
 ### Cloudflare Worker
 - **URL** : `https://dark-brook-87cc.georg-dreym.workers.dev`
-- Proxy pour **trois services** : OpenAI (route par défaut), Google Sheets (route `/sheets`), Unsplash (route `/unsplash`)
+- Proxy pour **quatre services** : OpenAI (route par défaut), Google Sheets (route `/sheets`), Unsplash (route `/unsplash`), Gemini (route `/gemini`)
 - Secrets configurés dans le dashboard Cloudflare :
   - `OPENAI_API_KEY` — clé OpenAI
   - `SA_JSON` — JSON complet du service account Google (contient `client_email` et `private_key`)
   - `UNSPLASH_KEY` — clé API Unsplash (Access Key)
+  - `GEMINI_KEY` — clé Google AI Studio (Gemini API)
 - Le Worker génère un JWT RS256 signé pour s'authentifier auprès de Google, avec cache du token (1h)
 - La route `/unsplash` proxy les requêtes vers `https://api.unsplash.com/photos/random` en injectant `UNSPLASH_KEY`
 
@@ -47,27 +48,52 @@ A: Date | B: Word | C: Language | D: Result (✓ ou ✗)
 A: Date (YYYY-MM-DD) | B: NewWordsPracticed
 ```
 
-#### Structure Tokens (A:C)
+#### Structure Tokens (A:E)
 ```
-A: Date (YYYY-MM-DD) | B: InputTokens | C: OutputTokens
+A: Date (YYYY-MM-DD) | B: InputTokens | C: OutputTokens | D: GeminiProRequests | E: GeminiFlashRequests
 ```
-Une ligne par jour. Chargé au démarrage via `loadTodayTokens()`, mis à jour après chaque appel API via `trackTokens(usage)`. Header row 1 requis.
+Une ligne par jour. Chargé au démarrage via `loadTodayTokens()`, mis à jour après chaque appel API via `trackTokens(usage)` (GPT) ou `trackGeminiRequest()` (Gemini). Header row 1 requis.
 
 #### Structure formes grammaticales (sheet séparé)
 - Onglet `Spanish` — row 1 = catégories (presente, pasado, futuro, subjuntivo, condicional, imperativo, misc.)
 - Rows 2+ = formes spécifiques sous chaque catégorie
 - Aplati en liste : `"${catégorie} ${forme}"` ex: `"futuro simple"`, `"subjuntivo imperfecto"`
 
-### OpenAI
-- Modèle : `gpt-4.1` (non-reasoning — streaming immédiat, pas de phase de réflexion interne)
-- Température : 0.2
-- Streaming activé pour définitions et évaluations
-- `callMistral(prompt, maxTokens)` pour appels non-streaming (QCM, mots liés, situation)
-- `callMistralStream(prompt, onChunk, maxTokens)` pour streaming progressif
-- `callMistralVision(imageUrl, prompt, maxTokens)` pour appels vision (image + texte, non-streaming, timeout 45s)
-- Les appels passent tous par le Cloudflare Worker (pas d'Authorization header côté app)
-- Chaque appel capture `data.usage` et appelle `trackTokens(usage)` pour le compteur journalier
-- **Note** : les fonctions gardent le nom `callMistral` par héritage historique (ancien backend Mistral)
+### Modèles IA
+
+Sélectionnable dans ⚙️, persisté en `localStorage` (`vocab_model`). Variable `currentModel` : `'gpt4'` | `'gemini'` | `'geminiflash'`.
+
+#### GPT-4.1 (OpenAI)
+- Non-reasoning, streaming immédiat, température 0.2
+- Appels via route par défaut du Worker (Authorization Bearer injectée par le Worker)
+- `callMistral(prompt, maxTokens)` — non-streaming
+- `callMistralStream(prompt, onChunk, maxTokens)` — streaming SSE
+- `callMistralVision(imageUrl, prompt, maxTokens)` — vision, timeout 45s
+- **Note** : noms `callMistral*` conservés par héritage historique
+
+#### Gemini 2.5 Pro
+- Reasoning model, route Worker `/gemini`, clé `GEMINI_KEY`
+- Quota gratuit : 100 req/jour (spending cap > $0 requis dans Google Cloud)
+- `maxOutputTokens` default : 1000 (non-streaming), 1500 (streaming)
+
+#### Gemini 3 Flash Preview
+- Non-reasoning, route Worker `/gemini`, même clé `GEMINI_KEY`
+- Quota gratuit : 20 req/jour
+- Model ID : `gemini-3-flash-preview`
+
+#### Wrappers modèle-agnostiques
+- `callAI(prompt, maxTokens)` → dispatch selon `currentModel`
+- `callAIStream(prompt, onChunk, maxTokens)` → idem
+- `callAIVision(imageUrl, prompt, maxTokens)` → idem
+- `isGemini()` → true si `currentModel` est `'gemini'` ou `'geminiflash'`
+- `geminiModelId()` → retourne l'ID exact du modèle Gemini actif depuis `GEMINI_MODEL_IDS`
+- Le nom du modèle est envoyé au Worker via `geminiModel` dans le body — le Worker l'utilise dynamiquement
+
+#### Compteur tokens/requêtes
+- GPT : `todayInputTokens` + `todayOutputTokens` → affiché `X tokens`
+- Gemini Pro : `todayGeminiProRequests` → affiché `X / 100 req`
+- Gemini Flash : `todayGeminiFlashRequests` → affiché `X / 20 req`
+- `trackTokens(usage)` pour GPT, `trackGeminiRequest()` pour Gemini (s'auto-route selon `currentModel`)
 
 ### Déploiement
 ```bash
@@ -92,7 +118,7 @@ git push origin main
 - **📅 Espacée** — révision espacée SM-2, limite 60 nouveaux/jour
 - **🎯 Situation** — recall actif, mots ★★★ seulement
 - **🎲 Libre** — tirage pondéré classique. Affiche `X mots à pratiquer (N au total)` où N = `allWords.length`
-- **📸 Imagen** — description de photo aléatoire (Unsplash via Worker) en espagnol, analysée par GPT-4.1 vision. Indépendant de la liste de mots.
+- **📸 Imagen** — description de photo aléatoire (Unsplash via Worker) en espagnol, analysée par le modèle actif via `callAIVision`. Indépendant de la liste de mots.
 
 ---
 
@@ -113,8 +139,11 @@ let grammarForms        = [];      // formes grammaticales espagnoles aplaties
 let grammarFormsEnabled = ...;     // toggle localStorage KEY_GRAMMAR
 let maxNewPerDay        = 60;      // configurable via réglages ⚙️, localStorage KEY_MAX_NEW (5–100)
 let jeNeSaisPasWord     = null;    // mot en attente de confirmation "Je ne sais pas"
-let todayInputTokens    = 0;       // tokens input consommés aujourd'hui
-let todayOutputTokens   = 0;       // tokens output consommés aujourd'hui
+let todayInputTokens         = 0;  // tokens input GPT aujourd'hui
+let todayOutputTokens        = 0;  // tokens output GPT aujourd'hui
+let todayGeminiProRequests   = 0;  // requêtes Gemini 2.5 Pro aujourd'hui
+let todayGeminiFlashRequests = 0;  // requêtes Gemini 3 Flash aujourd'hui
+let currentModel        = 'gpt4';  // 'gpt4' | 'gemini' | 'geminiflash', localStorage KEY_MODEL
 let showTokenCounter    = true;    // toggle localStorage KEY_SHOW_TOKENS
 let currentPhotoUrl     = '';      // URL complète de la photo en cours (mode Imagen)
 let imageTheme          = '';      // thème Unsplash en cours, localStorage KEY_IMAGE_THEME
