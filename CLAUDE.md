@@ -286,15 +286,34 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 - `trackTokens(usage)` appelé automatiquement après chaque appel `callMistral`, `callMistralStream`, `callMistralVision`
 - Pour le streaming, OpenAI envoie l'usage dans le dernier chunk SSE avant `[DONE]`
 
+### Bouton Vérifier inline (mobile)
+- Le bouton Vérifier est intégré **dans** le textarea (coin bas-droit), style iMessage — toujours visible même clavier ouvert sur iPhone
+- Structure HTML : `<div class="textarea-wrap">` contient le textarea + `<button class="btn-submit-inline" id="btn-submit">`
+- CSS : `.textarea-wrap` en `position: relative`, bouton en `position: absolute; bottom: 0.55rem; right: 0.55rem`, rond (2.2rem), fond `var(--accent)`
+- Textarea : `padding-bottom: 3.2rem; overflow: hidden` pour laisser l'espace visuel sans scrollbar
+- Icône : `↑` au repos, `<span class="spinner"></span>` pendant le chargement
+- Le bouton `id="btn-submit"` est le même qu'avant — tous les appels JS (`btn.disabled`, `btn.innerHTML`) restent inchangés
+
+### Mots du même univers
+- Affichés après un ✓ en mode single-mot (sauf mode Situation et Imagen) via `fetchRelatedWords(word)`
+- 3 mots suggérés par GPT-4.1, en JSON : `[{"word": "...", "note": "..."}]`
+- **Filtre** : les mots déjà présents dans `allWords` sont exclus avant affichage — les chips ne montrent que les mots nouveaux. Si tous existent déjà, message "Tous les mots suggérés sont déjà dans ta liste."
+- Bouton ＋ → `addRelatedWord(word, btnIndex)` : vérifie à nouveau contre `allWords` (défense), puis append dans l'onglet langue courant, met à jour `allWords` en mémoire
+- Section `#related-box` + `#related-chips`
+
+### Nettoyage au changement de mode (`setMode`)
+- `setMode()` nettoie **systématiquement** au changement de mode : `related-box`, `image-vocab-box`, `feedback-box`, `sentence-input`, `lastSubmittedSentence`
+- Évite l'accumulation ou la persistance de sections entre modes
+
 ### Mode Imagen (📸)
 - Photos via Unsplash API, proxiée par le Worker `/unsplash` — requiert `UNSPLASH_KEY` dans les secrets Cloudflare
 - `currentPhotoUrl` stocke l'URL complète retournée par Unsplash (inclut le paramètre `w=800`)
 - Thème sélectionnable dans ⚙️ : 🎲 Aléatoire, 👥 Personnes, 🏙️ Ville, 🌿 Nature, 🍽️ Nourriture, ✈️ Voyage, 🏛️ Architecture, 🐾 Animaux. Persisté en `localStorage` (clé `vocab_image_theme`)
 - `#vocab-section` utilise `display: contents` pour hériter du gap flex de `.screen` sans wrapper visuel
 - `#image-section` est un flex-column avec photo + bouton "🔄 Nueva foto" en dessous
-- Bouton "Vérifier ✓" existant redirige vers `analyzePhoto()` quand `practiceMode === 'image'`
+- Bouton Vérifier inline (`btn-submit`) redirige vers `analyzePhoto()` quand `practiceMode === 'image'`
 - Timeout 45s pour `callMistralVision` (vs 30s pour les autres appels, images plus lentes)
-- Chips "Vocabulario sugerido" rendues sous le feedback avec bouton ＋ pour ajouter à l'onglet Spanish
+- Chips "Vocabulario sugerido" rendues sous le feedback avec bouton ＋ pour ajouter à l'onglet Spanish — filtrées contre `allWords` avant affichage
 
 ### Limite nouveaux mots / jour (mode espacé)
 - Configurable via slider ⚙️ dans le panneau réglages : "Nouveaux mots / jour (espacé)"
