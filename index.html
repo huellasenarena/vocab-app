@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Vocab</title>
 
   <link rel="manifest" href="manifest.json" />
@@ -36,6 +36,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
     }
 
     /* L'écran de pratique s'ancre toujours en haut */
@@ -109,8 +111,8 @@
     .textarea-wrap textarea { padding-bottom: 3.2rem; overflow: hidden; }
     .btn-submit-inline {
       position: absolute;
-      bottom: 0.55rem;
-      right: 0.55rem;
+      bottom: 0.6rem;
+      right: 0.6rem;
       width: 2.2rem;
       height: 2.2rem;
       border-radius: 50%;
@@ -126,6 +128,7 @@
       transition: opacity 0.15s, transform 0.1s;
       z-index: 1;
     }
+    .btn-submit-inline .spinner { margin-right: 0; }
     .btn-submit-inline:hover { opacity: 0.85; }
     .btn-submit-inline:active { transform: scale(0.92); }
     .btn-submit-inline:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -1365,6 +1368,7 @@
       currentModel = val;
       localStorage.setItem(KEY_MODEL, val);
       updateTokenDisplay();
+      lastSubmittedSentence = '';
     }
 
     function trackGeminiRequest() {
@@ -3062,7 +3066,7 @@ Return ONLY a JSON array, no other text:
     function callAIVision(imageUrl, prompt, maxTokens){ return isGemini() ? callGeminiVision(imageUrl, prompt, maxTokens): callMistralVision(imageUrl, prompt, maxTokens); }
 
     // ── Gemini (non-streaming) ─────────────────────────────────
-    async function callGemini(prompt, maxTokens = 1000) {
+    async function callGemini(prompt, maxTokens = 2000) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30000);
       try {
@@ -3085,7 +3089,7 @@ Return ONLY a JSON array, no other text:
     }
 
     // ── Gemini vision (non-streaming) ─────────────────────────
-    async function callGeminiVision(imageUrl, prompt, maxTokens = 1000) {
+    async function callGeminiVision(imageUrl, prompt, maxTokens = 2000) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 60000);
       try {
@@ -3108,7 +3112,7 @@ Return ONLY a JSON array, no other text:
     }
 
     // ── Gemini streaming ───────────────────────────────────────
-    async function callGeminiStream(prompt, onChunk, maxTokens = 1500) {
+    async function callGeminiStream(prompt, onChunk, maxTokens = 3000) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30000);
       let res;
