@@ -36,14 +36,14 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding-top: env(safe-area-inset-top);
+      padding-top: var(--safe-top, 0px);
       padding-bottom: env(safe-area-inset-bottom);
     }
     body::before {
       content: '';
       position: fixed;
       top: 0; left: 0; right: 0;
-      height: env(safe-area-inset-top, 0px);
+      height: var(--safe-top, 0px);
       background: var(--bg);
       z-index: 9999;
     }
@@ -1149,6 +1149,18 @@
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
 
+      // Sonde env(safe-area-inset-top) pour le rideau status bar
+      if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+        const probe = document.createElement('div');
+        probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;padding-top:env(safe-area-inset-top,0px);pointer-events:none;visibility:hidden;';
+        document.documentElement.appendChild(probe);
+        requestAnimationFrame(() => {
+          const safeTop = parseFloat(getComputedStyle(probe).paddingTop) || 0;
+          probe.remove();
+          document.documentElement.style.setProperty('--safe-top', (safeTop > 0 ? safeTop : 50) + 'px');
+        });
+      }
+
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
       showScreen(pwdOk ? 'screen-lang' : 'screen-password');
       document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
@@ -1210,18 +1222,34 @@
     }
     _ta.addEventListener('input', autoResizeTextarea);
     _ta.addEventListener('focus', () => {
-      const doScroll = () => {
+      if (!window.visualViewport) {
+        setTimeout(() => _ta.scrollIntoView({ block: 'end' }), 500);
+        return;
+      }
+      const origHeight = window.visualViewport.height;
+      let scrolled = false;
+      const tryScroll = () => {
         const vv = window.visualViewport;
-        if (!vv) { _ta.scrollIntoView({ block: 'end' }); return; }
+        // Ignorer les resize de la barre URL (~50-70px) — attendre le clavier (>150px)
+        if (vv.height > origHeight - 150) return;
+        if (scrolled) return;
+        scrolled = true;
+        window.visualViewport.removeEventListener('resize', tryScroll);
         const rect = _ta.getBoundingClientRect();
         const gap = rect.bottom - vv.height + 12;
         if (gap > 0) window.scrollBy({ top: gap, behavior: 'instant' });
       };
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', doScroll, { once: true });
-      } else {
-        setTimeout(doScroll, 500);
-      }
+      window.visualViewport.addEventListener('resize', tryScroll);
+      // Fallback si le clavier est déjà ouvert ou si resize ne fire pas
+      setTimeout(() => {
+        window.visualViewport.removeEventListener('resize', tryScroll);
+        if (!scrolled) {
+          const vv = window.visualViewport;
+          const rect = _ta.getBoundingClientRect();
+          const gap = rect.bottom - vv.height + 12;
+          if (gap > 0) window.scrollBy({ top: gap, behavior: 'instant' });
+        }
+      }, 800);
     });
 
     // ── Proxy Sheets via Cloudflare Worker (service account) ──
