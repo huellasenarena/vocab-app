@@ -871,7 +871,8 @@
         <select id="model-select" onchange="setModel(this.value)"
           style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
           <option value="gpt4">GPT-4.1</option>
-          <option value="gemini">Gemini 2.5 Pro</option>
+          <option value="gemma">Gemma 4 31B</option>
+          <option value="geminiflashlite">Gemini 3.1 Flash Lite</option>
           <option value="geminiflash">Gemini 3 Flash</option>
         </select>
       </div>
@@ -1082,7 +1083,7 @@
     const KEY_SHOW_TOKENS  = "vocab_show_tokens";
     const KEY_IMAGE_THEME  = "vocab_image_theme";
     const KEY_MODEL        = "vocab_model";
-    const GEMINI_MODEL_IDS = { gemini: 'gemini-2.5-pro', geminiflash: 'gemini-3-flash-preview' };
+    const GEMINI_MODEL_IDS = { gemma: 'gemma-4-31b-it', geminiflash: 'gemini-3-flash-preview', geminiflashlite: 'gemini-3.1-flash-lite-preview' };
     const GRAMMAR_SHEET_ID = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 
     const LANGS = [
@@ -1136,10 +1137,11 @@
     let maxNewPerDay       = parseInt(localStorage.getItem(KEY_MAX_NEW)) || 60;
     let todayInputTokens        = 0;
     let todayOutputTokens       = 0;
-    let todayGeminiProRequests  = 0;
-    let todayGeminiFlashRequests = 0;
+    let todayGemmaRequests           = 0;
+    let todayGeminiFlashRequests     = 0;
+    let todayGeminiFlashLiteRequests = 0;
     let showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
-    let currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4'; // 'gpt4' | 'gemini'
+    let currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4'; // 'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'
     let currentPhotoUrl    = '';
     let imageTheme         = localStorage.getItem(KEY_IMAGE_THEME) || '';
     const definitionCache  = {}; // { "mot|lang": "texte définition" }
@@ -1297,7 +1299,10 @@
 
     // ── Session : compteur journalier dans Sheets ─────────────
     function todayStr() {
-      return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      return new Date().toISOString().split('T')[0]; // YYYY-MM-DD UTC
+    }
+    function todayStrPT() {
+      return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }); // YYYY-MM-DD PT (reset Google quotas)
     }
 
     async function loadTodayCount() {
@@ -1335,32 +1340,33 @@
     // ── Tokens : compteur journalier dans Sheets ─────────────
     async function loadTodayTokens() {
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:E`);
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:F`);
         const rows = (data.values || []).slice(1);
-        const today = todayStr();
-        const row = rows.find(r => r[0] === today);
-        todayInputTokens         = row ? (parseInt(row[1]) || 0) : 0;
-        todayOutputTokens        = row ? (parseInt(row[2]) || 0) : 0;
-        todayGeminiProRequests   = row ? (parseInt(row[3]) || 0) : 0;
-        todayGeminiFlashRequests = row ? (parseInt(row[4]) || 0) : 0;
+        const todayPT = todayStrPT();
+        const row = rows.find(r => r[0] === todayPT);
+        todayInputTokens             = row ? (parseInt(row[1]) || 0) : 0;
+        todayOutputTokens            = row ? (parseInt(row[2]) || 0) : 0;
+        todayGemmaRequests           = row ? (parseInt(row[3]) || 0) : 0;
+        todayGeminiFlashRequests     = row ? (parseInt(row[4]) || 0) : 0;
+        todayGeminiFlashLiteRequests = row ? (parseInt(row[5]) || 0) : 0;
         updateTokenDisplay();
       } catch (e) {
-        todayInputTokens = todayOutputTokens = todayGeminiProRequests = todayGeminiFlashRequests = 0;
+        todayInputTokens = todayOutputTokens = todayGemmaRequests = todayGeminiFlashRequests = todayGeminiFlashLiteRequests = 0;
       }
     }
 
     async function saveTodayTokens() {
-      const today = todayStr();
+      const todayPT = todayStrPT();
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:E`);
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:F`);
         const rows = (data.values || []).slice(1);
-        const idx  = rows.findIndex(r => r[0] === today);
+        const idx  = rows.findIndex(r => r[0] === todayPT);
         if (idx >= 0) {
-          const range = encodeURIComponent(`Tokens!B${idx + 2}:E${idx + 2}`);
-          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[todayInputTokens, todayOutputTokens, todayGeminiProRequests, todayGeminiFlashRequests]] });
+          const range = encodeURIComponent(`Tokens!B${idx + 2}:F${idx + 2}`);
+          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[todayInputTokens, todayOutputTokens, todayGemmaRequests, todayGeminiFlashRequests, todayGeminiFlashLiteRequests]] });
         } else {
-          const range = encodeURIComponent('Tokens!A:E');
-          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[today, todayInputTokens, todayOutputTokens, todayGeminiProRequests, todayGeminiFlashRequests]] });
+          const range = encodeURIComponent('Tokens!A:F');
+          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[todayPT, todayInputTokens, todayOutputTokens, todayGemmaRequests, todayGeminiFlashRequests, todayGeminiFlashLiteRequests]] });
         }
       } catch (e) {
         console.error('[Tokens] Erreur saveTodayTokens:', e.message);
@@ -1379,10 +1385,12 @@
       const el = document.getElementById('token-display');
       if (!el) return;
       if (!showTokenCounter) { el.style.display = 'none'; return; }
-      if (currentModel === 'gemini') {
-        el.textContent = `${todayGeminiProRequests} / 100 req`;
+      if (currentModel === 'gemma') {
+        el.textContent = `${todayGemmaRequests} / 1500 req`;
       } else if (currentModel === 'geminiflash') {
         el.textContent = `${todayGeminiFlashRequests} / 20 req`;
+      } else if (currentModel === 'geminiflashlite') {
+        el.textContent = `${todayGeminiFlashLiteRequests} / 500 req`;
       } else {
         const total = todayInputTokens + todayOutputTokens;
         el.textContent = `${total.toLocaleString()} tokens`;
@@ -1405,7 +1413,8 @@
 
     function trackGeminiRequest() {
       if (currentModel === 'geminiflash') todayGeminiFlashRequests++;
-      else todayGeminiProRequests++;
+      else if (currentModel === 'geminiflashlite') todayGeminiFlashLiteRequests++;
+      else todayGemmaRequests++;
       updateTokenDisplay();
       saveTodayTokens();
     }
@@ -3091,8 +3100,8 @@ Return ONLY a JSON array, no other text:
     }
 
     // ── Wrappers modèle-agnostiques ───────────────────────────
-    function isGemini() { return currentModel === 'gemini' || currentModel === 'geminiflash'; }
-    function geminiModelId() { return GEMINI_MODEL_IDS[currentModel] || 'gemini-2.5-pro'; }
+    function isGemini() { return currentModel === 'gemma' || currentModel === 'geminiflash' || currentModel === 'geminiflashlite'; }
+    function geminiModelId() { return GEMINI_MODEL_IDS[currentModel] || 'gemma-4-31b-it'; }
     function callAI(prompt, maxTokens)               { return isGemini() ? callGemini(prompt, maxTokens)              : callMistral(prompt, maxTokens); }
     function callAIStream(prompt, onChunk, maxTokens) { return isGemini() ? callGeminiStream(prompt, onChunk, maxTokens) : callMistralStream(prompt, onChunk, maxTokens); }
     function callAIVision(imageUrl, prompt, maxTokens){ return isGemini() ? callGeminiVision(imageUrl, prompt, maxTokens): callMistralVision(imageUrl, prompt, maxTokens); }
