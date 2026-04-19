@@ -3043,7 +3043,7 @@ Return ONLY a JSON array, no other text:
     function callAIVision(imageUrl, prompt, maxTokens){ return currentModel === 'gemini' ? callGeminiVision(imageUrl, prompt, maxTokens): callMistralVision(imageUrl, prompt, maxTokens); }
 
     // ── Gemini (non-streaming) ─────────────────────────────────
-    async function callGemini(prompt, maxTokens = 500) {
+    async function callGemini(prompt, maxTokens = 1000) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30000);
       try {
@@ -3089,7 +3089,7 @@ Return ONLY a JSON array, no other text:
     }
 
     // ── Gemini streaming ───────────────────────────────────────
-    async function callGeminiStream(prompt, onChunk, maxTokens = 500) {
+    async function callGeminiStream(prompt, onChunk, maxTokens = 1500) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30000);
       let res;
