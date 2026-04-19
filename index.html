@@ -43,7 +43,7 @@
       content: '';
       position: fixed;
       top: 0; left: 0; right: 0;
-      height: var(--status-bar-height, 0px);
+      height: env(safe-area-inset-top, 0px);
       background: var(--bg);
       z-index: 9999;
     }
@@ -1146,9 +1146,7 @@
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
-      if (window.navigator.standalone) {
-        document.documentElement.style.setProperty('--status-bar-height', '50px');
-      }
+
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
       showScreen(pwdOk ? 'screen-lang' : 'screen-password');
       document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
@@ -1210,7 +1208,18 @@
     }
     _ta.addEventListener('input', autoResizeTextarea);
     _ta.addEventListener('focus', () => {
-      setTimeout(() => _ta.scrollIntoView({ block: 'end', behavior: 'smooth' }), 500);
+      const doScroll = () => {
+        const vv = window.visualViewport;
+        if (!vv) { _ta.scrollIntoView({ block: 'end' }); return; }
+        const rect = _ta.getBoundingClientRect();
+        const gap = rect.bottom - vv.height + 12;
+        if (gap > 0) window.scrollBy({ top: gap, behavior: 'instant' });
+      };
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', doScroll, { once: true });
+      } else {
+        setTimeout(doScroll, 500);
+      }
     });
 
     // ── Proxy Sheets via Cloudflare Worker (service account) ──
