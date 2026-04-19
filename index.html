@@ -1144,7 +1144,7 @@
     let currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4'; // 'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'
     let currentPhotoUrl    = '';
     let imageTheme         = localStorage.getItem(KEY_IMAGE_THEME) || '';
-    const definitionCache  = {}; // { "mot|lang": "texte définition" }
+    const definitionCache  = {}; // { "mot|lang|model": "texte définition" }
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
@@ -1237,7 +1237,7 @@
         window.visualViewport.removeEventListener('resize', tryScroll);
         const rect = _ta.getBoundingClientRect();
         const gap = rect.bottom - vv.height + 12;
-        if (gap > 0) window.scrollBy({ top: gap, behavior: 'instant' });
+        if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
       };
       window.visualViewport.addEventListener('resize', tryScroll);
       // Fallback si le clavier est déjà ouvert ou si resize ne fire pas
@@ -1247,7 +1247,7 @@
           const vv = window.visualViewport;
           const rect = _ta.getBoundingClientRect();
           const gap = rect.bottom - vv.height + 12;
-          if (gap > 0) window.scrollBy({ top: gap, behavior: 'instant' });
+          if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
         }
       }, 800);
     });
@@ -2180,7 +2180,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const btn = document.getElementById('btn-hint');
       const hintTextEl = document.getElementById('hint-text');
       const hintBox    = document.getElementById('hint-box');
-      const cacheKey   = `${word.toLowerCase()}|${currentLang}`;
+      const cacheKey   = `${word.toLowerCase()}|${currentLang}|${currentModel}`;
 
       // Met à jour le label et s'assure que la boîte est dépliée
       document.getElementById('hint-box-label-text').textContent = `Définition — ${word}`;
