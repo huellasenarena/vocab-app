@@ -870,7 +870,7 @@
         <span>Modèle IA</span>
         <select id="model-select" onchange="setModel(this.value)"
           style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
-          <option value="gpt4">GPT-4.1</option>
+          <option value="gpt4">GPT-5.4</option>
           <option value="gemma">Gemma 4 31B</option>
           <option value="geminiflashlite">Gemini 3.1 Flash Lite</option>
           <option value="geminiflash">Gemini 3 Flash</option>
@@ -1075,7 +1075,7 @@
     const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
     const API_ENDPOINT  = "https://dark-brook-87cc.georg-dreym.workers.dev";
     const WORKER_SECRET = "vocab-app-secret-2026";
-    const MISTRAL_MODEL = "gpt-4.1";
+    const MISTRAL_MODEL = "gpt-5.4";
 
     const KEY_PWD_OK      = "vocab_pwd_ok";
     const KEY_GRAMMAR     = "vocab_grammar_enabled";
@@ -3239,13 +3239,13 @@ Return ONLY a JSON array, no other text:
         const res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2 }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, reasoning: { effort: 'low' } }),
           signal: controller.signal
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
         trackTokens(data.usage);
-        return data.choices[0].message.content.trim();
+        return data.output_text.trim();
       } catch (err) {
         if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
         throw err;
@@ -3264,19 +3264,19 @@ Return ONLY a JSON array, no other text:
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({
             model: MISTRAL_MODEL,
-            messages: [{ role: 'user', content: [
-              { type: 'image_url', image_url: { url: imageUrl } },
-              { type: 'text', text: prompt }
+            input: [{ role: 'user', content: [
+              { type: 'input_text', text: prompt },
+              { type: 'input_image', image_url: imageUrl }
             ]}],
-            max_tokens: maxTokens,
-            temperature: 0.2
+            max_output_tokens: maxTokens,
+            reasoning: { effort: 'low' }
           }),
           signal: controller.signal
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
         trackTokens(data.usage);
-        return data.choices[0].message.content.trim();
+        return data.output_text.trim();
       } catch (err) {
         if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
         throw err;
@@ -3295,7 +3295,7 @@ Return ONLY a JSON array, no other text:
         res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-          body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2, stream: true, stream_options: { include_usage: true } }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, reasoning: { effort: 'low' }, stream: true }),
           signal: controller.signal
         });
       } catch (err) {
@@ -3324,10 +3324,13 @@ Return ONLY a JSON array, no other text:
           const payload = line.slice(6).trim();
           if (payload === '[DONE]') break;
           try {
-            const parsed  = JSON.parse(payload);
-            if (parsed.usage) trackTokens(parsed.usage);
-            const content = parsed.choices?.[0]?.delta?.content || '';
-            if (content) { fullText += content; onChunk(fullText); }
+            const parsed = JSON.parse(payload);
+            if (parsed.type === 'response.output_text.delta') {
+              fullText += parsed.delta || '';
+              onChunk(fullText);
+            } else if (parsed.type === 'response.done') {
+              if (parsed.response?.usage) trackTokens(parsed.response.usage);
+            }
           } catch {}
         }
       }
