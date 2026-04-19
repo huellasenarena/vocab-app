@@ -3119,7 +3119,7 @@ Return ONLY a JSON array, no other text:
       try {
         res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({ prompt, maxTokens, stream: true, geminiModel: geminiModelId() }),
           signal: controller.signal
         });
@@ -3221,7 +3221,7 @@ Return ONLY a JSON array, no other text:
       try {
         res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({ model: MISTRAL_MODEL, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.2, stream: true }),
           signal: controller.signal
         });
