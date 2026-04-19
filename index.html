@@ -105,6 +105,31 @@
     input[type="password"] { font-family: 'DM Mono', monospace; }
     input[type="password"]:focus, textarea:focus { border-color: var(--accent); }
 
+    .textarea-wrap { position: relative; width: 100%; }
+    .textarea-wrap textarea { padding-bottom: 3.2rem; }
+    .btn-submit-inline {
+      position: absolute;
+      bottom: 0.55rem;
+      right: 0.55rem;
+      width: 2.2rem;
+      height: 2.2rem;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #1a1408;
+      border: none;
+      font-size: 1.15rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.15s, transform 0.1s;
+      z-index: 1;
+    }
+    .btn-submit-inline:hover { opacity: 0.85; }
+    .btn-submit-inline:active { transform: scale(0.92); }
+    .btn-submit-inline:disabled { opacity: 0.4; cursor: not-allowed; }
+
     .btn-primary {
       width: 100%;
       background: var(--accent);
@@ -918,10 +943,10 @@
           <button class="btn-secondary"  onclick="cancelJeNeSaisPas()">Annuler</button>
         </div>
       </div>
-      <textarea id="sentence-input" rows="4" placeholder="Écris ta phrase ici…"></textarea>
-      <button class="btn-primary" id="btn-submit" onclick="submitSentence()">
-        Vérifier ✓
-      </button>
+      <div class="textarea-wrap">
+        <textarea id="sentence-input" rows="4" placeholder="Écris ta phrase ici…"></textarea>
+        <button class="btn-submit-inline" id="btn-submit" onclick="submitSentence()" title="Vérifier">↑</button>
+      </div>
     </div>
 
     <!-- Zone situation (mode situation) -->
@@ -1410,7 +1435,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         lastSubmittedSentence = '';
       } finally {
         btn.disabled = false;
-        btn.innerHTML = 'Vérifier ✓';
+        btn.innerHTML = '↑';
       }
     }
 
@@ -1579,11 +1604,17 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('confirm-panel').style.display    = isImage ? 'none' : '';
       document.getElementById('grammar-forms-zone').style.display = isImage ? 'none' : '';
 
+      // Nettoyer toutes les sections dynamiques à chaque changement de mode
+      document.getElementById('related-box').classList.remove('visible');
+      document.getElementById('related-chips').innerHTML = '';
+      document.getElementById('image-vocab-box').classList.remove('visible');
+      document.getElementById('image-vocab-chips').innerHTML = '';
+      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'image');
+      document.getElementById('feedback-text').innerHTML = '';
+      document.getElementById('sentence-input').value = '';
+      lastSubmittedSentence = '';
+
       if (isImage) {
-        document.getElementById('sentence-input').value = '';
-        document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'image');
-        document.getElementById('feedback-text').innerHTML = '';
-        lastSubmittedSentence = '';
         newPracticePhoto();
       } else {
         pickWords();
@@ -2356,7 +2387,7 @@ Respond entirely in ${feedbackLang}.`;
       }
 
       btn.disabled = false;
-      btn.textContent = 'Vérifier ✓';
+      btn.innerHTML = '↑';
       sentenceSubmitted = true;
       updateHintButton();
     }
@@ -2834,7 +2865,7 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
       }
 
       btn.disabled = false;
-      btn.textContent = 'Vérifier ✓';
+      btn.innerHTML = '↑';
     }
 
     async function revealWord() {
@@ -2891,13 +2922,18 @@ Return ONLY a JSON array, no other text:
         const related = JSON.parse(jsonMatch[0]);
         if (!Array.isArray(related) || !related.every(r => r.word && r.note)) throw new Error('Format inattendu');
 
-        chips.innerHTML = related.map((r, i) =>
-          `<div class="related-chip">
-            <span>${r.word}</span>
-            <span style="color:var(--muted);font-size:0.78rem;font-style:italic"> — ${r.note}</span>
-            <button class="chip-add" id="chip-add-${i}" onclick="addRelatedWord('${r.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">＋</button>
-          </div>`
-        ).join('');
+        const newRelated = related.filter(r => !allWords.some(w => w.toLowerCase() === r.word.toLowerCase()));
+        if (!newRelated.length) {
+          chips.innerHTML = '<span style="color:var(--muted);font-style:italic;font-size:0.85rem">Tous les mots suggérés sont déjà dans ta liste.</span>';
+        } else {
+          chips.innerHTML = newRelated.map((r, i) =>
+            `<div class="related-chip">
+              <span>${r.word}</span>
+              <span style="color:var(--muted);font-size:0.78rem;font-style:italic"> — ${r.note}</span>
+              <button class="chip-add" id="chip-add-${i}" onclick="addRelatedWord('${r.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">＋</button>
+            </div>`
+          ).join('');
+        }
       } catch (err) {
         chips.innerHTML = `<span style="color:var(--error);font-size:0.85rem">Erreur : ${err.message}</span>`;
       }
