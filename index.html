@@ -39,6 +39,14 @@
       padding-top: env(safe-area-inset-top);
       padding-bottom: env(safe-area-inset-bottom);
     }
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: env(safe-area-inset-top);
+      background: var(--bg);
+      z-index: 9999;
+    }
 
     /* L'écran de pratique s'ancre toujours en haut */
     #screen-practice {
@@ -111,8 +119,8 @@
     .textarea-wrap textarea { padding-bottom: 3.2rem; overflow: hidden; }
     .btn-submit-inline {
       position: absolute;
-      bottom: 0.45rem;
-      right: 0.45rem;
+      bottom: 0;
+      right: 0;
       width: 2.2rem;
       height: 2.2rem;
       border-radius: 50%;
