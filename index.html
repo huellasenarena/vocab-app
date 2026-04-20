@@ -2426,10 +2426,19 @@ If and only if the global verdict is ✓: then a blank line, then a section with
 
 Respond entirely in ${feedbackLang}.`;
 
+      const spacer = document.getElementById('scroll-spacer');
+      const cleanupSpacer = () => {
+        requestAnimationFrame(() => {
+          const natH = document.body.scrollHeight - spacer.offsetHeight;
+          const need = Math.max(0, window.scrollY + window.innerHeight - natH);
+          spacer.style.height = need + 'px';
+          if (need === 0) spacer.style.display = 'none';
+        });
+      };
+
       try {
         feedbackText.innerHTML = '';
         feedbackBox.classList.add('visible');
-        const spacer = document.getElementById('scroll-spacer');
         spacer.style.height  = window.innerHeight + 'px';
         spacer.style.display = '';
 
@@ -2471,13 +2480,7 @@ Respond entirely in ${feedbackLang}.`;
               window.scrollTo(0, target);
             }
           }
-          // Réduit le spacer au strict nécessaire pour maintenir la position de scroll actuelle
-          requestAnimationFrame(() => {
-            const naturalH = document.body.scrollHeight - spacer.offsetHeight;
-            const needed   = Math.max(0, window.scrollY + window.innerHeight - naturalH);
-            spacer.style.height = needed + 'px';
-            if (needed === 0) spacer.style.display = 'none';
-          });
+          cleanupSpacer();
         });
 
         // Cherche le verdict global : première ligne commençant par ✓ ou ✗
@@ -2585,6 +2588,7 @@ Respond entirely in ${feedbackLang}.`;
         feedbackText.innerHTML = `<span>Erreur : ${err.message}</span>
           <button class="btn-secondary" style="margin-top:0.5rem" onclick="submitSentence()">↺ Réessayer</button>`;
         feedbackBox.classList.add('visible', 'incorrect');
+        cleanupSpacer();
       }
 
       btn.disabled = false;
