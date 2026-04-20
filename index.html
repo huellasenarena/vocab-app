@@ -3330,7 +3330,7 @@ Return ONLY a JSON array, no other text:
             if (parsed.type === 'response.output_text.delta') {
               fullText += parsed.delta || '';
               onChunk(fullText);
-            } else if (parsed.type === 'response.done') {
+            } else if (parsed.type === 'response.completed') {
               if (parsed.response?.usage) trackTokens(parsed.response.usage);
             }
           } catch {}
