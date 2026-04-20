@@ -871,32 +871,9 @@
         </select>
       </div>
       <div class="settings-row" style="cursor:default;">
-        <span>GPT-5.4 — raisonnement</span>
-        <select id="gpt-effort-select" onchange="setGptEffort(this.value)"
+        <span id="reasoning-label">Raisonnement</span>
+        <select id="reasoning-select" onchange="setReasoningLevel(this.value)"
           style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
-          <option value="none">none</option>
-          <option value="low">low</option>
-          <option value="medium">medium</option>
-          <option value="high">high</option>
-        </select>
-      </div>
-      <div class="settings-row" style="cursor:default;">
-        <span>Gemini Flash — thinking</span>
-        <select id="gemini-thinking-select" onchange="setGeminiThinking(this.value)"
-          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
-          <option value="none">none</option>
-          <option value="minimal">minimal</option>
-          <option value="low">low</option>
-          <option value="medium">medium</option>
-          <option value="high">high</option>
-        </select>
-      </div>
-      <div class="settings-row" style="cursor:default;">
-        <span>Gemma 4 — thinking</span>
-        <select id="gemma-thinking-select" onchange="setGemmaThinking(this.value)"
-          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
-          <option value="minimal">minimal</option>
-          <option value="high">high</option>
         </select>
       </div>
       <label class="settings-row">
@@ -1204,9 +1181,7 @@
       document.getElementById('toggle-tokens').checked = showTokenCounter;
       document.getElementById('image-theme-select').value = imageTheme;
       document.getElementById('model-select').value = currentModel;
-      document.getElementById('gpt-effort-select').value = gptEffort;
-      document.getElementById('gemini-thinking-select').value = geminiThinkingLevel;
-      document.getElementById('gemma-thinking-select').value = gemmaThinkingLevel;
+      updateReasoningUI();
     });
 
     function showScreen(id) {
@@ -1480,6 +1455,7 @@
       currentModel = val;
       localStorage.setItem(KEY_MODEL, val);
       updateTokenDisplay();
+      updateReasoningUI();
       lastSubmittedSentence = '';
     }
 
@@ -1504,6 +1480,31 @@
     function geminiThinkingBody() {
       const tl = currentGeminiThinkingLevel();
       return tl !== 'none' ? { thinkingLevel: tl } : {};
+    }
+
+    function updateReasoningUI() {
+      const lbl = document.getElementById('reasoning-label');
+      const sel = document.getElementById('reasoning-select');
+      if (!lbl || !sel) return;
+      if (currentModel === 'gpt4') {
+        lbl.textContent = 'GPT-5.4 — raisonnement';
+        sel.innerHTML = '<option value="none">none</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option>';
+        sel.value = gptEffort;
+      } else if (currentModel === 'gemma') {
+        lbl.textContent = 'Gemma 4 — thinking';
+        sel.innerHTML = '<option value="minimal">minimal</option><option value="high">high</option>';
+        sel.value = gemmaThinkingLevel;
+      } else {
+        lbl.textContent = 'Gemini Flash — thinking';
+        sel.innerHTML = '<option value="none">none</option><option value="minimal">minimal</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option>';
+        sel.value = geminiThinkingLevel;
+      }
+    }
+
+    function setReasoningLevel(val) {
+      if (currentModel === 'gpt4') setGptEffort(val);
+      else if (currentModel === 'gemma') setGemmaThinking(val);
+      else setGeminiThinking(val);
     }
 
     function trackGeminiRequest() {
@@ -2559,9 +2560,9 @@ Respond entirely in ${feedbackLang}.`;
           updateDueCountDisplay(trulyDue.length, newRemaining, neverPrac.length);
         }
 
-        // Mots liés après ✓ (seulement en mode 1 mot pour garder l'interface propre)
-        if (isCorrect && isSingle) {
-          fetchRelatedWords(currentWords[0]);
+        // Mots liés après ✓
+        if (isCorrect) {
+          fetchRelatedWords(currentWords);
         } else {
           document.getElementById('related-box').classList.remove('visible');
         }
@@ -3117,14 +3118,16 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
     });
 
     // ── Mots liés ─────────────────────────────────────────────
-    async function fetchRelatedWords(word) {
+    async function fetchRelatedWords(words) {
+      const wordList = Array.isArray(words) ? words : [words];
       const box    = document.getElementById('related-box');
       const chips  = document.getElementById('related-chips');
       box.classList.add('visible');
       chips.innerHTML = '<span style="color:var(--muted);font-style:italic;font-size:0.85rem"><span class="spinner"></span> Chargement…</span>';
 
       const langName = getLang().mistralName;
-      const prompt = `You are a vocabulary teacher. The learner just successfully used the word "${word}" in ${langName}.
+      const prompt = wordList.length === 1
+        ? `You are a vocabulary teacher. The learner just successfully used the word "${wordList[0]}" in ${langName}.
 
 Suggest 3 semantically related words or expressions in ${langName} that belong to the same semantic field or are often used in similar contexts.
 
@@ -3133,22 +3136,35 @@ Return ONLY a JSON array, no other text:
   {"word": "...", "note": "brief explanation of the relationship in ${langName}"},
   {"word": "...", "note": "..."},
   {"word": "...", "note": "..."}
+]`
+        : `You are a vocabulary teacher. The learner just practiced these ${langName} words: ${wordList.map(w => `"${w}"`).join(', ')}.
+
+Find the 3 most useful and commonly encountered related words or expressions in ${langName} — one per practiced word if possible, choosing the most important ones overall.
+
+Return ONLY a JSON array of exactly 3 items, no other text:
+[
+  {"word": "...", "note": "brief explanation in ${langName}", "relatedTo": "the practiced word this is linked to"},
+  {"word": "...", "note": "...", "relatedTo": "..."},
+  {"word": "...", "note": "...", "relatedTo": "..."}
 ]`;
 
       try {
-        const reply     = await callAI(prompt, 800);
-        const jsonMatch = reply.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) throw new Error('Format inattendu');
-        const related = JSON.parse(jsonMatch[0]);
-        if (!Array.isArray(related) || !related.every(r => r.word && r.note)) throw new Error('Format inattendu');
+        const reply    = await callAI(prompt, 800);
+        const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+        const jStart   = stripped.search(/\[\s*\{/);
+        const jEnd     = stripped.lastIndexOf(']');
+        if (jStart === -1 || jEnd <= jStart) throw new Error('Format inattendu');
+        const related  = JSON.parse(stripped.slice(jStart, jEnd + 1));
+        if (!Array.isArray(related)) throw new Error('Format inattendu');
 
-        const newRelated = related.filter(r => !allWords.some(w => w.toLowerCase() === r.word.toLowerCase()));
+        const newRelated = related.filter(r => r.word && !allWords.some(w => w.toLowerCase() === r.word.toLowerCase()));
         if (!newRelated.length) {
           chips.innerHTML = '<span style="color:var(--muted);font-style:italic;font-size:0.85rem">Tous les mots suggérés sont déjà dans ta liste.</span>';
         } else {
           chips.innerHTML = newRelated.map((r, i) =>
             `<div class="related-chip">
               <span>${r.word}</span>
+              ${r.relatedTo ? `<span style="color:var(--accent);font-size:0.72rem;font-family:'DM Mono',monospace;opacity:0.75;margin-left:0.25rem">↖ ${r.relatedTo}</span>` : ''}
               <span style="color:var(--muted);font-size:0.78rem;font-style:italic"> — ${r.note}</span>
               <button class="chip-add" id="chip-add-${i}" onclick="addRelatedWord('${r.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">＋</button>
             </div>`
