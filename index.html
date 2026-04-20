@@ -870,6 +870,35 @@
           <option value="geminiflash">Gemini 3 Flash</option>
         </select>
       </div>
+      <div class="settings-row" style="cursor:default;">
+        <span>GPT-5.4 — raisonnement</span>
+        <select id="gpt-effort-select" onchange="setGptEffort(this.value)"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          <option value="none">none</option>
+          <option value="low">low</option>
+          <option value="medium">medium</option>
+          <option value="high">high</option>
+        </select>
+      </div>
+      <div class="settings-row" style="cursor:default;">
+        <span>Gemini Flash — thinking</span>
+        <select id="gemini-thinking-select" onchange="setGeminiThinking(this.value)"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          <option value="none">none</option>
+          <option value="minimal">minimal</option>
+          <option value="low">low</option>
+          <option value="medium">medium</option>
+          <option value="high">high</option>
+        </select>
+      </div>
+      <div class="settings-row" style="cursor:default;">
+        <span>Gemma 4 — thinking</span>
+        <select id="gemma-thinking-select" onchange="setGemmaThinking(this.value)"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          <option value="minimal">minimal</option>
+          <option value="high">high</option>
+        </select>
+      </div>
       <label class="settings-row">
         <span>Afficher compteur tokens</span>
         <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
@@ -1071,12 +1100,15 @@
     const WORKER_SECRET = "vocab-app-secret-2026";
     const MISTRAL_MODEL = "gpt-5.4";
 
-    const KEY_PWD_OK      = "vocab_pwd_ok";
-    const KEY_GRAMMAR     = "vocab_grammar_enabled";
-    const KEY_MAX_NEW     = "vocab_max_new_per_day";
-    const KEY_SHOW_TOKENS  = "vocab_show_tokens";
-    const KEY_IMAGE_THEME  = "vocab_image_theme";
-    const KEY_MODEL        = "vocab_model";
+    const KEY_PWD_OK           = "vocab_pwd_ok";
+    const KEY_GRAMMAR          = "vocab_grammar_enabled";
+    const KEY_MAX_NEW          = "vocab_max_new_per_day";
+    const KEY_SHOW_TOKENS      = "vocab_show_tokens";
+    const KEY_IMAGE_THEME      = "vocab_image_theme";
+    const KEY_MODEL            = "vocab_model";
+    const KEY_GPT_EFFORT       = "vocab_gpt_effort";
+    const KEY_GEMINI_THINKING  = "vocab_gemini_thinking";
+    const KEY_GEMMA_THINKING   = "vocab_gemma_thinking";
     const GEMINI_MODEL_IDS = { gemma: 'gemma-4-31b-it', geminiflash: 'gemini-3-flash-preview', geminiflashlite: 'gemini-3.1-flash-lite-preview' };
     const GRAMMAR_SHEET_ID = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 
@@ -1136,6 +1168,9 @@
     let todayGeminiFlashLiteRequests = 0;
     let showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
     let currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4'; // 'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'
+    let gptEffort           = localStorage.getItem(KEY_GPT_EFFORT)      || 'low';     // 'none'|'low'|'medium'|'high'
+    let geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';    // 'none'|'minimal'|'low'|'medium'|'high'
+    let gemmaThinkingLevel  = localStorage.getItem(KEY_GEMMA_THINKING)  || 'minimal'; // 'minimal'|'high'
     let currentPhotoUrl    = '';
     let imageTheme         = localStorage.getItem(KEY_IMAGE_THEME) || '';
     const definitionCache  = {}; // { "mot|lang|model": "texte définition" }
@@ -1169,6 +1204,9 @@
       document.getElementById('toggle-tokens').checked = showTokenCounter;
       document.getElementById('image-theme-select').value = imageTheme;
       document.getElementById('model-select').value = currentModel;
+      document.getElementById('gpt-effort-select').value = gptEffort;
+      document.getElementById('gemini-thinking-select').value = geminiThinkingLevel;
+      document.getElementById('gemma-thinking-select').value = gemmaThinkingLevel;
     });
 
     function showScreen(id) {
@@ -1443,6 +1481,29 @@
       localStorage.setItem(KEY_MODEL, val);
       updateTokenDisplay();
       lastSubmittedSentence = '';
+    }
+
+    function setGptEffort(val) {
+      gptEffort = val;
+      localStorage.setItem(KEY_GPT_EFFORT, val);
+      lastSubmittedSentence = '';
+    }
+    function setGeminiThinking(val) {
+      geminiThinkingLevel = val;
+      localStorage.setItem(KEY_GEMINI_THINKING, val);
+      lastSubmittedSentence = '';
+    }
+    function setGemmaThinking(val) {
+      gemmaThinkingLevel = val;
+      localStorage.setItem(KEY_GEMMA_THINKING, val);
+      lastSubmittedSentence = '';
+    }
+    function currentGeminiThinkingLevel() {
+      return currentModel === 'gemma' ? gemmaThinkingLevel : geminiThinkingLevel;
+    }
+    function geminiThinkingBody() {
+      const tl = currentGeminiThinkingLevel();
+      return tl !== 'none' ? { thinkingLevel: tl } : {};
     }
 
     function trackGeminiRequest() {
@@ -3177,7 +3238,7 @@ Return ONLY a JSON array, no other text:
         const res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-          body: JSON.stringify({ prompt, maxTokens, stream: false, geminiModel: geminiModelId() }),
+          body: JSON.stringify({ prompt, maxTokens, stream: false, geminiModel: geminiModelId(), ...geminiThinkingBody() }),
           signal: controller.signal
         });
         const data = await res.json();
@@ -3200,7 +3261,7 @@ Return ONLY a JSON array, no other text:
         const res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-          body: JSON.stringify({ prompt, maxTokens, imageUrl, stream: false, geminiModel: geminiModelId() }),
+          body: JSON.stringify({ prompt, maxTokens, imageUrl, stream: false, geminiModel: geminiModelId(), ...geminiThinkingBody() }),
           signal: controller.signal
         });
         const data = await res.json();
@@ -3224,7 +3285,7 @@ Return ONLY a JSON array, no other text:
         res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-          body: JSON.stringify({ prompt, maxTokens, stream: true, geminiModel: geminiModelId() }),
+          body: JSON.stringify({ prompt, maxTokens, stream: true, geminiModel: geminiModelId(), ...geminiThinkingBody() }),
           signal: controller.signal
         });
       } catch (err) {
@@ -3270,7 +3331,7 @@ Return ONLY a JSON array, no other text:
         const res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, reasoning: { effort: 'low' } }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } }) }),
           signal: controller.signal
         });
         const data = await res.json();
@@ -3301,7 +3362,7 @@ Return ONLY a JSON array, no other text:
               { type: 'input_image', image_url: imageUrl }
             ]}],
             max_output_tokens: maxTokens,
-            reasoning: { effort: 'low' }
+            ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } })
           }),
           signal: controller.signal
         });
@@ -3328,7 +3389,7 @@ Return ONLY a JSON array, no other text:
         res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, reasoning: { effort: 'low' }, stream: true }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } }), stream: true }),
           signal: controller.signal
         });
       } catch (err) {
