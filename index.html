@@ -2575,12 +2575,14 @@ Return ONLY a JSON array of 4 objects, no other text, no markdown:
 Write all scenarios in ${langName}.`;
 
       try {
-        const reply = await callAI(prompt, 1000);
-        // Extrait le JSON — enlève les blocs markdown éventuels (Gemini Flash)
+        // GPT-5.4 a besoin d'au moins 2000 tokens (reasoning ~1024 + texte)
+        const reply = await callAI(prompt, isGemini() ? 1000 : 2000);
+        // Extrait le JSON — enlève les blocs markdown éventuels, puis cherche [{…}]
         const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
-        const jsonMatch = stripped.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) throw new Error('Format inattendu');
-        const choices = JSON.parse(jsonMatch[0]);
+        const jsonStart = stripped.search(/\[\s*\{/);
+        const jsonEnd   = stripped.lastIndexOf(']');
+        if (jsonStart === -1 || jsonEnd <= jsonStart) throw new Error('Format inattendu — ' + stripped.slice(0, 120));
+        const choices = JSON.parse(stripped.slice(jsonStart, jsonEnd + 1));
 
         // Shuffle so the correct answer isn't always first
         for (let i = choices.length - 1; i > 0; i--) {
