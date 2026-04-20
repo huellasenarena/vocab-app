@@ -2368,7 +2368,7 @@ Respond entirely in ${feedbackLang}.`;
           spacer.style.height = (neededDocH - naturalH + 32) + 'px';
         }
 
-        const evalMaxTokens = isGemini() ? 2000 + currentWords.length * 400 : 800 + currentWords.length * 200;
+        const evalMaxTokens = isGemini() ? 2000 + currentWords.length * 400 : 2000 + currentWords.length * 300;
         const scroller = startAutoScroll(feedbackBox, spacer);
         const reply = await callAIStream(prompt, fullText => {
           feedbackText.innerHTML = renderMarkdown(stripVerdictLines(fullText));
@@ -3232,7 +3232,7 @@ Return ONLY a JSON array, no other text:
     }
 
     // ── Appel Mistral (non-streaming, pour QCM et situations) ─
-    async function callMistral(prompt, maxTokens = 500) {
+    async function callMistral(prompt, maxTokens = 2000) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30000);
       try {
@@ -3289,7 +3289,7 @@ Return ONLY a JSON array, no other text:
 
     // ── Appel Mistral (streaming, pour affichage progressif) ──
     // onChunk(fullTextSoFar) est appelé à chaque nouveau fragment.
-    async function callMistralStream(prompt, onChunk, maxTokens = 500) {
+    async function callMistralStream(prompt, onChunk, maxTokens = 2000) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30000);
       let res;
