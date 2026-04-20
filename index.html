@@ -1143,9 +1143,22 @@
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
 
-      // Rideau status bar iOS — 50px couvre Dynamic Island et notch
+      // Rideau status bar iOS — 59px couvre Dynamic Island, notch et caméra
       if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-        document.documentElement.style.setProperty('--safe-top', '50px');
+        document.documentElement.style.setProperty('--safe-top', '59px');
+
+        // Sur iOS Safari le rideau position:fixed peut se désynchroniser lors
+        // de l'ouverture du clavier (scroll animé du layout viewport).
+        // On compense en réancrant le rideau sur le visual viewport à chaque event.
+        if (window.visualViewport) {
+          const curtain = document.getElementById('status-curtain');
+          const pinCurtain = () => {
+            curtain.style.top = window.visualViewport.offsetTop + 'px';
+          };
+          window.visualViewport.addEventListener('scroll', pinCurtain, { passive: true });
+          window.visualViewport.addEventListener('resize', pinCurtain, { passive: true });
+          window.addEventListener('scroll', pinCurtain, { passive: true });
+        }
       }
 
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
@@ -2246,7 +2259,9 @@ Respond entirely in ${langName}.`;
         }
         if (!sentenceSubmitted) await saveHint(word);
       } catch (err) {
-        hintTextEl.textContent = 'Erreur : ' + err.message;
+        const ew = word.replace(/'/g, "\\'");
+        hintTextEl.innerHTML = `<span>Erreur : ${err.message}</span>
+          <button class="btn-secondary" style="margin-top:0.5rem" onclick="fetchHint('${ew}')">↺ Réessayer</button>`;
         hintBox.classList.add('visible');
       }
       btn.disabled = false;
@@ -2506,7 +2521,8 @@ Respond entirely in ${feedbackLang}.`;
 
       } catch (err) {
         lastSubmittedSentence = null; // permet de réessayer la même phrase après une erreur
-        feedbackText.textContent = 'Erreur : ' + err.message;
+        feedbackText.innerHTML = `<span>Erreur : ${err.message}</span>
+          <button class="btn-secondary" style="margin-top:0.5rem" onclick="submitSentence()">↺ Réessayer</button>`;
         feedbackBox.classList.add('visible', 'incorrect');
       }
 
@@ -2527,6 +2543,14 @@ Respond entirely in ${feedbackLang}.`;
       document.getElementById('qcm-word').textContent = qcmWord;
       resultEl.textContent = '';
       choicesEl.innerHTML  = '<div style="color:var(--muted);font-style:italic;padding:0.5rem"><span class="spinner"></span> Génération du QCM…</div>';
+
+      // Scroll immédiat vers la section QCM pour que le spinner soit visible
+      requestAnimationFrame(() => {
+        const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
+        const rect = section.getBoundingClientRect();
+        const target = window.scrollY + rect.top - safeTop - 8;
+        window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+      });
 
       const langName = getLang().mistralName;
 
@@ -2552,8 +2576,9 @@ Write all scenarios in ${langName}.`;
 
       try {
         const reply = await callAI(prompt, 1000);
-        // Extrait le JSON
-        const jsonMatch = reply.match(/\[[\s\S]*\]/);
+        // Extrait le JSON — enlève les blocs markdown éventuels (Gemini Flash)
+        const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+        const jsonMatch = stripped.match(/\[[\s\S]*\]/);
         if (!jsonMatch) throw new Error('Format inattendu');
         const choices = JSON.parse(jsonMatch[0]);
 
@@ -2576,7 +2601,9 @@ Write all scenarios in ${langName}.`;
           }
         });
       } catch (err) {
-        choicesEl.innerHTML = `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
+        const w = qcmWord.replace(/'/g, "\\'");
+        choicesEl.innerHTML = `<p style="color:var(--error)">Erreur : ${err.message}</p>
+          <button class="btn-secondary" style="margin-top:0.5rem" onclick="startQCM('${w}')">↺ Réessayer</button>`;
       }
     }
 
@@ -2919,7 +2946,9 @@ Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing
         document.getElementById('situation-answer-section').style.display = '';
         document.getElementById('situation-input').focus();
       } catch (err) {
-        sitText.textContent = 'Erreur : ' + err.message;
+        const ew = word.replace(/'/g, "\\'");
+        sitText.innerHTML = `<span>Erreur : ${err.message}</span>
+          <button class="btn-secondary" style="margin-top:0.5rem" onclick="generateSituation('${ew}')">↺ Réessayer</button>`;
       }
     }
 
