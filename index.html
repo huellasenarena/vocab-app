@@ -2440,18 +2440,19 @@ Respond entirely in ${feedbackLang}.`;
       try {
         feedbackText.innerHTML = '';
         feedbackBox.classList.add('visible');
-        spacer.style.height  = window.innerHeight + 'px';
-        spacer.style.display = '';
+        spacer.style.height  = '0';
+        spacer.style.display = 'none';
 
         // Attendre que le layout se stabilise avant de pré-calculer topTarget
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-        // Recalcule le spacer en fonction de la vraie position du feedbackBox (hint peut être ouvert)
+        // Ajoute uniquement le spacer strictement nécessaire pour permettre le scroll
         const boxTopInDoc = feedbackBox.getBoundingClientRect().top + window.scrollY;
         const neededDocH  = boxTopInDoc - 8 + window.innerHeight;
-        const naturalH    = document.body.scrollHeight - spacer.offsetHeight;
+        const naturalH    = document.body.scrollHeight;
         if (neededDocH > naturalH) {
-          spacer.style.height = (neededDocH - naturalH + 32) + 'px';
+          spacer.style.height  = (neededDocH - naturalH + 32) + 'px';
+          spacer.style.display = '';
         }
 
         const evalMaxTokens = isGemini() ? 2000 + currentWords.length * 400 : 2000 + currentWords.length * 300;
