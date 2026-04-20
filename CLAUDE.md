@@ -71,10 +71,12 @@ Sélectionnable dans ⚙️, persisté en `localStorage` (`vocab_model`). Variab
 - Reasoning model, `reasoning: { effort: 'low' }`, pas de `temperature`
 - Utilise la **Responses API** (`/v1/responses`) — body : `input` (au lieu de `messages`), `max_output_tokens` (au lieu de `max_tokens`)
 - Réponse non-streaming : `data.output_text` ; streaming SSE : event `response.output_text.delta` → `parsed.delta`, usage dans `response.done`
+- **IMPORTANT** : `max_output_tokens` compte reasoning + texte ensemble. Avec `effort: 'low'`, ~1024 tokens de reasoning sont consommés avant tout texte → budget minimum 2000 pour avoir ~1000 tokens de texte réel. En dessous, `output_text` peut être `null`/`undefined` → erreur "Réponse vide".
+- `callMistral` et `callAIVision` (non-streaming) : null check sur `data.output_text` avant `.trim()`, sinon throw "Réponse vide — réessaie"
 - Vision : content types `input_text` / `input_image` (format Responses API)
 - Appels via route par défaut du Worker (Authorization Bearer injectée par le Worker)
-- `callMistral(prompt, maxTokens)` — non-streaming
-- `callMistralStream(prompt, onChunk, maxTokens)` — streaming SSE
+- `callMistral(prompt, maxTokens = 2000)` — non-streaming
+- `callMistralStream(prompt, onChunk, maxTokens = 2000)` — streaming SSE
 - `callMistralVision(imageUrl, prompt, maxTokens)` — vision, timeout 45s
 - **Note** : noms `callMistral*` conservés par héritage historique
 
@@ -108,6 +110,7 @@ Sélectionnable dans ⚙️, persisté en `localStorage` (`vocab_model`). Variab
 - Gemini Flash : `todayGeminiFlashRequests` → affiché `X / 20 req`
 - Gemini Flash Lite : `todayGeminiFlashLiteRequests` → affiché `X / 500 req`
 - `trackTokens(usage)` pour GPT, `trackGeminiRequest()` pour Google (s'auto-route selon `currentModel`)
+- Les deux appellent `saveTodayTokensDebounced()` (debounce 2s) — pas `saveTodayTokens()` directement — pour éviter la race condition read-modify-write quand deux appels API se terminent quasi-simultanément
 
 ### Déploiement
 ```bash
@@ -208,9 +211,10 @@ loadProgress(lang)        // charge progressMap depuis Progress!A:G
 loadTodayCount()          // charge todayNewCount depuis Session
 saveTodayCount(n)         // sauvegarde compteur dans Session
 loadTodayTokens()         // charge compteurs depuis Tokens!A:F (date PT)
-saveTodayTokens()         // met à jour la ligne du jour dans Tokens (date PT)
-trackTokens(usage)        // incrémente les compteurs GPT + appelle saveTodayTokens (fire-and-forget)
-trackGeminiRequest()      // incrémente le compteur du modèle Google actif + appelle saveTodayTokens
+saveTodayTokens()         // met à jour la ligne du jour dans Tokens (date PT) — NE PAS appeler directement
+saveTodayTokensDebounced() // version debouncée (2s) — à utiliser à la place de saveTodayTokens()
+trackTokens(usage)        // incrémente les compteurs GPT + appelle saveTodayTokensDebounced
+trackGeminiRequest()      // incrémente le compteur du modèle Google actif + appelle saveTodayTokensDebounced
 saveProgressNew(word)     // nouveau ✓ → NextReview=demain, étoiles neutres
 saveProgressReviewHint(w) // révision+hint → NextReview=demain
 saveProgress(w, bool)     // SM-2 normal (révision sans hint)
@@ -230,6 +234,9 @@ todayStrPT()              // date YYYY-MM-DD heure Pacifique (Tokens Google)
 ## Prompts IA
 
 ### Évaluation (structure critique)
+`evalMaxTokens` = `isGemini() ? 2000 + N*400 : 2000 + N*300` (N = nombre de mots). Budget GPT augmenté à 2000 minimum pour couvrir les ~1024 tokens de reasoning.
+
+
 Deux BLOCS **indépendants** :
 - **BLOC 1** — Verdict sur le(s) mot(s) cible(s) SEULEMENT. Erreurs grammaticales des autres parties ignorées.
 - **BLOC 2** — Analyse linguistique complète (grammaire, registre, ponctuation, naturel). Entièrement indépendant du verdict.
@@ -318,6 +325,7 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 - 4 scénarios sans le mot cible — identifie la situation correcte
 - Auto-scroll vers la section QCM après rendu des choix
 - QCM incorrect → `saveProgress(word, false)` supplémentaire
+- Appel non-streaming via `callAI(prompt, 1000)` — hérite du défaut 2000 de `callMistral` pour GPT
 
 ### Formes grammaticales (Español uniquement)
 - Chargées depuis `GRAMMAR_SHEET_ID`, onglet `Spanish`, au choix de la langue espagnole
