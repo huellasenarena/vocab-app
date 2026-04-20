@@ -2551,7 +2551,7 @@ Return ONLY a JSON array of 4 objects, no other text, no markdown:
 Write all scenarios in ${langName}.`;
 
       try {
-        const reply = await callAI(prompt);
+        const reply = await callAI(prompt, 1000);
         // Extrait le JSON
         const jsonMatch = reply.match(/\[[\s\S]*\]/);
         if (!jsonMatch) throw new Error('Format inattendu');
