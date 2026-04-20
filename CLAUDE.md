@@ -68,9 +68,10 @@ Une ligne par jour. Date en **heure du Pacifique** (reset Google à minuit PT) v
 Sélectionnable dans ⚙️, persisté en `localStorage` (`vocab_model`). Variable `currentModel` : `'gpt4'` | `'gemma'` | `'geminiflash'` | `'geminiflashlite'`.
 
 #### GPT-5.4 (OpenAI)
-- Reasoning model, `reasoning: { effort: 'low' }`, pas de `temperature`
+- Reasoning model, `reasoning: { effort: gptEffort }`, pas de `temperature`
+- `reasoning` omis entièrement si `gptEffort === 'none'` (évite erreur 400 OpenAI)
 - Utilise la **Responses API** (`/v1/responses`) — body : `input` (au lieu de `messages`), `max_output_tokens` (au lieu de `max_tokens`)
-- Réponse non-streaming : `data.output_text` ; streaming SSE : event `response.output_text.delta` → `parsed.delta`, usage dans `response.done`
+- Réponse non-streaming : `data.output_text` ; streaming SSE : event `response.output_text.delta` → `parsed.delta`, usage dans `response.completed`
 - **IMPORTANT** : `max_output_tokens` compte reasoning + texte ensemble. Avec `effort: 'low'`, ~1024 tokens de reasoning sont consommés avant tout texte → budget minimum 2000 pour avoir ~1000 tokens de texte réel. En dessous, `output_text` peut être `null`/`undefined` → erreur "Réponse vide".
 - `callMistral` et `callAIVision` (non-streaming) : null check sur `data.output_text` avant `.trim()`, sinon throw "Réponse vide — réessaie"
 - Vision : content types `input_text` / `input_image` (format Responses API)
@@ -83,18 +84,30 @@ Sélectionnable dans ⚙️, persisté en `localStorage` (`vocab_model`). Variab
 #### Gemma 4 31B (`gemma`)
 - Reasoning model (thinking tokens) — quota gratuit : **1500 req/jour** (reset minuit PT)
 - Route Worker `/gemini`, clé `GEMINI_KEY`, model ID : `gemma-4-31b-it`
-- Worker : `thinkingConfig: { thinkingLevel: 'MINIMAL' }` pour limiter le temps de reasoning
+- `thinkingLevel` configurable : `'minimal'` (défaut) | `'high'` — envoyé au Worker via `thinkingLevel` dans le body
+- Worker : applique `thinkingConfig: { thinkingLevel: val.toUpperCase() }`, **supprime temperature** quand thinking actif (recommandation Google)
 - Worker : filtre les chunks `thought: true` du stream SSE et des parts non-streaming — seule la réponse finale est envoyée au client
 - Supporte la vision (mode Imagen)
 - `maxOutputTokens` default : 1000 (non-streaming), 1500 (streaming)
 
 #### Gemini 3.1 Flash Lite (`geminiflashlite`)
-- Non-reasoning, quota gratuit : **500 req/jour** (reset minuit PT)
+- Quota gratuit : **500 req/jour** (reset minuit PT)
 - Route Worker `/gemini`, clé `GEMINI_KEY`, model ID : `gemini-3.1-flash-lite-preview`
+- `thinkingLevel` configurable : `'none'` (défaut, pas de thinking) | `'minimal'` | `'low'` | `'medium'` | `'high'`
+- Sans thinking : Worker applique `temperature: 0.2`
 
 #### Gemini 3 Flash (`geminiflash`)
-- Non-reasoning, quota gratuit : **20 req/jour** (reset minuit PT)
+- Quota gratuit : **20 req/jour** (reset minuit PT)
 - Route Worker `/gemini`, clé `GEMINI_KEY`, model ID : `gemini-3-flash-preview`
+- Mêmes options `thinkingLevel` que Gemini Flash Lite
+
+#### Niveau de raisonnement — réglages ⚙️
+Un seul select dynamique "Raisonnement" dans les réglages, mis à jour selon le modèle actif :
+- **GPT-5.4** : `none` | `low` (défaut) | `medium` | `high` → `gptEffort`, clé `vocab_gpt_effort`
+- **Gemini Flash (3 + 3.1)** : `none` (défaut) | `minimal` | `low` | `medium` | `high` → `geminiThinkingLevel`, clé `vocab_gemini_thinking`
+- **Gemma** : `minimal` (défaut) | `high` → `gemmaThinkingLevel`, clé `vocab_gemma_thinking`
+
+Fonctions : `updateReasoningUI()` (peuple le select selon `currentModel`), `setReasoningLevel(val)` (dispatch vers le bon setter), `geminiThinkingBody()` (retourne `{ thinkingLevel }` si ≠ `'none'`, sinon `{}`).
 
 #### Wrappers modèle-agnostiques
 - `callAI(prompt, maxTokens)` → dispatch selon `currentModel`
@@ -103,6 +116,7 @@ Sélectionnable dans ⚙️, persisté en `localStorage` (`vocab_model`). Variab
 - `isGemini()` → true si `currentModel` est `'gemma'`, `'geminiflash'` ou `'geminiflashlite'`
 - `geminiModelId()` → retourne l'ID exact du modèle Gemini actif depuis `GEMINI_MODEL_IDS`
 - Le nom du modèle est envoyé au Worker via `geminiModel` dans le body — le Worker l'utilise dynamiquement
+- `thinkingLevel` envoyé au Worker via `geminiThinkingBody()` — omis si `'none'`
 
 #### Compteur tokens/requêtes
 - GPT : `todayInputTokens` + `todayOutputTokens` → affiché `X tokens`
@@ -162,6 +176,9 @@ let todayGemmaRequests           = 0;  // requêtes Gemma 4 31B aujourd'hui
 let todayGeminiFlashRequests     = 0;  // requêtes Gemini 3 Flash aujourd'hui
 let todayGeminiFlashLiteRequests = 0;  // requêtes Gemini 3.1 Flash Lite aujourd'hui
 let currentModel        = 'gpt4';  // 'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'
+let gptEffort           = 'low';   // 'none'|'low'|'medium'|'high' — localStorage KEY_GPT_EFFORT
+let geminiThinkingLevel = 'none';  // 'none'|'minimal'|'low'|'medium'|'high' — localStorage KEY_GEMINI_THINKING
+let gemmaThinkingLevel  = 'minimal'; // 'minimal'|'high' — localStorage KEY_GEMMA_THINKING
 let showTokenCounter    = true;    // toggle localStorage KEY_SHOW_TOKENS
 let currentPhotoUrl     = '';      // URL complète de la photo en cours (mode Imagen)
 let imageTheme          = '';      // thème Unsplash en cours, localStorage KEY_IMAGE_THEME
@@ -225,6 +242,7 @@ loadGrammarForms()        // charge les formes grammaticales depuis le sheet sé
 newPracticePhoto()        // async — appelle Worker /unsplash, met à jour currentPhotoUrl (mode Imagen)
 analyzePhoto()            // soumet description + image à callAIVision, affiche dans feedback-box.image
 addImageVocabWord(word, i) // ajoute un mot du Vocabulario sugerido à l'onglet Spanish de Sheets
+fetchRelatedWords(words)  // words = string ou array — génère les mots du même univers (après ✓)
 todayStr()                // date YYYY-MM-DD UTC (Session)
 todayStrPT()              // date YYYY-MM-DD heure Pacifique (Tokens Google)
 ```
@@ -264,9 +282,20 @@ Règles importantes dans le prompt :
 
 ### QCM
 4 scénarios courts (1-2 phrases) — 1 correct, 3 distracteurs plausibles. Le mot cible **ne doit pas apparaître** dans aucun des scénarios. Mélangé côté JS (Fisher-Yates).
+- `maxTokens` : `isGemini() ? 1500 : 2000`
+- JSON extraction : strip markdown ` ``` `, puis recherche `[\s*{` → dernier `]` (évite faux match si texte avant)
+- Scroll immédiat vers la section QCM dès le clic (avant réponse API)
 
 ### Situation (mode recall actif)
 Génère une scène concrète **sans mentionner le mot**. Évaluation en 3 étapes internes.
+
+### Mots du même univers
+`fetchRelatedWords(words)` accepte un string ou un array :
+- **1 mot** : 3 mots du même champ sémantique, format `[{"word","note"}]`
+- **N mots** : 3 mots les plus utiles/courants liés au set, format `[{"word","note","relatedTo"}]` — chaque chip affiche `↖ mot-source`
+- Affiché après ✓ (1 ou N mots)
+- Filtre les mots déjà dans `allWords`
+- Bouton `＋` pour ajouter à la liste (`addRelatedWord`)
 
 ### Mode Imagen — prompt vision
 Prompt écrit en anglais, réponse en espagnol. Structure imposée :
@@ -306,6 +335,13 @@ Le `feedbackBox` reçoit la classe `image` (au lieu de `correct`/`incorrect`) : 
 ### stripVerdictLines
 Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le doublon avec le ✓/✗ déjà présent dans la section Verdict).
 
+### Bouton Réessayer
+Après toute erreur API, un bouton `↺ Réessayer` est injecté dans la zone d'erreur. Cible :
+- `submitSentence` → rappelle `submitSentence()`
+- `startQCM` → rappelle `startQCM(qcmWord)`
+- `fetchHint` → rappelle `fetchHint(word)`
+- `generateSituation` → rappelle `generateSituation(word)`
+
 ### Bouton hint / "Je ne sais pas" (`updateHintButton`)
 `updateHintButton()` centralise le label et la visibilité du bouton hint selon le contexte :
 - **Mode espacé, mot nouveau** : "💡 Définition"
@@ -323,9 +359,9 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 ### QCM
 - Proposé après ✗ ou via "Je ne sais pas"
 - 4 scénarios sans le mot cible — identifie la situation correcte
-- Auto-scroll vers la section QCM après rendu des choix
+- Scroll immédiat vers la section QCM + spinner dès le clic (avant réponse API)
 - QCM incorrect → `saveProgress(word, false)` supplémentaire
-- Appel non-streaming via `callAI(prompt, 1000)` — hérite du défaut 2000 de `callMistral` pour GPT
+- Appel non-streaming via `callAI(prompt, isGemini() ? 1500 : 2000)`
 
 ### Formes grammaticales (Español uniquement)
 - Chargées depuis `GRAMMAR_SHEET_ID`, onglet `Spanish`, au choix de la langue espagnole
@@ -352,9 +388,10 @@ Supprime les lignes contenant uniquement ✓ ou ✗ du texte affiché (évite le
 
 ### iOS — Status bar et safe area
 - `viewport-fit=cover` dans le meta viewport → le contenu peut passer derrière la status bar
-- Au chargement : `--safe-top: 50px` hardcodé sur iOS via `navigator.userAgent` (couvre Dynamic Island et notch)
+- Au chargement : `--safe-top: 59px` hardcodé sur iOS via `navigator.userAgent` (couvre Dynamic Island, notch et caméra)
 - `body { padding-top: var(--safe-top, 0px) }` — espace initial sous la status bar
 - **Rideau** : `html { background: #0f0f0f }` (couvre la safe area au niveau du `<html>`) + `<div id="status-curtain">` réel (`position: fixed; top: 0; height: var(--safe-top); background: var(--bg); z-index: 9999`) — remplace l'ancien `body::before` qui ne fonctionnait pas avec `body { display: flex }` sur iOS Safari
+- **Réancrage rideau** : listeners `visualViewport scroll/resize` + `window scroll` → `curtain.style.top = visualViewport.offsetTop + 'px'` — corrige le bug iOS où le rideau glisse hors écran lors de l'ouverture du clavier
 
 ### iOS — Autoscroll au focus textarea
 Au focus sur le textarea (`sentence-input`), le clavier iOS s'ouvre et la page doit scroller pour que le textarea soit visible juste au-dessus du clavier :
@@ -364,7 +401,7 @@ Au focus sur le textarea (`sentence-input`), le clavier iOS s'ouvre et la page d
 - Fallback setTimeout 800ms si le clavier était déjà ouvert
 
 ### Auto-scroll streaming (`startAutoScroll(box, spacer)`)
-- `PAD_TOP = safeTop + 8` (58px sur iOS, 8px ailleurs) — s'arrête juste sous le rideau status bar
+- `PAD_TOP = safeTop + 8` (67px sur iOS, 8px ailleurs) — s'arrête juste sous le rideau status bar
 - `topTarget` calculé une seule fois (layout stable), avec `PAD_TOP`
 - Suit le **bas** de la boîte chunk par chunk
 - S'arrête quand le **haut** de la boîte atteint `PAD_TOP` du viewport (`stoppedAtTop = true`)
@@ -373,6 +410,11 @@ Au focus sur le textarea (`sentence-input`), le clavier iOS s'ouvre et la page d
 - Scroll interrompu si l'utilisateur scrolle manuellement (`wheel`/`touchmove`)
 - Utilisé pour : définition (hintBox) et feedback vocab (feedbackBox, avec spacer)
 - Mode Imagen : scroll simple non-streaming via `requestAnimationFrame` + `window.scrollTo` après réception
+
+### scroll-spacer
+- Déclaré **avant** le `try` dans `submitSentence` pour être accessible dans le `catch`
+- Démarre à `height: 0; display: none` — grandit uniquement si le document est trop court pour le scroll cible
+- `cleanupSpacer()` appelé après streaming ET dans le `catch` (évite l'espace noir géant en cas d'erreur API)
 
 ### Protection double soumission
 `lastSubmittedSentence` — si même réponse qu'avant, shake + ignore. Remis à `null` en cas d'erreur API pour permettre de réessayer. Remis à `''` au changement de modèle pour permettre de re-vérifier avec le nouveau modèle.
@@ -416,7 +458,9 @@ L'onglet `History` est un journal pur (une ligne par tentative). `Progress` gard
 
 4. **Cloudflare Worker cold start** : Première requête après une longue inactivité peut être légèrement plus lente (~100-200ms). Normal.
 
-5. **Gemma 4 thinking** : `thinkingBudget: 0` et `thinkingLevel: 'NONE'` ne sont pas supportés. Les niveaux valides sont `'MINIMAL'` et `'HIGH'`. Le Worker filtre les parts `thought: true` côté stream et non-streaming pour ne jamais exposer les pensées au client.
+5. **Gemma 4 thinking** : `thinkingBudget: 0` et `thinkingLevel: 'NONE'` ne sont pas supportés. Les niveaux valides confirmés sont `'MINIMAL'` et `'HIGH'`. Le Worker filtre les parts `thought: true` côté stream et non-streaming pour ne jamais exposer les pensées au client.
+
+6. **Gemini Flash thinking + temperature** : Quand `thinkingLevel` est actif, le Worker n'envoie **pas** de `temperature` (recommandation Google — temperature fixe à 1.0 par défaut). Sans thinking, le Worker envoie `temperature: 0.2`.
 
 ---
 
