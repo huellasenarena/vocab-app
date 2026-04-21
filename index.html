@@ -1291,11 +1291,22 @@
     // ── Barre sticky mots ─────────────────────────────────────
     const _stickyBar = document.getElementById('sticky-words-bar');
     const _wordsSentinel = document.getElementById('words-sentinel');
-    new IntersectionObserver(entries => {
-      const isVisible = entries[0].isIntersecting;
-      const show = !isVisible && currentWords.length > 0 && practiceMode !== 'image';
+    function _updateStickyVisibility() {
+      if (!currentWords.length || practiceMode === 'image') {
+        _stickyBar.classList.remove('visible'); return;
+      }
+      const rect = _wordsSentinel.getBoundingClientRect();
+      const vvHeight = (window.visualViewport || window).height || window.innerHeight;
+      // Sentinel au-dessus du viewport (scroll normal) OU au-dessus du clavier (clavier ouvert)
+      const show = rect.bottom < 0 || rect.bottom > vvHeight;
       _stickyBar.classList.toggle('visible', show);
-    }, { threshold: 0 }).observe(_wordsSentinel);
+    }
+
+    window.addEventListener('scroll', _updateStickyVisibility, { passive: true });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', _updateStickyVisibility, { passive: true });
+      window.visualViewport.addEventListener('scroll', _updateStickyVisibility, { passive: true });
+    }
 
     // Auto-resize textarea
     const _ta = document.getElementById('sentence-input');
@@ -2265,13 +2276,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
 
     function updateStickyBar() {
-      const bar     = document.getElementById('sticky-words-bar');
       const textEl  = document.getElementById('sticky-words-text');
       const stickyBtn = document.getElementById('sticky-hide-btn');
-      if (textEl)   textEl.textContent = currentWords.join(' · ');
+      if (textEl)    textEl.textContent = currentWords.join(' · ');
       if (stickyBtn) stickyBtn.classList.toggle('active', wordsHidden);
-      // Masque la barre si pas de mots ou mode image
-      if (!currentWords.length || practiceMode === 'image') bar.classList.remove('visible');
+      _updateStickyVisibility();
     }
 
     function toggleWordsHidden() {
