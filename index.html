@@ -1178,18 +1178,6 @@
       if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
         document.documentElement.style.setProperty('--safe-top', '59px');
 
-        // Sur iOS Safari le rideau position:fixed peut se désynchroniser lors
-        // de l'ouverture du clavier (scroll animé du layout viewport).
-        // On compense en réancrant le rideau sur le visual viewport à chaque event.
-        if (window.visualViewport) {
-          const curtain = document.getElementById('status-curtain');
-          const pinCurtain = () => {
-            curtain.style.top = window.visualViewport.offsetTop + 'px';
-          };
-          window.visualViewport.addEventListener('scroll', pinCurtain, { passive: true });
-          window.visualViewport.addEventListener('resize', pinCurtain, { passive: true });
-          window.addEventListener('scroll', pinCurtain, { passive: true });
-        }
       }
 
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
