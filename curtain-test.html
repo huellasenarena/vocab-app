@@ -10,12 +10,12 @@
 
     /* Zone 0-59px : fond sombre de html/body — rien d'autre */
 
-    /* Container clipé : commence à 59px, jamais au-dessus */
+    /* Container clipé : commence exactement sous la status bar, jamais au-dessus */
     #clip {
       position: fixed;
-      top: 59px;
+      top: env(safe-area-inset-top, 59px);
       left: 0; right: 0;
-      height: calc(100dvh - 59px); /* dvh = viewport dynamique, se réduit avec le clavier */
+      height: calc(100dvh - env(safe-area-inset-top, 59px));
       overflow: hidden;
     }
 
