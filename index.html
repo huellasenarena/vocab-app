@@ -386,6 +386,7 @@
       min-width: 100px;
       text-align: center;
     }
+    .word-chip { font-family: 'Lora', Georgia, serif; }
     .word-chip:hover { border-color: var(--accent); background: var(--surface-hover, #2a2a2a); }
     .word-chip:active { opacity: 0.75; }
     .word-card { cursor: pointer; transition: border-color 0.15s; }
@@ -3164,7 +3165,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
 ]`;
 
       try {
-        const reply    = await callAI(prompt, 800);
+        const reply    = await callAI(prompt, 2000);
         const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
         const jStart   = stripped.search(/\[\s*\{/);
         const jEnd     = stripped.lastIndexOf(']');
