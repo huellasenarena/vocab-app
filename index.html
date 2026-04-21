@@ -423,13 +423,15 @@
     }
     #sticky-words-text {
       font-family: 'Lora', Georgia, serif;
-      font-size: 0.95rem;
+      font-size: 0.88rem;
       font-weight: 600;
       color: var(--accent);
       flex: 1;
-      white-space: nowrap;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
-      text-overflow: ellipsis;
+      line-height: 1.3;
     }
     #sticky-hide-btn {
       background: transparent;
@@ -1229,6 +1231,17 @@
       if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
         document.documentElement.style.setProperty('--safe-top', '59px');
 
+        if (window.visualViewport) {
+          const curtain = document.getElementById('status-curtain');
+          const pinCurtain = () => {
+            const vv = window.visualViewport;
+            // Compenser uniquement quand le clavier est ouvert (viewport < 75% hauteur écran)
+            const keyboardOpen = vv.height < window.screen.height * 0.75;
+            curtain.style.top = (keyboardOpen && vv.offsetTop > 0) ? vv.offsetTop + 'px' : '0px';
+          };
+          window.visualViewport.addEventListener('scroll', pinCurtain, { passive: true });
+          window.visualViewport.addEventListener('resize', pinCurtain, { passive: true });
+        }
       }
 
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
@@ -1831,7 +1844,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('image-vocab-chips').innerHTML  = '';
       // Reset words hidden
       wordsHidden = false;
-      document.getElementById('vocab-section').classList.remove('words-hidden');
+      document.body.classList.remove('words-hidden');
       const btnHide = document.getElementById('btn-hide-words');
       if (btnHide) { btnHide.classList.remove('active'); btnHide.textContent = '👁 Cacher'; }
       document.getElementById('sticky-words-bar').classList.remove('visible');
@@ -2263,7 +2276,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
     function toggleWordsHidden() {
       wordsHidden = !wordsHidden;
-      document.getElementById('vocab-section').classList.toggle('words-hidden', wordsHidden);
+      document.body.classList.toggle('words-hidden', wordsHidden);
       const btn = document.getElementById('btn-hide-words');
       btn.classList.toggle('active', wordsHidden);
       btn.textContent = wordsHidden ? '👁 Montrer' : '👁 Cacher';
