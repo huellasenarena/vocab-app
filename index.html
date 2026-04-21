@@ -643,7 +643,8 @@
     }
 
     /* ── Chip révision (mot déjà vu) ── */
-    .word-chip.chip-review .chip-word { color: var(--accent); }
+    .word-chip.chip-review .chip-word { color: var(--text); }
+    .word-card.card-review #current-word { color: var(--text); }
 
     /* ── Bouton hint "révision" dans le dropdown ── */
     .hint-word-btn.review { color: var(--accent); border-color: var(--accent); }
@@ -1696,6 +1697,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       lastSubmittedSentence  = '';
       currentWords       = [];
       document.getElementById('current-word').textContent     = '…';
+      document.getElementById('single-word-card').classList.remove('card-review');
       document.getElementById('word-stars').textContent       = '☆☆☆';
       document.getElementById('word-stars').className         = 'stars s0';
       document.getElementById('hint-used-badge').classList.remove('visible');
@@ -2059,6 +2061,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         single.style.display = '';
         multi.style.display  = 'none';
         document.getElementById('current-word').textContent = currentWords[0];
+        single.classList.toggle('card-review', practiceMode === 'spaced' && !isNewWord(currentWords[0]));
         updateStars(currentWords[0]);
       } else {
         single.style.display = 'none';
