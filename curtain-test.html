@@ -21,6 +21,7 @@
       height: 59px;
       background: red;
       z-index: 9999;
+      will-change: transform;
     }
     /* Log visible en permanence juste sous le rideau */
     #log {
@@ -105,11 +106,11 @@
   let kbOpen = false;
 
   const pinCurtain = () => {
-    curtain.style.top = Math.max(0, vv.offsetTop) + 'px';
+    curtain.style.transform = 'translateY(' + Math.max(0, vv.offsetTop) + 'px)';
   };
 
   const resetCurtain = () => {
-    curtain.style.top = '0px';
+    curtain.style.transform = 'translateY(0px)';
   };
 
   if (vv) {
