@@ -3372,8 +3372,8 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
-        if (!data.output_text) throw new Error('Réponse vide — réessaie (limite de tokens atteinte)');
         trackTokens(data.usage);
+        if (!data.output_text) throw new Error('Réponse vide — réessaie (limite de tokens atteinte)');
         return data.output_text.trim();
       } catch (err) {
         if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
@@ -3404,8 +3404,8 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
-        if (!data.output_text) throw new Error('Réponse vide — réessaie (limite de tokens atteinte)');
         trackTokens(data.usage);
+        if (!data.output_text) throw new Error('Réponse vide — réessaie (limite de tokens atteinte)');
         return data.output_text.trim();
       } catch (err) {
         if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
