@@ -113,7 +113,7 @@
 
     .textarea-wrap {
       position: relative; width: 100%;
-      border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
+      border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
       background: var(--surface); transition: border-color 0.2s;
       -webkit-transform: translateZ(0); transform: translateZ(0);
     }
@@ -938,6 +938,15 @@
     <!-- Multi-mots chips -->
     <div id="multi-word-chips" class="words-chips" style="display:none;"></div>
 
+    <!-- Confirmation "Je ne sais pas" -->
+    <div class="confirm-panel" id="confirm-panel">
+      <span class="confirm-panel-text" id="confirm-panel-text">Es-tu sûr ? Ce sera compté comme incorrect.</span>
+      <div class="confirm-panel-actions">
+        <button class="btn-primary"    onclick="confirmJeNeSaisPas()">Confirmer</button>
+        <button class="btn-secondary"  onclick="cancelJeNeSaisPas()">Annuler</button>
+      </div>
+    </div>
+
     <!-- Bouton suivant -->
     <div class="action-row">
       <button class="btn-primary" id="btn-next" onclick="nextWord()">Autre mot →</button>
@@ -965,14 +974,6 @@
     <div class="sentence-section" id="sentence-section">
       <p class="sentence-label" id="sentence-label">Utilise ce mot dans une phrase :</p>
       <div class="grammar-forms-zone" id="grammar-forms-zone" style="display:none;"></div>
-      <!-- Confirmation "Je ne sais pas" -->
-      <div class="confirm-panel" id="confirm-panel">
-        <span class="confirm-panel-text" id="confirm-panel-text">Es-tu sûr ? Ce sera compté comme incorrect.</span>
-        <div class="confirm-panel-actions">
-          <button class="btn-primary"    onclick="confirmJeNeSaisPas()">Confirmer</button>
-          <button class="btn-secondary"  onclick="cancelJeNeSaisPas()">Annuler</button>
-        </div>
-      </div>
       <div class="textarea-wrap">
         <textarea id="sentence-input" rows="1" placeholder="Écris ta phrase ici…"></textarea>
         <button class="btn-submit-inline" id="btn-submit" onclick="submitSentence()" title="Vérifier">↑</button>
