@@ -403,12 +403,12 @@
     /* ── Barre sticky mots ── */
     #sticky-words-bar {
       position: fixed;
-      top: var(--safe-top, 0px);
+      top: 0;
       left: 0; right: 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0.55rem 1.5rem;
+      padding: calc(var(--safe-top, 0px) + 0.55rem) 1.5rem 0.55rem;
       background: var(--bg);
       border-bottom: 1px solid var(--border);
       z-index: 500;
