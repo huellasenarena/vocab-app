@@ -3,23 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Clip Container Test</title>
+  <title>Clip Test</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow: hidden; background: #0f0f0f; color: #fff; font-family: sans-serif; }
 
-    /* Zone 0-59px : fond sombre de html/body — rien d'autre */
-
-    /* Container clipé : commence exactement sous la status bar, jamais au-dessus */
-    #clip {
-      position: fixed;
-      top: env(safe-area-inset-top, 59px);
-      left: 0; right: 0;
-      height: calc(100dvh - env(safe-area-inset-top, 59px));
+    /* html + body : hauteur exacte du viewport dynamique, pas de scroll window */
+    html {
+      height: 100dvh;
       overflow: hidden;
+      background: #0f0f0f;
+    }
+    body {
+      height: 100%;
+      overflow: hidden;
+      /* padding-top pousse le contenu sous la status bar */
+      padding-top: env(safe-area-inset-top, 59px);
+      background: #0f0f0f;
+      color: #fff;
+      font-family: sans-serif;
     }
 
-    /* Scroll interne */
+    /* Scroll interne — le contenu ne peut PAS sortir au-dessus de ce div */
     #scroll {
       height: 100%;
       overflow-y: scroll;
@@ -45,32 +49,28 @@
   </style>
 </head>
 <body>
-
-<div id="clip">
-  <div id="scroll">
-    <div class="item">Ligne 1 — scroll vers le bas</div>
-    <div class="item">Ligne 2</div>
-    <div class="item">Ligne 3</div>
-    <div class="item">Ligne 4</div>
-    <div class="item">Ligne 5</div>
-    <div class="item">Ligne 6</div>
-    <input type="text" placeholder="Tape ici pour ouvrir le clavier...">
-    <div class="item">Ligne 7</div>
-    <div class="item">Ligne 8</div>
-    <div class="item">Ligne 9</div>
-    <div class="item">Ligne 10</div>
-    <div class="item">Ligne 11</div>
-    <div class="item">Ligne 12</div>
-    <div class="item">Ligne 13</div>
-    <div class="item">Ligne 14</div>
-    <div class="item">Ligne 15</div>
-    <div class="item">Ligne 16</div>
-    <div class="item">Ligne 17</div>
-    <div class="item">Ligne 18</div>
-    <div class="item">Ligne 19</div>
-    <div class="item">Ligne 20 — fin</div>
-  </div>
+<div id="scroll">
+  <div class="item">Ligne 1 — scroll vers le bas</div>
+  <div class="item">Ligne 2</div>
+  <div class="item">Ligne 3</div>
+  <div class="item">Ligne 4</div>
+  <div class="item">Ligne 5</div>
+  <div class="item">Ligne 6</div>
+  <input type="text" placeholder="Tape ici pour ouvrir le clavier...">
+  <div class="item">Ligne 7</div>
+  <div class="item">Ligne 8</div>
+  <div class="item">Ligne 9</div>
+  <div class="item">Ligne 10</div>
+  <div class="item">Ligne 11</div>
+  <div class="item">Ligne 12</div>
+  <div class="item">Ligne 13</div>
+  <div class="item">Ligne 14</div>
+  <div class="item">Ligne 15</div>
+  <div class="item">Ligne 16</div>
+  <div class="item">Ligne 17</div>
+  <div class="item">Ligne 18</div>
+  <div class="item">Ligne 19</div>
+  <div class="item">Ligne 20 — fin</div>
 </div>
-
 </body>
 </html>
