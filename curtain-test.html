@@ -101,13 +101,19 @@
       '<br>curtain.top (bounding): ' + cTop.toFixed(1);
   }
 
-  // Position: fixed sans aucun JS de pin — juste pour observer les valeurs
-  window.addEventListener('scroll',   () => update('window.scroll'),   { passive: true });
-  if (vv) {
-    vv.addEventListener('scroll',  () => update('vv.scroll'),  { passive: true });
-    vv.addEventListener('resize',  () => update('vv.resize'),  { passive: true });
+  function pinCurtain(label) {
+    if (!vv) return;
+    const top = Math.max(0, vv.offsetTop);
+    curtain.style.top = top + 'px';
+    update(label);
   }
-  update('init');
+
+  window.addEventListener('scroll', () => update('window.scroll'), { passive: true });
+  if (vv) {
+    vv.addEventListener('scroll', () => pinCurtain('vv.scroll'), { passive: true });
+    vv.addEventListener('resize', () => pinCurtain('vv.resize'), { passive: true });
+  }
+  pinCurtain('init');
 </script>
 </body>
 </html>
