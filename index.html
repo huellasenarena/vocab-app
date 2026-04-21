@@ -856,7 +856,7 @@
   </style>
 </head>
 <body>
-<div id="status-curtain" style="position:fixed;top:0;left:0;right:0;height:var(--safe-top,0px);background:var(--bg);z-index:9999;pointer-events:none"></div>
+<div id="status-curtain" style="position:fixed;top:0;left:0;right:0;height:var(--safe-top,0px);background:var(--bg);z-index:9999;pointer-events:none;will-change:transform"></div>
 <div id="sticky-words-bar">
   <span id="sticky-words-text"></span>
   <button id="sticky-hide-btn" onclick="toggleWordsHidden()" title="Cacher/Montrer">👁</button>
@@ -1230,12 +1230,12 @@
           const curtain = document.getElementById('status-curtain');
           const initVVH = vv.height;
           let kbOpen = false;
-          const pinCurtain = () => { curtain.style.top = Math.max(0, vv.offsetTop) + 'px'; };
+          const pinCurtain = () => { curtain.style.transform = 'translateY(' + Math.max(0, vv.offsetTop) + 'px)'; };
           vv.addEventListener('resize', () => {
             const wasOpen = kbOpen;
             kbOpen = (initVVH - vv.height) > 100;
             if (kbOpen) pinCurtain();
-            else if (wasOpen) curtain.style.top = '0px';
+            else if (wasOpen) curtain.style.transform = 'translateY(0px)';
           }, { passive: true });
           vv.addEventListener('scroll', () => { if (kbOpen) pinCurtain(); }, { passive: true });
         }
