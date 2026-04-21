@@ -42,6 +42,16 @@
       padding-bottom: env(safe-area-inset-bottom);
     }
 
+    /* Rideau status bar iOS — CSS pur, aucun JS de positionnement */
+    #status-curtain {
+      position: fixed;
+      top: 0;
+      left: 0; right: 0;
+      height: var(--safe-top, 0px);
+      background: var(--bg);
+      z-index: 9999;
+    }
+
     /* L'écran de pratique s'ancre toujours en haut */
     #screen-practice {
       align-self: flex-start;
@@ -856,6 +866,7 @@
   </style>
 </head>
 <body>
+<div id="status-curtain"></div>
 <div id="sticky-words-bar">
   <span id="sticky-words-text"></span>
   <button id="sticky-hide-btn" onclick="toggleWordsHidden()" title="Cacher/Montrer">👁</button>
