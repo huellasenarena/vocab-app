@@ -376,6 +376,8 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 0.6rem 1rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -384,6 +386,10 @@
       min-width: 100px;
       text-align: center;
     }
+    .word-chip:hover { border-color: var(--accent); background: var(--surface-hover, #2a2a2a); }
+    .word-chip:active { opacity: 0.75; }
+    .word-card { cursor: pointer; transition: border-color 0.15s; }
+    .word-card:hover { border-color: var(--accent); }
     .word-chip .chip-word {
       font-size: 1.1rem;
       font-weight: 600;
@@ -918,7 +924,7 @@
     </div>
 
     <!-- Mot unique -->
-    <div id="single-word-card" class="word-card">
+    <div id="single-word-card" class="word-card" onclick="singleCardHint()" style="cursor:pointer">
       <span class="word-label">mot du jour</span>
       <span class="word-main" id="current-word">…</span>
       <div class="word-meta">
@@ -931,16 +937,9 @@
     <!-- Multi-mots chips -->
     <div id="multi-word-chips" class="words-chips" style="display:none;"></div>
 
-    <!-- Boutons hint / suivant -->
+    <!-- Bouton suivant -->
     <div class="action-row">
-      <button class="btn-secondary" id="btn-hint" onclick="askHint()">💡 Définition</button>
-      <button class="btn-primary"   id="btn-next" onclick="nextWord()">Autre mot →</button>
-    </div>
-
-    <!-- Dropdown sélecteur de mot (mode multi) -->
-    <div class="hint-dropdown" id="hint-dropdown">
-      <span class="hint-dropdown-label" id="hint-dropdown-label-text">Quel mot veux-tu éclaircir ?</span>
-      <div id="hint-word-buttons"></div>
+      <button class="btn-primary" id="btn-next" onclick="nextWord()">Autre mot →</button>
     </div>
 
     <!-- Boîte définition -->
@@ -1214,16 +1213,6 @@
       if (e.key === 'Enter') checkPassword();
     });
 
-    // Ferme le dropdown hint en cliquant en dehors
-    document.addEventListener('click', e => {
-      const dropdown = document.getElementById('hint-dropdown');
-      const btnHint  = document.getElementById('btn-hint');
-      if (dropdown.classList.contains('visible') &&
-          !dropdown.contains(e.target) && e.target !== btnHint) {
-        dropdown.classList.remove('visible');
-      }
-    });
-
     // Cmd+Enter (Mac) ou Ctrl+Enter (Windows) pour vérifier la phrase
     document.getElementById('sentence-input').addEventListener('keydown', e => {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -1318,8 +1307,6 @@
         renderWordDisplay();
         renderGrammarForms();
       }
-      document.getElementById('hint-dropdown-label-text').textContent =
-        langInfo.hintDropdownLabel;
     }
 
     // ── Sélection de langue ───────────────────────────────────
@@ -1336,7 +1323,6 @@
       currentLang = lang;
       const langInfo = getLang();
       document.getElementById('lang-tag').textContent                  = `← ${langInfo.name}`;
-      document.getElementById('hint-dropdown-label-text').textContent  = langInfo.hintDropdownLabel;
       document.getElementById('qcm-question').textContent              = langInfo.qcmQuestion;
       showScreen('screen-practice');
       resetPracticeUI();
@@ -1714,7 +1700,6 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('word-stars').className         = 'stars s0';
       document.getElementById('hint-used-badge').classList.remove('visible');
       document.getElementById('hint-box').classList.remove('visible');
-      document.getElementById('hint-dropdown').classList.remove('visible');
       document.getElementById('hint-text').textContent        = '';
       document.getElementById('sentence-input').value         = '';
       document.getElementById('sentence-input').style.height  = '';
@@ -1973,7 +1958,6 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const isSituationMode = practiceMode === 'situation';
       document.getElementById('sentence-section').style.display    = isSituationMode ? 'none' : '';
       document.getElementById('situation-section').style.display   = isSituationMode ? '' : 'none';
-      document.getElementById('btn-hint').style.display            = isSituationMode ? 'none' : '';
       document.getElementById('btn-next').style.display            = isSituationMode ? 'none' : '';
       document.getElementById('single-word-card').style.display    = isSituationMode ? 'none' : '';
       document.getElementById('multi-word-chips').style.display    = 'none';
@@ -2024,7 +2008,6 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         previousWordsPool = [...currentWords]; // initialise le pool slider
         document.getElementById('word-count-label').textContent = '';
 
-        updateHintButton();
 
       } else if (practiceMode === 'situation') {
         // Pioche uniquement les mots maîtrisés (★★★ = net >= 3)
@@ -2083,15 +2066,13 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         multi.innerHTML = currentWords.map(w => {
           const starsInfo  = getStarsInfo(w);
           const reviewCls  = (practiceMode === 'spaced' && !isNewWord(w)) ? ' chip-review' : '';
-          return `<div class="word-chip${reviewCls}">
+          const esc = w.replace(/'/g, "\\'");
+          return `<button class="word-chip${reviewCls}" onclick="chipHint('${esc}')">
             <span class="chip-word">${w}</span>
             <span class="chip-stars ${starsInfo.cls}">${starsInfo.str}</span>
-          </div>`;
+          </button>`;
         }).join('');
         requestAnimationFrame(adjustChipFontSizes);
-      }
-
-      updateHintButton();
     }
 
     function getStarsInfo(word) {
@@ -2126,63 +2107,19 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       pickWords();
     }
 
-    // ── Bouton hint : label et visibilité ────────────────────
-    function updateHintButton() {
-      const btn = document.getElementById('btn-hint');
-      if (practiceMode === 'situation' || currentWords.length === 0) {
-        btn.style.display = 'none'; return;
-      }
-      btn.style.display = '';
-      // Après soumission ou hors mode espacé → toujours "Définition"
-      if (sentenceSubmitted || practiceMode !== 'spaced') {
-        btn.textContent = '💡 Définition'; return;
-      }
-      // Mode espacé, avant soumission
-      const newWords    = currentWords.filter(w => isNewWord(w));
-      const reviewWords = currentWords.filter(w => !isNewWord(w));
-      if (newWords.length === 0)    btn.textContent = '🤔 Je ne sais pas ?';
-      else if (reviewWords.length === 0) btn.textContent = '💡 Définition';
-      else                          btn.textContent = '💡 Définition / QCM';
+    // ── Hint via chip ─────────────────────────────────────────
+    function singleCardHint() {
+      if (currentWords.length === 1) chipHint(currentWords[0]);
     }
 
-    // ── Hint ─────────────────────────────────────────────────
-    function askHint() {
+    function chipHint(word) {
       const spaced = practiceMode === 'spaced' && !sentenceSubmitted;
-
-      // Mode 1 mot
-      if (currentWords.length === 1) {
-        const w = currentWords[0];
-        if (spaced && !isNewWord(w)) showJeNeSaisPas(w);
-        else fetchHint(w);
-        return;
-      }
-
-      // Mode multi-mots : dropdown avec routing par mot
-      const dropdown = document.getElementById('hint-dropdown');
-      const btns     = document.getElementById('hint-word-buttons');
-      dropdown.classList.toggle('visible');
-      if (!spaced) {
-        // Après soumission ou mode libre : toutes définitions
-        btns.innerHTML = currentWords.map(w =>
-          `<button class="hint-word-btn" onclick="fetchHint('${w.replace(/'/g, "\\'")}')">${w}</button>`
-        ).join('');
-      } else {
-        // Mode espacé avant soumission : routing new→définition, review→QCM
-        btns.innerHTML = currentWords.map(w => {
-          const isNew = isNewWord(w);
-          const cls   = isNew ? '' : ' review';
-          const label = isNew ? w : `${w} (QCM)`;
-          const fn    = isNew
-            ? `fetchHint('${w.replace(/'/g, "\\'")}')`
-            : `showJeNeSaisPas('${w.replace(/'/g, "\\'")}')`;
-          return `<button class="hint-word-btn${cls}" onclick="${fn}">${label}</button>`;
-        }).join('');
-      }
+      if (spaced && !isNewWord(word)) showJeNeSaisPas(word);
+      else fetchHint(word);
     }
 
     // ── "Je ne sais pas" ──────────────────────────────────────
     function showJeNeSaisPas(word) {
-      document.getElementById('hint-dropdown').classList.remove('visible');
       jeNeSaisPasWord = word;
       const n = currentWords.length;
       const text = n > 1
@@ -2280,8 +2217,6 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
 
     async function fetchHint(word) {
-      document.getElementById('hint-dropdown').classList.remove('visible');
-      const btn = document.getElementById('btn-hint');
       const hintTextEl = document.getElementById('hint-text');
       const hintBox    = document.getElementById('hint-box');
       const cacheKey   = `${word.toLowerCase()}|${currentLang}|${currentModel}`;
@@ -2303,9 +2238,6 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       }
 
       // ── Cache miss : appel API ─────────────────────────────
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span>';
-
       const langName = getLang().mistralName;
       const prompt = `You are a vocabulary teacher. The learner is studying ${langName}.
 
@@ -2361,8 +2293,6 @@ Respond entirely in ${langName}.`;
           <button class="btn-secondary" style="margin-top:0.5rem" onclick="fetchHint('${ew}')">↺ Réessayer</button>`;
         hintBox.classList.add('visible');
       }
-      btn.disabled = false;
-      btn.textContent = '💡 Définition';
     }
 
     // ── Évaluation ────────────────────────────────────────────
@@ -2631,7 +2561,6 @@ Respond entirely in ${feedbackLang}.`;
       btn.disabled = false;
       btn.innerHTML = '↑';
       sentenceSubmitted = true;
-      updateHintButton();
     }
 
     // ── QCM ───────────────────────────────────────────────────
