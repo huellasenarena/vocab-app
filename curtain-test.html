@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Curtain Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #0f0f0f; }
+    body {
+      background: #0f0f0f;
+      color: #fff;
+      font-family: sans-serif;
+      padding-top: 59px;
+    }
+    #curtain {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 59px;
+      background: red; /* rouge pour voir clairement */
+      z-index: 9999;
+    }
+    .item {
+      padding: 1.5rem;
+      border-bottom: 1px solid #333;
+      font-size: 1.1rem;
+    }
+    input {
+      display: block;
+      width: calc(100% - 3rem);
+      margin: 1.5rem;
+      padding: 1rem;
+      background: #1a1a1a;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+    #log {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #111;
+      border-top: 1px solid #333;
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      color: #aaa;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+<div id="curtain"></div>
+
+<div class="item">Ligne 1 — scroll vers le bas</div>
+<div class="item">Ligne 2</div>
+<div class="item">Ligne 3</div>
+<div class="item">Ligne 4</div>
+<div class="item">Ligne 5</div>
+<div class="item">Ligne 6</div>
+<input type="text" placeholder="Tape ici pour ouvrir le clavier...">
+<div class="item">Ligne 7</div>
+<div class="item">Ligne 8</div>
+<div class="item">Ligne 9</div>
+<div class="item">Ligne 10</div>
+<div class="item">Ligne 11</div>
+<div class="item">Ligne 12</div>
+<div class="item">Ligne 13</div>
+<div class="item">Ligne 14</div>
+<div class="item">Ligne 15</div>
+<div class="item">Ligne 16</div>
+<div class="item">Ligne 17</div>
+<div class="item">Ligne 18</div>
+<div class="item">Ligne 19</div>
+<div class="item">Ligne 20 — fin</div>
+
+<div id="log">vp.offsetTop: — | scrollY: —</div>
+
+<script>
+  const log = document.getElementById('log');
+  const curtain = document.getElementById('curtain');
+
+  function update() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    log.textContent =
+      'vp.offsetTop: ' + vv.offsetTop.toFixed(1) +
+      ' | scrollY: ' + window.scrollY.toFixed(1) +
+      ' | curtain.top: ' + curtain.getBoundingClientRect().top.toFixed(1);
+  }
+
+  window.addEventListener('scroll', update, { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('scroll', update, { passive: true });
+    window.visualViewport.addEventListener('resize', update, { passive: true });
+  }
+  update();
+</script>
+</body>
+</html>
