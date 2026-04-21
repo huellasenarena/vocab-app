@@ -54,9 +54,9 @@ A: Date (YYYY-MM-DD) | B: NewWordsPracticed
 
 #### Structure Tokens (A:F)
 ```
-A: Date (YYYY-MM-DD PT) | B: InputTokens | C: OutputTokens | D: GemmaRequests | E: GeminiFlashRequests | F: GeminiFlashLiteRequests
+A: Date (YYYY-MM-DD) | B: InputTokens | C: OutputTokens | D: GemmaRequests | E: GeminiFlashRequests | F: GeminiFlashLiteRequests
 ```
-Une ligne par jour. Date en **heure du Pacifique** (reset Google à minuit PT) via `todayStrPT()`. Chargé au démarrage via `loadTodayTokens()`, mis à jour après chaque appel API. Header row 1 requis.
+Une ligne par jour. **Dates différentes selon le provider** : colonnes B/C (OpenAI) utilisent la date UTC via `todayStr()`, colonnes D/E/F (Google) utilisent la date PT via `todayStrPT()`. Pendant la fenêtre de transition (minuit UTC → minuit PT, ~7-8h), deux lignes actives avec colonnes partielles. Chargé au démarrage via `loadTodayTokens()`, mis à jour après chaque appel API. Header row 1 requis.
 
 #### Structure formes grammaticales (sheet séparé)
 - Onglet `Spanish` — row 1 = catégories (presente, pasado, futuro, subjuntivo, condicional, imperativo, misc.)
@@ -110,7 +110,7 @@ Un seul select dynamique "Raisonnement" dans les réglages, mis à jour selon le
 Fonctions : `updateReasoningUI()` (peuple le select selon `currentModel`), `setReasoningLevel(val)` (dispatch vers le bon setter), `geminiThinkingBody()` (retourne `{ thinkingLevel }` si ≠ `'none'`, sinon `{}`).
 
 #### Wrappers modèle-agnostiques
-- `callAI(prompt, maxTokens)` → dispatch selon `currentModel`
+- `callAI(prompt, maxTokens)` → vérifie `checkDailyLimit()` puis dispatch selon `currentModel`
 - `callAIStream(prompt, onChunk, maxTokens)` → idem
 - `callAIVision(imageUrl, prompt, maxTokens)` → idem
 - `isGemini()` → true si `currentModel` est `'gemma'`, `'geminiflash'` ou `'geminiflashlite'`
@@ -119,13 +119,14 @@ Fonctions : `updateReasoningUI()` (peuple le select selon `currentModel`), `setR
 - `thinkingLevel` envoyé au Worker via `geminiThinkingBody()` — omis si `'none'`
 
 #### Compteur tokens/requêtes
-- GPT : `todayInputTokens` + `todayOutputTokens` → affiché `X tokens`
+- GPT : `todayInputTokens` + `todayOutputTokens` → affiché `X / 235 000 tokens`
 - Gemma : `todayGemmaRequests` → affiché `X / 1500 req`
 - Gemini Flash : `todayGeminiFlashRequests` → affiché `X / 20 req`
 - Gemini Flash Lite : `todayGeminiFlashLiteRequests` → affiché `X / 500 req`
 - `trackTokens(usage)` pour GPT, `trackGeminiRequest()` pour Google (s'auto-route selon `currentModel`)
 - Les deux appellent `saveTodayTokensDebounced()` (debounce 2s) — pas `saveTodayTokens()` directement
-- **Multi-appareils** : `saveTodayTokens()` utilise une approche delta — lit la valeur actuelle dans Sheets, ajoute uniquement le delta de cette session (`local - baseline`), évite l'écrasement entre appareils. Variables baseline : `baseInputTokens`, `baseOutputTokens`, `baseGemmaRequests`, `baseGeminiFlashRequests`, `baseGeminiFlashLiteRequests` — initialisées dans `loadTodayTokens()`, resynchronisées après chaque sauvegarde réussie.
+- **Limites journalières** : `DAILY_LIMITS = { gpt4: 235000, gemma: 1500, geminiflash: 20, geminiflashlite: 500 }`. À ≥ 80% : compteur orange. À ≥ 100% : compteur rouge + tous les appels `callAI`/`callAIStream`/`callAIVision` lancent `checkDailyLimit()` qui throw une erreur invitant à changer de modèle.
+- **Multi-appareils** : `saveTodayTokens()` lit la valeur actuelle dans Sheets et y ajoute uniquement les tokens accumulés depuis le dernier save réussi (`_pendingInput`, `_pendingOutput`, `_pendingGemma`, `_pendingFlash`, `_pendingFlashLite`). Ces variables `_pending*` sont remises à 0 après chaque save réussi (en soustrayant uniquement ce qui a été envoyé, pour ne pas perdre les tokens arrivés pendant l'`await`).
 
 ### Déploiement
 ```bash
@@ -171,16 +172,16 @@ let grammarForms        = [];      // formes grammaticales espagnoles aplaties
 let grammarFormsEnabled = ...;     // toggle localStorage KEY_GRAMMAR
 let maxNewPerDay        = 60;      // configurable via réglages ⚙️, localStorage KEY_MAX_NEW (5–100)
 let jeNeSaisPasWord     = null;    // mot en attente de confirmation "Je ne sais pas"
-let todayInputTokens             = 0;  // tokens input GPT aujourd'hui
+let todayInputTokens             = 0;  // tokens input GPT aujourd'hui (chargé depuis Sheets au démarrage)
 let todayOutputTokens            = 0;  // tokens output GPT aujourd'hui
 let todayGemmaRequests           = 0;  // requêtes Gemma 4 31B aujourd'hui
 let todayGeminiFlashRequests     = 0;  // requêtes Gemini 3 Flash aujourd'hui
 let todayGeminiFlashLiteRequests = 0;  // requêtes Gemini 3.1 Flash Lite aujourd'hui
-let baseInputTokens              = 0;  // valeur Sheets au chargement (delta multi-appareils)
-let baseOutputTokens             = 0;
-let baseGemmaRequests            = 0;
-let baseGeminiFlashRequests      = 0;
-let baseGeminiFlashLiteRequests  = 0;
+let _pendingInput    = 0;  // tokens/requêtes accumulés depuis le dernier save réussi (multi-appareils)
+let _pendingOutput   = 0;
+let _pendingGemma    = 0;
+let _pendingFlash    = 0;
+let _pendingFlashLite = 0;
 let currentModel        = 'gpt4';  // 'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'
 let gptEffort           = 'low';   // 'none'|'low'|'medium'|'high' — localStorage KEY_GPT_EFFORT
 let geminiThinkingLevel = 'none';  // 'none'|'minimal'|'low'|'medium'|'high' — localStorage KEY_GEMINI_THINKING
