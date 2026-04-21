@@ -14,12 +14,12 @@
       padding-top: 59px;
     }
     #curtain {
-      position: fixed;
+      position: absolute; /* pas fixed — on le repositionne en JS */
       top: 0;
       left: 0;
       right: 0;
       height: 59px;
-      background: red; /* rouge pour voir clairement */
+      background: red;
       z-index: 9999;
     }
     .item {
@@ -83,22 +83,23 @@
 <script>
   const log = document.getElementById('log');
   const curtain = document.getElementById('curtain');
+  const vv = window.visualViewport;
 
-  function update() {
-    const vv = window.visualViewport;
+  function pinCurtain() {
     if (!vv) return;
+    curtain.style.top = (window.scrollY + vv.offsetTop) + 'px';
     log.textContent =
-      'vp.offsetTop: ' + vv.offsetTop.toFixed(1) +
+      'offsetTop: ' + vv.offsetTop.toFixed(1) +
       ' | scrollY: ' + window.scrollY.toFixed(1) +
-      ' | curtain.top: ' + curtain.getBoundingClientRect().top.toFixed(1);
+      ' | curtain: ' + curtain.getBoundingClientRect().top.toFixed(1);
   }
 
-  window.addEventListener('scroll', update, { passive: true });
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('scroll', update, { passive: true });
-    window.visualViewport.addEventListener('resize', update, { passive: true });
+  window.addEventListener('scroll', pinCurtain, { passive: true });
+  if (vv) {
+    vv.addEventListener('scroll', pinCurtain, { passive: true });
+    vv.addEventListener('resize', pinCurtain, { passive: true });
   }
-  update();
+  pinCurtain();
 </script>
 </body>
 </html>
