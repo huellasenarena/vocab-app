@@ -1088,6 +1088,7 @@
     const KEY_GEMINI_THINKING  = "vocab_gemini_thinking";
     const KEY_GEMMA_THINKING   = "vocab_gemma_thinking";
     const GEMINI_MODEL_IDS = { gemma: 'gemma-4-31b-it', geminiflash: 'gemini-3-flash-preview', geminiflashlite: 'gemini-3.1-flash-lite-preview' };
+    const DAILY_LIMITS = { gpt4: 235000, gemma: 1500, geminiflash: 20, geminiflashlite: 500 };
     const GRAMMAR_SHEET_ID = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
 
     const LANGS = [
@@ -1478,20 +1479,37 @@
       saveTodayTokensDebounced();
     }
 
+    function currentUsage() {
+      if (currentModel === 'gemma')         return todayGemmaRequests;
+      if (currentModel === 'geminiflash')   return todayGeminiFlashRequests;
+      if (currentModel === 'geminiflashlite') return todayGeminiFlashLiteRequests;
+      return todayInputTokens + todayOutputTokens;
+    }
+    function usagePct() { return currentUsage() / DAILY_LIMITS[currentModel]; }
+    function isLimitReached() { return usagePct() >= 1; }
+
+    function checkDailyLimit() {
+      if (isLimitReached()) throw new Error('Limite journalière atteinte — change de modèle dans ⚙️');
+    }
+
     function updateTokenDisplay() {
       const el = document.getElementById('token-display');
       if (!el) return;
       if (!showTokenCounter) { el.style.display = 'none'; return; }
+      const limit = DAILY_LIMITS[currentModel];
+      let text;
       if (currentModel === 'gemma') {
-        el.textContent = `${todayGemmaRequests} / 1500 req`;
+        text = `${todayGemmaRequests} / 1500 req`;
       } else if (currentModel === 'geminiflash') {
-        el.textContent = `${todayGeminiFlashRequests} / 20 req`;
+        text = `${todayGeminiFlashRequests} / 20 req`;
       } else if (currentModel === 'geminiflashlite') {
-        el.textContent = `${todayGeminiFlashLiteRequests} / 500 req`;
+        text = `${todayGeminiFlashLiteRequests} / 500 req`;
       } else {
-        const total = todayInputTokens + todayOutputTokens;
-        el.textContent = `${total.toLocaleString()} tokens`;
+        text = `${(todayInputTokens + todayOutputTokens).toLocaleString()} / ${(limit).toLocaleString()} tokens`;
       }
+      el.textContent = text;
+      const pct = usagePct();
+      el.style.color = pct >= 1 ? '#e05a5a' : pct >= 0.8 ? '#e8a838' : 'var(--muted)';
       el.style.display = 'block';
     }
 
@@ -3243,9 +3261,9 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     // ── Wrappers modèle-agnostiques ───────────────────────────
     function isGemini() { return currentModel === 'gemma' || currentModel === 'geminiflash' || currentModel === 'geminiflashlite'; }
     function geminiModelId() { return GEMINI_MODEL_IDS[currentModel] || 'gemma-4-31b-it'; }
-    function callAI(prompt, maxTokens)               { return isGemini() ? callGemini(prompt, maxTokens)              : callMistral(prompt, maxTokens); }
-    function callAIStream(prompt, onChunk, maxTokens) { return isGemini() ? callGeminiStream(prompt, onChunk, maxTokens) : callMistralStream(prompt, onChunk, maxTokens); }
-    function callAIVision(imageUrl, prompt, maxTokens){ return isGemini() ? callGeminiVision(imageUrl, prompt, maxTokens): callMistralVision(imageUrl, prompt, maxTokens); }
+    function callAI(prompt, maxTokens)               { checkDailyLimit(); return isGemini() ? callGemini(prompt, maxTokens)              : callMistral(prompt, maxTokens); }
+    function callAIStream(prompt, onChunk, maxTokens) { checkDailyLimit(); return isGemini() ? callGeminiStream(prompt, onChunk, maxTokens) : callMistralStream(prompt, onChunk, maxTokens); }
+    function callAIVision(imageUrl, prompt, maxTokens){ checkDailyLimit(); return isGemini() ? callGeminiVision(imageUrl, prompt, maxTokens): callMistralVision(imageUrl, prompt, maxTokens); }
 
     // ── Gemini (non-streaming) ─────────────────────────────────
     async function callGemini(prompt, maxTokens = 2000) {
