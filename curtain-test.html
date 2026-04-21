@@ -101,19 +101,37 @@
       '<br>curtain.top (bounding): ' + cTop.toFixed(1);
   }
 
-  function pinCurtain(label) {
-    if (!vv) return;
-    const top = Math.max(0, vv.offsetTop);
-    curtain.style.top = top + 'px';
-    update(label);
+  const initVVH = vv ? vv.height : window.innerHeight;
+  let kbOpen = false;
+
+  const pinCurtain = () => {
+    curtain.style.top = Math.max(0, vv.offsetTop) + 'px';
+  };
+
+  const resetCurtain = () => {
+    curtain.style.top = '0px';
+  };
+
+  if (vv) {
+    vv.addEventListener('resize', () => {
+      const wasOpen = kbOpen;
+      kbOpen = (initVVH - vv.height) > 100;
+      if (kbOpen) {
+        pinCurtain();
+      } else if (wasOpen) {
+        resetCurtain(); // clavier fermé → reset
+      }
+      update('vv.resize kbOpen=' + kbOpen);
+    }, { passive: true });
+
+    vv.addEventListener('scroll', () => {
+      if (kbOpen) pinCurtain(); // pin uniquement si clavier ouvert
+      update('vv.scroll kbOpen=' + kbOpen);
+    }, { passive: true });
   }
 
   window.addEventListener('scroll', () => update('window.scroll'), { passive: true });
-  if (vv) {
-    vv.addEventListener('scroll', () => pinCurtain('vv.scroll'), { passive: true });
-    vv.addEventListener('resize', () => pinCurtain('vv.resize'), { passive: true });
-  }
-  pinCurtain('init');
+  update('init');
 </script>
 </body>
 </html>

@@ -1226,12 +1226,18 @@
       if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
         document.documentElement.style.setProperty('--safe-top', '59px');
         if (window.visualViewport) {
+          const vv = window.visualViewport;
           const curtain = document.getElementById('status-curtain');
-          const pinCurtain = () => {
-            curtain.style.top = Math.max(0, window.visualViewport.offsetTop) + 'px';
-          };
-          window.visualViewport.addEventListener('scroll', pinCurtain, { passive: true });
-          window.visualViewport.addEventListener('resize', pinCurtain, { passive: true });
+          const initVVH = vv.height;
+          let kbOpen = false;
+          const pinCurtain = () => { curtain.style.top = Math.max(0, vv.offsetTop) + 'px'; };
+          vv.addEventListener('resize', () => {
+            const wasOpen = kbOpen;
+            kbOpen = (initVVH - vv.height) > 100;
+            if (kbOpen) pinCurtain();
+            else if (wasOpen) curtain.style.top = '0px';
+          }, { passive: true });
+          vv.addEventListener('scroll', () => { if (kbOpen) pinCurtain(); }, { passive: true });
         }
       }
 
