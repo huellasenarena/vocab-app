@@ -1227,14 +1227,18 @@
 
     // Auto-resize textarea
     const _ta = document.getElementById('sentence-input');
+    let _prevTaHeight = 0;
     function autoResizeTextarea() {
       _ta.style.height = 'auto';
-      _ta.style.height = _ta.scrollHeight + 'px';
+      const newH = _ta.scrollHeight;
+      _ta.style.height = newH + 'px';
+      if (newH === _prevTaHeight) return;
+      _prevTaHeight = newH;
       requestAnimationFrame(() => {
         const vv = window.visualViewport || { height: window.innerHeight, offsetTop: 0 };
         const rect = _ta.getBoundingClientRect();
         const gap = rect.bottom - vv.height + 8;
-        if (gap > 0) window.scrollBy({ top: gap, behavior: 'instant' });
+        if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
       });
     }
     _ta.addEventListener('input', autoResizeTextarea);
