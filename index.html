@@ -1289,8 +1289,13 @@
 
     window.addEventListener('scroll', _updateStickyVisibility, { passive: true });
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', _updateStickyVisibility, { passive: true });
       window.visualViewport.addEventListener('scroll', _updateStickyVisibility, { passive: true });
+      window.visualViewport.addEventListener('resize', () => {
+        _updateStickyVisibility();
+        // iOS auto-scrolle après le resize clavier — vérifier après la fin du scroll
+        setTimeout(_updateStickyVisibility, 200);
+        setTimeout(_updateStickyVisibility, 500);
+      }, { passive: true });
     }
 
     // Auto-resize textarea
