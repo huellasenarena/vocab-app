@@ -3169,7 +3169,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
 ]`;
 
       try {
-        const reply    = await callAI(prompt, 2000);
+        const reply    = await callAI(prompt, isGemini() ? 800 : 16000);
         const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
         const jStart   = stripped.search(/\[\s*\{/);
         const jEnd     = stripped.lastIndexOf(']');
