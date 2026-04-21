@@ -14,13 +14,28 @@
       padding-top: 59px;
     }
     #curtain {
-      position: absolute; /* pas fixed — on le repositionne en JS */
+      position: fixed;
       top: 0;
       left: 0;
       right: 0;
       height: 59px;
       background: red;
       z-index: 9999;
+    }
+    /* Log visible en permanence juste sous le rideau */
+    #log {
+      position: fixed;
+      top: 62px;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.92);
+      border-bottom: 1px solid #444;
+      padding: 0.4rem 1rem;
+      font-size: 0.7rem;
+      color: yellow;
+      font-family: monospace;
+      z-index: 9998;
+      line-height: 1.5;
     }
     .item {
       padding: 1.5rem;
@@ -38,23 +53,15 @@
       border-radius: 8px;
       font-size: 1rem;
     }
-    #log {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: #111;
-      border-top: 1px solid #333;
-      padding: 0.5rem 1rem;
-      font-size: 0.75rem;
-      color: #aaa;
-      font-family: monospace;
-    }
   </style>
 </head>
 <body>
 
 <div id="curtain"></div>
+<div id="log">en attente...</div>
+
+<!-- padding pour le log fixe -->
+<div style="height: 2rem"></div>
 
 <div class="item">Ligne 1 — scroll vers le bas</div>
 <div class="item">Ligne 2</div>
@@ -78,28 +85,29 @@
 <div class="item">Ligne 19</div>
 <div class="item">Ligne 20 — fin</div>
 
-<div id="log">vp.offsetTop: — | scrollY: —</div>
-
 <script>
-  const log = document.getElementById('log');
+  const log     = document.getElementById('log');
   const curtain = document.getElementById('curtain');
-  const vv = window.visualViewport;
+  const vv      = window.visualViewport;
 
-  function pinCurtain() {
+  function update(label) {
     if (!vv) return;
-    curtain.style.top = (window.scrollY + vv.offsetTop) + 'px';
-    log.textContent =
+    const cTop = curtain.getBoundingClientRect().top;
+    log.innerHTML =
+      '<b>' + label + '</b><br>' +
       'offsetTop: ' + vv.offsetTop.toFixed(1) +
       ' | scrollY: ' + window.scrollY.toFixed(1) +
-      ' | curtain: ' + curtain.getBoundingClientRect().top.toFixed(1);
+      ' | vv.height: ' + vv.height.toFixed(0) +
+      '<br>curtain.top (bounding): ' + cTop.toFixed(1);
   }
 
-  window.addEventListener('scroll', pinCurtain, { passive: true });
+  // Position: fixed sans aucun JS de pin — juste pour observer les valeurs
+  window.addEventListener('scroll',   () => update('window.scroll'),   { passive: true });
   if (vv) {
-    vv.addEventListener('scroll', pinCurtain, { passive: true });
-    vv.addEventListener('resize', pinCurtain, { passive: true });
+    vv.addEventListener('scroll',  () => update('vv.scroll'),  { passive: true });
+    vv.addEventListener('resize',  () => update('vv.resize'),  { passive: true });
   }
-  pinCurtain();
+  update('init');
 </script>
 </body>
 </html>
