@@ -17,6 +17,7 @@
   <style>
     html { background: #0f0f0f; }
     :root {
+      --safe-top: env(safe-area-inset-top, 0px);
       --bg:      #0f0f0f;
       --surface: #1a1a1a;
       --border:  #2e2e2e;
@@ -1224,7 +1225,14 @@
       // Rideau status bar iOS — 59px couvre Dynamic Island, notch et caméra
       if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
         document.documentElement.style.setProperty('--safe-top', '59px');
-
+        if (window.visualViewport) {
+          const curtain = document.getElementById('status-curtain');
+          const pinCurtain = () => {
+            curtain.style.top = window.visualViewport.offsetTop + 'px';
+          };
+          window.visualViewport.addEventListener('scroll', pinCurtain, { passive: true });
+          window.visualViewport.addEventListener('resize', pinCurtain, { passive: true });
+        }
       }
 
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
