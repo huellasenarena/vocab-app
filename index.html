@@ -390,8 +390,8 @@
     .word-chip:hover { border-color: var(--accent); background: var(--surface-hover, #2a2a2a); }
     #btn-hide-words {
       font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted);
-      background: transparent; border: 1px solid var(--border); border-radius: 20px;
-      padding: 0.2rem 0.7rem; cursor: pointer; align-self: flex-end;
+      background: transparent; border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.75rem 1rem; cursor: pointer; white-space: nowrap; flex-shrink: 0;
       transition: color 0.2s, border-color 0.2s;
     }
     #btn-hide-words.active { color: var(--accent); border-color: var(--accent); }
@@ -934,9 +934,6 @@
         oninput="onSliderChange(this.value)" />
     </div>
 
-    <!-- Bouton cacher les mots -->
-    <button id="btn-hide-words" onclick="toggleWordsHidden()">👁 Cacher</button>
-
     <!-- Mot unique -->
     <div id="single-word-card" class="word-card" onclick="singleCardHint()" style="cursor:pointer">
       <span class="word-label">mot du jour</span>
@@ -962,6 +959,7 @@
 
     <!-- Bouton suivant -->
     <div class="action-row">
+      <button id="btn-hide-words" onclick="toggleWordsHidden()">👁 Cacher</button>
       <button class="btn-primary" id="btn-next" onclick="nextWord()">Autre mot →</button>
     </div>
 
