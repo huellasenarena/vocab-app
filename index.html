@@ -388,6 +388,15 @@
     }
     .word-chip { font-family: 'Lora', Georgia, serif; }
     .word-chip:hover { border-color: var(--accent); background: var(--surface-hover, #2a2a2a); }
+    #btn-hide-words {
+      font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted);
+      background: transparent; border: 1px solid var(--border); border-radius: 20px;
+      padding: 0.2rem 0.7rem; cursor: pointer; align-self: flex-end;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    #btn-hide-words.active { color: var(--accent); border-color: var(--accent); }
+    .words-hidden .word-main,
+    .words-hidden .chip-word { filter: blur(7px); user-select: none; }
     .word-chip:active { opacity: 0.75; }
     .word-card { cursor: pointer; transition: border-color 0.15s; }
     .word-card:hover { border-color: var(--accent); }
@@ -925,6 +934,9 @@
         oninput="onSliderChange(this.value)" />
     </div>
 
+    <!-- Bouton cacher les mots -->
+    <button id="btn-hide-words" onclick="toggleWordsHidden()">👁 Cacher</button>
+
     <!-- Mot unique -->
     <div id="single-word-card" class="word-card" onclick="singleCardHint()" style="cursor:pointer">
       <span class="word-label">mot du jour</span>
@@ -1137,6 +1149,7 @@
     let grammarForms        = [];   // liste aplatie des formes grammaticales espagnoles
     let grammarFormsEnabled = localStorage.getItem(KEY_GRAMMAR) !== 'false'; // true par défaut
     let jeNeSaisPasWord     = null; // mot en attente de confirmation "Je ne sais pas"
+    let wordsHidden         = false;
     let sessionFirstResult = {}; // { word.toLowerCase(): true/false } — premier résultat de la session
     let todayNewCount      = 0;  // nouveaux mots pratiqués aujourd'hui (chargé depuis Sheets)
     let sessionNewPracticed = new Set(); // nouveaux mots pratiqués dans cette session (pour éviter double-comptage)
@@ -1770,6 +1783,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('related-chips').innerHTML      = '';
       document.getElementById('image-vocab-box').classList.remove('visible');
       document.getElementById('image-vocab-chips').innerHTML  = '';
+      // Reset words hidden
+      wordsHidden = false;
+      document.getElementById('vocab-section').classList.remove('words-hidden');
+      const btnHide = document.getElementById('btn-hide-words');
+      if (btnHide) { btnHide.classList.remove('active'); btnHide.textContent = '👁 Cacher'; }
       // Situation
       document.getElementById('situation-box').style.display           = 'none';
       document.getElementById('situation-answer-section').style.display = 'none';
@@ -2185,6 +2203,14 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('sentence-input').disabled = true;
     }
 
+    function toggleWordsHidden() {
+      wordsHidden = !wordsHidden;
+      document.getElementById('vocab-section').classList.toggle('words-hidden', wordsHidden);
+      const btn = document.getElementById('btn-hide-words');
+      btn.classList.toggle('active', wordsHidden);
+      btn.textContent = wordsHidden ? '👁 Montrer' : '👁 Cacher';
+    }
+
     function cancelJeNeSaisPas() {
       jeNeSaisPasWord = null;
       document.getElementById('confirm-panel').classList.remove('visible');
@@ -2231,7 +2257,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       let stoppedAtTop = false;
       const PAD_BOT = 48;
       const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
-      const PAD_TOP = safeTop + 8;
+      const PAD_TOP = safeTop + 20;
       // topTarget : position de scroll où le haut de la boîte touche le bas du rideau status bar
       const topTarget = box.getBoundingClientRect().top + window.scrollY - PAD_TOP;
       function stop() { active = false; }
@@ -3377,8 +3403,10 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
         trackTokens(data.usage);
-        if (!data.output_text) throw new Error('Réponse vide — réessaie (limite de tokens atteinte)');
-        return data.output_text.trim();
+        const text = data.output_text
+          ?? (data.output ?? []).filter(o => o.type === 'message').flatMap(o => o.content ?? []).filter(c => c.type === 'output_text').map(c => c.text ?? '').join('');
+        if (!text) throw new Error('Réponse vide — réessaie');
+        return text.trim();
       } catch (err) {
         if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
         throw err;
@@ -3409,8 +3437,10 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
         trackTokens(data.usage);
-        if (!data.output_text) throw new Error('Réponse vide — réessaie (limite de tokens atteinte)');
-        return data.output_text.trim();
+        const text = data.output_text
+          ?? (data.output ?? []).filter(o => o.type === 'message').flatMap(o => o.content ?? []).filter(c => c.type === 'output_text').map(c => c.text ?? '').join('');
+        if (!text) throw new Error('Réponse vide — réessaie');
+        return text.trim();
       } catch (err) {
         if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
         throw err;
