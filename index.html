@@ -2229,7 +2229,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     function startAutoScroll(box, spacer) {
       let active = true;
       let stoppedAtTop = false;
-      const PAD_BOT = 16;
+      const PAD_BOT = 48;
       const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
       const PAD_TOP = safeTop + 8;
       // topTarget : position de scroll où le haut de la boîte touche le bas du rideau status bar
