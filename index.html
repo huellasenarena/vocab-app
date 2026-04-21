@@ -1228,7 +1228,7 @@
         if (window.visualViewport) {
           const curtain = document.getElementById('status-curtain');
           const pinCurtain = () => {
-            curtain.style.top = window.visualViewport.offsetTop + 'px';
+            curtain.style.top = Math.max(0, window.visualViewport.offsetTop) + 'px';
           };
           window.visualViewport.addEventListener('scroll', pinCurtain, { passive: true });
           window.visualViewport.addEventListener('resize', pinCurtain, { passive: true });
