@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Curtain Test</title>
+  <title>Mask Test</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { background: #0f0f0f; }
@@ -12,31 +12,12 @@
       color: #fff;
       font-family: sans-serif;
       padding-top: 59px;
-    }
-    #curtain {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 59px;
-      background: red;
-      z-index: 9999;
-      will-change: transform;
-    }
-    /* Log visible en permanence juste sous le rideau */
-    #log {
-      position: fixed;
-      top: 62px;
-      left: 0;
-      right: 0;
-      background: rgba(0, 0, 0, 0.92);
-      border-bottom: 1px solid #444;
-      padding: 0.4rem 1rem;
-      font-size: 0.7rem;
-      color: yellow;
-      font-family: monospace;
-      z-index: 9998;
-      line-height: 1.5;
+
+      /* Masque CSS fixe au viewport — zone 0-59px devient invisible */
+      -webkit-mask-image: linear-gradient(to bottom, transparent 59px, black 59px);
+      mask-image:         linear-gradient(to bottom, transparent 59px, black 59px);
+      -webkit-mask-attachment: fixed;
+      mask-attachment:         fixed;
     }
     .item {
       padding: 1.5rem;
@@ -57,12 +38,6 @@
   </style>
 </head>
 <body>
-
-<div id="curtain"></div>
-<div id="log">en attente...</div>
-
-<!-- padding pour le log fixe -->
-<div style="height: 2rem"></div>
 
 <div class="item">Ligne 1 — scroll vers le bas</div>
 <div class="item">Ligne 2</div>
@@ -86,53 +61,5 @@
 <div class="item">Ligne 19</div>
 <div class="item">Ligne 20 — fin</div>
 
-<script>
-  const log     = document.getElementById('log');
-  const curtain = document.getElementById('curtain');
-  const vv      = window.visualViewport;
-
-  function update(label) {
-    if (!vv) return;
-    const cTop = curtain.getBoundingClientRect().top;
-    log.innerHTML =
-      '<b>' + label + '</b><br>' +
-      'offsetTop: ' + vv.offsetTop.toFixed(1) +
-      ' | scrollY: ' + window.scrollY.toFixed(1) +
-      ' | vv.height: ' + vv.height.toFixed(0) +
-      '<br>curtain.top (bounding): ' + cTop.toFixed(1);
-  }
-
-  const initVVH = vv ? vv.height : window.innerHeight;
-  let kbOpen = false;
-
-  const pinCurtain = () => {
-    curtain.style.transform = 'translateY(' + Math.max(0, vv.offsetTop) + 'px)';
-  };
-
-  const resetCurtain = () => {
-    curtain.style.transform = 'translateY(0px)';
-  };
-
-  if (vv) {
-    vv.addEventListener('resize', () => {
-      const wasOpen = kbOpen;
-      kbOpen = (initVVH - vv.height) > 100;
-      if (kbOpen) {
-        pinCurtain();
-      } else if (wasOpen) {
-        resetCurtain(); // clavier fermé → reset
-      }
-      update('vv.resize kbOpen=' + kbOpen);
-    }, { passive: true });
-
-    vv.addEventListener('scroll', () => {
-      if (kbOpen) pinCurtain(); // pin uniquement si clavier ouvert
-      update('vv.scroll kbOpen=' + kbOpen);
-    }, { passive: true });
-  }
-
-  window.addEventListener('scroll', () => update('window.scroll'), { passive: true });
-  update('init');
-</script>
 </body>
 </html>
