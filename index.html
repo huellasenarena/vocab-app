@@ -1659,7 +1659,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 [{"word": "...", "note": "breve explicación en español"}]`;
 
       try {
-        const result = await callAIVision(currentPhotoUrl, prompt, 1200);
+        const result = await callAIVision(currentPhotoUrl, prompt, isGemini() ? 1200 : 16000);
 
         // Split vocab JSON from main analysis
         const vocabMatch = result.match(/##\s*Vocabulario sugerido[\s\S]*?(\[[\s\S]*?\])/);
@@ -2475,7 +2475,7 @@ Respond entirely in ${feedbackLang}.`;
           spacer.style.display = '';
         }
 
-        const evalMaxTokens = isGemini() ? 2000 + currentWords.length * 400 : 2000 + currentWords.length * 300;
+        const evalMaxTokens = isGemini() ? 2000 + currentWords.length * 400 : 16000;
         const scroller = startAutoScroll(feedbackBox, spacer);
         const reply = await callAIStream(prompt, fullText => {
           feedbackText.innerHTML = renderMarkdown(stripVerdictLines(fullText));
@@ -2662,7 +2662,7 @@ Write all scenarios in ${langName}.`;
 
       try {
         // GPT-5.4 : 2000 min (reasoning ~1024 + texte) ; Gemini : 1500 (4 scénarios longs)
-        const reply = await callAI(prompt, isGemini() ? 1500 : 3500);
+        const reply = await callAI(prompt, isGemini() ? 1500 : 16000);
         // Extrait le JSON — enlève les blocs markdown éventuels, puis cherche [{…}]
         const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
         const jsonStart = stripped.search(/\[\s*\{/);
