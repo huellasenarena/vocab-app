@@ -427,11 +427,7 @@
       font-weight: 600;
       color: var(--accent);
       flex: 1;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      line-height: 1.3;
+      line-height: 1.4;
     }
     #sticky-hide-btn {
       background: transparent;
@@ -998,8 +994,6 @@
 
     <!-- Multi-mots chips -->
     <div id="multi-word-chips" class="words-chips" style="display:none;"></div>
-    <!-- Sentinel pour la barre sticky -->
-    <div id="words-sentinel" style="height:0;overflow:hidden"></div>
 
     <!-- Confirmation "Je ne sais pas" -->
     <div class="confirm-panel" id="confirm-panel">
@@ -1231,17 +1225,6 @@
       if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
         document.documentElement.style.setProperty('--safe-top', '59px');
 
-        if (window.visualViewport) {
-          const curtain = document.getElementById('status-curtain');
-          const pinCurtain = () => {
-            const vv = window.visualViewport;
-            // Compenser uniquement quand le clavier est ouvert (viewport < 75% hauteur écran)
-            const keyboardOpen = vv.height < window.screen.height * 0.75;
-            curtain.style.top = (keyboardOpen && vv.offsetTop > 0) ? vv.offsetTop + 'px' : '0px';
-          };
-          window.visualViewport.addEventListener('scroll', pinCurtain, { passive: true });
-          window.visualViewport.addEventListener('resize', pinCurtain, { passive: true });
-        }
       }
 
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
@@ -1290,16 +1273,19 @@
 
     // ── Barre sticky mots ─────────────────────────────────────
     const _stickyBar = document.getElementById('sticky-words-bar');
-    const _wordsSentinel = document.getElementById('words-sentinel');
+    const _safeTop = () => parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
+
     function _updateStickyVisibility() {
       if (!currentWords.length || practiceMode === 'image') {
         _stickyBar.classList.remove('visible'); return;
       }
-      const rect = _wordsSentinel.getBoundingClientRect();
-      const vvHeight = (window.visualViewport || window).height || window.innerHeight;
-      // Sentinel au-dessus du viewport (scroll normal) OU au-dessus du clavier (clavier ouvert)
-      const show = rect.bottom < 0 || rect.bottom > vvHeight;
-      _stickyBar.classList.toggle('visible', show);
+      const wordEl = currentWords.length === 1
+        ? document.getElementById('single-word-card')
+        : document.getElementById('multi-word-chips');
+      if (!wordEl || wordEl.style.display === 'none') {
+        _stickyBar.classList.remove('visible'); return;
+      }
+      _stickyBar.classList.toggle('visible', wordEl.getBoundingClientRect().top <= _safeTop());
     }
 
     window.addEventListener('scroll', _updateStickyVisibility, { passive: true });
