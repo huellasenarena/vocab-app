@@ -124,7 +124,8 @@ Fonctions : `updateReasoningUI()` (peuple le select selon `currentModel`), `setR
 - Gemini Flash : `todayGeminiFlashRequests` → affiché `X / 20 req`
 - Gemini Flash Lite : `todayGeminiFlashLiteRequests` → affiché `X / 500 req`
 - `trackTokens(usage)` pour GPT, `trackGeminiRequest()` pour Google (s'auto-route selon `currentModel`)
-- Les deux appellent `saveTodayTokensDebounced()` (debounce 2s) — pas `saveTodayTokens()` directement — pour éviter la race condition read-modify-write quand deux appels API se terminent quasi-simultanément
+- Les deux appellent `saveTodayTokensDebounced()` (debounce 2s) — pas `saveTodayTokens()` directement
+- **Multi-appareils** : `saveTodayTokens()` utilise une approche delta — lit la valeur actuelle dans Sheets, ajoute uniquement le delta de cette session (`local - baseline`), évite l'écrasement entre appareils. Variables baseline : `baseInputTokens`, `baseOutputTokens`, `baseGemmaRequests`, `baseGeminiFlashRequests`, `baseGeminiFlashLiteRequests` — initialisées dans `loadTodayTokens()`, resynchronisées après chaque sauvegarde réussie.
 
 ### Déploiement
 ```bash
@@ -175,6 +176,11 @@ let todayOutputTokens            = 0;  // tokens output GPT aujourd'hui
 let todayGemmaRequests           = 0;  // requêtes Gemma 4 31B aujourd'hui
 let todayGeminiFlashRequests     = 0;  // requêtes Gemini 3 Flash aujourd'hui
 let todayGeminiFlashLiteRequests = 0;  // requêtes Gemini 3.1 Flash Lite aujourd'hui
+let baseInputTokens              = 0;  // valeur Sheets au chargement (delta multi-appareils)
+let baseOutputTokens             = 0;
+let baseGemmaRequests            = 0;
+let baseGeminiFlashRequests      = 0;
+let baseGeminiFlashLiteRequests  = 0;
 let currentModel        = 'gpt4';  // 'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'
 let gptEffort           = 'low';   // 'none'|'low'|'medium'|'high' — localStorage KEY_GPT_EFFORT
 let geminiThinkingLevel = 'none';  // 'none'|'minimal'|'low'|'medium'|'high' — localStorage KEY_GEMINI_THINKING
@@ -282,7 +288,7 @@ Règles importantes dans le prompt :
 
 ### QCM
 4 scénarios courts (1-2 phrases) — 1 correct, 3 distracteurs plausibles. Le mot cible **ne doit pas apparaître** dans aucun des scénarios. Mélangé côté JS (Fisher-Yates).
-- `maxTokens` : `isGemini() ? 1500 : 2000`
+- `maxTokens` : `isGemini() ? 1500 : 3500` (GPT augmenté à 3500 : ~1024 reasoning + JSON QCM)
 - JSON extraction : strip markdown ` ``` `, puis recherche `[\s*{` → dernier `]` (évite faux match si texte avant)
 - Scroll immédiat vers la section QCM dès le clic (avant réponse API)
 
@@ -342,26 +348,31 @@ Après toute erreur API, un bouton `↺ Réessayer` est injecté dans la zone d'
 - `fetchHint` → rappelle `fetchHint(word)`
 - `generateSituation` → rappelle `generateSituation(word)`
 
-### Bouton hint / "Je ne sais pas" (`updateHintButton`)
-`updateHintButton()` centralise le label et la visibilité du bouton hint selon le contexte :
-- **Mode espacé, mot nouveau** : "💡 Définition"
-- **Mode espacé, mot à réviser (avant soumission)** : "🤔 Je ne sais pas ?"
-- **Mode espacé, mix** : "💡 Définition / QCM"
-- **Après soumission / autres modes** : "💡 Définition"
+### Chips cliquables (définition / QCM)
+Le bouton "Définition" a été supprimé. Les mots sont directement cliquables :
+- **Mot nouveau** (card unique ou chip) → `fetchHint(word)` directement, sans confirmation
+- **Mot à réviser** (mode espacé, avant soumission) → `showJeNeSaisPas(word)` → panneau de confirmation
+
+Fonctions :
+- `singleCardHint()` — onclick de `#single-word-card`, lit `currentWords[0]`
+- `chipHint(word)` — onclick de chaque chip multi-mots, route selon `isNewWord()`
+
+### Couleurs des mots
+- **Nouveau** : `var(--accent)` (or) — `.chip-word` par défaut, `#current-word` par défaut
+- **À réviser** : `var(--text)` (blanc neutre) — classe `chip-review` sur les chips, classe `card-review` sur `#single-word-card`
 
 ### "Je ne sais pas" (mots à réviser)
-- Appuyer le bouton → panneau de confirmation inline (textarea bloqué)
+- Cliquer le mot → panneau de confirmation affiché **juste sous les chips/card** (dans `#vocab-section`, après `#multi-word-chips`), textarea bloqué
 - Confirmer → `saveProgress(word, false)` + `startQCM(word)`
 - Annuler → retour normal
-- En mode multi-mots : chips des mots à réviser affichées en doré, dropdown avec routing (new→définition, review→QCM)
 - `jeNeSaisPasWord` stocke le mot en attente de confirmation
 
 ### QCM
-- Proposé après ✗ ou via "Je ne sais pas"
+- Proposé après ✗ ou via "Je ne sais pas" (clic sur mot à réviser)
 - 4 scénarios sans le mot cible — identifie la situation correcte
 - Scroll immédiat vers la section QCM + spinner dès le clic (avant réponse API)
 - QCM incorrect → `saveProgress(word, false)` supplémentaire
-- Appel non-streaming via `callAI(prompt, isGemini() ? 1500 : 2000)`
+- Appel non-streaming via `callAI(prompt, isGemini() ? 1500 : 3500)`
 
 ### Formes grammaticales (Español uniquement)
 - Chargées depuis `GRAMMAR_SHEET_ID`, onglet `Spanish`, au choix de la langue espagnole
@@ -382,9 +393,11 @@ Après toute erreur API, un bouton `↺ Réessayer` est injecté dans la zone d'
 - Le bouton Vérifier est intégré **dans** le textarea (coin bas-droit), style iMessage — toujours visible même clavier ouvert sur iPhone
 - Structure HTML : `<div class="textarea-wrap">` contient le textarea + `<button class="btn-submit-inline" id="btn-submit">`
 - CSS : `.textarea-wrap` en `position: relative`, bouton en `position: absolute; bottom: 0.6rem; right: 0.6rem`, rond (2.4rem), fond `var(--accent)`
+- `.textarea-wrap` : `border-radius: 12px` (cohérent avec les autres boîtes)
 - Textarea : `padding-bottom: 3.2rem; overflow: hidden` pour laisser l'espace visuel sans scrollbar
 - `.textarea-wrap` a `-webkit-transform: translateZ(0)` pour forcer le clipping sur iOS Safari
 - Icône : `↑` au repos, `<span class="spinner"></span>` pendant le chargement
+- **Auto-resize + scroll** : `autoResizeTextarea()` ajuste la hauteur via `scrollHeight`, puis scrolle avec `window.scrollBy` si le bas du textarea dépasse `visualViewport.height - 8` (fonctionne iPhone clavier ouvert + Mac)
 
 ### iOS — Status bar et safe area
 - `viewport-fit=cover` dans le meta viewport → le contenu peut passer derrière la status bar
@@ -481,9 +494,13 @@ const LANGS = [
 
 ### Modifier l'app (`index.html`)
 1. Modifier `~/Desktop/vocab-app/index.html`
-2. Tester localement (ouvrir dans Safari)
-3. `git add index.html && git commit -m "..." && git push origin main`
-4. GitHub Actions déploie en ~1 minute sur `gh-pages`
+2. **Vérifier la syntaxe JS** avant tout push :
+   ```bash
+   node -e "const fs=require('fs'),html=fs.readFileSync('index.html','utf8'),m=html.match(/<script>([\s\S]*?)<\/script>/);fs.writeFileSync('/tmp/check.js',m[1]);" && node --check /tmp/check.js && echo "OK"
+   ```
+3. Tester localement (ouvrir dans Safari)
+4. `git add index.html && git commit -m "..." && git push origin main`
+5. GitHub Actions déploie en ~1 minute sur `gh-pages`
 
 **Ne jamais modifier directement la branche `gh-pages`.**
 
