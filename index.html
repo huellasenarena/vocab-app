@@ -1144,11 +1144,6 @@
     let todayGemmaRequests           = 0;
     let todayGeminiFlashRequests     = 0;
     let todayGeminiFlashLiteRequests = 0;
-    let baseInputTokens        = 0;
-    let baseOutputTokens       = 0;
-    let baseGemmaRequests           = 0;
-    let baseGeminiFlashRequests     = 0;
-    let baseGeminiFlashLiteRequests = 0;
     let showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
     let currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4'; // 'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'
     let gptEffort           = localStorage.getItem(KEY_GPT_EFFORT)      || 'low';     // 'none'|'low'|'medium'|'high'
@@ -1388,54 +1383,54 @@
       try {
         const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:F`);
         const rows = (data.values || []).slice(1);
-        const todayPT = todayStrPT();
-        const row = rows.find(r => r[0] === todayPT);
-        todayInputTokens             = row ? (parseInt(row[1]) || 0) : 0;
-        todayOutputTokens            = row ? (parseInt(row[2]) || 0) : 0;
-        todayGemmaRequests           = row ? (parseInt(row[3]) || 0) : 0;
-        todayGeminiFlashRequests     = row ? (parseInt(row[4]) || 0) : 0;
-        todayGeminiFlashLiteRequests = row ? (parseInt(row[5]) || 0) : 0;
-        baseInputTokens             = todayInputTokens;
-        baseOutputTokens            = todayOutputTokens;
-        baseGemmaRequests           = todayGemmaRequests;
-        baseGeminiFlashRequests     = todayGeminiFlashRequests;
-        baseGeminiFlashLiteRequests = todayGeminiFlashLiteRequests;
+        const utcRow = rows.find(r => r[0] === todayStr());
+        const ptRow  = rows.find(r => r[0] === todayStrPT());
+        todayInputTokens             = utcRow ? (parseInt(utcRow[1]) || 0) : 0;
+        todayOutputTokens            = utcRow ? (parseInt(utcRow[2]) || 0) : 0;
+        todayGemmaRequests           = ptRow  ? (parseInt(ptRow[3])  || 0) : 0;
+        todayGeminiFlashRequests     = ptRow  ? (parseInt(ptRow[4])  || 0) : 0;
+        todayGeminiFlashLiteRequests = ptRow  ? (parseInt(ptRow[5])  || 0) : 0;
         updateTokenDisplay();
       } catch (e) {
         todayInputTokens = todayOutputTokens = todayGemmaRequests = todayGeminiFlashRequests = todayGeminiFlashLiteRequests = 0;
-        baseInputTokens = baseOutputTokens = baseGemmaRequests = baseGeminiFlashRequests = baseGeminiFlashLiteRequests = 0;
       }
     }
 
     async function saveTodayTokens() {
-      const todayPT = todayStrPT();
+      const utcDate = todayStr();
+      const ptDate  = todayStrPT();
       try {
         const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:F`);
         const rows = (data.values || []).slice(1);
-        const idx  = rows.findIndex(r => r[0] === todayPT);
-        // Lire valeurs actuelles dans Sheets pour faire un delta (multi-appareils)
-        const sheetRow   = idx >= 0 ? rows[idx] : null;
-        const sInput     = sheetRow ? (parseInt(sheetRow[1]) || 0) : 0;
-        const sOutput    = sheetRow ? (parseInt(sheetRow[2]) || 0) : 0;
-        const sGemma     = sheetRow ? (parseInt(sheetRow[3]) || 0) : 0;
-        const sFlash     = sheetRow ? (parseInt(sheetRow[4]) || 0) : 0;
-        const sFlashLite = sheetRow ? (parseInt(sheetRow[5]) || 0) : 0;
-        const nInput     = sInput  + (todayInputTokens        - baseInputTokens);
-        const nOutput    = sOutput + (todayOutputTokens       - baseOutputTokens);
-        const nGemma     = sGemma  + (todayGemmaRequests      - baseGemmaRequests);
-        const nFlash     = sFlash  + (todayGeminiFlashRequests - baseGeminiFlashRequests);
-        const nFlashLite = sFlashLite + (todayGeminiFlashLiteRequests - baseGeminiFlashLiteRequests);
-        // Resync local + baselines avec la valeur réelle cross-appareils
-        todayInputTokens = nInput; todayOutputTokens = nOutput;
-        todayGemmaRequests = nGemma; todayGeminiFlashRequests = nFlash; todayGeminiFlashLiteRequests = nFlashLite;
-        baseInputTokens = nInput; baseOutputTokens = nOutput;
-        baseGemmaRequests = nGemma; baseGeminiFlashRequests = nFlash; baseGeminiFlashLiteRequests = nFlashLite;
-        if (idx >= 0) {
-          const range = encodeURIComponent(`Tokens!B${idx + 2}:F${idx + 2}`);
-          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[nInput, nOutput, nGemma, nFlash, nFlashLite]] });
+
+        if (utcDate === ptDate) {
+          // Cas normal : une seule ligne pour tout
+          const idx = rows.findIndex(r => r[0] === utcDate);
+          if (idx >= 0) {
+            const range = encodeURIComponent(`Tokens!B${idx + 2}:F${idx + 2}`);
+            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[todayInputTokens, todayOutputTokens, todayGemmaRequests, todayGeminiFlashRequests, todayGeminiFlashLiteRequests]] });
+          } else {
+            const range = encodeURIComponent('Tokens!A:F');
+            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[utcDate, todayInputTokens, todayOutputTokens, todayGemmaRequests, todayGeminiFlashRequests, todayGeminiFlashLiteRequests]] });
+          }
         } else {
-          const range = encodeURIComponent('Tokens!A:F');
-          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[todayPT, nInput, nOutput, nGemma, nFlash, nFlashLite]] });
+          // Fenêtre de transition (minuit UTC → minuit PT) : deux lignes distinctes
+          const utcIdx = rows.findIndex(r => r[0] === utcDate);
+          if (utcIdx >= 0) {
+            const range = encodeURIComponent(`Tokens!B${utcIdx + 2}:C${utcIdx + 2}`);
+            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[todayInputTokens, todayOutputTokens]] });
+          } else {
+            const range = encodeURIComponent('Tokens!A:F');
+            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[utcDate, todayInputTokens, todayOutputTokens, '', '', '']] });
+          }
+          const ptIdx = rows.findIndex(r => r[0] === ptDate);
+          if (ptIdx >= 0) {
+            const range = encodeURIComponent(`Tokens!D${ptIdx + 2}:F${ptIdx + 2}`);
+            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[todayGemmaRequests, todayGeminiFlashRequests, todayGeminiFlashLiteRequests]] });
+          } else {
+            const range = encodeURIComponent('Tokens!A:F');
+            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[ptDate, '', '', todayGemmaRequests, todayGeminiFlashRequests, todayGeminiFlashLiteRequests]] });
+          }
         }
         updateTokenDisplay();
       } catch (e) {
