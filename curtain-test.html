@@ -2,30 +2,35 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Clip Test</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* html + body : hauteur exacte du viewport dynamique, pas de scroll window */
-    html {
-      height: 100dvh;
-      overflow: hidden;
-      background: #0f0f0f;
-    }
-    body {
+    html, body {
       height: 100%;
       overflow: hidden;
-      /* padding-top pousse le contenu sous la status bar */
-      padding-top: env(safe-area-inset-top, 59px);
       background: #0f0f0f;
       color: #fff;
       font-family: sans-serif;
     }
 
-    /* Scroll interne — le contenu ne peut PAS sortir au-dessus de ce div */
+    /* Rideau status bar — window.scrollY reste toujours 0
+       donc position:fixed fonctionne parfaitement */
+    #curtain {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--safe-top, 59px);
+      background: red;
+      z-index: 9999;
+    }
+
+    /* Zone scrollable entre le rideau et l'input */
     #scroll {
-      height: 100%;
+      position: fixed;
+      top: var(--safe-top, 59px);
+      left: 0; right: 0;
+      bottom: var(--input-h, 64px);
       overflow-y: scroll;
       -webkit-overflow-scrolling: touch;
     }
@@ -35,12 +40,24 @@
       border-bottom: 1px solid #333;
       font-size: 1.1rem;
     }
-    input {
-      display: block;
-      width: calc(100% - 3rem);
-      margin: 1.5rem;
-      padding: 1rem;
+
+    /* Input fixé en bas — JS ajuste bottom selon hauteur clavier */
+    #input-area {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: var(--input-h, 64px);
       background: #1a1a1a;
+      border-top: 1px solid #333;
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+      transition: bottom 0.05s linear;
+    }
+
+    #input-area input {
+      flex: 1;
+      padding: 0.7rem 1rem;
+      background: #2a2a2a;
       color: #fff;
       border: 1px solid #444;
       border-radius: 8px;
@@ -49,6 +66,9 @@
   </style>
 </head>
 <body>
+
+<div id="curtain"></div>
+
 <div id="scroll">
   <div class="item">Ligne 1 — scroll vers le bas</div>
   <div class="item">Ligne 2</div>
@@ -56,7 +76,6 @@
   <div class="item">Ligne 4</div>
   <div class="item">Ligne 5</div>
   <div class="item">Ligne 6</div>
-  <input type="text" placeholder="Tape ici pour ouvrir le clavier...">
   <div class="item">Ligne 7</div>
   <div class="item">Ligne 8</div>
   <div class="item">Ligne 9</div>
@@ -72,5 +91,31 @@
   <div class="item">Ligne 19</div>
   <div class="item">Ligne 20 — fin</div>
 </div>
+
+<div id="input-area">
+  <input type="text" placeholder="Tape ici pour ouvrir le clavier...">
+</div>
+
+<script>
+  // iOS : safe-top hardcodé
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+    document.documentElement.style.setProperty('--safe-top', '59px');
+  }
+
+  const inputArea = document.getElementById('input-area');
+  const scroll    = document.getElementById('scroll');
+  const INPUT_H   = 64; // px, correspond à --input-h
+
+  const vv = window.visualViewport;
+  if (vv) {
+    vv.addEventListener('resize', () => {
+      // Hauteur du clavier = hauteur window - offsetTop du visual viewport - hauteur visible
+      const kbHeight = window.innerHeight - vv.offsetTop - vv.height;
+      const bottom   = Math.max(0, kbHeight);
+      inputArea.style.bottom = bottom + 'px';
+      scroll.style.bottom    = (INPUT_H + bottom) + 'px';
+    }, { passive: true });
+  }
+</script>
 </body>
 </html>
