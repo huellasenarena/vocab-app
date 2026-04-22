@@ -402,10 +402,50 @@ Fonctions :
 
 ### iOS — Status bar et safe area
 - `viewport-fit=cover` dans le meta viewport → le contenu peut passer derrière la status bar
-- Au chargement : `--safe-top: 59px` hardcodé sur iOS via `navigator.userAgent` (couvre Dynamic Island, notch et caméra)
-- `body { padding-top: var(--safe-top, 0px) }` — espace initial sous la status bar
-- **Rideau** : `html { background: #0f0f0f }` (couvre la safe area au niveau du `<html>`) + `<div id="status-curtain">` réel (`position: fixed; top: 0; height: var(--safe-top); background: var(--bg); z-index: 9999`) — remplace l'ancien `body::before` qui ne fonctionnait pas avec `body { display: flex }` sur iOS Safari
-- **Réancrage rideau** : listeners `visualViewport scroll/resize` + `window scroll` → `curtain.style.top = visualViewport.offsetTop + 'px'` — corrige le bug iOS où le rideau glisse hors écran lors de l'ouverture du clavier
+- Au chargement : `--safe-top: 59px` hardcodé sur iOS via `navigator.userAgent` (couvre Dynamic Island, notch et caméra). `env(safe-area-inset-top)` non utilisé directement car résolution incorrecte dans certains contextes PWA.
+- `body { padding-top: var(--safe-top, 0px) }` — pousse le contenu sous la status bar
+- `html { background: var(--bg) }` — couvre la zone de rubber band (overscroll bounce au-dessus du body)
+
+#### Rideau `#status-curtain`
+`position: fixed; top: 0; left: 0; right: 0; height: var(--safe-top); background: var(--bg); z-index: 9999` — **CSS pur, aucun JS**.
+
+Pourquoi ça fonctionne : dans l'état stabilisé (clavier ouvert, animation terminée), `vv.offsetTop = 0` et `position: fixed; top: 0` est à la bonne position. Un bref glitch pendant l'animation du clavier est inévitable — comportement identique à ChatGPT PWA (iOS scrolle le window pendant l'animation, puis stabilise).
+
+**Approches abandonnées (toutes ont échoué en standalone PWA)** :
+- JS `curtain.style.top = vv.offsetTop + 'px'` → glitchy : overscroll bounce fait monter `vv.offsetTop` à 170+, rideau dérive au milieu de l'écran
+- `position: absolute; top = scrollY + offsetTop` → complètement faux : iOS auto-scroll met `scrollY ≈ 430`, rideau au milieu
+- `mask-attachment: fixed` → non supporté iOS Safari, contenu non coupé
+- `html { overflow: hidden; height: 100dvh }` → iOS contourne via autoscroll window sur focus input
+- `interactive-widget=resizes-content` dans le viewport meta → sans effet en standalone
+- Layout fixed-bottom (textarea fixé en bas, window ne scrolle jamais) → rejeté par l'utilisateur (incompatible avec le layout de l'app)
+
+**Note conceptuelle** : en iOS PWA standalone, iOS auto-scrolle `window` lors du focus input pour montrer l'élément au-dessus du clavier — aucune contrainte CSS (`overflow: hidden`, `height: 100dvh`) ne l'en empêche. La seule stratégie fiable est d'accepter ce scroll et de se fier au rideau CSS pur dans l'état stabilisé.
+
+### iOS — Barre sticky mots (`#sticky-words-bar`)
+Apparaît quand le mot courant défile derrière la zone status bar — affiche le mot en compact dans le header.
+
+```css
+#sticky-words-bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(var(--safe-top, 0px) + 0.55rem) 1.5rem 0.55rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  z-index: 500;  /* sous le rideau (9999) */
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+#sticky-words-bar.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+```
+
+- `top: 0` (pas `top: var(--safe-top)`) avec `padding-top: calc(var(--safe-top) + ...)` → la barre couvre la zone status bar (0 à safe-top) et affiche le mot juste en dessous. Ancien `top: var(--safe-top)` laissait le mot visible à travers la status bar transparente.
+- Visibilité pilotée par `_updateStickyVisibility()` : compare le rect du mot avec `safeTop + 10`
+- Listeners : `window scroll` + `visualViewport scroll/resize` + **`setTimeout(200ms)` et `setTimeout(500ms)` après `vv.resize`** — nécessaire car `vv.resize` fire avant que l'autoscroll iOS ne repositionne la page ; les timeouts captent la position finale post-clavier
 
 ### iOS — Autoscroll au focus textarea
 Au focus sur le textarea (`sentence-input`), le clavier iOS s'ouvre et la page doit scroller pour que le textarea soit visible juste au-dessus du clavier :
