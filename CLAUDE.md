@@ -505,10 +505,12 @@ L'onglet `History` est un journal pur (une ligne par tentative). `Progress` gard
    - `force=true` en paramètre POST → bypass la vérification de similarité, ajoute directement
    - Le raccourci iPhone gère la réponse `SIMILAR:` : affiche une alerte de confirmation, puis rappelle avec `&force=true` si l'utilisateur confirme
 
-3. **kindle_import.py** : Script Python d'import Kindle → Google Sheets. Utilise l'API Sheets v4 directement (OAuth2, `credentials.json` + `token.json`) — pas d'Apps Script. Lit `vocab.db` et `My Clippings.txt`. Logique de déduplication :
-   - Doublons exacts → ignorés silencieusement
-   - Similarité contre Sheets existants (substring ou même mot après suppression d'article) → question interactive, même logique que `areSimilar()` dans l'Apps Script
-   - `deduplicate_clips()` : déduplication inter-clips (doublons partiels + SequenceMatcher ≥ 0.80)
+3. **kindle_import.py** : Script Python d'import Kindle → Google Sheets. Passe par le Cloudflare Worker (`/sheets` + `X-Worker-Secret`) — plus d'OAuth2, plus de `credentials.json`/`token.json`. Lit `vocab.db` et `My Clippings.txt`. Logique de déduplication :
+   - Doublons exacts contre Sheets → ignorés silencieusement
+   - Similarité contre Sheets existants (substring ou même mot après suppression d'article) → menu interactif `i/n/d` : importer / ne pas importer / ignorer les deux (supprime le mot existant de Sheets via `sheets_clear()`)
+   - `deduplicate_clips()` : déduplication inter-clips (doublons partiels + SequenceMatcher ≥ 0.80) — menu `1/2/+/-` : garder [1] / garder [2] / garder les deux / ignorer les deux
+   - Revue paginée (10 mots/page) avant import final : saisir les numéros à exclure, `q` pour terminer la revue
+   - User-Agent navigateur requis dans les requêtes Worker (évite le 403 Cloudflare 1010)
 
 4. **Cloudflare Worker cold start** : Première requête après une longue inactivité peut être légèrement plus lente (~100-200ms). Normal.
 
