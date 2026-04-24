@@ -408,7 +408,8 @@
     #btn-hide-words.active { color: var(--accent); border-color: var(--accent); }
     .words-hidden .word-main,
     .words-hidden .chip-word,
-    .words-hidden #sticky-words-text { filter: blur(7px); user-select: none; }
+    .words-hidden #sticky-words-text,
+    .words-hidden .hint-word-in-label { filter: blur(7px); user-select: none; }
 
     /* ── Barre sticky mots ── */
     #sticky-words-bar {
@@ -2385,7 +2386,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const cacheKey   = `${word.toLowerCase()}|${currentLang}|${currentModel}`;
 
       // Met à jour le label et s'assure que la boîte est dépliée
-      document.getElementById('hint-box-label-text').textContent = `Définition — ${word}`;
+      document.getElementById('hint-box-label-text').innerHTML = `Définition — <span class="hint-word-in-label">${word.replace(/</g,'&lt;')}</span>`;
       hintBox.classList.remove('collapsed');
 
       // ── Cache hit : affichage instantané (valide 24h) ────────

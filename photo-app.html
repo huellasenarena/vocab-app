@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Décris la photo — Español</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      min-height: 100vh;
+    }
+
+    header {
+      background: white;
+      border-bottom: 1px solid #e5e5e5;
+      padding: 14px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 { font-size: 1.05rem; font-weight: 600; }
+
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 20px 16px 60px;
+    }
+
+    /* ── Photo ── */
+    .photo-wrap {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #ddd;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    .photo-wrap img {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: opacity 0.3s;
+    }
+
+    .photo-wrap img.loading { opacity: 0.4; }
+
+    .btn-new {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      background: rgba(0,0,0,0.55);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: background 0.2s;
+    }
+    .btn-new:hover { background: rgba(0,0,0,0.75); }
+
+    /* ── Input ── */
+    .instruction {
+      font-size: 0.88rem;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 110px;
+      border: 1.5px solid #ddd;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 1rem;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+      background: white;
+    }
+    textarea:focus { border-color: #007aff; }
+
+    .btn-analyze {
+      width: 100%;
+      margin-top: 10px;
+      background: #007aff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .btn-analyze:hover:not(:disabled) { background: #0066d6; }
+    .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Feedback ── */
+    .feedback-box {
+      margin-top: 18px;
+      background: white;
+      border-radius: 12px;
+      padding: 18px 16px;
+      border: 1px solid #e5e5e5;
+      font-size: 0.95rem;
+      line-height: 1.65;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+      display: none;
+    }
+
+    .feedback-box h2 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1d1d1f;
+      margin: 16px 0 6px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .feedback-box h2:first-child { margin-top: 0; }
+
+    .feedback-box strong { font-weight: 600; }
+    .feedback-box em { font-style: italic; color: #444; }
+
+    .spinner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #888;
+      font-size: 0.9rem;
+      padding: 8px 0;
+    }
+    .spinner::before {
+      content: '';
+      width: 16px; height: 16px;
+      border: 2px solid #ddd;
+      border-top-color: #007aff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error { color: #d00; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📸 Décris la photo — Español</h1>
+</header>
+
+<div class="container">
+  <div class="photo-wrap">
+    <img id="photo" alt="Photo à décrire">
+    <button class="btn-new" onclick="newPhoto()">🔄 Nouvelle photo</button>
+  </div>
+
+  <p class="instruction">Décris cette photo en espagnol :</p>
+
+  <textarea id="userText" placeholder="Escribe tu descripción aquí…"></textarea>
+
+  <button class="btn-analyze" id="btnAnalyze" onclick="analyze()">Analyser ✦</button>
+
+  <div class="feedback-box" id="feedbackBox"></div>
+</div>
+
+<script>
+  const WORKER = 'https://dark-brook-87cc.georg-dreym.workers.dev';
+  let currentSeed = '';
+
+  /* ── Image ── */
+  function imageUrl(seed) {
+    return `https://picsum.photos/seed/${seed}/800/600`;
+  }
+
+  function newPhoto() {
+    currentSeed = Math.random().toString(36).slice(2, 9);
+    const img = document.getElementById('photo');
+    img.classList.add('loading');
+    img.onload = () => img.classList.remove('loading');
+    img.src = imageUrl(currentSeed);
+    document.getElementById('userText').value = '';
+    const box = document.getElementById('feedbackBox');
+    box.style.display = 'none';
+    box.innerHTML = '';
+  }
+
+  /* ── Markdown renderer (minimal) ── */
+  function renderMarkdown(text) {
+    let s = text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    // clean line breaks around headings
+    s = s.replace(/\n?(<h2>)/g, '$1').replace(/(<\/h2>)\n?/g, '$1');
+    s = s.replace(/\n{3,}/g, '\n\n').replace(/\n/g, '<br>');
+    s = s.replace(/^(<br>)+/, '');
+    return s;
+  }
+
+  /* ── Analyze ── */
+  async function analyze() {
+    const text = document.getElementById('userText').value.trim();
+    if (!text) { alert('Écris d\'abord une description !'); return; }
+
+    const btn = document.getElementById('btnAnalyze');
+    const box = document.getElementById('feedbackBox');
+
+    btn.disabled = true;
+    box.style.display = 'block';
+    box.innerHTML = '<div class="spinner">Analyse en cours…</div>';
+
+    const prompt = `Eres un profesor de español. Un estudiante ha visto la foto adjunta y ha escrito esta descripción:
+
+"${text}"
+
+Analiza en dos secciones:
+
+## Precisión
+Evalúa qué tan bien describe el estudiante lo que aparece realmente en la imagen. Menciona los elementos que describió correctamente, los que omitió de forma notable, y cualquier inexactitud. Sé específico y constructivo.
+
+## Análisis lingüístico
+Analiza la calidad del español escrito: gramática, vocabulario, registro, naturalidad. Menciona ÚNICAMENTE errores confirmados — si algo es correcto, no lo incluyas. Aplica el CRITICAL FILTER: si tienes dudas sobre si algo es error, no lo menciones. Si no hay errores, escribe simplemente "Sin errores detectados."
+
+Responde completamente en español.`;
+
+    try {
+      const resp = await fetch(WORKER, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-4.1',
+          temperature: 0.2,
+          stream: false,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image_url', image_url: { url: imageUrl(currentSeed) } },
+              { type: 'text', text: prompt }
+            ]
+          }]
+        })
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`HTTP ${resp.status} — ${errText.slice(0, 200)}`);
+      }
+
+      const data = await resp.json();
+      const result = data.choices?.[0]?.message?.content;
+      if (!result) throw new Error('Réponse vide du modèle');
+      box.innerHTML = renderMarkdown(result);
+
+    } catch (err) {
+      box.innerHTML = `<span class="error">Erreur : ${err.message}</span>`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  /* ── Keyboard shortcut : Cmd/Ctrl+Enter ── */
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') analyze();
+  });
+
+  /* ── Init ── */
+  newPhoto();
+</script>
+</body>
+</html>
