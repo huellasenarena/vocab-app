@@ -1160,6 +1160,7 @@
     const GEMINI_MODEL_IDS = { gemma: 'gemma-4-31b-it', geminiflash: 'gemini-3-flash-preview', geminiflashlite: 'gemini-3.1-flash-lite-preview' };
     const DAILY_LIMITS = { gpt4: 235000, gemma: 1500, geminiflash: 20, geminiflashlite: 500 };
     const GRAMMAR_SHEET_ID = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
+    const BLACKLIST_COLS   = { English: 'A', Spanish: 'B', French: 'C', Greek: 'D' };
 
     const LANGS = [
       { key: 'English', flag: '🇬🇧', name: 'English',   mistralName: 'English',
@@ -1195,6 +1196,9 @@
     // ── État global ───────────────────────────────────────────
     let allWords           = [];
     let progressMap        = {};
+    let blacklistWords     = new Set(); // mots du même univers à ne plus suggérer
+    let _relatedWordsShown = []; // mots affichés dans la section "même univers"
+    let _relatedWordsAdded = new Set(); // mots ajoutés via ＋ dans la session courante
     let currentWords       = [];
     let previousWordsPool  = []; // garde tous les mots déjà vus dans la session slider
     let currentLang        = "";
@@ -1421,7 +1425,7 @@
       resetPracticeUI();
       onSliderChange(wordCount());
       document.getElementById('word-count-label').textContent = 'chargement...';
-      const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(), loadTodayTokens() ];
+      const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(), loadTodayTokens(), loadBlacklist(lang) ];
       if (lang === 'Spanish') loadFns.push(loadGrammarForms());
       else grammarForms = [];
       await Promise.all(loadFns);
@@ -1853,6 +1857,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('qcm-result').textContent       = '';
       document.getElementById('related-box').classList.remove('visible');
       document.getElementById('related-chips').innerHTML      = '';
+      _relatedWordsShown = [];
+      _relatedWordsAdded = new Set();
       document.getElementById('image-vocab-box').classList.remove('visible');
       document.getElementById('image-vocab-chips').innerHTML  = '';
       // Reset words hidden
@@ -2039,6 +2045,33 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       } catch (e) {
         console.error('[Grammar] Erreur chargement:', e.message);
         grammarForms = [];
+      }
+    }
+
+    async function loadBlacklist(lang) {
+      try {
+        const col  = BLACKLIST_COLS[lang] || 'A';
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(`Blacklist!${col}:${col}`)}`);
+        const vals = (data.values || []).flat().slice(1); // skip header
+        blacklistWords = new Set(vals.filter(Boolean).map(v => v.toLowerCase()));
+      } catch (e) {
+        blacklistWords = new Set();
+        console.warn('[Sheets] loadBlacklist:', e.message);
+      }
+    }
+
+    async function saveToBlacklist(words, lang) {
+      if (!words.length) return;
+      const col   = BLACKLIST_COLS[lang] || 'A';
+      const range = encodeURIComponent(`Blacklist!${col}:${col}`);
+      try {
+        await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', {
+          values: words.map(w => [w])
+        });
+        words.forEach(w => blacklistWords.add(w.toLowerCase()));
+        console.log(`[Sheets] Blacklist ← ${words.join(', ')} (${lang})`);
+      } catch (e) {
+        console.error('[Sheets] saveToBlacklist:', e.message);
       }
     }
 
@@ -2242,6 +2275,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     async function nextWord() {
       const draft = document.getElementById('sentence-input').value.trim();
       if (draft && draft !== lastSubmittedSentence && !confirm('Tu as une phrase non vérifiée. Continuer quand même ?')) return;
+      // Blackliste les mots du même univers non ajoutés
+      const toBlacklist = _relatedWordsShown.filter(w => !_relatedWordsAdded.has(w.toLowerCase()));
+      if (toBlacklist.length) saveToBlacklist(toBlacklist, currentLang); // fire-and-forget
+      _relatedWordsShown = [];
+      _relatedWordsAdded = new Set();
       sessionFirstResult  = {};
       previousWordsPool   = [];
       resetPracticeUI();
@@ -3288,7 +3326,12 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         const related  = JSON.parse(stripped.slice(jStart, jEnd + 1));
         if (!Array.isArray(related)) throw new Error('Format inattendu');
 
-        const newRelated = related.filter(r => r.word && !allWords.some(w => w.toLowerCase() === r.word.toLowerCase()));
+        const newRelated = related.filter(r => r.word
+          && !allWords.some(w => w.toLowerCase() === r.word.toLowerCase())
+          && !blacklistWords.has(r.word.toLowerCase())
+        );
+        _relatedWordsShown = newRelated.map(r => r.word);
+        _relatedWordsAdded = new Set();
         if (!newRelated.length) {
           chips.innerHTML = '<span style="color:var(--muted);font-style:italic;font-size:0.85rem">Tous les mots suggérés sont déjà dans ta liste.</span>';
         } else {
@@ -3331,6 +3374,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         btn.textContent = '✓';
         btn.style.color = 'var(--success)';
         allWords.push(word); // ajoute en mémoire pour éviter un double-ajout immédiat
+        _relatedWordsAdded.add(word.toLowerCase());
         console.log(`[Sheets] ✓ Mot ajouté : ${word} → ${currentLang}`);
       } catch (err) {
         btn.textContent = '✗';
