@@ -3522,7 +3522,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     // ── Appel Mistral (non-streaming, pour QCM et situations) ─
     async function callMistral(prompt, maxTokens = 2000) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 30000);
+      const timer = setTimeout(() => controller.abort(), 60000);
       try {
         const res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
@@ -3548,7 +3548,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     // ── Appel vision (image + texte, non-streaming) ───────────
     async function callAIVision(imageUrl, prompt, maxTokens = 1000) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 45000);
+      const timer = setTimeout(() => controller.abort(), 60000);
       try {
         const res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
           method: 'POST',
@@ -3583,7 +3583,8 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     // onChunk(fullTextSoFar) est appelé à chaque nouveau fragment.
     async function callMistralStream(prompt, onChunk, maxTokens = 2000) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 30000);
+      let timer = setTimeout(() => controller.abort(), 30000); // connexion initiale
+      const resetTimer = () => { clearTimeout(timer); timer = setTimeout(() => controller.abort(), 60000); };
       let res;
       try {
         res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
@@ -3610,6 +3611,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        resetTimer(); // rolling timeout : 60s sans aucun paquet → abort
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop();
