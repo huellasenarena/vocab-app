@@ -11,23 +11,13 @@ from difflib import SequenceMatcher
 
 LONG_CLIP_THRESHOLD = 6  # mots
 
-# ── Dépendances Google ──────────────────────────────────────────────────────
-try:
-    from google.oauth2.credentials import Credentials
-    from google_auth_oauthlib.flow import InstalledAppFlow
-    from google.auth.transport.requests import Request
-    import urllib.request
-except ImportError:
-    print("❌ Bibliothèques manquantes. Lance d'abord :")
-    print("   pip3 install google-auth-oauthlib google-auth-httplib2")
-    sys.exit(1)
+import urllib.request, urllib.parse
 
 # ── Config ──────────────────────────────────────────────────────────────────
 SHEET_ID       = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc"
-SCOPES         = ["https://www.googleapis.com/auth/spreadsheets"]
 SCRIPT_DIR     = Path(__file__).parent
-CREDENTIALS    = SCRIPT_DIR / "credentials.json"
-TOKEN          = SCRIPT_DIR / "token.json"
+WORKER_URL     = "https://dark-brook-87cc.georg-dreym.workers.dev"
+WORKER_SECRET  = "vocab-app-secret-2026"
 
 LANG_TO_SHEET  = {"es": "Spanish", "fr": "French", "en": "English", "el": "Greek"}
 LANG_NAMES     = {"es": "Espagnol", "fr": "Français", "en": "Anglais", "el": "Grec"}
@@ -153,67 +143,123 @@ def deduplicate_clips(clips):
                     print(f"⚠️  Phrases très similaires (similarité {sim_score:.0%}) :")
                 print(f"   [1] « {a} »")
                 print(f"   [2] « {b} »")
+                print()
+                print("   1  = garder [1], supprimer [2]")
+                print("   2  = garder [2], supprimer [1]")
+                print("   +  = garder les deux")
+                print("   -  = ignorer les deux")
                 while True:
-                    r = input("   Lequel garder ? (1/2/les deux) : ").strip().lower()
+                    r = input("   Choix [1/2/+/-] : ").strip().lower()
                     if r == "1":
                         to_remove.add(j)
                         break
                     elif r == "2":
                         to_remove.add(i)
                         break
-                    elif r in ("les deux", "2", "1 2", "1,2"):
+                    elif r in ("+", "les deux"):
+                        break
+                    elif r in ("-", "aucun"):
+                        to_remove.add(i)
+                        to_remove.add(j)
                         break
                     else:
-                        print("   ⚠️  Tape 1, 2 ou 'les deux'")
+                        print("   ⚠️  Tape 1, 2, + ou -")
 
     return [c for idx, c in enumerate(clips) if idx not in to_remove]
 
-# ── Auth Google ─────────────────────────────────────────────────────────────
-def get_credentials():
-    if not CREDENTIALS.exists():
-        print(f"❌ Fichier credentials.json introuvable dans {SCRIPT_DIR}")
-        sys.exit(1)
-    creds = None
-    if TOKEN.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN), SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS), SCOPES)
-            creds = flow.run_local_server(port=0)
-        TOKEN.write_text(creds.to_json())
-    return creds
+# ── Revue des mots par pages ─────────────────────────────────────────────────
+PAGE_SIZE = 10
 
-# ── Sheets API ───────────────────────────────────────────────────────────────
-TIMEOUT = 15  # secondes
+def review_words(ready):
+    """Affiche les mots page par page et laisse l'utilisateur en exclure."""
+    updated = {}
+    for sheet, rows in ready.items():
+        if not rows:
+            updated[sheet] = rows
+            continue
+        sep()
+        print(f"📋 Revue des mots pour '{sheet}' ({len(rows)} entrées)\n")
+        kept = list(rows)
+        page = 0
+        while page * PAGE_SIZE < len(kept):
+            chunk = kept[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
+            for i, (_, word) in enumerate(chunk, start=1):
+                print(f"   {i + page * PAGE_SIZE:>3}. {word}")
+            total_pages = (len(kept) + PAGE_SIZE - 1) // PAGE_SIZE
+            print(f"\n   Page {page + 1}/{total_pages}")
+            raw = input("   Numéros à supprimer, Entrée pour continuer, q pour terminer la revue : ").strip()
+            if raw.lower() == 'q':
+                print(f"   → Revue interrompue, {len(kept)} mots conservés pour la suite.")
+                break
+            if raw:
+                to_remove = set()
+                for token in re.split(r"[\s,;]+", raw):
+                    try:
+                        n = int(token)
+                        if 1 <= n <= len(kept):
+                            to_remove.add(n - 1)
+                    except ValueError:
+                        pass
+                if to_remove:
+                    removed = [kept[i][1] for i in sorted(to_remove)]
+                    kept = [r for i, r in enumerate(kept) if i not in to_remove]
+                    print(f"   → Supprimé : {', '.join(removed)}")
+                    page = max(0, page - (len(to_remove) // PAGE_SIZE))
+                    continue
+            page += 1
+        updated[sheet] = kept
+        print(f"\n   ✓ {len(kept)} mots conservés pour '{sheet}'")
+    return updated
 
-def sheets_get(creds, range_):
-    url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID}/values/{urllib.request.quote(range_)}"
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {creds.token}"})
+# ── Sheets API (via Cloudflare Worker) ──────────────────────────────────────
+TIMEOUT = 15
+
+def sheets_call(sheet_path, method="GET", body=None):
+    payload = {"sheetPath": sheet_path, "method": method}
+    if body is not None:
+        payload["body"] = body
+    data = json.dumps(payload).encode()
+    req = urllib.request.Request(
+        f"{WORKER_URL}/sheets",
+        data=data,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "X-Worker-Secret": WORKER_SECRET,
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        }
+    )
     with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
         return json.loads(r.read())
 
-def sheets_append(creds, range_, values):
-    url = (f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID}"
-           f"/values/{urllib.request.quote(range_)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS")
-    data = json.dumps({"values": values}).encode()
-    req = urllib.request.Request(url, data=data, method="POST",
-          headers={"Authorization": f"Bearer {creds.token}", "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-        return json.loads(r.read())
+def sheets_get(range_):
+    path = f"/v4/spreadsheets/{SHEET_ID}/values/{urllib.parse.quote(range_)}"
+    return sheets_call(path, "GET")
 
-def get_existing_words(creds, sheet_name):
+def sheets_append(range_, values):
+    path = (f"/v4/spreadsheets/{SHEET_ID}/values/{urllib.parse.quote(range_)}"
+            f":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS")
+    return sheets_call(path, "POST", {"values": values})
+
+def sheets_clear(range_):
+    path = f"/v4/spreadsheets/{SHEET_ID}/values/{urllib.parse.quote(range_)}:clear"
+    return sheets_call(path, "POST")
+
+def get_existing_words(sheet_name):
+    """Retourne {mot_lower: numéro_ligne_1based}."""
     try:
-        data = sheets_get(creds, f"{sheet_name}!B:B")
-        return {r[0].strip().lower() for r in data.get("values", []) if r}
+        data = sheets_get(f"{sheet_name}!B:B")
+        result = {}
+        for i, row in enumerate(data.get("values", []), start=1):
+            if row and row[0].strip():
+                result[row[0].strip().lower()] = i
+        return result
     except urllib.error.HTTPError as e:
         body = e.read().decode(errors="ignore")
         print(f"\n❌ Erreur HTTP {e.code} en lisant '{sheet_name}' : {body[:200]}")
-        print("   → Supprime token.json et relance pour te réauthentifier.")
         sys.exit(1)
     except urllib.error.URLError as e:
-        print(f"\n❌ Impossible de joindre Google Sheets : {e.reason}")
+        print(f"\n❌ Impossible de joindre le Worker : {e.reason}")
         print("   → Vérifie ta connexion internet.")
         sys.exit(1)
     except Exception as e:
@@ -412,8 +458,6 @@ def main():
     # 5. Collecte des mots
     sep()
     print("🔎 Analyse des mots...\n")
-    creds = get_credentials()
-
     # Regrouper par langue→sheet
     to_import = {}  # {sheet_name: [words]}
 
@@ -485,7 +529,7 @@ def main():
     total_dup = 0
 
     for sheet, words in final.items():
-        existing = get_existing_words(creds, sheet)
+        existing = get_existing_words(sheet)
         new_words = []
         dups = 0
         for w in words:
@@ -497,8 +541,19 @@ def main():
                 if similar:
                     sep()
                     print(f"⚠️  « {w} » ressemble à « {similar} » déjà dans '{sheet}'")
-                    if ask("   Importer quand même ?"):
+                    print()
+                    print(f"   i  = importer « {w} » quand même")
+                    print(f"   n  = ne pas importer (défaut)")
+                    print(f"   d  = ignorer les deux — supprime aussi « {similar} » de Sheets")
+                    choice = input("   Choix [i/n/d] : ").strip().lower()
+                    if choice == 'i':
                         new_words.append([today, w])
+                    elif choice == 'd':
+                        row_idx = existing[similar]
+                        sheets_clear(f"{sheet}!A{row_idx}:B{row_idx}")
+                        del existing[similar]
+                        print(f"   → « {similar} » supprimé de Sheets")
+                        dups += 1
                     else:
                         dups += 1
                 else:
@@ -512,6 +567,11 @@ def main():
         print("\n✅ Tous les mots existent déjà dans Sheets — rien à importer.")
     else:
         sep()
+        if ask("Revoir les mots avant d'importer ?"):
+            ready = review_words(ready)
+            total_new = sum(len(rows) for rows in ready.values())
+
+        sep()
         print(f"\n📊 Résumé avant import :")
         print(f"   • {total_new} nouvelles entrées à importer")
         print(f"   • {total_dup} doublons ignorés")
@@ -520,7 +580,7 @@ def main():
         if ask("Importer maintenant dans Google Sheets ?"):
             for sheet, rows in ready.items():
                 if rows:
-                    sheets_append(creds, f"{sheet}!A:B", rows)
+                    sheets_append(f"{sheet}!A:B", rows)
                     print(f"   ✅ {len(rows)} entrées ajoutées dans '{sheet}'")
 
     # 8. Réinitialisation Kindle
