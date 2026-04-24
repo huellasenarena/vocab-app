@@ -2340,7 +2340,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       let stoppedAtTop = false;
       const PAD_BOT = 48;
       const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
-      const PAD_TOP = safeTop + 20;
+      const _sb = document.getElementById('sticky-words-bar');
+      const _sbH = (_sb && _sb.classList.contains('visible')) ? _sb.getBoundingClientRect().height : 0;
+      const PAD_TOP = Math.max(safeTop + 20, _sbH + 8);
       // topTarget : position de scroll où le haut de la boîte touche le bas du rideau status bar
       const topTarget = box.getBoundingClientRect().top + window.scrollY - PAD_TOP;
       function stop() { active = false; }
@@ -3300,7 +3302,8 @@ Return ONLY a JSON array of exactly 3 items, no other text:
           ).join('');
         }
       } catch (err) {
-        chips.innerHTML = `<span style="color:var(--error);font-size:0.85rem">Erreur : ${err.message}</span>`;
+        chips.innerHTML = `<span style="color:var(--error);font-size:0.85rem">Erreur : ${err.message}</span>
+          <br><button class="btn-secondary" style="margin-top:0.5rem" onclick="fetchRelatedWords(currentWords)">↺ Réessayer</button>`;
       }
     }
 
