@@ -1237,8 +1237,8 @@
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
 
-      // Safe area iOS — 59px de padding pour Dynamic Island / notch
-      if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      // Safe area iOS — 59px de padding pour Dynamic Island / notch (iPhone uniquement, pas iPad)
+      if (/iPhone|iPod/.test(navigator.userAgent)) {
         document.documentElement.style.setProperty('--safe-top', '59px');
       }
 
@@ -2379,8 +2379,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const PAD_BOT = 48;
       const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
       const _sb = document.getElementById('sticky-words-bar');
-      const _sbH = (_sb && _sb.classList.contains('visible')) ? _sb.getBoundingClientRect().height : 0;
-      const PAD_TOP = Math.max(safeTop + 20, _sbH + 8);
+      // Toujours réserver la hauteur de la sticky bar même si elle n'est pas encore visible
+      // (elle peut apparaître pendant le scroll quand le mot passe derrière le rideau)
+      const _sbH = _sb ? _sb.getBoundingClientRect().height : 0;
+      const PAD_TOP = Math.max(safeTop + 20, _sbH + 16);
       // topTarget : position de scroll où le haut de la boîte touche le bas du rideau status bar
       const topTarget = box.getBoundingClientRect().top + window.scrollY - PAD_TOP;
       function stop() { active = false; }
