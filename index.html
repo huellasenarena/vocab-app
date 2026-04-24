@@ -1237,9 +1237,11 @@
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
 
-      // Safe area iOS — 59px de padding pour Dynamic Island / notch (iPhone uniquement, pas iPad)
+      // Safe area iOS — iPhone/iPod : 59px (Dynamic Island/notch), iPad : 24px (status bar)
       if (/iPhone|iPod/.test(navigator.userAgent)) {
         document.documentElement.style.setProperty('--safe-top', '59px');
+      } else if (/iPad/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))) {
+        document.documentElement.style.setProperty('--safe-top', '24px');
       }
 
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
