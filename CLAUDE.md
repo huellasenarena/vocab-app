@@ -33,7 +33,7 @@ Application web d'apprentissage de vocabulaire multilingue, single-file `index.h
 - Sheet ID vocab : `1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc`
 - Sheet ID formes grammaticales : `1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs`
 - Partagés en **Éditeur/Lecteur** avec l'email du service account
-- Onglets vocab : `English`, `Spanish`, `French`, `Greek`, `Progress`, `History`, `Session`, `Tokens`
+- Onglets vocab : `English`, `Spanish`, `French`, `Greek`, `Progress`, `History`, `Session`, `Tokens`, `Blacklist`
 - Mots dans colonne B, timestamp en colonne A
 - Tous les appels Sheets passent par `sheetsApi(sheetPath, method, body)` → Worker
 
@@ -58,6 +58,12 @@ A: Date (YYYY-MM-DD) | B: InputTokens | C: OutputTokens | D: GemmaRequests | E: 
 ```
 Une ligne par jour. **Dates différentes selon le provider** : colonnes B/C (OpenAI) utilisent la date UTC via `todayStr()`, colonnes D/E/F (Google) utilisent la date PT via `todayStrPT()`. Pendant la fenêtre de transition (minuit UTC → minuit PT, ~7-8h), deux lignes actives avec colonnes partielles. Chargé au démarrage via `loadTodayTokens()`, mis à jour après chaque appel API. Header row 1 requis.
 
+#### Structure Blacklist (A:D)
+```
+A: English | B: Spanish | C: French | D: Greek
+```
+Row 1 = headers. Mots blacklistés en rows 2+, dans la colonne de leur langue. Chargé au démarrage via `loadBlacklist(lang)`. Les mots blacklistés sont filtrés avant affichage dans `fetchRelatedWords`. Quand on appuie sur "Autre mot", les mots du même univers affichés mais non ajoutés sont automatiquement sauvegardés ici via `saveToBlacklist(words, lang)`.
+
 #### Structure formes grammaticales (sheet séparé)
 - Onglet `Spanish` — row 1 = catégories (presente, pasado, futuro, subjuntivo, condicional, imperativo, misc.)
 - Rows 2+ = formes spécifiques sous chaque catégorie
@@ -76,9 +82,9 @@ Sélectionnable dans ⚙️, persisté en `localStorage` (`vocab_model`). Variab
 - `callMistral` et `callAIVision` (non-streaming) : null check sur `data.output_text` avant `.trim()`, sinon throw "Réponse vide — réessaie"
 - Vision : content types `input_text` / `input_image` (format Responses API)
 - Appels via route par défaut du Worker (Authorization Bearer injectée par le Worker)
-- `callMistral(prompt, maxTokens = 2000)` — non-streaming
-- `callMistralStream(prompt, onChunk, maxTokens = 2000)` — streaming SSE
-- `callMistralVision(imageUrl, prompt, maxTokens)` — vision, timeout 45s
+- `callMistral(prompt, maxTokens = 2000)` — non-streaming, timeout 60s
+- `callMistralStream(prompt, onChunk, maxTokens = 2000)` — streaming SSE ; timer initial 30s pour la connexion, puis **rolling timeout 60s** réinitialisé à chaque paquet reçu (évite l'abort en milieu de stream long + préserve la capture de `response.completed` qui contient l'usage)
+- `callMistralVision(imageUrl, prompt, maxTokens)` — vision, timeout 60s
 - **Note** : noms `callMistral*` conservés par héritage historique
 
 #### Gemma 4 31B (`gemma`)
@@ -136,6 +142,8 @@ git push origin main
 # GitHub Actions déploie automatiquement sur gh-pages (~1 minute)
 ```
 
+Remote configuré en SSH (`git@github.com:huellasenarena/vocab-app.git`) — pas de credentials HTTPS requis.
+
 ---
 
 ## Architecture de l'app
@@ -160,6 +168,9 @@ git push origin main
 ```javascript
 let allWords            = [];      // mots chargés depuis Sheets
 let progressMap         = {};      // { word.toLowerCase(): { correct, incorrect, hintUsed, nextReview, rowIndex } }
+let blacklistWords      = new Set(); // mots du même univers à ne plus suggérer (chargé depuis Blacklist sheet)
+let _relatedWordsShown  = [];      // mots affichés dans la section "même univers" (session courante)
+let _relatedWordsAdded  = new Set(); // mots ajoutés via ＋ (pour calculer les non-ajoutés à blacklister)
 let currentWords        = [];      // mots affichés actuellement
 let previousWordsPool   = [];      // pool pour le slider (mémorise les mots vus)
 let currentLang         = "";      // 'Spanish', 'French', etc.
@@ -191,6 +202,7 @@ let currentPhotoUrl     = '';      // URL complète de la photo en cours (mode I
 let imageTheme          = '';      // thème Unsplash en cours, localStorage KEY_IMAGE_THEME
 const definitionCache   = {};      // { "mot|lang|model": { html, ts } } — cache 24h par modèle
 const GRAMMAR_SHEET_ID  = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
+const BLACKLIST_COLS    = { English: 'A', Spanish: 'B', French: 'C', Greek: 'D' };
 ```
 
 ---
@@ -245,6 +257,8 @@ saveProgress(w, bool)     // SM-2 normal (révision sans hint)
 saveHint(word)            // incrémente HintUsed dans Progress
 saveHistoryBatch(rows)    // écrit plusieurs lignes dans History en un seul appel
 cleanOrphans(lang, rows)  // vide les lignes Progress dont le mot n'existe plus
+loadBlacklist(lang)       // charge blacklistWords depuis onglet Blacklist (colonne de la langue)
+saveToBlacklist(words, lang) // ajoute des mots à la blacklist dans Sheets (fire-and-forget)
 loadGrammarForms()        // charge les formes grammaticales depuis le sheet séparé (Spanish seulement)
 newPracticePhoto()        // async — appelle Worker /unsplash, met à jour currentPhotoUrl (mode Imagen)
 analyzePhoto()            // soumet description + image à callAIVision, affiche dans feedback-box.image
@@ -301,8 +315,10 @@ Génère une scène concrète **sans mentionner le mot**. Évaluation en 3 étap
 - **1 mot** : 3 mots du même champ sémantique, format `[{"word","note"}]`
 - **N mots** : 3 mots les plus utiles/courants liés au set, format `[{"word","note","relatedTo"}]` — chaque chip affiche `↖ mot-source`
 - Affiché après ✓ (1 ou N mots)
-- Filtre les mots déjà dans `allWords`
-- Bouton `＋` pour ajouter à la liste (`addRelatedWord`)
+- Filtre les mots déjà dans `allWords` **et** les mots blacklistés (`blacklistWords`)
+- Bouton `＋` pour ajouter à la liste (`addRelatedWord`) — marque le mot dans `_relatedWordsAdded`
+- En cas d'erreur : bouton `↺ Réessayer` → rappelle `fetchRelatedWords(currentWords)`
+- **Blacklist** : au clic "Autre mot" (`nextWord()`), les mots affichés mais non ajoutés sont envoyés dans l'onglet `Blacklist` de Sheets — ils ne seront plus jamais suggérés pour cette langue
 
 ### Mode Imagen — prompt vision
 Prompt écrit en anglais, réponse en espagnol. Structure imposée :
@@ -348,6 +364,7 @@ Après toute erreur API, un bouton `↺ Réessayer` est injecté dans la zone d'
 - `startQCM` → rappelle `startQCM(qcmWord)`
 - `fetchHint` → rappelle `fetchHint(word)`
 - `generateSituation` → rappelle `generateSituation(word)`
+- `fetchRelatedWords` → rappelle `fetchRelatedWords(currentWords)`
 
 ### Chips cliquables (définition / QCM)
 Le bouton "Définition" a été supprimé. Les mots sont directement cliquables :
@@ -455,7 +472,7 @@ Au focus sur le textarea (`sentence-input`), le clavier iOS s'ouvre et la page d
 - Fallback setTimeout 800ms si le clavier était déjà ouvert
 
 ### Auto-scroll streaming (`startAutoScroll(box, spacer)`)
-- `PAD_TOP = safeTop + 8` (67px sur iOS, 8px ailleurs) — s'arrête juste sous le rideau status bar
+- `PAD_TOP = max(safeTop + 20, stickyBarHeight + 8)` — s'arrête sous le rideau status bar ET sous la sticky bar si elle est visible (évite que la boîte de définition/verdict se cache derrière)
 - `topTarget` calculé une seule fois (layout stable), avec `PAD_TOP`
 - Suit le **bas** de la boîte chunk par chunk
 - S'arrête quand le **haut** de la boîte atteint `PAD_TOP` du viewport (`stoppedAtTop = true`)
