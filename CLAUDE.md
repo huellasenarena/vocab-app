@@ -177,7 +177,7 @@ let currentLang         = "";      // 'Spanish', 'French', etc.
 let hintUsedWords       = new Set(); // mots avec hint demandé cette session
 let practiceMode        = 'spaced';
 let sessionFirstResult  = {};      // { word: bool } — premier résultat par session
-let todayNewCount       = 0;       // nouveaux mots pratiqués aujourd'hui (depuis Session sheet)
+let todayNewCount       = 0;       // nouveaux mots pratiqués aujourd'hui (depuis Session sheet + localStorage fallback)
 let sessionNewPracticed = new Set();
 let grammarForms        = [];      // formes grammaticales espagnoles aplaties
 let grammarFormsEnabled = ...;     // toggle localStorage KEY_GRAMMAR
@@ -244,8 +244,8 @@ net ≥ 6  : +120 jours (max)
 sheetsApi(sheetPath, method, body) // proxy via Cloudflare Worker — remplace tous les fetch directs
 loadWords(lang)           // charge allWords depuis onglet langue
 loadProgress(lang)        // charge progressMap depuis Progress!A:G
-loadTodayCount()          // charge todayNewCount depuis Session
-saveTodayCount(n)         // sauvegarde compteur dans Session
+loadTodayCount()          // charge todayNewCount depuis Session + localStorage (max des deux) ; fallback localStorage si Sheets échoue
+saveTodayCount(n)         // sauvegarde compteur dans Session + localStorage (clé vocab_today_new_YYYY-MM-DD)
 loadTodayTokens()         // charge compteurs depuis Tokens!A:F (date PT)
 saveTodayTokens()         // met à jour la ligne du jour dans Tokens (date PT) — NE PAS appeler directement
 saveTodayTokensDebounced() // version debouncée (2s) — à utiliser à la place de saveTodayTokens()
@@ -419,7 +419,11 @@ Fonctions :
 
 ### iOS — Status bar et safe area
 - `viewport-fit=cover` dans le meta viewport → le contenu peut passer derrière la status bar
-- Au chargement : `--safe-top: 59px` hardcodé sur iOS via `navigator.userAgent` (couvre Dynamic Island, notch et caméra). `env(safe-area-inset-top)` non utilisé directement car résolution incorrecte dans certains contextes PWA.
+- Au chargement, `--safe-top` est défini par JS selon l'appareil :
+  - **iPhone / iPod** : `59px` hardcodé (Dynamic Island / notch / caméra)
+  - **iPad** : `24px` hardcodé (status bar iPad standard). Détecté via `/iPad/.test(navigator.userAgent)` OU `navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)` (iPad en mode bureau iOS 13+)
+  - **Mac / autres** : `env(safe-area-inset-top, 0px)` via CSS (généralement 0 en Safari desktop)
+- `env(safe-area-inset-top)` non utilisé sur iPhone car résolution incorrecte dans certains contextes PWA
 - `body { padding-top: var(--safe-top, 0px) }` — pousse le contenu sous la status bar
 - `html { background: var(--bg) }` — couvre la zone de rubber band (overscroll bounce au-dessus du body)
 
@@ -472,7 +476,8 @@ Au focus sur le textarea (`sentence-input`), le clavier iOS s'ouvre et la page d
 - Fallback setTimeout 800ms si le clavier était déjà ouvert
 
 ### Auto-scroll streaming (`startAutoScroll(box, spacer)`)
-- `PAD_TOP = max(safeTop + 20, stickyBarHeight + 8)` — s'arrête sous le rideau status bar ET sous la sticky bar si elle est visible (évite que la boîte de définition/verdict se cache derrière)
+- `PAD_TOP = max(safeTop + 20, stickyBarHeight + 16)` — s'arrête sous le rideau status bar ET sous la sticky bar
+- La hauteur de la sticky bar est **toujours** prise en compte (même si `.visible` n'est pas encore ajouté) car elle peut apparaître pendant le scroll quand le mot passe derrière le rideau. Ancien bug : `_sbH = 0` si bar pas encore visible → box défilait trop haut et se retrouvait partiellement cachée derrière la bar.
 - `topTarget` calculé une seule fois (layout stable), avec `PAD_TOP`
 - Suit le **bas** de la boîte chunk par chunk
 - S'arrête quand le **haut** de la boîte atteint `PAD_TOP` du viewport (`stoppedAtTop = true`)
