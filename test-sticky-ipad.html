@@ -17,13 +17,12 @@
     position: fixed; top: 0; left: 0; right: 0;
     padding: calc(var(--safe-top) + 0.5rem) 1rem 0.6rem;
     background: #cc0000; border-bottom: 4px solid yellow;
-    z-index: 99998;
+    z-index: 500; /* sous le rideau (9999) — le rideau couvre la zone status bar */
     opacity: 0; transform: translateY(-100%);
     transition: opacity 0.3s, transform 0.3s;
     font-size: 1.4rem; font-weight: 900; color: white;
-    -webkit-transform: translateZ(0);
   }
-  #sticky.visible { opacity: 1 !important; transform: translateY(0) translateZ(0) !important; }
+  #sticky.visible { opacity: 1; transform: translateY(0); }
 
   body {
     margin: 0; background: var(--bg); color: var(--text);
@@ -250,8 +249,15 @@
     _logEl.textContent = _lines.join('\n');
   }
 
+  // Affiche la vraie valeur env(safe-area-inset-top) pour diagnostic
+  const _diagEl = document.createElement('div');
+  _diagEl.style.cssText = 'position:fixed;top:0;width:1px;height:env(safe-area-inset-top,0px);opacity:0;pointer-events:none;';
+  document.body.appendChild(_diagEl);
+  const envSafeTop = _diagEl.getBoundingClientRect().height;
+  document.body.removeChild(_diagEl);
+
   updateSticky();
-  addLog('Prêt — safeTop=' + SAFE_TOP + 'px');
+  addLog(`Prêt — --safe-top=${SAFE_TOP}px env(safe-area-inset-top)=${Math.round(envSafeTop)}px standalone=${!!navigator.standalone}`);
 </script>
 </body>
 </html>
