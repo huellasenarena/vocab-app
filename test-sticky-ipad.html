@@ -6,8 +6,8 @@
 <title>Test sticky bar</title>
 <style>
   :root {
-    --safe-top: env(safe-area-inset-top, 32px);
-    --safe-bot: env(safe-area-inset-bottom, 0px);
+    --safe-top: 56px; /* valeur de test élevée — on ajustera après */
+    --safe-bot: env(safe-area-inset-bottom, 16px);
     --bg: #0d1f17; --accent: #c8a96e; --text: #e0d8cc;
   }
 
@@ -73,10 +73,9 @@
     z-index: 99999; white-space: pre-wrap; line-height: 1.4;
   }
   #diag {
-    position: fixed; top: var(--safe-top); left: 0; right: 0;
-    background: rgba(0,0,100,0.85); color: #fff;
-    font-size: 0.7rem; font-family: monospace;
-    padding: 2px 8px; z-index: 99999; text-align: center;
+    background: #00008b; color: #fff;
+    font-size: 0.78rem; font-family: monospace;
+    padding: 6px 8px; margin-bottom: 0.5rem; border-radius: 6px;
   }
 
   .spacer { height: 120px; } /* espace pour le log fixe */
@@ -89,6 +88,7 @@
 
 <div class="page">
 
+  <div id="diag">…</div>
   <div class="instructions">
     <strong>Mode d'emploi :</strong><br>
     <div class="step"><span>1.</span> Scrolle vers le bas jusqu'à voir le feedback vert</div>
@@ -138,40 +138,22 @@
   <div class="spacer"></div>
 </div>
 
-<div id="diag">…</div>
 <div id="log">En attente…</div>
 
 <script>
-  // Mesure env(safe-area-inset-top) via un élément temporaire
-  const _probe = document.createElement('div');
-  _probe.style.cssText = 'position:fixed;top:0;height:env(safe-area-inset-top,0px);width:0;visibility:hidden;';
-  document.body.appendChild(_probe);
-  const ENV_TOP = _probe.getBoundingClientRect().height;
-  const ENV_BOT_EL = document.createElement('div');
-  ENV_BOT_EL.style.cssText = 'position:fixed;bottom:0;height:env(safe-area-inset-bottom,0px);width:0;visibility:hidden;';
-  document.body.appendChild(ENV_BOT_EL);
-  const ENV_BOT = ENV_BOT_EL.getBoundingClientRect().height;
-  document.body.removeChild(_probe);
-  document.body.removeChild(ENV_BOT_EL);
+  // Mesure env() via CSS custom property
+  document.documentElement.style.setProperty('--_t', 'env(safe-area-inset-top,0px)');
+  document.documentElement.style.setProperty('--_b', 'env(safe-area-inset-bottom,0px)');
+  const cs = getComputedStyle(document.documentElement);
+  const ENV_TOP = parseFloat(cs.getPropertyValue('--_t')) || 0;
+  const ENV_BOT = parseFloat(cs.getPropertyValue('--_b')) || 0;
+  document.documentElement.style.removeProperty('--_t');
+  document.documentElement.style.removeProperty('--_b');
 
-  // Utilise la valeur mesurée si > 0, sinon fallback selon l'appareil
-  let SAFE_TOP;
-  if (ENV_TOP > 0) {
-    SAFE_TOP = ENV_TOP;
-    document.documentElement.style.setProperty('--safe-top', ENV_TOP + 'px');
-  } else if (/iPhone|iPod/.test(navigator.userAgent)) {
-    SAFE_TOP = 59;
-    document.documentElement.style.setProperty('--safe-top', '59px');
-  } else if (/iPad/.test(navigator.userAgent) ||
-             (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))) {
-    SAFE_TOP = 32;
-    document.documentElement.style.setProperty('--safe-top', '32px');
-  } else {
-    SAFE_TOP = 0;
-  }
+  const SAFE_TOP = parseInt(cs.getPropertyValue('--safe-top')) || 56;
 
   document.getElementById('diag').textContent =
-    `safe-top=${Math.round(SAFE_TOP)}px  env-top=${Math.round(ENV_TOP)}px  env-bot=${Math.round(ENV_BOT)}px  standalone=${!!navigator.standalone}`;
+    `--safe-top=${SAFE_TOP}px | env-top=${Math.round(ENV_TOP)}px | env-bot=${Math.round(ENV_BOT)}px | standalone=${!!navigator.standalone} | UA=${navigator.userAgent.slice(0,60)}`;
 
   // ── Sticky bar ──
   const _sticky  = document.getElementById('sticky');
