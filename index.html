@@ -1574,8 +1574,13 @@
       if (!usage) return;
       const inp = usage.prompt_tokens    || usage.input_tokens    || 0;
       const out = usage.completion_tokens || usage.output_tokens   || 0;
+      // Responses API : reasoning tokens séparés (non inclus dans output_tokens)
+      const reasoning = usage.output_tokens_details?.reasoning_tokens
+                     || usage.completion_tokens_details?.reasoning_tokens
+                     || usage.reasoning_tokens
+                     || 0;
       todayInputTokens  += inp;
-      todayOutputTokens += out;
+      todayOutputTokens += out + reasoning;
       _pendingInput  += inp;
       _pendingOutput += out;
       updateTokenDisplay();
