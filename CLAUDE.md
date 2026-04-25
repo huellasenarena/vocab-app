@@ -133,6 +133,7 @@ Fonctions : `updateReasoningUI()` (peuple le select selon `currentModel`), `setR
 - Les deux appellent `saveTodayTokensDebounced()` (debounce 2s) — pas `saveTodayTokens()` directement
 - **Limites journalières** : `DAILY_LIMITS = { gpt4: 235000, gemma: 1500, geminiflash: 20, geminiflashlite: 500 }`. À ≥ 80% : compteur orange. À ≥ 100% : compteur rouge + tous les appels `callAI`/`callAIStream`/`callAIVision` lancent `checkDailyLimit()` qui throw une erreur invitant à changer de modèle.
 - **Multi-appareils** : `saveTodayTokens()` lit la valeur actuelle dans Sheets et y ajoute uniquement les tokens accumulés depuis le dernier save réussi (`_pendingInput`, `_pendingOutput`, `_pendingGemma`, `_pendingFlash`, `_pendingFlashLite`). Ces variables `_pending*` sont remises à 0 après chaque save réussi (en soustrayant uniquement ce qui a été envoyé, pour ne pas perdre les tokens arrivés pendant l'`await`).
+- **Reasoning tokens GPT** : la Responses API retourne `output_tokens` = texte visible seulement. Les reasoning tokens sont dans `usage.output_tokens_details.reasoning_tokens` (champ séparé). `trackTokens()` les ajoute à `todayOutputTokens` via : `usage.output_tokens_details?.reasoning_tokens || usage.completion_tokens_details?.reasoning_tokens || usage.reasoning_tokens || 0`. Sans ce fix, seuls ~200-300 tokens étaient comptés au lieu de ~1500+ par appel avec `effort: 'low'`.
 
 ### Déploiement
 ```bash
