@@ -101,6 +101,18 @@
   <p class="sentence-label">Use this word in a sentence:</p>
   <textarea id="ta" rows="3" placeholder="Tape ici…"></textarea>
 
+  <!-- Bouton pour simuler l'affichage du feedback -->
+  <div style="margin: 0.5rem 0;">
+    <button onclick="setContentVisible(true)"
+            style="background:#2a6040;color:white;border:none;padding:0.6rem 1rem;border-radius:8px;font-size:0.9rem;margin-right:0.5rem;">
+      Simuler feedback visible →
+    </button>
+    <button onclick="setContentVisible(false)"
+            style="background:#333;color:white;border:none;padding:0.6rem 1rem;border-radius:8px;font-size:0.9rem;">
+      Reset
+    </button>
+  </div>
+
   <!-- Feedback long (force le scroll) -->
   <div class="feedback" id="feedback">
     <h3>✓ Verdict</h3>
@@ -136,9 +148,20 @@
 
   function updateSticky() {
     const rect = _card.getBoundingClientRect();
-    const show = rect.top <= SAFE_TOP;
+    const offScreen = rect.top <= SAFE_TOP;
+    // Nouvelle logique : visible si hors écran OU si contenu (feedback/définition) affiché
+    const show = offScreen || _contentVisible;
     _sticky.classList.toggle('visible', show);
-    addLog(`sticky=${show?'VISIBLE':'cachée'} card.top=${Math.round(rect.top)} scrollY=${Math.round(window.scrollY)} vvH=${Math.round(window.visualViewport?.height??window.innerHeight)}`);
+    addLog(`sticky=${show?'VISIBLE':'cachée'} offScreen=${offScreen} content=${_contentVisible} card.top=${Math.round(rect.top)}`);
+  }
+
+  // État : feedback/définition visible → sticky bar forcée visible indépendamment du scroll
+  let _contentVisible = false;
+
+  function setContentVisible(v) {
+    _contentVisible = v;
+    updateSticky();
+    addLog(`contentVisible=${v}`);
   }
 
   window.addEventListener('scroll', updateSticky, { passive: true });
