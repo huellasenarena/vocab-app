@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Test sticky bar</title>
 <style>
-  :root { --safe-top: 32px; --bg: #0d1f17; --accent: #c8a96e; --text: #e0d8cc; }
+  :root {
+    --safe-top: env(safe-area-inset-top, 32px);
+    --safe-bot: env(safe-area-inset-bottom, 0px);
+    --bg: #0d1f17; --accent: #c8a96e; --text: #e0d8cc;
+  }
 
   #curtain {
     position: fixed; top: 0; left: 0; right: 0;
@@ -27,6 +31,7 @@
   body {
     margin: 0; background: var(--bg); color: var(--text);
     padding-top: var(--safe-top); font-family: sans-serif;
+    padding-bottom: calc(var(--safe-bot) + 120px); /* espace pour le log fixe */
   }
 
   .page { padding: 1rem 1.2rem; }
@@ -64,8 +69,14 @@
     position: fixed; bottom: 0; left: 0; right: 0;
     background: #111; border-top: 1px solid #333;
     font-size: 0.72rem; font-family: monospace; color: #0f0;
-    padding: 0.4rem 0.8rem; z-index: 99999;
-    white-space: pre-wrap; line-height: 1.4;
+    padding: 0.4rem 0.8rem calc(var(--safe-bot) + 0.4rem);
+    z-index: 99999; white-space: pre-wrap; line-height: 1.4;
+  }
+  #diag {
+    position: fixed; top: var(--safe-top); left: 0; right: 0;
+    background: rgba(0,0,100,0.85); color: #fff;
+    font-size: 0.7rem; font-family: monospace;
+    padding: 2px 8px; z-index: 99999; text-align: center;
   }
 
   .spacer { height: 120px; } /* espace pour le log fixe */
@@ -127,19 +138,40 @@
   <div class="spacer"></div>
 </div>
 
+<div id="diag">…</div>
 <div id="log">En attente…</div>
 
 <script>
-  // ── CSS variable safe-top (même logique que l'app principale) ──
-  if (/iPhone|iPod/.test(navigator.userAgent)) {
+  // Mesure env(safe-area-inset-top) via un élément temporaire
+  const _probe = document.createElement('div');
+  _probe.style.cssText = 'position:fixed;top:0;height:env(safe-area-inset-top,0px);width:0;visibility:hidden;';
+  document.body.appendChild(_probe);
+  const ENV_TOP = _probe.getBoundingClientRect().height;
+  const ENV_BOT_EL = document.createElement('div');
+  ENV_BOT_EL.style.cssText = 'position:fixed;bottom:0;height:env(safe-area-inset-bottom,0px);width:0;visibility:hidden;';
+  document.body.appendChild(ENV_BOT_EL);
+  const ENV_BOT = ENV_BOT_EL.getBoundingClientRect().height;
+  document.body.removeChild(_probe);
+  document.body.removeChild(ENV_BOT_EL);
+
+  // Utilise la valeur mesurée si > 0, sinon fallback selon l'appareil
+  let SAFE_TOP;
+  if (ENV_TOP > 0) {
+    SAFE_TOP = ENV_TOP;
+    document.documentElement.style.setProperty('--safe-top', ENV_TOP + 'px');
+  } else if (/iPhone|iPod/.test(navigator.userAgent)) {
+    SAFE_TOP = 59;
     document.documentElement.style.setProperty('--safe-top', '59px');
   } else if (/iPad/.test(navigator.userAgent) ||
              (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))) {
+    SAFE_TOP = 32;
     document.documentElement.style.setProperty('--safe-top', '32px');
+  } else {
+    SAFE_TOP = 0;
   }
 
-  const SAFE_TOP = parseInt(getComputedStyle(document.documentElement)
-                             .getPropertyValue('--safe-top')) || 0;
+  document.getElementById('diag').textContent =
+    `safe-top=${Math.round(SAFE_TOP)}px  env-top=${Math.round(ENV_TOP)}px  env-bot=${Math.round(ENV_BOT)}px  standalone=${!!navigator.standalone}`;
 
   // ── Sticky bar ──
   const _sticky  = document.getElementById('sticky');
@@ -257,7 +289,7 @@
   document.body.removeChild(_diagEl);
 
   updateSticky();
-  addLog(`Prêt — --safe-top=${SAFE_TOP}px env(safe-area-inset-top)=${Math.round(envSafeTop)}px standalone=${!!navigator.standalone}`);
+  addLog(`Prêt — safe-top=${Math.round(SAFE_TOP)}px`);
 </script>
 </body>
 </html>
