@@ -26,7 +26,9 @@
     transition: opacity 0.3s, transform 0.3s;
     font-size: 1.4rem; font-weight: 900; color: white;
   }
-  #sticky.visible { opacity: 1; transform: translateY(0); }
+  #sticky.visible        { opacity: 1; transform: translateY(0); }
+  /* Force via état contenu — indépendant du scroll et des callbacks */
+  #sticky.content-forced { opacity: 1 !important; transform: translateY(0) !important; }
 
   body {
     margin: 0; background: var(--bg); color: var(--text);
@@ -165,7 +167,7 @@
     // Nouvelle logique : visible si hors écran OU si contenu (feedback/définition) affiché
     const show = offScreen || _contentVisible;
     _sticky.classList.toggle('visible', show);
-    addLog(`sticky=${show?'VISIBLE':'cachée'} offScreen=${offScreen} content=${_contentVisible} card.top=${Math.round(rect.top)}`);
+    addLog(`sticky=${show?'V':'X'} offScr=${offScreen} cont=${_contentVisible} top=${Math.round(rect.top)} cls="${_sticky.className}"`);
   }
 
   // État : feedback/définition visible → sticky bar forcée visible indépendamment du scroll
@@ -173,8 +175,10 @@
 
   function setContentVisible(v) {
     _contentVisible = v;
+    // Force CSS directement — indépendant du scroll et des callbacks iOS
+    _sticky.classList.toggle('content-forced', v);
     updateSticky();
-    addLog(`contentVisible=${v}`);
+    addLog(`setContent=${v} sticky.classes="${_sticky.className}"`);
   }
 
   window.addEventListener('scroll', updateSticky, { passive: true });
