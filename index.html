@@ -1371,50 +1371,65 @@
         setTimeout(() => _ta.scrollIntoView({ block: 'end' }), 500);
         return;
       }
-      const origHeight   = window.visualViewport.height;
-      const origScrollY  = window.scrollY;
-      let scrolled = false;
+      const origHeight  = window.visualViewport.height;
+      const origScrollY = window.scrollY;
+      let softHandled = false;
 
-      // Restaure scrollY si iOS a scrollé vers le haut inutilement (textarea déjà visible)
+      // Restaure scrollY si iOS a scrollé vers le haut inutilement.
+      // Seuil bas (20px) pour couvrir aussi le clavier physique iPad (toolbar ~44px).
       const restoreScrollIfNeeded = () => {
-        if (window.scrollY < origScrollY - 30) {
+        if (window.scrollY < origScrollY - 20) {
           window.scrollTo(0, origScrollY);
           _updateStickyVisibility();
         }
       };
 
-      const tryScroll = () => {
+      const onResize = () => {
         const vv = window.visualViewport;
-        // Ignorer les resize de la barre URL (~50-70px) — attendre le clavier (>150px)
-        if (vv.height > origHeight - 150) return;
-        if (scrolled) return;
-        scrolled = true;
-        window.visualViewport.removeEventListener('resize', tryScroll);
-        const rect = _ta.getBoundingClientRect();
-        const gap = rect.bottom - vv.height + 12;
-        if (gap > 0) {
-          // Textarea sous le clavier — scroller vers le bas
-          window.scrollBy({ top: gap, behavior: 'smooth' });
-        } else {
-          // Textarea déjà visible — iOS va quand même scroller vers le haut (autoscroll
-          // natif "de confort"). On restaure origScrollY après stabilisation.
-          setTimeout(restoreScrollIfNeeded, 150);
-          setTimeout(restoreScrollIfNeeded, 400);
-          setTimeout(restoreScrollIfNeeded, 700);
-        }
-      };
-      window.visualViewport.addEventListener('resize', tryScroll);
-      // Fallback si le clavier est déjà ouvert ou si resize ne fire pas
-      setTimeout(() => {
-        window.visualViewport.removeEventListener('resize', tryScroll);
-        if (!scrolled) {
-          const vv = window.visualViewport;
-          // Sur iPad avec clavier physique, seule la barre d'outils apparaît (~50px).
-          // Ne pas scroller si le viewport n'a pas réduit de plus de 100px (pas de vrai clavier).
-          if (origHeight - vv.height <= 100) return;
+        const reduction = origHeight - vv.height;
+        if (reduction <= 0) return; // viewport grandi ou inchangé
+
+        if (reduction > 150) {
+          // Clavier logiciel complet (iPhone / iPad soft keyboard)
+          if (softHandled) return;
+          softHandled = true;
+          window.visualViewport.removeEventListener('resize', onResize);
           const rect = _ta.getBoundingClientRect();
           const gap = rect.bottom - vv.height + 12;
-          if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
+          if (gap > 0) {
+            // Textarea sous le clavier → scroll vers le bas
+            window.scrollBy({ top: gap, behavior: 'smooth' });
+          } else {
+            // Textarea déjà visible → iOS autoscrolle quand même → restaurer
+            setTimeout(restoreScrollIfNeeded, 150);
+            setTimeout(restoreScrollIfNeeded, 400);
+            setTimeout(restoreScrollIfNeeded, 700);
+          }
+        } else {
+          // Petite réduction : toolbar clavier physique iPad (~44px) ou barre URL.
+          // iOS peut quand même scroller légèrement → restaurer après stabilisation.
+          setTimeout(restoreScrollIfNeeded, 150);
+          setTimeout(restoreScrollIfNeeded, 450);
+        }
+      };
+
+      window.visualViewport.addEventListener('resize', onResize);
+      // Fallback : clavier déjà ouvert ou resize qui ne fire pas
+      setTimeout(() => {
+        window.visualViewport.removeEventListener('resize', onResize);
+        if (!softHandled) {
+          const vv = window.visualViewport;
+          const reduction = origHeight - vv.height;
+          if (reduction > 150) {
+            // Clavier logiciel ouvert mais resize n'a pas fire — même logique
+            const rect = _ta.getBoundingClientRect();
+            const gap = rect.bottom - vv.height + 12;
+            if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
+            else {
+              setTimeout(restoreScrollIfNeeded, 150);
+            }
+          }
+          // Clavier physique : restore déjà planifié dans onResize si reduction > 0
         }
       }, 800);
     });
