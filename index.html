@@ -1443,20 +1443,27 @@
     }
 
     async function loadTodayCount() {
+      const today    = todayStr();
+      const localKey = `vocab_today_new_${today}`;
+      const localVal = parseInt(localStorage.getItem(localKey)) || 0;
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Session!A:B`);
-        const rows = (data.values || []).slice(1); // skip header
-        const today = todayStr();
-        const row   = rows.find(r => r[0] === today);
-        todayNewCount = row ? (parseInt(row[1]) || 0) : 0;
+        const data      = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Session!A:B`);
+        const rows      = (data.values || []).slice(1); // skip header
+        const row       = rows.find(r => r[0] === today);
+        const sheetsVal = row ? (parseInt(row[1]) || 0) : 0;
+        // Prend le max (Sheets = source de vérité, localStorage = fallback multi-appareils)
+        todayNewCount = Math.max(sheetsVal, localVal);
+        localStorage.setItem(localKey, todayNewCount); // synchronise
         sessionNewPracticed = new Set(); // reset pour cette session
       } catch (e) {
-        todayNewCount = 0;
+        todayNewCount = localVal; // fallback si Sheets inaccessible
       }
     }
 
     async function saveTodayCount(newCount) {
-      const today = todayStr();
+      const today    = todayStr();
+      const localKey = `vocab_today_new_${today}`;
+      localStorage.setItem(localKey, newCount); // toujours sauvegarder en local
       try {
         const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Session!A:B`);
         const rows = (data.values || []).slice(1);
