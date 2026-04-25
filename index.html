@@ -1085,6 +1085,11 @@
       <div class="no-count-notice" id="no-count-notice"></div>
     </div>
 
+    <!-- Bouton "Autre mot" sous le verdict ✓ (évite de scroller remonter) -->
+    <div id="btn-next-below" style="display:none; padding-top:0.75rem;">
+      <button class="btn-primary" onclick="nextWord()">Autre mot →</button>
+    </div>
+
     <!-- Offre QCM (après ✗) — un bouton par mot raté -->
     <div class="qcm-offer" id="qcm-offer">
       <div id="qcm-offer-buttons"></div>
@@ -1157,6 +1162,7 @@
     const KEY_GPT_EFFORT       = "vocab_gpt_effort";
     const KEY_GEMINI_THINKING  = "vocab_gemini_thinking";
     const KEY_GEMMA_THINKING   = "vocab_gemma_thinking";
+    const KEY_WORD_COUNT       = "vocab_word_count";
     const GEMINI_MODEL_IDS = { gemma: 'gemma-4-31b-it', geminiflash: 'gemini-3-flash-preview', geminiflashlite: 'gemini-3.1-flash-lite-preview' };
     const DAILY_LIMITS = { gpt4: 235000, gemma: 1500, geminiflash: 20, geminiflashlite: 500 };
     const GRAMMAR_SHEET_ID = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
@@ -1253,6 +1259,9 @@
       document.getElementById('image-theme-select').value = imageTheme;
       document.getElementById('model-select').value = currentModel;
       updateReasoningUI();
+      const _savedWC = parseInt(localStorage.getItem(KEY_WORD_COUNT)) || 1;
+      document.getElementById('word-count-slider').value = _savedWC;
+      document.getElementById('slider-value').textContent = _savedWC === 1 ? '1 mot' : `${_savedWC} mots`;
     });
 
     function showScreen(id) {
@@ -1287,6 +1296,29 @@
         submitSentence();
       }
     });
+
+    // Raccourcis clavier globaux (Alt/Option sur Mac, iPad, iOS avec clavier externe)
+    document.addEventListener('keydown', e => {
+      if (!document.getElementById('screen-practice').classList.contains('active')) return;
+      if (e.altKey && e.key === 'ArrowRight') {
+        // Pas de conflit : Option+→ navigue par mot dans les champs texte
+        if (document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'INPUT') return;
+        const btnNext = document.getElementById('btn-next');
+        if (btnNext.style.display === 'none') return; // caché en mode situation
+        e.preventDefault();
+        nextWord();
+      } else if (e.altKey && (e.key === 'h' || e.key === 'H')) {
+        e.preventDefault();
+        toggleWordsHidden();
+      }
+    });
+
+    // Bouton "Autre mot" sous le verdict (visible uniquement si verdict ✓)
+    new MutationObserver(() => {
+      const fb = document.getElementById('feedback-box');
+      document.getElementById('btn-next-below').style.display =
+        fb.classList.contains('visible') && fb.classList.contains('correct') ? '' : 'none';
+    }).observe(document.getElementById('feedback-box'), { attributes: true, attributeFilter: ['class'] });
 
     // ── Barre sticky mots ─────────────────────────────────────
     const _stickyBar = document.getElementById('sticky-words-bar');
@@ -1349,7 +1381,10 @@
         window.visualViewport.removeEventListener('resize', tryScroll);
         const rect = _ta.getBoundingClientRect();
         const gap = rect.bottom - vv.height + 12;
-        window.scrollBy({ top: gap, behavior: 'smooth' });
+        // Ne scroller que si le textarea est sous le clavier (gap > 0).
+        // Un gap négatif = textarea déjà visible ; scroller vers le haut ramènerait
+        // la word card dans le viewport et cacherait la sticky bar.
+        if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
       };
       window.visualViewport.addEventListener('resize', tryScroll);
       // Fallback si le clavier est déjà ouvert ou si resize ne fire pas
@@ -1362,7 +1397,7 @@
           if (origHeight - vv.height <= 100) return;
           const rect = _ta.getBoundingClientRect();
           const gap = rect.bottom - vv.height + 12;
-          window.scrollBy({ top: gap, behavior: 'smooth' });
+          if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
         }
       }, 800);
     });
@@ -1384,6 +1419,7 @@
       const n        = parseInt(val);
       const langInfo = getLang();
       document.getElementById('slider-value').textContent = n === 1 ? '1 mot' : `${n} mots`;
+      localStorage.setItem(KEY_WORD_COUNT, n.toString());
       document.getElementById('sentence-label').textContent =
         n === 1 ? langInfo.sentencePromptSingle : langInfo.sentencePrompt;
 
@@ -2079,11 +2115,14 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
     async function saveToBlacklist(words, lang) {
       if (!words.length) return;
-      const col   = BLACKLIST_COLS[lang] || 'A';
-      const range = encodeURIComponent(`Blacklist!${col}:${col}`);
+      // Même pattern que saveTodayTokens : append sur la range complète (A:D) avec la
+      // ligne entière. Évite l'ambiguïté de détection de tableau pour les colonnes non-A.
+      const COL_IDX = { English: 0, Spanish: 1, French: 2, Greek: 3 };
+      const idx = COL_IDX[lang] ?? 0;
+      const range = encodeURIComponent('Blacklist!A:D');
       try {
         await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', {
-          values: words.map(w => [w])
+          values: words.map(w => { const r = ['', '', '', '']; r[idx] = w; return r; })
         });
         words.forEach(w => blacklistWords.add(w.toLowerCase()));
         console.log(`[Sheets] Blacklist ← ${words.join(', ')} (${lang})`);
