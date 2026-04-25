@@ -1237,11 +1237,11 @@
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
 
-      // Safe area iOS — iPhone/iPod : 59px (Dynamic Island/notch), iPad : 24px (status bar)
+      // Safe area iOS — iPhone/iPod : 59px (Dynamic Island/notch), iPad : 32px (status bar + marge)
       if (/iPhone|iPod/.test(navigator.userAgent)) {
         document.documentElement.style.setProperty('--safe-top', '59px');
       } else if (/iPad/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))) {
-        document.documentElement.style.setProperty('--safe-top', '24px');
+        document.documentElement.style.setProperty('--safe-top', '32px');
       }
 
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
@@ -1357,6 +1357,9 @@
         window.visualViewport.removeEventListener('resize', tryScroll);
         if (!scrolled) {
           const vv = window.visualViewport;
+          // Sur iPad avec clavier physique, seule la barre d'outils apparaît (~50px).
+          // Ne pas scroller si le viewport n'a pas réduit de plus de 100px (pas de vrai clavier).
+          if (origHeight - vv.height <= 100) return;
           const rect = _ta.getBoundingClientRect();
           const gap = rect.bottom - vv.height + 12;
           window.scrollBy({ top: gap, behavior: 'smooth' });
@@ -2418,6 +2421,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
             }
           }
           window.scrollTo(0, topTarget);
+          _updateStickyVisibility();
           return;
         }
         // Agrandit le spacer si le document n'est pas assez grand pour scroller jusqu'au bas
@@ -2428,6 +2432,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           }
         }
         window.scrollTo(0, bottomTarget);
+        _updateStickyVisibility();
       }
       function cleanup() {
         window.removeEventListener('wheel',     stop);
