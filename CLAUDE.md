@@ -422,9 +422,9 @@ Fonctions :
 - `viewport-fit=cover` dans le meta viewport → le contenu peut passer derrière la status bar
 - Au chargement, `--safe-top` est défini par JS selon l'appareil :
   - **iPhone / iPod** : `59px` hardcodé (Dynamic Island / notch / caméra)
-  - **iPad** : `24px` hardcodé (status bar iPad standard). Détecté via `/iPad/.test(navigator.userAgent)` OU `navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)` (iPad en mode bureau iOS 13+)
+  - **iPad** : `32px` hardcodé (status bar max 24px + marge 8px pour séparation visuelle). Détecté via `/iPad/.test(navigator.userAgent)` OU `navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)` (iPad en mode bureau iOS 13+)
   - **Mac / autres** : `env(safe-area-inset-top, 0px)` via CSS (généralement 0 en Safari desktop)
-- `env(safe-area-inset-top)` non utilisé sur iPhone car résolution incorrecte dans certains contextes PWA
+- `env(safe-area-inset-top)` non utilisé sur iPhone/iPad car résolution incorrecte dans certains contextes PWA
 - `body { padding-top: var(--safe-top, 0px) }` — pousse le contenu sous la status bar
 - `html { background: var(--bg) }` — couvre la zone de rubber band (overscroll bounce au-dessus du body)
 
@@ -468,19 +468,20 @@ Apparaît quand le mot courant défile derrière la zone status bar — affiche 
 - `top: 0` (pas `top: var(--safe-top)`) avec `padding-top: calc(var(--safe-top) + ...)` → la barre couvre la zone status bar (0 à safe-top) et affiche le mot juste en dessous. Ancien `top: var(--safe-top)` laissait le mot visible à travers la status bar transparente.
 - Visibilité pilotée par `_updateStickyVisibility()` : compare le rect du mot avec `safeTop + 10`
 - Listeners : `window scroll` + `visualViewport scroll/resize` + **`setTimeout(200ms)` et `setTimeout(500ms)` après `vv.resize`** — nécessaire car `vv.resize` fire avant que l'autoscroll iOS ne repositionne la page ; les timeouts captent la position finale post-clavier
+- `_updateStickyVisibility()` aussi appelée directement après chaque `window.scrollTo` dans `startAutoScroll` — les events `scroll` programmatiques peuvent être décalés sur iPad, l'appel direct garantit la mise à jour immédiate
 
 ### iOS — Autoscroll au focus textarea
 Au focus sur le textarea (`sentence-input`), le clavier iOS s'ouvre et la page doit scroller pour que le textarea soit visible juste au-dessus du clavier :
 - On note `origHeight = visualViewport.height` au moment du focus
 - On écoute `visualViewport resize` — mais on ignore les resize < 150px (barre URL Safari qui rétrécit) — on attend une réduction > 150px qui confirme l'ouverture du clavier
 - Une fois confirmé : `gap = rect.bottom - vv.height + 12` → `window.scrollBy({ top: gap, behavior: 'smooth' })` — **toujours exécuté, même si gap négatif** (gap négatif = scroll vers le haut = le contenu descend = textarea se rapproche du clavier)
-- Fallback setTimeout 800ms si le clavier était déjà ouvert
+- Fallback setTimeout 800ms si le clavier était déjà ouvert — **ignoré si `origHeight - vv.height ≤ 100px`** (iPad avec clavier physique : seule la barre d'outils apparaît ~50px, pas de scroll nécessaire — évite un scroll parasite vers le haut au moment du streaming)
 
 ### Auto-scroll streaming (`startAutoScroll(box, spacer)`)
 - `PAD_TOP = max(safeTop + 20, stickyBarHeight + 16)` — s'arrête sous le rideau status bar ET sous la sticky bar
 - La hauteur de la sticky bar est **toujours** prise en compte (même si `.visible` n'est pas encore ajouté) car elle peut apparaître pendant le scroll quand le mot passe derrière le rideau. Ancien bug : `_sbH = 0` si bar pas encore visible → box défilait trop haut et se retrouvait partiellement cachée derrière la bar.
 - `topTarget` calculé une seule fois (layout stable), avec `PAD_TOP`
-- Suit le **bas** de la boîte chunk par chunk
+- Suit le **bas** de la boîte chunk par chunk ; `_updateStickyVisibility()` appelée après chaque `scrollTo` (iPad : events scroll programmatiques peuvent être décalés)
 - S'arrête quand le **haut** de la boîte atteint `PAD_TOP` du viewport (`stoppedAtTop = true`)
 - Le scroll final post-streaming respecte `stoppedAtTop`
 - Spacer agrandi dynamiquement si `bottomTarget > maxScrollY`
