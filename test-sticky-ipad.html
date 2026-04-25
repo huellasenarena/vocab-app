@@ -160,13 +160,31 @@
 
   function simulateFixed() {
     const ta = document.getElementById('ta');
+    const origScrollY = window.scrollY;
     const fakeVvHeight = window.innerHeight - 300;
     const rect = ta.getBoundingClientRect();
     const gap = rect.bottom - fakeVvHeight + 12;
-    log(`[FIXÉ] gap = ${Math.round(gap)} → ${gap > 0 ? 'scroll DOWN' : 'gap ≤ 0, PAS de scroll ✓'}`);
-    // Fix : ne scroller que si gap > 0
-    if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
-    setTimeout(updateSticky, 600);
+    log(`[FIXÉ] gap=${Math.round(gap)}, origScrollY=${Math.round(origScrollY)} — attente autoscroll iOS…`);
+
+    if (gap > 0) {
+      window.scrollBy({ top: gap, behavior: 'smooth' });
+    } else {
+      // Textarea visible — iOS va scroller vers le haut inutilement.
+      // Restaurer origScrollY après stabilisation.
+      const restore = () => {
+        if (window.scrollY < origScrollY - 30) {
+          log(`[FIXÉ] iOS scrollé ${Math.round(origScrollY)}→${Math.round(window.scrollY)} → RESTORE ✓`);
+          window.scrollTo(0, origScrollY);
+          updateSticky();
+        } else {
+          log(`[FIXÉ] scrollY=${Math.round(window.scrollY)} stable, pas de restore nécessaire`);
+          updateSticky();
+        }
+      };
+      setTimeout(restore, 150);
+      setTimeout(restore, 400);
+      setTimeout(restore, 700);
+    }
     ta.focus();
   }
 
