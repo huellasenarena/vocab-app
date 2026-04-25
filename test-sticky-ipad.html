@@ -6,8 +6,8 @@
 <title>Test sticky bar</title>
 <style>
   :root {
-    --safe-top: 56px; /* valeur de test élevée — on ajustera après */
-    --safe-bot: env(safe-area-inset-bottom, 16px);
+    --safe-top: 32px;
+    --safe-bot: env(safe-area-inset-bottom, 0px);
     --bg: #0d1f17; --accent: #c8a96e; --text: #e0d8cc;
   }
 
@@ -71,7 +71,7 @@
     position: fixed; bottom: 0; left: 0; right: 0;
     background: #111; border-top: 1px solid #333;
     font-size: 0.72rem; font-family: monospace; color: #0f0;
-    padding: 0.4rem 0.8rem calc(var(--safe-bot) + 0.4rem);
+    padding: 0.4rem 0.8rem;
     z-index: 99999; white-space: pre-wrap; line-height: 1.4;
   }
   #diag {
