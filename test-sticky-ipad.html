@@ -3,202 +3,228 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Test — sticky bar iPad</title>
+<title>Test sticky bar</title>
 <style>
   :root { --safe-top: 32px; --bg: #0d1f17; --accent: #c8a96e; --text: #e0d8cc; }
 
-  /* ── Rideau status bar (z=9999, toujours là) ── */
   #curtain {
     position: fixed; top: 0; left: 0; right: 0;
     height: var(--safe-top); background: var(--bg); z-index: 9999;
   }
 
-  /* ── Sticky bar — rendu intentionnellement ÉVIDENT pour diagnostic ── */
+  /* Rouge vif / bordure jaune — impossible à rater */
   #sticky {
     position: fixed; top: 0; left: 0; right: 0;
-    padding: calc(var(--safe-top) + 0.5rem) 1rem 0.5rem;
-    background: #cc0000;        /* rouge vif — impossible à rater */
-    border-bottom: 4px solid yellow;
-    z-index: 99998;             /* juste sous le rideau (9999) — au-dessus de tout */
+    padding: calc(var(--safe-top) + 0.5rem) 1rem 0.6rem;
+    background: #cc0000; border-bottom: 4px solid yellow;
+    z-index: 99998;
     opacity: 0; transform: translateY(-100%);
     transition: opacity 0.3s, transform 0.3s;
-    font-size: 1.5rem; font-weight: 900; color: white;
-    -webkit-transform: translateZ(0); /* force GPU layer iOS */
+    font-size: 1.4rem; font-weight: 900; color: white;
+    -webkit-transform: translateZ(0);
   }
-  #sticky.visible { opacity: 1; transform: translateY(0) translateZ(0); }
+  #sticky.visible { opacity: 1 !important; transform: translateY(0) translateZ(0) !important; }
 
-  body { margin: 0; background: var(--bg); color: var(--text);
-         padding-top: var(--safe-top); font-family: sans-serif; }
-
-  /* simuler la status bar iOS */
-  #status-bar {
-    position: fixed; top: 0; left: 0; right: 0; height: var(--safe-top);
-    display: flex; align-items: flex-end; padding: 0 1rem 4px;
-    font-size: 0.75rem; color: white; z-index: 10000; pointer-events: none;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    padding-top: var(--safe-top); font-family: sans-serif;
   }
-  #status-bar span:last-child { margin-left: auto; }
 
-  .page { padding: 1rem; }
+  .page { padding: 1rem 1.2rem; }
+
   .word-card {
     background: #1a2e22; border: 1px solid #2a4030; border-radius: 12px;
-    padding: 2rem 1rem; text-align: center; margin: 1rem 0;
+    padding: 2rem 1rem; text-align: center; margin-bottom: 1rem;
   }
   .word-card h2 { margin: 0; font-size: 2rem; color: var(--accent); }
-  .word-card p  { margin: 0.5rem 0 0; font-size: 0.8rem; color: #888; }
+
+  .instructions {
+    background: #1a1a2a; border: 1px solid #333; border-radius: 8px;
+    padding: 0.9rem 1rem; margin-bottom: 1rem;
+    font-size: 0.85rem; line-height: 1.6; color: #aaa;
+  }
+  .instructions strong { color: var(--accent); }
+  .step { margin: 0.3rem 0; }
+  .step span { display: inline-block; width: 1.4rem; font-weight: 700; color: white; }
+
+  .sentence-label { margin: 0 0 0.5rem; font-size: 0.9rem; color: #888; }
+  textarea {
+    width: 100%; box-sizing: border-box;
+    background: #1a2a20; border: 1px solid #2a4030; border-radius: 8px;
+    color: var(--text); padding: 0.75rem; font-size: 1rem; resize: none;
+  }
+
   .feedback {
     background: #0e2018; border: 1px solid #2a6040; border-radius: 12px;
-    padding: 1rem; margin: 1rem 0;
+    padding: 1rem 1.2rem; margin-top: 1rem;
   }
-  .feedback h3 { margin: 0 0 0.5rem; color: #4caf78; }
-  textarea {
-    width: 100%; box-sizing: border-box; background: #1a2a20;
-    border: 1px solid #2a4030; border-radius: 8px; color: var(--text);
-    padding: 0.75rem; font-size: 1rem; margin: 1rem 0; resize: none;
+  .feedback h3 { margin: 0 0 0.5rem; color: #4caf78; font-size: 1.1rem; }
+  .feedback p { margin: 0.4rem 0; line-height: 1.5; }
+
+  #log {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #111; border-top: 1px solid #333;
+    font-size: 0.72rem; font-family: monospace; color: #0f0;
+    padding: 0.4rem 0.8rem; z-index: 99999;
+    white-space: pre-wrap; line-height: 1.4;
   }
-  button {
-    padding: 0.6rem 1.2rem; border-radius: 8px; border: none;
-    cursor: pointer; font-size: 0.9rem;
-  }
-  .btn-primary { background: var(--accent); color: #0d1f17; font-weight: 600; }
-  .note { background: #1a1a2a; border: 1px solid #333; border-radius: 8px;
-          padding: 1rem; margin: 1rem 0; font-size: 0.85rem; line-height: 1.5; }
-  .note strong { color: var(--accent); }
-  .controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
-  #log { font-size: 0.75rem; font-family: monospace; color: #888;
-         background: #111; padding: 0.5rem; border-radius: 4px; margin-top: 1rem; }
+
+  .spacer { height: 120px; } /* espace pour le log fixe */
 </style>
 </head>
 <body>
 
-<div id="status-bar">
-  <span>09:41</span>
-  <span>100%</span>
-</div>
 <div id="curtain"></div>
-<div id="sticky">Liminality</div>
+<div id="sticky">Liminality ← sticky bar (rouge = doit être visible)</div>
 
 <div class="page">
-  <div class="note">
-    <strong>Démonstration du bug iPad</strong><br><br>
-    <strong>Problème :</strong> quand le clavier s'ouvre et que le textarea est déjà
-    visible (gap ≤ 0), le code original scrollait la page vers le <em>haut</em>
-    (<code>window.scrollBy({ top: gap })</code> avec gap négatif). Ce scroll UP
-    réduisait <code>scrollY</code>, ce qui ramenait la word card dans le viewport
-    → sticky bar disparaissait.<br><br>
-    <strong>Fix :</strong> ne scroller que si <code>gap &gt; 0</code> (textarea
-    sous le clavier). Si déjà visible, on ne touche pas <code>scrollY</code>.
+
+  <div class="instructions">
+    <strong>Mode d'emploi :</strong><br>
+    <div class="step"><span>1.</span> Scrolle vers le bas jusqu'à voir le feedback vert</div>
+    <div class="step"><span>2.</span> La sticky bar rouge doit apparaître en haut</div>
+    <div class="step"><span>3.</span> Appuie sur le textarea — la sticky bar doit <strong>rester visible</strong></div>
+    <div class="step"><span>4.</span> Le log en bas montre ce qui se passe en temps réel</div>
   </div>
 
-  <!-- ── Word card (haut de page) ── -->
+  <!-- Word card (haut de page, doit passer hors écran au scroll) -->
   <div class="word-card" id="word-card">
     <h2>Liminality</h2>
-    <p>mot du jour</p>
+    <p>mot du jour — doit être hors écran quand tu lis le feedback</p>
   </div>
 
-  <div class="controls">
-    <button class="btn-primary" onclick="scrollToFeedback()">
-      1. Scroller vers le feedback (simulate startAutoScroll)
-    </button>
-  </div>
+  <!-- Textarea -->
+  <p class="sentence-label">Use this word in a sentence:</p>
+  <textarea id="ta" rows="3" placeholder="Tape ici…"></textarea>
 
-  <!-- ── Textarea ── -->
-  <p>Use this word in a sentence:</p>
-  <textarea id="ta" rows="3" placeholder="Ta phrase ici…"></textarea>
-
-  <!-- ── Feedback (bas de page) ── -->
+  <!-- Feedback long (force le scroll) -->
   <div class="feedback" id="feedback">
     <h3>✓ Verdict</h3>
     <p>Excellent usage de "Liminality" dans un contexte spatial.</p>
     <p>La forme verbale est correcte et le registre est approprié.</p>
-    <p>...</p>
-    <p>Fin du feedback.</p>
+    <p>La structure syntaxique est bien construite.</p>
+    <p>Le choix du temps verbal est pertinent.</p>
+    <p>La cohérence thématique est maintenue tout au long de la phrase.</p>
+    <p>Aucune erreur grammaticale détectée.</p>
+    <p>— Fin du feedback —</p>
   </div>
 
-  <div class="controls" style="margin-top:1rem;">
-    <button onclick="simulateBuggy()">2a. Focus textarea (comportement BUGGY — scrolle UP)</button>
-    <button class="btn-primary" onclick="simulateFixed()">2b. Focus textarea (comportement FIXÉ — pas de scroll UP)</button>
-  </div>
-
-  <div id="log">→ Appuie sur "1." d'abord, puis "2a." ou "2b."</div>
-
-  <!-- Spacer pour permettre le scroll -->
-  <div style="height: 400px;"></div>
+  <div class="spacer"></div>
 </div>
 
+<div id="log">En attente…</div>
+
 <script>
-  const SAFE_TOP = 32;
+  // ── CSS variable safe-top (même logique que l'app principale) ──
+  if (/iPhone|iPod/.test(navigator.userAgent)) {
+    document.documentElement.style.setProperty('--safe-top', '59px');
+  } else if (/iPad/.test(navigator.userAgent) ||
+             (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))) {
+    document.documentElement.style.setProperty('--safe-top', '32px');
+  }
+
+  const SAFE_TOP = parseInt(getComputedStyle(document.documentElement)
+                             .getPropertyValue('--safe-top')) || 0;
+
+  // ── Sticky bar ──
+  const _sticky  = document.getElementById('sticky');
+  const _card    = document.getElementById('word-card');
 
   function updateSticky() {
-    const card = document.getElementById('word-card');
-    const sticky = document.getElementById('sticky');
-    const rect = card.getBoundingClientRect();
-    const shouldShow = rect.top <= SAFE_TOP;
-    sticky.classList.toggle('visible', shouldShow);
-    const sRect = sticky.getBoundingClientRect();
-    const hasVisible = sticky.classList.contains('visible');
-    log(`word-card.top=${Math.round(rect.top)}px | sticky.visible=${hasVisible} | sticky.top=${Math.round(sRect.top)}px h=${Math.round(sRect.height)}px | scrollY=${Math.round(window.scrollY)}`);
+    const rect = _card.getBoundingClientRect();
+    const show = rect.top <= SAFE_TOP;
+    _sticky.classList.toggle('visible', show);
+    addLog(`sticky=${show?'VISIBLE':'cachée'} card.top=${Math.round(rect.top)} scrollY=${Math.round(window.scrollY)} vvH=${Math.round(window.visualViewport?.height??window.innerHeight)}`);
   }
 
   window.addEventListener('scroll', updateSticky, { passive: true });
-
-  function scrollToFeedback() {
-    const fb = document.getElementById('feedback');
-    const rect = fb.getBoundingClientRect();
-    const target = window.scrollY + rect.bottom - window.innerHeight + 16;
-    window.scrollTo({ top: target, behavior: 'smooth' });
-    setTimeout(updateSticky, 600);
-    log(`Scroll vers feedback → scrollY cible ≈ ${Math.round(target)}`);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('scroll', updateSticky, { passive: true });
   }
 
-  function simulateBuggy() {
-    const ta = document.getElementById('ta');
-    // Simuler l'ouverture du clavier : vv.height réduit de 300px
-    const fakeVvHeight = window.innerHeight - 300;
-    const rect = ta.getBoundingClientRect();
-    const gap = rect.bottom - fakeVvHeight + 12;
-    log(`[BUGGY] gap = ${Math.round(gap)} → ${gap > 0 ? 'scroll DOWN' : 'scroll UP ← PROBLÈME'} de ${Math.round(Math.abs(gap))}px`);
-    // Comportement original : scroll même si gap < 0
-    window.scrollBy({ top: gap, behavior: 'smooth' });
-    setTimeout(updateSticky, 600);
-    ta.focus();
-  }
+  // ── Focus handler — IDENTIQUE à index.html ──
+  const _ta = document.getElementById('ta');
 
-  function simulateFixed() {
-    const ta = document.getElementById('ta');
+  _ta.addEventListener('focus', () => {
+    if (!window.visualViewport) return;
+
+    const origHeight  = window.visualViewport.height;
     const origScrollY = window.scrollY;
-    const fakeVvHeight = window.innerHeight - 300;
-    const rect = ta.getBoundingClientRect();
-    const gap = rect.bottom - fakeVvHeight + 12;
-    log(`[FIXÉ] gap=${Math.round(gap)}, origScrollY=${Math.round(origScrollY)} — attente autoscroll iOS…`);
+    let softHandled   = false;
 
-    if (gap > 0) {
-      window.scrollBy({ top: gap, behavior: 'smooth' });
-    } else {
-      // Textarea visible — iOS va scroller vers le haut inutilement.
-      // Restaurer origScrollY après stabilisation.
-      const restore = () => {
-        if (window.scrollY < origScrollY - 30) {
-          log(`[FIXÉ] iOS scrollé ${Math.round(origScrollY)}→${Math.round(window.scrollY)} → RESTORE ✓`);
-          window.scrollTo(0, origScrollY);
-          updateSticky();
+    addLog(`FOCUS — origScrollY=${Math.round(origScrollY)} origVvH=${Math.round(origHeight)}`);
+
+    const restoreScrollIfNeeded = () => {
+      const dropped = origScrollY - window.scrollY;
+      if (dropped > 20) {
+        addLog(`RESTORE: scrollY ${Math.round(window.scrollY)}→${Math.round(origScrollY)} (drop=${Math.round(dropped)})`);
+        window.scrollTo(0, origScrollY);
+        updateSticky();
+      } else {
+        addLog(`restore check: drop=${Math.round(dropped)}px — pas nécessaire`);
+      }
+    };
+
+    const onResize = () => {
+      const vv = window.visualViewport;
+      const reduction = origHeight - vv.height;
+      addLog(`vv.resize: reduction=${Math.round(reduction)}px`);
+      if (reduction <= 0) return;
+
+      if (reduction > 150) {
+        if (softHandled) return;
+        softHandled = true;
+        window.visualViewport.removeEventListener('resize', onResize);
+        const rect = _ta.getBoundingClientRect();
+        const gap = rect.bottom - vv.height + 12;
+        addLog(`clavier logiciel gap=${Math.round(gap)}`);
+        if (gap > 0) {
+          window.scrollBy({ top: gap, behavior: 'smooth' });
         } else {
-          log(`[FIXÉ] scrollY=${Math.round(window.scrollY)} stable, pas de restore nécessaire`);
-          updateSticky();
+          setTimeout(restoreScrollIfNeeded, 150);
+          setTimeout(restoreScrollIfNeeded, 400);
+          setTimeout(restoreScrollIfNeeded, 700);
         }
-      };
-      setTimeout(restore, 150);
-      setTimeout(restore, 400);
-      setTimeout(restore, 700);
-    }
-    ta.focus();
-  }
+      } else {
+        // Toolbar clavier physique iPad (~44px)
+        addLog(`toolbar physique — restore planifié`);
+        setTimeout(restoreScrollIfNeeded, 150);
+        setTimeout(restoreScrollIfNeeded, 450);
+      }
+    };
 
-  function log(msg) {
-    document.getElementById('log').textContent = msg;
+    window.visualViewport.addEventListener('resize', onResize);
+
+    setTimeout(() => {
+      window.visualViewport.removeEventListener('resize', onResize);
+      if (!softHandled) {
+        const reduction = origHeight - window.visualViewport.height;
+        addLog(`fallback 800ms — reduction=${Math.round(reduction)}px`);
+        if (reduction > 150) {
+          const rect = _ta.getBoundingClientRect();
+          const gap = rect.bottom - window.visualViewport.height + 12;
+          if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
+          else setTimeout(restoreScrollIfNeeded, 150);
+        }
+        // Clavier physique : restore déjà planifié dans onResize
+      }
+    }, 800);
+  });
+
+  // ── Log ──
+  const _logEl = document.getElementById('log');
+  const _lines = [];
+  function addLog(msg) {
+    const t = new Date().toLocaleTimeString('fr', { hour12: false,
+              hour:'2-digit', minute:'2-digit', second:'2-digit',
+              fractionalSecondDigits: 1 });
+    _lines.unshift(`${t} ${msg}`);
+    if (_lines.length > 8) _lines.pop();
+    _logEl.textContent = _lines.join('\n');
   }
 
   updateSticky();
+  addLog('Prêt — safeTop=' + SAFE_TOP + 'px');
 </script>
 </body>
 </html>
