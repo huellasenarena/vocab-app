@@ -1307,7 +1307,8 @@
         if (btnNext.style.display === 'none') return; // caché en mode situation
         e.preventDefault();
         nextWord();
-      } else if (e.altKey && (e.key === 'h' || e.key === 'H')) {
+      } else if (e.altKey && e.code === 'KeyH') {
+        // e.code = touche physique (Option+H produit 'ˇ' sur Mac, e.key ne vaut pas 'h')
         e.preventDefault();
         toggleWordsHidden();
       }
@@ -2712,6 +2713,19 @@ Respond entirely in ${feedbackLang}.`;
             }
           }
           cleanupSpacer();
+          // Si verdict ✓, scroll un cran de plus pour montrer le bouton "Autre mot" en bas
+          // (feedbackBox.classList.add('correct') a déjà été appelé avant ce rAF)
+          if (feedbackBox.classList.contains('correct')) {
+            requestAnimationFrame(() => {
+              const btn = document.getElementById('btn-next-below');
+              if (btn && btn.style.display !== 'none') {
+                const bRect = btn.getBoundingClientRect();
+                if (bRect.bottom > window.innerHeight - 16) {
+                  window.scrollTo({ top: window.scrollY + bRect.bottom - window.innerHeight + 24, behavior: 'smooth' });
+                }
+              }
+            });
+          }
         });
 
         // Cherche le verdict global : première ligne commençant par ✓ ou ✗
