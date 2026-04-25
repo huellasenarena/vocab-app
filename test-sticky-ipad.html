@@ -13,16 +13,19 @@
     height: var(--safe-top); background: var(--bg); z-index: 9999;
   }
 
-  /* ── Sticky bar (z=500, sous le rideau) ── */
+  /* ── Sticky bar — rendu intentionnellement ÉVIDENT pour diagnostic ── */
   #sticky {
     position: fixed; top: 0; left: 0; right: 0;
     padding: calc(var(--safe-top) + 0.5rem) 1rem 0.5rem;
-    background: var(--bg); border-bottom: 1px solid #333;
-    z-index: 500; opacity: 0; transform: translateY(-6px);
-    transition: opacity 0.22s, transform 0.22s;
-    font-weight: 600; color: var(--accent);
+    background: #cc0000;        /* rouge vif — impossible à rater */
+    border-bottom: 4px solid yellow;
+    z-index: 99998;             /* juste sous le rideau (9999) — au-dessus de tout */
+    opacity: 0; transform: translateY(-100%);
+    transition: opacity 0.3s, transform 0.3s;
+    font-size: 1.5rem; font-weight: 900; color: white;
+    -webkit-transform: translateZ(0); /* force GPU layer iOS */
   }
-  #sticky.visible { opacity: 1; transform: translateY(0); }
+  #sticky.visible { opacity: 1; transform: translateY(0) translateZ(0); }
 
   body { margin: 0; background: var(--bg); color: var(--text);
          padding-top: var(--safe-top); font-family: sans-serif; }
@@ -128,10 +131,13 @@
 
   function updateSticky() {
     const card = document.getElementById('word-card');
-    const rect = card.getBoundingClientRect();
     const sticky = document.getElementById('sticky');
-    sticky.classList.toggle('visible', rect.top <= SAFE_TOP);
-    log(`sticky ${rect.top <= SAFE_TOP ? 'VISIBLE' : 'cachée'} (word-card rect.top = ${Math.round(rect.top)}px)`);
+    const rect = card.getBoundingClientRect();
+    const shouldShow = rect.top <= SAFE_TOP;
+    sticky.classList.toggle('visible', shouldShow);
+    const sRect = sticky.getBoundingClientRect();
+    const hasVisible = sticky.classList.contains('visible');
+    log(`word-card.top=${Math.round(rect.top)}px | sticky.visible=${hasVisible} | sticky.top=${Math.round(sRect.top)}px h=${Math.round(sRect.height)}px | scrollY=${Math.round(window.scrollY)}`);
   }
 
   window.addEventListener('scroll', updateSticky, { passive: true });
