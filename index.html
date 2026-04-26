@@ -1495,15 +1495,34 @@
       if (allWords.length === 0) return;
 
       if (n > currentWords.length) {
-        // Ajoute des mots — réutilise les mots du pool si disponibles
+        // En mode espacé : pool éligible = mêmes règles que pickWords (révisions + nouveaux dans la limite)
+        let eligible = null;
+        if (practiceMode === 'spaced') {
+          const trulyDue = allWords.filter(w => {
+            const prog = progressMap[w.toLowerCase()];
+            return prog && prog.nextReview && isDue(w);
+          });
+          const neverPracticed = allWords.filter(w => isNewWord(w));
+          const newRemaining = Math.max(0, maxNewPerDay - todayNewCount);
+          const newToShow = neverPracticed.slice(0, newRemaining);
+          eligible = new Set([...trulyDue, ...newToShow]);
+        }
         while (currentWords.length < n) {
-          const nextFromPool = previousWordsPool.find(w => !currentWords.includes(w));
+          const nextFromPool = previousWordsPool.find(w =>
+            !currentWords.includes(w) && (!eligible || eligible.has(w))
+          );
           if (nextFromPool) {
             currentWords.push(nextFromPool);
+          } else if (eligible) {
+            const candidates = [...eligible].filter(w => !currentWords.includes(w));
+            if (candidates.length === 0) break; // plus de mots éligibles (limite atteinte)
+            const newWord = candidates[Math.floor(Math.random() * candidates.length)];
+            currentWords.push(newWord);
+            previousWordsPool.push(newWord);
           } else {
             const newWord = pickWeightedOne(currentWords);
             currentWords.push(newWord);
-            previousWordsPool.push(newWord); // ajoute au pool
+            previousWordsPool.push(newWord);
           }
         }
         renderWordDisplay();
