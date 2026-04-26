@@ -409,7 +409,9 @@
     .words-hidden .word-main,
     .words-hidden .chip-word,
     .words-hidden #sticky-words-text,
-    .words-hidden .hint-word-in-label { filter: blur(7px); user-select: none; }
+    .words-hidden .hint-word-in-label,
+    .words-hidden .qcm-word,
+    .words-hidden .qcm-offer-word { filter: blur(7px); user-select: none; }
 
     /* ── Barre sticky mots ── */
     #sticky-words-bar {
@@ -1239,6 +1241,7 @@
     let currentPhotoUrl    = '';
     let imageTheme         = localStorage.getItem(KEY_IMAGE_THEME) || '';
     const definitionCache  = {}; // { "mot|lang|model": "texte définition" }
+    let _hintInFlight = false; // bloque tout nouveau fetchHint pendant un streaming en cours
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
@@ -1307,8 +1310,9 @@
         if (btnNext.style.display === 'none') return; // caché en mode situation
         e.preventDefault();
         nextWord();
-      } else if (e.altKey && e.code === 'KeyH') {
-        // e.code = touche physique (Option+H produit 'ˇ' sur Mac, e.key ne vaut pas 'h')
+      } else if (e.altKey && e.key === 'ArrowLeft') {
+        // Pas de conflit : Option+← navigue par mot dans les champs texte
+        if (document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'INPUT') return;
         e.preventDefault();
         toggleWordsHidden();
       }
@@ -1664,7 +1668,7 @@
       todayInputTokens  += inp;
       todayOutputTokens += out + reasoning;
       _pendingInput  += inp;
-      _pendingOutput += out;
+      _pendingOutput += out + reasoning;
       updateTokenDisplay();
       saveTodayTokensDebounced();
     }
@@ -2524,6 +2528,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
 
     async function fetchHint(word) {
+      // Lock global : tant qu'un streaming définition est en cours, tout autre clic est ignoré
+      if (_hintInFlight) return;
+
       const hintTextEl = document.getElementById('hint-text');
       const hintBox    = document.getElementById('hint-box');
       const cacheKey   = `${word.toLowerCase()}|${currentLang}|${currentModel}`;
@@ -2532,7 +2539,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('hint-box-label-text').innerHTML = `Définition — <span class="hint-word-in-label">${word.replace(/</g,'&lt;')}</span>`;
       hintBox.classList.remove('collapsed');
 
-      // ── Cache hit : affichage instantané (valide 24h) ────────
+      // ── Cache hit : affichage instantané (valide 24h, pas de lock) ────
       const cached = definitionCache[cacheKey];
       if (cached && Date.now() - cached.ts < 86400000) {
         hintTextEl.innerHTML = cached.html;
@@ -2544,7 +2551,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         return; // pas d'appel API, pas de saveHint (déjà enregistré)
       }
 
-      // ── Cache miss : appel API ─────────────────────────────
+      // ── Cache miss : appel API (lock global) ───────────────
+      _hintInFlight = true;
       const langName = getLang().mistralName;
       const prompt = `You are a vocabulary teacher. The learner is studying ${langName}.
 
@@ -2599,6 +2607,8 @@ Respond entirely in ${langName}.`;
         hintTextEl.innerHTML = `<span>Erreur : ${err.message}</span>
           <button class="btn-secondary" style="margin-top:0.5rem" onclick="fetchHint('${ew}')">↺ Réessayer</button>`;
         hintBox.classList.add('visible');
+      } finally {
+        _hintInFlight = false;
       }
     }
 
@@ -2756,8 +2766,9 @@ Respond entirely in ${feedbackLang}.`;
           }
           cleanupSpacer();
           // Si verdict ✓, scroll un cran de plus pour montrer le bouton "Autre mot" en bas
-          // (feedbackBox.classList.add('correct') a déjà été appelé avant ce rAF)
-          if (feedbackBox.classList.contains('correct')) {
+          // — sauf si la boîte est plus grande que l'écran (stoppedAtTop) : on ne pousse
+          // pas le haut de la boîte hors écran juste pour révéler le bouton.
+          if (feedbackBox.classList.contains('correct') && !scroller.stoppedAtTop) {
             requestAnimationFrame(() => {
               const btn = document.getElementById('btn-next-below');
               if (btn && btn.style.display !== 'none') {
@@ -2865,7 +2876,7 @@ Respond entirely in ${feedbackLang}.`;
           const wordsForQCM = failedWords.length > 0 ? failedWords : [currentWords[0]];
           document.getElementById('qcm-question').textContent = langInfo.qcmQuestion;
           document.getElementById('qcm-offer-buttons').innerHTML = wordsForQCM
-            .map(w => `<button class="btn-qcm" onclick="startQCM('${w.replace(/'/g, "\\'")}')">🎯 QCM — ${w}</button>`)
+            .map(w => `<button class="btn-qcm" onclick="startQCM('${w.replace(/'/g, "\\'")}')">🎯 QCM — <span class="qcm-offer-word">${w}</span></button>`)
             .join('');
           document.getElementById('qcm-offer').classList.add('visible');
         }
