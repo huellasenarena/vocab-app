@@ -1318,10 +1318,6 @@
     const _stickyBar = document.getElementById('sticky-words-bar');
     const _safeTop = () => parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
 
-    // État contenu : feedback ou définition visible → sticky bar forcée visible
-    // indépendamment du scroll. Résiste à l'autoscroll iOS au focus textarea.
-    let _stickyContentForced = false;
-
     function _updateStickyVisibility() {
       if (!currentWords.length || practiceMode === 'image') {
         _stickyBar.classList.remove('visible'); return;
@@ -1332,23 +1328,15 @@
       if (!wordEl || wordEl.style.display === 'none') {
         _stickyBar.classList.remove('visible'); return;
       }
-      const offScreen = wordEl.getBoundingClientRect().top <= _safeTop();
-      _stickyBar.classList.toggle('visible', offScreen || _stickyContentForced);
+      _stickyBar.classList.toggle('visible', wordEl.getBoundingClientRect().top <= _safeTop());
     }
 
-    // Observe feedback-box ET hint-box : force sticky bar visible quand l'un est actif
-    const _syncStickyForced = () => {
+    // btn-next-below (verdict ✓ uniquement)
+    new MutationObserver(() => {
       const fb = document.getElementById('feedback-box');
-      const hb = document.getElementById('hint-box');
-      const feedbackActive = fb && fb.classList.contains('visible') && !fb.classList.contains('image');
-      const hintActive     = hb && hb.classList.contains('visible');
-      _stickyContentForced = feedbackActive || hintActive;
-      _updateStickyVisibility();
-      // btn-next-below
       document.getElementById('btn-next-below').style.display =
-        fb && fb.classList.contains('visible') && fb.classList.contains('correct') ? '' : 'none';
-    };
-    const _stickyObserver = new MutationObserver(_syncStickyForced);
+        fb.classList.contains('visible') && fb.classList.contains('correct') ? '' : 'none';
+    }).observe(document.getElementById('feedback-box'), { attributes: true, attributeFilter: ['class'] });
     _stickyObserver.observe(document.getElementById('feedback-box'), { attributes: true, attributeFilter: ['class'] });
     _stickyObserver.observe(document.getElementById('hint-box'),     { attributes: true, attributeFilter: ['class'] });
 
