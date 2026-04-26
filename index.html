@@ -1236,11 +1236,13 @@
     let maxNewPerDay       = parseInt(localStorage.getItem(KEY_MAX_NEW)) || 60;
     let todayInputTokens        = 0; // total du jour (affiché)
     let todayOutputTokens       = 0;
+    let todayGptRequests             = 0;
     let todayGemmaRequests           = 0;
     let todayGeminiFlashRequests     = 0;
     let todayGeminiFlashLiteRequests = 0;
     let _pendingInput   = 0; // tokens/requêtes accumulés depuis le dernier save
     let _pendingOutput  = 0;
+    let _pendingGptReq  = 0;
     let _pendingGemma   = 0;
     let _pendingFlash   = 0;
     let _pendingFlashLite = 0;
@@ -1617,18 +1619,19 @@
 
     async function loadTodayTokens() {
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:F`);
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:G`);
         const rows = (data.values || []).slice(1);
         const utcRow = rows.find(r => r[0] === todayStr());
         const ptRow  = rows.find(r => r[0] === todayStrPT());
         todayInputTokens             = utcRow ? (parseInt(utcRow[1]) || 0) : 0;
         todayOutputTokens            = utcRow ? (parseInt(utcRow[2]) || 0) : 0;
-        todayGemmaRequests           = ptRow  ? (parseInt(ptRow[3])  || 0) : 0;
-        todayGeminiFlashRequests     = ptRow  ? (parseInt(ptRow[4])  || 0) : 0;
-        todayGeminiFlashLiteRequests = ptRow  ? (parseInt(ptRow[5])  || 0) : 0;
+        todayGptRequests             = utcRow ? (parseInt(utcRow[3]) || 0) : 0;
+        todayGemmaRequests           = ptRow  ? (parseInt(ptRow[4])  || 0) : 0;
+        todayGeminiFlashRequests     = ptRow  ? (parseInt(ptRow[5])  || 0) : 0;
+        todayGeminiFlashLiteRequests = ptRow  ? (parseInt(ptRow[6])  || 0) : 0;
         updateTokenDisplay();
       } catch (e) {
-        todayInputTokens = todayOutputTokens = todayGemmaRequests = todayGeminiFlashRequests = todayGeminiFlashLiteRequests = 0;
+        todayInputTokens = todayOutputTokens = todayGptRequests = todayGemmaRequests = todayGeminiFlashRequests = todayGeminiFlashLiteRequests = 0;
       }
     }
 
@@ -1636,60 +1639,62 @@
       const utcDate = todayStr();
       const ptDate  = todayStrPT();
       // Capturer les pending au moment du save (d'autres appels peuvent arriver pendant l'await)
-      const pIn = _pendingInput, pOut = _pendingOutput;
+      const pIn = _pendingInput, pOut = _pendingOutput, pGptReq = _pendingGptReq;
       const pGemma = _pendingGemma, pFlash = _pendingFlash, pFlashLite = _pendingFlashLite;
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:F`);
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:G`);
         const rows = (data.values || []).slice(1);
 
         if (utcDate === ptDate) {
           const idx = rows.findIndex(r => r[0] === utcDate);
           const row = idx >= 0 ? rows[idx] : null;
-          const nIn   = (row ? parseInt(row[1]) || 0 : 0) + pIn;
-          const nOut  = (row ? parseInt(row[2]) || 0 : 0) + pOut;
-          const nGemma = (row ? parseInt(row[3]) || 0 : 0) + pGemma;
-          const nFlash = (row ? parseInt(row[4]) || 0 : 0) + pFlash;
-          const nFLite = (row ? parseInt(row[5]) || 0 : 0) + pFlashLite;
+          const nIn     = (row ? parseInt(row[1]) || 0 : 0) + pIn;
+          const nOut    = (row ? parseInt(row[2]) || 0 : 0) + pOut;
+          const nGptReq = (row ? parseInt(row[3]) || 0 : 0) + pGptReq;
+          const nGemma  = (row ? parseInt(row[4]) || 0 : 0) + pGemma;
+          const nFlash  = (row ? parseInt(row[5]) || 0 : 0) + pFlash;
+          const nFLite  = (row ? parseInt(row[6]) || 0 : 0) + pFlashLite;
           if (idx >= 0) {
-            const range = encodeURIComponent(`Tokens!B${idx + 2}:F${idx + 2}`);
-            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[nIn, nOut, nGemma, nFlash, nFLite]] });
+            const range = encodeURIComponent(`Tokens!B${idx + 2}:G${idx + 2}`);
+            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[nIn, nOut, nGptReq, nGemma, nFlash, nFLite]] });
           } else {
-            const range = encodeURIComponent('Tokens!A:F');
-            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[utcDate, nIn, nOut, nGemma, nFlash, nFLite]] });
+            const range = encodeURIComponent('Tokens!A:G');
+            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[utcDate, nIn, nOut, nGptReq, nGemma, nFlash, nFLite]] });
           }
-          todayInputTokens = nIn; todayOutputTokens = nOut;
+          todayInputTokens = nIn; todayOutputTokens = nOut; todayGptRequests = nGptReq;
           todayGemmaRequests = nGemma; todayGeminiFlashRequests = nFlash; todayGeminiFlashLiteRequests = nFLite;
         } else {
           // Fenêtre de transition (minuit UTC → minuit PT) : deux lignes distinctes
           const utcIdx = rows.findIndex(r => r[0] === utcDate);
           const utcRow = utcIdx >= 0 ? rows[utcIdx] : null;
-          const nIn  = (utcRow ? parseInt(utcRow[1]) || 0 : 0) + pIn;
-          const nOut = (utcRow ? parseInt(utcRow[2]) || 0 : 0) + pOut;
+          const nIn     = (utcRow ? parseInt(utcRow[1]) || 0 : 0) + pIn;
+          const nOut    = (utcRow ? parseInt(utcRow[2]) || 0 : 0) + pOut;
+          const nGptReq = (utcRow ? parseInt(utcRow[3]) || 0 : 0) + pGptReq;
           if (utcIdx >= 0) {
-            const range = encodeURIComponent(`Tokens!B${utcIdx + 2}:C${utcIdx + 2}`);
-            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[nIn, nOut]] });
+            const range = encodeURIComponent(`Tokens!B${utcIdx + 2}:D${utcIdx + 2}`);
+            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[nIn, nOut, nGptReq]] });
           } else {
-            const range = encodeURIComponent('Tokens!A:F');
-            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[utcDate, nIn, nOut, '', '', '']] });
+            const range = encodeURIComponent('Tokens!A:G');
+            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[utcDate, nIn, nOut, nGptReq, '', '', '']] });
           }
-          todayInputTokens = nIn; todayOutputTokens = nOut;
+          todayInputTokens = nIn; todayOutputTokens = nOut; todayGptRequests = nGptReq;
 
           const ptIdx = rows.findIndex(r => r[0] === ptDate);
           const ptRow = ptIdx >= 0 ? rows[ptIdx] : null;
-          const nGemma = (ptRow ? parseInt(ptRow[3]) || 0 : 0) + pGemma;
-          const nFlash = (ptRow ? parseInt(ptRow[4]) || 0 : 0) + pFlash;
-          const nFLite = (ptRow ? parseInt(ptRow[5]) || 0 : 0) + pFlashLite;
+          const nGemma = (ptRow ? parseInt(ptRow[4]) || 0 : 0) + pGemma;
+          const nFlash = (ptRow ? parseInt(ptRow[5]) || 0 : 0) + pFlash;
+          const nFLite = (ptRow ? parseInt(ptRow[6]) || 0 : 0) + pFlashLite;
           if (ptIdx >= 0) {
-            const range = encodeURIComponent(`Tokens!D${ptIdx + 2}:F${ptIdx + 2}`);
+            const range = encodeURIComponent(`Tokens!E${ptIdx + 2}:G${ptIdx + 2}`);
             await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[nGemma, nFlash, nFLite]] });
           } else {
-            const range = encodeURIComponent('Tokens!A:F');
-            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[ptDate, '', '', nGemma, nFlash, nFLite]] });
+            const range = encodeURIComponent('Tokens!A:G');
+            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[ptDate, '', '', '', nGemma, nFlash, nFLite]] });
           }
           todayGemmaRequests = nGemma; todayGeminiFlashRequests = nFlash; todayGeminiFlashLiteRequests = nFLite;
         }
         // Déduire seulement ce qui a été sauvegardé (d'autres tokens peuvent être arrivés pendant l'await)
-        _pendingInput -= pIn; _pendingOutput -= pOut;
+        _pendingInput -= pIn; _pendingOutput -= pOut; _pendingGptReq -= pGptReq;
         _pendingGemma -= pGemma; _pendingFlash -= pFlash; _pendingFlashLite -= pFlashLite;
         updateTokenDisplay();
       } catch (e) {
@@ -1708,8 +1713,10 @@
                      || 0;
       todayInputTokens  += inp;
       todayOutputTokens += out + reasoning;
+      todayGptRequests++;
       _pendingInput  += inp;
       _pendingOutput += out + reasoning;
+      _pendingGptReq++;
       updateTokenDisplay();
       saveTodayTokensDebounced();
     }
