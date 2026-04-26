@@ -995,6 +995,16 @@
         oninput="onSliderChange(this.value)" />
     </div>
 
+    <!-- Slider nombre de formes grammaticales (Español uniquement) -->
+    <div class="slider-section" id="grammar-slider-section" style="display:none;">
+      <div class="slider-header">
+        <span class="slider-label">Nombre de formes</span>
+        <span class="slider-value" id="grammar-slider-value">1 forme</span>
+      </div>
+      <input type="range" id="grammar-count-slider" min="1" max="10" value="1"
+        oninput="onGrammarSliderChange(this.value)" />
+    </div>
+
     <!-- Mot unique -->
     <div id="single-word-card" class="word-card" onclick="singleCardHint()" style="cursor:pointer">
       <span class="word-label">mot du jour</span>
@@ -1165,6 +1175,7 @@
     const KEY_GEMINI_THINKING  = "vocab_gemini_thinking";
     const KEY_GEMMA_THINKING   = "vocab_gemma_thinking";
     const KEY_WORD_COUNT       = "vocab_word_count";
+    const KEY_GRAMMAR_COUNT    = "vocab_grammar_count";
     const GEMINI_MODEL_IDS = { gemma: 'gemma-4-31b-it', geminiflash: 'gemini-3-flash-preview', geminiflashlite: 'gemini-3.1-flash-lite-preview' };
     const DAILY_LIMITS = { gpt4: 235000, gemma: 1500, geminiflash: 20, geminiflashlite: 500 };
     const GRAMMAR_SHEET_ID = "1xRaN0cp4gMHifiBVJ_f1S1Qbyn5krmzWYHJ5Kd6oqzs";
@@ -1265,6 +1276,9 @@
       const _savedWC = parseInt(localStorage.getItem(KEY_WORD_COUNT)) || 1;
       document.getElementById('word-count-slider').value = _savedWC;
       document.getElementById('slider-value').textContent = _savedWC === 1 ? '1 mot' : `${_savedWC} mots`;
+      const _savedGC = parseInt(localStorage.getItem(KEY_GRAMMAR_COUNT)) || 1;
+      document.getElementById('grammar-count-slider').value = _savedGC;
+      document.getElementById('grammar-slider-value').textContent = _savedGC === 1 ? '1 forme' : `${_savedGC} formes`;
     });
 
     function showScreen(id) {
@@ -1274,6 +1288,14 @@
 
     function getLang() { return LANGS.find(l => l.key === currentLang) || LANGS[0]; }
     function wordCount() { return parseInt(document.getElementById('word-count-slider').value); }
+    function grammarCount() { return parseInt(document.getElementById('grammar-count-slider').value) || 1; }
+
+    function onGrammarSliderChange(val) {
+      const n = parseInt(val);
+      document.getElementById('grammar-slider-value').textContent = n === 1 ? '1 forme' : `${n} formes`;
+      localStorage.setItem(KEY_GRAMMAR_COUNT, n.toString());
+      renderGrammarForms();
+    }
 
     // ── Mot de passe ──────────────────────────────────────────
     async function checkPassword() {
@@ -2059,7 +2081,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         ? 'Describe esta foto en español :'
         : (getLang().sentencePromptSingle || 'Utilise ce mot dans une phrase :');
       document.getElementById('confirm-panel').style.display    = isImage ? 'none' : '';
-      document.getElementById('grammar-forms-zone').style.display = isImage ? 'none' : '';
+      renderGrammarForms(); // gère visibilité zone + slider selon mode
 
       // Nettoyer toutes les sections dynamiques à chaque changement de mode
       document.getElementById('related-box').classList.remove('visible');
@@ -2180,10 +2202,14 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
     function renderGrammarForms() {
       const zone = document.getElementById('grammar-forms-zone');
+      const sliderSec = document.getElementById('grammar-slider-section');
       if (!zone) return;
-      const show = grammarFormsEnabled && currentLang === 'Spanish' && grammarForms.length > 0 && currentWords.length > 0;
+      const baseShow = grammarFormsEnabled && currentLang === 'Spanish' && grammarForms.length > 0
+                    && practiceMode !== 'situation' && practiceMode !== 'image';
+      if (sliderSec) sliderSec.style.display = baseShow ? '' : 'none';
+      const show = baseShow && currentWords.length > 0;
       if (!show) { zone.style.display = 'none'; return; }
-      const n = currentWords.length;
+      const n = grammarCount();
       const pool = [...grammarForms];
       const picked = [];
       for (let i = 0; i < n && pool.length > 0; i++) {
