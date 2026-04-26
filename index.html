@@ -1314,11 +1314,17 @@
       }
     });
 
-    // ── Barre sticky mots ─────────────────────────────────────
+    // ── Barre sticky mots — désactivée sur iOS/iPad ───────────
+    // Les comportements de viewport iOS (vv.offsetTop, position:fixed pendant
+    // l'activation de la toolbar Magic Keyboard) rendent cette barre instable.
+    // Conservée uniquement sur Mac/Desktop où elle fonctionne correctement.
     const _stickyBar = document.getElementById('sticky-words-bar');
     const _safeTop = () => parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
+    const _isIOS = /iPhone|iPod|iPad/.test(navigator.userAgent) ||
+                   (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
 
     function _updateStickyVisibility() {
+      if (_isIOS) { _stickyBar.classList.remove('visible'); return; }
       if (!currentWords.length || practiceMode === 'image') {
         _stickyBar.classList.remove('visible'); return;
       }
@@ -1331,23 +1337,27 @@
       _stickyBar.classList.toggle('visible', wordEl.getBoundingClientRect().top <= _safeTop());
     }
 
+    if (_isIOS) {
+      _stickyBar.style.display = 'none';
+    }
+
     // btn-next-below (verdict ✓ uniquement)
     new MutationObserver(() => {
       const fb = document.getElementById('feedback-box');
       document.getElementById('btn-next-below').style.display =
         fb.classList.contains('visible') && fb.classList.contains('correct') ? '' : 'none';
     }).observe(document.getElementById('feedback-box'), { attributes: true, attributeFilter: ['class'] });
-    _stickyObserver.observe(document.getElementById('feedback-box'), { attributes: true, attributeFilter: ['class'] });
-    _stickyObserver.observe(document.getElementById('hint-box'),     { attributes: true, attributeFilter: ['class'] });
 
-    window.addEventListener('scroll', _updateStickyVisibility, { passive: true });
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('scroll', _updateStickyVisibility, { passive: true });
-      window.visualViewport.addEventListener('resize', () => {
-        _updateStickyVisibility();
-        setTimeout(_updateStickyVisibility, 200);
-        setTimeout(_updateStickyVisibility, 500);
-      }, { passive: true });
+    if (!_isIOS) {
+      window.addEventListener('scroll', _updateStickyVisibility, { passive: true });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('scroll', _updateStickyVisibility, { passive: true });
+        window.visualViewport.addEventListener('resize', () => {
+          _updateStickyVisibility();
+          setTimeout(_updateStickyVisibility, 200);
+          setTimeout(_updateStickyVisibility, 500);
+        }, { passive: true });
+      }
     }
 
     // Auto-resize textarea
