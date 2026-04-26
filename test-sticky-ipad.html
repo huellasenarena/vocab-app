@@ -151,6 +151,27 @@
   }
   window.addEventListener('scroll', updateSticky, { passive: true });
 
+  // ── Diagnostic focus/blur — AUCUNE action, seulement observer ─
+  let _focusCount = 0;
+  _ta.addEventListener('focus', () => {
+    _focusCount++;
+    const top = _card.getBoundingClientRect().top;
+    addLog(`>>> FOCUS #${_focusCount} scrollY=${Math.round(window.scrollY)} top=${Math.round(top)}`);
+  });
+  _ta.addEventListener('blur', () => {
+    const top = _card.getBoundingClientRect().top;
+    addLog(`<<< BLUR scrollY=${Math.round(window.scrollY)} top=${Math.round(top)}`);
+    // Log après un court délai pour voir si iOS scrolle après le blur
+    setTimeout(() => {
+      const top2 = _card.getBoundingClientRect().top;
+      addLog(`... 200ms post-blur scrollY=${Math.round(window.scrollY)} top=${Math.round(top2)}`);
+    }, 200);
+    setTimeout(() => {
+      const top2 = _card.getBoundingClientRect().top;
+      addLog(`... 600ms post-blur scrollY=${Math.round(window.scrollY)} top=${Math.round(top2)}`);
+    }, 600);
+  });
+
   // ── Log ──────────────────────────────────────────────────
   const _logEl = document.getElementById('log');
   const _lines = [];
