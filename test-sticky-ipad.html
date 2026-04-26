@@ -198,6 +198,24 @@
     _logEl.textContent = _lines.join('\n');
   }
 
+  // ── Correction positionnement sticky bar ─────────────────
+  // Quand vv.offsetTop ≠ 0 (ouverture clavier), la sticky bar se décale
+  // vers le haut car position:fixed suit le viewport visuel, pas l'écran physique.
+  // On compense en ajustant le padding-top dynamiquement.
+  function adjustStickyPadding() {
+    if (!window.visualViewport) return;
+    const vvOff = window.visualViewport.offsetTop; // décalage viewport/écran
+    // position physique du texte = vvOff + padding-top → on veut = SAFE_TOP + 8
+    // → padding-top = SAFE_TOP + 8 - vvOff
+    const pad = Math.max(8, SAFE_TOP + 8 - vvOff);
+    _sticky.style.paddingTop = pad + 'px';
+    addLog(`vvOff=${Math.round(vvOff)} pad=${Math.round(pad)}`);
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('scroll', adjustStickyPadding, { passive: true });
+    window.visualViewport.addEventListener('resize', adjustStickyPadding, { passive: true });
+  }
+
   document.getElementById('diag').textContent =
     `safe-top=${SAFE_TOP}px | standalone=${!!navigator.standalone}`;
   updateSticky();
