@@ -1243,11 +1243,11 @@
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
 
-      // Safe area iOS — iPhone/iPod : 59px (Dynamic Island/notch), iPad : 32px (status bar + marge)
+      // Safe area iOS — iPhone/iPod : 59px (Dynamic Island/notch), iPad : 44px (status bar + marge)
       if (/iPhone|iPod/.test(navigator.userAgent)) {
         document.documentElement.style.setProperty('--safe-top', '59px');
       } else if (/iPad/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))) {
-        document.documentElement.style.setProperty('--safe-top', '32px');
+        document.documentElement.style.setProperty('--safe-top', '44px');
       }
 
       const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
