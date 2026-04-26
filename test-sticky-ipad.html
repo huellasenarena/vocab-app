@@ -142,34 +142,48 @@
   const _card   = document.getElementById('word-card');
   const _ta     = document.getElementById('ta');
 
+  // ── Helper : capture l'état complet du viewport ───────────
+  function snap() {
+    const vv = window.visualViewport;
+    return {
+      sY: Math.round(window.scrollY),
+      vvOff: vv ? Math.round(vv.offsetTop) : 0,
+      vvH: vv ? Math.round(vv.height) : 0,
+      cardTop: Math.round(_card.getBoundingClientRect().top),
+      stickyTop: Math.round(_sticky.getBoundingClientRect().top),
+    };
+  }
+
   // ── Sticky bar — logique pure scroll ─────────────────────
   function updateSticky() {
-    const top  = _card.getBoundingClientRect().top;
-    const show = top <= SAFE_TOP;
+    const s = snap();
+    const show = s.cardTop <= SAFE_TOP;
     _sticky.classList.toggle('visible', show);
-    addLog(`${show?'V':'X'} top=${Math.round(top)} scrollY=${Math.round(window.scrollY)}`);
+    addLog(`${show?'V':'X'} card=${s.cardTop} sticky=${s.stickyTop} sY=${s.sY} vvOff=${s.vvOff} vvH=${s.vvH}`);
   }
   window.addEventListener('scroll', updateSticky, { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('scroll', updateSticky, { passive: true });
+    window.visualViewport.addEventListener('resize', () => {
+      const s = snap();
+      addLog(`vv.RESIZE vvH=${s.vvH} vvOff=${s.vvOff} sY=${s.sY}`);
+    }, { passive: true });
+  }
 
-  // ── Diagnostic focus/blur — AUCUNE action, seulement observer ─
+  // ── Diagnostic focus/blur ─────────────────────────────────
   let _focusCount = 0;
   _ta.addEventListener('focus', () => {
     _focusCount++;
-    const top = _card.getBoundingClientRect().top;
-    addLog(`>>> FOCUS #${_focusCount} scrollY=${Math.round(window.scrollY)} top=${Math.round(top)}`);
+    const s = snap();
+    addLog(`>>> FOCUS #${_focusCount} card=${s.cardTop} sticky=${s.stickyTop} vvOff=${s.vvOff} vvH=${s.vvH}`);
   });
   _ta.addEventListener('blur', () => {
-    const top = _card.getBoundingClientRect().top;
-    addLog(`<<< BLUR scrollY=${Math.round(window.scrollY)} top=${Math.round(top)}`);
-    // Log après un court délai pour voir si iOS scrolle après le blur
+    const s = snap();
+    addLog(`<<< BLUR card=${s.cardTop} sticky=${s.stickyTop} vvOff=${s.vvOff} vvH=${s.vvH}`);
     setTimeout(() => {
-      const top2 = _card.getBoundingClientRect().top;
-      addLog(`... 200ms post-blur scrollY=${Math.round(window.scrollY)} top=${Math.round(top2)}`);
-    }, 200);
-    setTimeout(() => {
-      const top2 = _card.getBoundingClientRect().top;
-      addLog(`... 600ms post-blur scrollY=${Math.round(window.scrollY)} top=${Math.round(top2)}`);
-    }, 600);
+      const s2 = snap();
+      addLog(`... 300ms card=${s2.cardTop} sticky=${s2.stickyTop} vvOff=${s2.vvOff}`);
+    }, 300);
   });
 
   // ── Log ──────────────────────────────────────────────────
