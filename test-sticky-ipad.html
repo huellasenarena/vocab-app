@@ -142,59 +142,18 @@
   const _card   = document.getElementById('word-card');
   const _ta     = document.getElementById('ta');
 
-  // ── Sticky bar (scroll-based uniquement) ──────────────────
+  // ── Sticky bar — logique pure scroll ─────────────────────
   function updateSticky() {
     const top  = _card.getBoundingClientRect().top;
     const show = top <= SAFE_TOP;
     _sticky.classList.toggle('visible', show);
-    addLog(`sticky=${show?'V':'X'} card.top=${Math.round(top)} scrollY=${Math.round(window.scrollY)}`);
+    addLog(`${show?'V':'X'} top=${Math.round(top)} scrollY=${Math.round(window.scrollY)}`);
   }
   window.addEventListener('scroll', updateSticky, { passive: true });
-  if (window.visualViewport)
-    window.visualViewport.addEventListener('scroll', updateSticky, { passive: true });
 
-  // ── Protecteur de scroll au focus ─────────────────────────
-  // Quand le textarea reçoit le focus ET que le mot est hors écran,
-  // on surveille le scroll : si iOS scrolle vers le haut (scrollY baisse),
-  // on restaure immédiatement. Protection pendant 1.5s.
-  _ta.addEventListener('focus', () => {
-    const cardTop = _card.getBoundingClientRect().top;
-    if (cardTop > SAFE_TOP) {
-      addLog(`FOCUS — mot visible (top=${Math.round(cardTop)}), pas de protection`);
-      return; // mot visible, pas besoin de protéger
-    }
-
-    const target = window.scrollY;
-    let active   = true;
-    addLog(`FOCUS — mot hors écran, protection scrollY≥${Math.round(target)}`);
-
-    const protect = () => {
-      if (!active) return;
-      const drop = target - window.scrollY;
-      if (drop > 10) {
-        addLog(`iOS scrollé ↑ drop=${Math.round(drop)}px → RESTORE`);
-        window.scrollTo(0, target);
-        updateSticky();
-      }
-    };
-
-    window.addEventListener('scroll', protect, { passive: true });
-    if (window.visualViewport)
-      window.visualViewport.addEventListener('scroll', protect, { passive: true });
-
-    setTimeout(() => {
-      active = false;
-      window.removeEventListener('scroll', protect);
-      if (window.visualViewport)
-        window.visualViewport.removeEventListener('scroll', protect);
-      addLog(`protection terminée, scrollY=${Math.round(window.scrollY)}`);
-      updateSticky();
-    }, 1500);
-  });
-
-  // ── Log ───────────────────────────────────────────────────
-  const _logEl  = document.getElementById('log');
-  const _lines  = [];
+  // ── Log ──────────────────────────────────────────────────
+  const _logEl = document.getElementById('log');
+  const _lines = [];
   function addLog(msg) {
     const t = new Date().toLocaleTimeString('fr', { hour12:false,
               hour:'2-digit', minute:'2-digit', second:'2-digit',
@@ -202,24 +161,6 @@
     _lines.unshift(`${t} ${msg}`);
     if (_lines.length > 9) _lines.pop();
     _logEl.textContent = _lines.join('\n');
-  }
-
-  // ── Correction positionnement sticky bar ─────────────────
-  // Quand vv.offsetTop ≠ 0 (ouverture clavier), la sticky bar se décale
-  // vers le haut car position:fixed suit le viewport visuel, pas l'écran physique.
-  // On compense en ajustant le padding-top dynamiquement.
-  function adjustStickyPadding() {
-    if (!window.visualViewport) return;
-    const vvOff = window.visualViewport.offsetTop; // décalage viewport/écran
-    // position physique du texte = vvOff + padding-top → on veut = SAFE_TOP + 8
-    // → padding-top = SAFE_TOP + 8 - vvOff
-    const pad = Math.max(8, SAFE_TOP + 8 - vvOff);
-    _sticky.style.paddingTop = pad + 'px';
-    addLog(`vvOff=${Math.round(vvOff)} pad=${Math.round(pad)}`);
-  }
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('scroll', adjustStickyPadding, { passive: true });
-    window.visualViewport.addEventListener('resize', adjustStickyPadding, { passive: true });
   }
 
   document.getElementById('diag').textContent =
