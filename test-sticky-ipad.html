@@ -26,9 +26,7 @@
     transition: opacity 0.3s, transform 0.3s;
     font-size: 1.4rem; font-weight: 900; color: white;
   }
-  #sticky.visible        { opacity: 1; transform: translateY(0); }
-  /* Force via état contenu — indépendant du scroll et des callbacks */
-  #sticky.content-forced { opacity: 1 !important; transform: translateY(0) !important; }
+  #sticky.visible { opacity: 1; transform: translateY(0); }
 
   body {
     margin: 0; background: var(--bg); color: var(--text);
@@ -113,18 +111,6 @@
   <p class="sentence-label">Use this word in a sentence:</p>
   <textarea id="ta" rows="3" placeholder="Tape ici…"></textarea>
 
-  <!-- Bouton pour simuler l'affichage du feedback -->
-  <div style="margin: 0.5rem 0;">
-    <button onclick="setContentVisible(true)"
-            style="background:#2a6040;color:white;border:none;padding:0.6rem 1rem;border-radius:8px;font-size:0.9rem;margin-right:0.5rem;">
-      Simuler feedback visible →
-    </button>
-    <button onclick="setContentVisible(false)"
-            style="background:#333;color:white;border:none;padding:0.6rem 1rem;border-radius:8px;font-size:0.9rem;">
-      Reset
-    </button>
-  </div>
-
   <!-- Feedback long (force le scroll) -->
   <div class="feedback" id="feedback">
     <h3>✓ Verdict</h3>
@@ -143,139 +129,79 @@
 <div id="log">En attente…</div>
 
 <script>
-  // Mesure env() via CSS custom property
-  document.documentElement.style.setProperty('--_t', 'env(safe-area-inset-top,0px)');
-  document.documentElement.style.setProperty('--_b', 'env(safe-area-inset-bottom,0px)');
-  const cs = getComputedStyle(document.documentElement);
-  const ENV_TOP = parseFloat(cs.getPropertyValue('--_t')) || 0;
-  const ENV_BOT = parseFloat(cs.getPropertyValue('--_b')) || 0;
-  document.documentElement.style.removeProperty('--_t');
-  document.documentElement.style.removeProperty('--_b');
+  const SAFE_TOP = parseInt(getComputedStyle(document.documentElement)
+                             .getPropertyValue('--safe-top')) || 32;
 
-  const SAFE_TOP = parseInt(cs.getPropertyValue('--safe-top')) || 56;
+  const _sticky = document.getElementById('sticky');
+  const _card   = document.getElementById('word-card');
+  const _ta     = document.getElementById('ta');
 
-  document.getElementById('diag').textContent =
-    `--safe-top=${SAFE_TOP}px | env-top=${Math.round(ENV_TOP)}px | env-bot=${Math.round(ENV_BOT)}px | standalone=${!!navigator.standalone} | UA=${navigator.userAgent.slice(0,60)}`;
-
-  // ── Sticky bar ──
-  const _sticky  = document.getElementById('sticky');
-  const _card    = document.getElementById('word-card');
-
+  // ── Sticky bar (scroll-based uniquement) ──────────────────
   function updateSticky() {
-    const rect = _card.getBoundingClientRect();
-    const offScreen = rect.top <= SAFE_TOP;
-    // Nouvelle logique : visible si hors écran OU si contenu (feedback/définition) affiché
-    const show = offScreen || _contentVisible;
+    const top  = _card.getBoundingClientRect().top;
+    const show = top <= SAFE_TOP;
     _sticky.classList.toggle('visible', show);
-    addLog(`sticky=${show?'V':'X'} offScr=${offScreen} cont=${_contentVisible} top=${Math.round(rect.top)} cls="${_sticky.className}"`);
+    addLog(`sticky=${show?'V':'X'} card.top=${Math.round(top)} scrollY=${Math.round(window.scrollY)}`);
   }
-
-  // État : feedback/définition visible → sticky bar forcée visible indépendamment du scroll
-  let _contentVisible = false;
-
-  function setContentVisible(v) {
-    _contentVisible = v;
-    // Force CSS directement — indépendant du scroll et des callbacks iOS
-    _sticky.classList.toggle('content-forced', v);
-    updateSticky();
-    addLog(`setContent=${v} sticky.classes="${_sticky.className}"`);
-  }
-
   window.addEventListener('scroll', updateSticky, { passive: true });
-  if (window.visualViewport) {
+  if (window.visualViewport)
     window.visualViewport.addEventListener('scroll', updateSticky, { passive: true });
-  }
 
-  // ── Focus handler — IDENTIQUE à index.html ──
-  const _ta = document.getElementById('ta');
-
+  // ── Protecteur de scroll au focus ─────────────────────────
+  // Quand le textarea reçoit le focus ET que le mot est hors écran,
+  // on surveille le scroll : si iOS scrolle vers le haut (scrollY baisse),
+  // on restaure immédiatement. Protection pendant 1.5s.
   _ta.addEventListener('focus', () => {
-    if (!window.visualViewport) return;
+    const cardTop = _card.getBoundingClientRect().top;
+    if (cardTop > SAFE_TOP) {
+      addLog(`FOCUS — mot visible (top=${Math.round(cardTop)}), pas de protection`);
+      return; // mot visible, pas besoin de protéger
+    }
 
-    const origHeight  = window.visualViewport.height;
-    const origScrollY = window.scrollY;
-    let softHandled   = false;
+    const target = window.scrollY;
+    let active   = true;
+    addLog(`FOCUS — mot hors écran, protection scrollY≥${Math.round(target)}`);
 
-    addLog(`FOCUS — origScrollY=${Math.round(origScrollY)} origVvH=${Math.round(origHeight)}`);
-
-    const restoreScrollIfNeeded = () => {
-      const dropped = origScrollY - window.scrollY;
-      if (dropped > 20) {
-        addLog(`RESTORE: scrollY ${Math.round(window.scrollY)}→${Math.round(origScrollY)} (drop=${Math.round(dropped)})`);
-        window.scrollTo(0, origScrollY);
+    const protect = () => {
+      if (!active) return;
+      const drop = target - window.scrollY;
+      if (drop > 10) {
+        addLog(`iOS scrollé ↑ drop=${Math.round(drop)}px → RESTORE`);
+        window.scrollTo(0, target);
         updateSticky();
-      } else {
-        addLog(`restore check: drop=${Math.round(dropped)}px — pas nécessaire`);
       }
     };
 
-    const onResize = () => {
-      const vv = window.visualViewport;
-      const reduction = origHeight - vv.height;
-      addLog(`vv.resize: reduction=${Math.round(reduction)}px`);
-      if (reduction <= 0) return;
-
-      if (reduction > 150) {
-        if (softHandled) return;
-        softHandled = true;
-        window.visualViewport.removeEventListener('resize', onResize);
-        const rect = _ta.getBoundingClientRect();
-        const gap = rect.bottom - vv.height + 12;
-        addLog(`clavier logiciel gap=${Math.round(gap)}`);
-        if (gap > 0) {
-          window.scrollBy({ top: gap, behavior: 'smooth' });
-        } else {
-          setTimeout(restoreScrollIfNeeded, 150);
-          setTimeout(restoreScrollIfNeeded, 400);
-          setTimeout(restoreScrollIfNeeded, 700);
-        }
-      } else {
-        // Toolbar clavier physique iPad (~44px)
-        addLog(`toolbar physique — restore planifié`);
-        setTimeout(restoreScrollIfNeeded, 150);
-        setTimeout(restoreScrollIfNeeded, 450);
-      }
-    };
-
-    window.visualViewport.addEventListener('resize', onResize);
+    window.addEventListener('scroll', protect, { passive: true });
+    if (window.visualViewport)
+      window.visualViewport.addEventListener('scroll', protect, { passive: true });
 
     setTimeout(() => {
-      window.visualViewport.removeEventListener('resize', onResize);
-      if (!softHandled) {
-        const reduction = origHeight - window.visualViewport.height;
-        addLog(`fallback 800ms — reduction=${Math.round(reduction)}px`);
-        if (reduction > 150) {
-          const rect = _ta.getBoundingClientRect();
-          const gap = rect.bottom - window.visualViewport.height + 12;
-          if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
-          else setTimeout(restoreScrollIfNeeded, 150);
-        }
-        // Clavier physique : restore déjà planifié dans onResize
-      }
-    }, 800);
+      active = false;
+      window.removeEventListener('scroll', protect);
+      if (window.visualViewport)
+        window.visualViewport.removeEventListener('scroll', protect);
+      addLog(`protection terminée, scrollY=${Math.round(window.scrollY)}`);
+      updateSticky();
+    }, 1500);
   });
 
-  // ── Log ──
-  const _logEl = document.getElementById('log');
-  const _lines = [];
+  // ── Log ───────────────────────────────────────────────────
+  const _logEl  = document.getElementById('log');
+  const _lines  = [];
   function addLog(msg) {
-    const t = new Date().toLocaleTimeString('fr', { hour12: false,
+    const t = new Date().toLocaleTimeString('fr', { hour12:false,
               hour:'2-digit', minute:'2-digit', second:'2-digit',
-              fractionalSecondDigits: 1 });
+              fractionalSecondDigits:1 });
     _lines.unshift(`${t} ${msg}`);
-    if (_lines.length > 8) _lines.pop();
+    if (_lines.length > 9) _lines.pop();
     _logEl.textContent = _lines.join('\n');
   }
 
-  // Affiche la vraie valeur env(safe-area-inset-top) pour diagnostic
-  const _diagEl = document.createElement('div');
-  _diagEl.style.cssText = 'position:fixed;top:0;width:1px;height:env(safe-area-inset-top,0px);opacity:0;pointer-events:none;';
-  document.body.appendChild(_diagEl);
-  const envSafeTop = _diagEl.getBoundingClientRect().height;
-  document.body.removeChild(_diagEl);
-
+  document.getElementById('diag').textContent =
+    `safe-top=${SAFE_TOP}px | standalone=${!!navigator.standalone}`;
   updateSticky();
-  addLog(`Prêt — safe-top=${Math.round(SAFE_TOP)}px`);
+  addLog('Prêt');
 </script>
 </body>
 </html>
