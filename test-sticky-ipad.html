@@ -15,6 +15,11 @@
     position: fixed; top: 0; left: 0; right: 0;
     height: var(--safe-top); background: var(--bg); z-index: 9999;
   }
+  /* Indicateur visuel : ligne bleue exactement à y=var(--safe-top) */
+  #safe-indicator {
+    position: fixed; top: var(--safe-top); left: 0; right: 0;
+    height: 3px; background: blue; z-index: 99999; pointer-events: none;
+  }
 
   /* Rouge vif / bordure jaune — impossible à rater */
   #sticky {
@@ -84,6 +89,7 @@
 <body>
 
 <div id="curtain"></div>
+<div id="safe-indicator"></div>
 <div id="sticky">Liminality ← sticky bar (rouge = doit être visible)</div>
 
 <div class="page">
