@@ -72,11 +72,11 @@ function doPost(e) {
   }
 
   // ── Validation IA (Gemma) ─────────────────────────────────
-  var validation = validateWordWithGemma(word, sheetName);
-  if (!validation.valid) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ status: 'INVALID', reason: validation.reason }))
-      .setMimeType(ContentService.MimeType.JSON);
+  if (!force) {
+    var validation = validateWordWithGemma(word, sheetName);
+    if (!validation.valid) {
+      return ContentService.createTextOutput('INVALID:' + validation.reason);
+    }
   }
 
   // ── Ajoute le mot ─────────────────────────────────────────
