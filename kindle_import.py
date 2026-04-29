@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from difflib import SequenceMatcher
 
-LONG_CLIP_THRESHOLD = 6  # mots
+LONG_CLIP_THRESHOLD = 5  # mots
 
 import urllib.request, urllib.parse
 
@@ -21,6 +21,8 @@ WORKER_SECRET  = "vocab-app-secret-2026"
 
 LANG_TO_SHEET  = {"es": "Spanish", "fr": "French", "en": "English", "el": "Greek"}
 LANG_NAMES     = {"es": "Espagnol", "fr": "Français", "en": "Anglais", "el": "Grec"}
+SHEET_TO_LANG_FULL = {"Spanish": "Spanish", "French": "French", "English": "English", "Greek": "Modern Greek"}
+AI_BATCH_SIZE  = 30
 
 # Mots trop communs par langue
 TOO_COMMON = {
@@ -170,8 +172,9 @@ def deduplicate_clips(clips):
 # ── Revue des mots par pages ─────────────────────────────────────────────────
 PAGE_SIZE = 10
 
-def review_words(ready):
-    """Affiche les mots page par page et laisse l'utilisateur en exclure."""
+def review_words(ready, suspects=None):
+    """Affiche les mots page par page et laisse l'utilisateur en exclure. suspects = {word_lower: reason}"""
+    suspects = suspects or {}
     updated = {}
     for sheet, rows in ready.items():
         if not rows:
@@ -184,7 +187,10 @@ def review_words(ready):
         while page * PAGE_SIZE < len(kept):
             chunk = kept[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
             for i, (_, word) in enumerate(chunk, start=1):
-                print(f"   {i + page * PAGE_SIZE:>3}. {word}")
+                marker = ""
+                if word.lower().strip() in suspects:
+                    marker = f"  ⚠️  {suspects[word.lower().strip()]}"
+                print(f"   {i + page * PAGE_SIZE:>3}. {word}{marker}")
             total_pages = (len(kept) + PAGE_SIZE - 1) // PAGE_SIZE
             print(f"\n   Page {page + 1}/{total_pages}")
             raw = input("   Numéros à supprimer, Entrée pour continuer, q pour terminer la revue : ").strip()
@@ -213,6 +219,66 @@ def review_words(ready):
 
 # ── Sheets API (via Cloudflare Worker) ──────────────────────────────────────
 TIMEOUT = 15
+
+def call_gemma(prompt, max_tokens=600):
+    """Appelle Gemma 4 31B via le Worker Cloudflare."""
+    payload = {
+        "prompt": prompt,
+        "maxTokens": max_tokens,
+        "stream": False,
+        "geminiModel": "gemma-4-31b-it",
+        "thinkingLevel": "minimal",
+    }
+    data = json.dumps(payload).encode()
+    req = urllib.request.Request(
+        f"{WORKER_URL}/gemini",
+        data=data,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "X-Worker-Secret": WORKER_SECRET,
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=30) as r:
+        result = json.loads(r.read())
+    if "error" in result:
+        raise Exception(result["error"])
+    return result.get("text", "")
+
+
+def validate_words_ai(ready):
+    """Valide les mots avec Gemma. Retourne {word_lower: reason} pour les suspects."""
+    suspects = {}
+    for sheet, rows in ready.items():
+        if not rows:
+            continue
+        lang = SHEET_TO_LANG_FULL.get(sheet, sheet)
+        words = [word for _, word in rows]
+        for i in range(0, len(words), AI_BATCH_SIZE):
+            batch = words[i : i + AI_BATCH_SIZE]
+            word_list = ", ".join(f'"{w}"' for w in batch)
+            prompt = (
+                f"Among these {lang} words/expressions, identify any that are NOT valid "
+                f"{lang} words (typos, words from another language, abbreviations, "
+                f"gibberish, incomplete forms).\n"
+                f"Return ONLY a JSON array: "
+                f'[{{"word": "...", "reason": "..."}}] for suspicious ones only. '
+                f"If all look valid, return [].\nWords: {word_list}"
+            )
+            try:
+                text = call_gemma(prompt)
+                match = re.search(r"\[.*\]", text, re.DOTALL)
+                if match:
+                    items = json.loads(match.group())
+                    for item in items:
+                        w = item.get("word", "").lower().strip()
+                        if w:
+                            suspects[w] = item.get("reason", "?")
+            except Exception as e:
+                print(f"   ⚠️  Batch IA échoué pour '{sheet}' : {e}")
+    return suspects
+
 
 def sheets_call(sheet_path, method="GET", body=None):
     payload = {"sheetPath": sheet_path, "method": method}
@@ -314,7 +380,7 @@ def read_clippings(clip_path):
             title = lines[0].strip()
             # Enlever "(Author Name)" à la fin du titre
             title = re.sub(r'\s*\([^)]+\)\s*$', '', title).strip()
-            clip = lines[2].strip('.,;:—-«»¡!¿?"\' ')
+            clip = lines[2].strip('.,;:—-«»¡!"\' ')
             clip = re.sub(r'\s+', ' ', clip).strip()
             if not clip:
                 continue
@@ -567,8 +633,20 @@ def main():
         print("\n✅ Tous les mots existent déjà dans Sheets — rien à importer.")
     else:
         sep()
+        print("🤖 Validation IA avec Gemma...\n")
+        suspects = {}
+        try:
+            suspects = validate_words_ai(ready)
+            if suspects:
+                print(f"   ⚠️  {len(suspects)} mot(s) suspect(s) détecté(s) — marqués ⚠️ dans la revue")
+            else:
+                print("   ✅ Tous les mots semblent valides")
+        except Exception as e:
+            print(f"   ⚠️  Validation IA ignorée : {e}")
+
+        sep()
         if ask("Revoir les mots avant d'importer ?"):
-            ready = review_words(ready)
+            ready = review_words(ready, suspects)
             total_new = sum(len(rows) for rows in ready.values())
 
         sep()
