@@ -317,9 +317,9 @@ Convertit `**gras**`, `*italique*`, `##` headings, `•` puces. `##` → `<br><s
 
 1. **gpt-5.4 hallucinations** : rares mais possibles. Garde-fous dans les prompts (CRITICAL FILTER, B2-STEP 2) imparfaits.
 
-2. **Apps Script `doPost`** : ajout de mots depuis raccourci iPhone, URL séparée. Normalise (strip Markdown `*`, points finaux, lowercase). Doublon exact bloqué. Quasi-doublon (substring ou même mot après suppression d'article) → retourne `"SIMILAR:motExistant"` sauf si `force=true`. Le raccourci iPhone gère `SIMILAR:` via alerte de confirmation.
+2. **Apps Script `doPost`** : ajout de mots depuis raccourci iPhone, URL séparée. Normalise (strip Markdown `*`, points finaux, lowercase). Ordre des checks : (1) **validation Gemma** (`gemma-4-31b-it`, `thinkingLevel: minimal`) → retourne `"INVALID:raison"` si mot invalide dans la langue, sauf si `force=true` ; (2) doublon exact bloqué ; (3) quasi-doublon → `"SIMILAR:motExistant"` sauf si `force=true`. `force=true` bypasse INVALID et SIMILAR. Le raccourci iPhone gère ces deux cas via alertes de confirmation. Code versionné dans `apps_script/` (clasp). `WORKER_SECRET` stocké dans PropertiesService (pas en dur). Menu **🔍 Audit** dans Sheets (`Audit.js`) : scanne tous les onglets langue par batch de 30, surligne les suspects en rouge avec commentaire cellule.
 
-3. **`kindle_import.py`** : import Kindle → Sheets via Worker (`/sheets` + `X-Worker-Secret`, plus d'OAuth2). Lit `vocab.db` + `My Clippings.txt`. Déduplication contre Sheets (substring ou article-stripped) : menu `i/n/d` (importer / ne pas / ignorer les deux). Inter-clips : `SequenceMatcher ≥ 0.80`, menu `1/2/+/-`. Revue paginée 10/page avant import. **User-Agent navigateur requis** dans les requêtes Worker (sinon 403 Cloudflare 1010).
+3. **`kindle_import.py`** : import Kindle → Sheets via Worker (`/sheets` + `X-Worker-Secret`, plus d'OAuth2). Lit `vocab.db` + `My Clippings.txt`. Déduplication contre Sheets (substring ou article-stripped) : menu `i/n/d` (importer / ne pas / ignorer les deux). Inter-clips : `SequenceMatcher ≥ 0.80`, menu `1/2/+/-`. **Validation Gemma batch** (30 mots/appel) après déduplication : suspects marqués `⚠️ raison` dans la revue paginée. Revue paginée 10/page avant import. **User-Agent navigateur requis** dans les requêtes Worker (sinon 403 Cloudflare 1010).
 
 4. **Gemma 4 thinking** : `'NONE'` et `thinkingBudget: 0` non supportés. Niveaux confirmés : `'MINIMAL'`, `'HIGH'`.
 
@@ -340,6 +340,17 @@ Toujours vérifier la syntaxe JS avant `git push`. Tester en local (Safari).
 ### Modifier le Worker
 
 `cd ~/Desktop/vocab-app/dark-brook-87cc && wrangler deploy`. Ne pas commiter ce dossier.
+
+### Modifier l'Apps Script
+
+Code dans `apps_script/` (versionné dans le repo). Déploiement via clasp :
+
+```bash
+cd ~/Desktop/vocab-app/apps_script
+clasp push        # met à jour le code dans Sheets
+```
+
+Après `clasp push`, **redéployer** dans l'éditeur Apps Script pour que le raccourci iPhone prenne les changements : Déployer > Gérer les déploiements > ✏️ > Nouvelle version > Déployer. `.clasp.json` exclu du repo (`.gitignore`).
 
 ---
 
