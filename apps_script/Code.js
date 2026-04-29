@@ -37,6 +37,14 @@ function doPost(e) {
     );
   }
 
+  // ── Validation IA (Gemma) — avant tout le reste ──────────
+  if (!force) {
+    var validation = validateWordWithGemma(word, sheetName);
+    if (!validation.valid) {
+      return ContentService.createTextOutput('INVALID:' + validation.reason);
+    }
+  }
+
   // ── Lit les mots existants (colonne B) ────────────────────
   var data = sheet.getRange('B:B').getValues();
 
@@ -68,14 +76,6 @@ function doPost(e) {
     }
     if (!force && areSimilar(word, existing)) {
       return ContentService.createTextOutput('SIMILAR:' + existing);
-    }
-  }
-
-  // ── Validation IA (Gemma) ─────────────────────────────────
-  if (!force) {
-    var validation = validateWordWithGemma(word, sheetName);
-    if (!validation.valid) {
-      return ContentService.createTextOutput('INVALID:' + validation.reason);
     }
   }
 
