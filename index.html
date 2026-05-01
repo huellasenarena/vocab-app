@@ -733,6 +733,48 @@
     .confirm-panel-actions .btn-primary,
     .confirm-panel-actions .btn-secondary { flex: 1; padding: 0.65rem; font-size: 0.88rem; }
 
+    /* ── Menu contextuel mot ── */
+    #word-ctx-menu {
+      position: fixed;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.35rem 0;
+      min-width: 180px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      z-index: 10000;
+      display: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #word-ctx-menu.visible { display: block; }
+    .ctx-word-label {
+      padding: 0.5rem 1rem 0.4rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-style: italic;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 0.2rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 220px;
+    }
+    .ctx-menu-btn {
+      display: block;
+      width: 100%;
+      background: none;
+      border: none;
+      text-align: left;
+      padding: 0.65rem 1rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      color: var(--text);
+      font-family: inherit;
+    }
+    .ctx-menu-btn:hover, .ctx-menu-btn:active { background: rgba(255,255,255,0.06); }
+    .ctx-menu-btn.danger { color: var(--error); }
+
     /* ── Panneau réglages ── */
     .settings-panel {
       width: 100%;
@@ -1253,7 +1295,10 @@
     let currentPhotoUrl    = '';
     let imageTheme         = localStorage.getItem(KEY_IMAGE_THEME) || '';
     const definitionCache  = {}; // { "mot|lang|model": "texte définition" }
-    let _hintInFlight = false; // bloque tout nouveau fetchHint pendant un streaming en cours
+    let _hintInFlight      = false; // bloque tout nouveau fetchHint pendant un streaming en cours
+    let _ctxWord           = null;  // mot visé par le menu contextuel
+    let _ctxLongTimer      = null;  // timer long press
+    let _justLongPressed   = false; // bloque le click après un long press
 
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
@@ -2448,10 +2493,12 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
     // ── Hint via chip ─────────────────────────────────────────
     function singleCardHint() {
+      if (_justLongPressed) { _justLongPressed = false; return; }
       if (currentWords.length === 1) chipHint(currentWords[0]);
     }
 
     function chipHint(word) {
+      if (_justLongPressed) { _justLongPressed = false; return; }
       const spaced = practiceMode === 'spaced' && !sentenceSubmitted;
       if (spaced && !isNewWord(word)) showJeNeSaisPas(word);
       else fetchHint(word);
@@ -3464,6 +3511,57 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
       }
     });
 
+    // ── Menu contextuel : right-click (Mac/iPad trackpad) ─────
+    document.addEventListener('contextmenu', e => {
+      const chip = e.target.closest('.word-chip');
+      const card = e.target.closest('#single-word-card');
+      if (!chip && !card) return;
+      const word = chip
+        ? chip.querySelector('.chip-word')?.textContent?.trim()
+        : currentWords[0];
+      if (!word || !currentWords.includes(word)) return;
+      e.preventDefault();
+      showWordContextMenu(word, e.clientX, e.clientY);
+    });
+
+    // ── Menu contextuel : long press (touch) ─────────────────
+    document.addEventListener('touchstart', e => {
+      // Fermer le menu si touche hors du menu
+      if (document.getElementById('word-ctx-menu').classList.contains('visible')) {
+        if (!e.target.closest('#word-ctx-menu')) closeWordContextMenu();
+        return;
+      }
+      const chip = e.target.closest('.word-chip');
+      const card = e.target.closest('#single-word-card');
+      if (!chip && !card) return;
+      const word = chip
+        ? chip.querySelector('.chip-word')?.textContent?.trim()
+        : currentWords[0];
+      if (!word || !currentWords.includes(word)) return;
+      const touch = e.touches[0];
+      const x = touch.clientX, y = touch.clientY;
+      _ctxLongTimer = setTimeout(() => {
+        _justLongPressed = true;
+        showWordContextMenu(word, x, y);
+      }, 500);
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+      clearTimeout(_ctxLongTimer);
+      _ctxLongTimer = null;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', () => {
+      clearTimeout(_ctxLongTimer);
+      _ctxLongTimer = null;
+    }, { passive: true });
+
+    // Fermer le menu au clic souris hors du menu
+    document.addEventListener('mousedown', e => {
+      if (!document.getElementById('word-ctx-menu').classList.contains('visible')) return;
+      if (!e.target.closest('#word-ctx-menu')) closeWordContextMenu();
+    });
+
     // ── Mots liés ─────────────────────────────────────────────
     async function fetchRelatedWords(words) {
       const wordList = Array.isArray(words) ? words : [words];
@@ -3812,6 +3910,84 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       return fullText.trim();
     }
 
+    // ── Menu contextuel mot (right-click / long press) ────────
+    function showWordContextMenu(word, x, y) {
+      _ctxWord = word;
+      const menu = document.getElementById('word-ctx-menu');
+      document.getElementById('word-ctx-label').textContent = word;
+      menu.style.left = '-9999px';
+      menu.style.top  = '-9999px';
+      menu.classList.add('visible');
+      const mW = menu.offsetWidth;
+      const mH = menu.offsetHeight;
+      menu.style.left = Math.max(8, Math.min(x, window.innerWidth  - mW - 8)) + 'px';
+      menu.style.top  = Math.max(8, Math.min(y, window.innerHeight - mH - 8)) + 'px';
+    }
+
+    function closeWordContextMenu() {
+      _ctxWord         = null;
+      _justLongPressed = false;
+      document.getElementById('word-ctx-menu').classList.remove('visible');
+    }
+
+    async function ctxMenuDelete() {
+      const word = _ctxWord;
+      closeWordContextMenu();
+      if (!word) return;
+      if (!confirm(`Supprimer "${word}" de ta liste ?`)) return;
+      await deleteWordFromSheets(word);
+    }
+
+    async function deleteWordFromSheets(word) {
+      const wordLow = word.toLowerCase();
+      try {
+        // Trouver la ligne dans l'onglet langue (col B = mot)
+        const langData = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(currentLang + '!A:B')}`);
+        const langRows = langData.values || [];
+        const langIdx  = langRows.findIndex(r => (r[1] || '').toLowerCase() === wordLow);
+        if (langIdx < 0) throw new Error(`"${word}" introuvable dans ${currentLang}`);
+
+        // Récupérer les sheetIds numériques pour batchUpdate
+        const meta       = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties`);
+        const sheetsList = meta.sheets || [];
+        const langSheetId = sheetsList.find(s => s.properties.title === currentLang)?.properties.sheetId;
+        const progSheetId = sheetsList.find(s => s.properties.title === 'Progress')?.properties.sheetId;
+        if (langSheetId == null) throw new Error(`Onglet "${currentLang}" introuvable`);
+
+        // Supprimer la ligne dans l'onglet langue
+        await sheetsApi(`/v4/spreadsheets/${SHEET_ID}:batchUpdate`, 'POST', {
+          requests: [{ deleteDimension: { range: { sheetId: langSheetId, dimension: 'ROWS', startIndex: langIdx, endIndex: langIdx + 1 } } }]
+        });
+
+        // Supprimer la ligne Progress si elle existe
+        if (progSheetId != null) {
+          const progData = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Progress!A:A`);
+          const progRows = progData.values || [];
+          const progIdx  = progRows.findIndex((r, i) => i > 0 && (r[0] || '').toLowerCase() === wordLow);
+          if (progIdx > 0) {
+            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}:batchUpdate`, 'POST', {
+              requests: [{ deleteDimension: { range: { sheetId: progSheetId, dimension: 'ROWS', startIndex: progIdx, endIndex: progIdx + 1 } } }]
+            });
+          }
+        }
+
+        // Mettre à jour l'état en mémoire
+        allWords          = allWords.filter(w => w.toLowerCase() !== wordLow);
+        delete progressMap[wordLow];
+        Object.keys(definitionCache).forEach(k => { if (k.startsWith(wordLow + '|')) delete definitionCache[k]; });
+        currentWords      = currentWords.filter(w => w.toLowerCase() !== wordLow);
+        previousWordsPool = previousWordsPool.filter(w => w.toLowerCase() !== wordLow);
+
+        if (currentWords.length === 0) {
+          await nextWord();
+        } else {
+          renderWords();
+        }
+      } catch (e) {
+        alert(`Erreur suppression : ${e.message}`);
+      }
+    }
+
     // ── SHA-256 ───────────────────────────────────────────────
     async function sha256(message) {
       const msgBuffer  = new TextEncoder().encode(message);
@@ -3820,5 +3996,11 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
   </script>
+
+  <div id="word-ctx-menu">
+    <div class="ctx-word-label" id="word-ctx-label"></div>
+    <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()">Supprimer ce mot</button>
+    <button class="ctx-menu-btn" onclick="closeWordContextMenu()">Annuler</button>
+  </div>
 </body>
 </html>
