@@ -1614,9 +1614,13 @@
     function todayStrPT() {
       return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }); // YYYY-MM-DD PT (reset Google quotas)
     }
+    function todayStrLocal(d = new Date()) {
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; // YYYY-MM-DD Local
+    }
 
     async function loadTodayCount() {
-      const today    = todayStr();
+      const today    = todayStrLocal();
       const localKey = `vocab_today_new_${today}`;
       const localVal = parseInt(localStorage.getItem(localKey)) || 0;
       try {
@@ -1634,7 +1638,7 @@
     }
 
     async function saveTodayCount(newCount) {
-      const today    = todayStr();
+      const today    = todayStrLocal();
       const localKey = `vocab_today_new_${today}`;
       localStorage.setItem(localKey, newCount); // toujours sauvegarder en local
       try {
@@ -2187,13 +2191,13 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     function addDays(n) {
       const d = new Date();
       d.setDate(d.getDate() + n);
-      return d.toISOString().split('T')[0]; // YYYY-MM-DD
+      return todayStrLocal(d); // YYYY-MM-DD Local
     }
 
     function isDue(word) {
       const prog = progressMap[word.toLowerCase()];
       if (!prog || !prog.nextReview) return true; // jamais pratiqué → toujours dû
-      return prog.nextReview <= new Date().toISOString().split('T')[0];
+      return prog.nextReview <= todayStrLocal();
     }
 
     // ── Tirage pondéré (mode libre) ───────────────────────────
