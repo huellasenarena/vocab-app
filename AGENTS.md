@@ -317,7 +317,7 @@ Convertit `**gras**`, `*italique*`, `##` headings, `•` puces. `##` → `<br><s
 
 1. **gpt-5.4 hallucinations** : rares mais possibles. Garde-fous dans les prompts (CRITICAL FILTER, B2-STEP 2) imparfaits.
 
-2. **Apps Script `doPost`** : ajout de mots depuis raccourci iPhone, URL séparée. `Code_test.js` est le script actif (remplace `Code.js`). Architecture : `doPost` wrapper → `_doPost` (logique) + `updateTokensGemma` (incrémente col E onglet Tokens après chaque appel). Ordre des checks : (1) **détection langue** Gemma si `lang=auto` — échec → erreur explicite (pas de fallback silencieux) ; (2) **validation** Gemma (`gemma-4-31b-it`) → `INVALID:raison | langue` ; (3) doublon exact bloqué ; (4) **similarité** — pré-filtre `normSim`+`isSimilarCandidate` (préfixe 4 chars, substring, suffixe 3 chars, normalisation accents, 15 candidats max) + juge LLM → `SIMILAR:mot | langue`. `ignore_sens=true` / `ignore_sim=true` bypasse chaque check. **OAuth scope requis** : `script.external_request` dans `appsscript.json` — si les appels Gemma échouent avec "no permission", révoquer l'autorisation sur myaccount.google.com/permissions et relancer depuis l'éditeur. Menu **🔍 Audit** dans Sheets (`Audit.js`) : modèle `gemma-3-4b-it` (30 RPM / 14 400 RPD), batch 60 mots, sleep 2 200ms entre batches. Sélection d'onglet (actif par défaut ou choix numéroté), plage de lignes, mémoire par onglet dans Script Properties (`AUDIT_END_English`, `AUDIT_END_Spanish`, etc.).
+2. **Apps Script `doPost`** : ajout de mots depuis raccourci iPhone, URL séparée. Normalise (strip Markdown `*`, points finaux, lowercase). Ordre des checks : (1) **validation Gemma** (`gemma-4-31b-it`, `thinkingLevel: minimal`) → retourne `"INVALID:raison"` si mot invalide dans la langue, sauf si `force=true` ; (2) doublon exact bloqué ; (3) quasi-doublon → `"SIMILAR:motExistant"` sauf si `force=true`. `force=true` bypasse INVALID et SIMILAR. Le raccourci iPhone gère ces deux cas via alertes de confirmation. Code versionné dans `apps_script/` (clasp). `WORKER_SECRET` stocké dans PropertiesService (pas en dur). Menu **🔍 Audit** dans Sheets (`Audit.js`) : scanne tous les onglets langue par batch de 30, surligne les suspects en rouge avec commentaire cellule.
 
 3. **`kindle_import.py`** : import Kindle → Sheets via Worker (`/sheets` + `X-Worker-Secret`, plus d'OAuth2). Lit `vocab.db` + `My Clippings.txt`. Déduplication contre Sheets (substring ou article-stripped) : menu `i/n/d` (importer / ne pas / ignorer les deux). Inter-clips : `SequenceMatcher ≥ 0.80`, menu `1/2/+/-`. **Validation Gemma batch** (30 mots/appel) après déduplication : suspects marqués `⚠️ raison` dans la revue paginée. Revue paginée 10/page avant import. **User-Agent navigateur requis** dans les requêtes Worker (sinon 403 Cloudflare 1010).
 
@@ -329,7 +329,7 @@ Convertit `**gras**`, `*italique*`, `##` headings, `•` puces. `##` → `<br><s
 
 ## Apps Script & Raccourci (Ajout de mots)
 
-Le flux d'ajout est centralisé dans l'Apps Script (`Code_test.js`, script actif — `Code.js` conservé mais inactif). Il utilise un système d'entonnoir intelligent :
+Le flux d'ajout est centralisé dans l'Apps Script (`Code_test.js` en phase de test, destiné à remplacer `Code.js`). Il utilise un système d'entonnoir intelligent :
 
 1.  **Détection de Langue (IA)** : Si `lang=auto`, Gemma identifie la langue (French, English, Spanish, Greek).
 2.  **Vérification du Sens (IA)** : Vérifie si le mot est valide (gibberish check). Peut être sauté avec `ignore_sens=true`.

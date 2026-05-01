@@ -259,9 +259,9 @@ def validate_words_ai(ready):
             batch = words[i : i + AI_BATCH_SIZE]
             word_list = ", ".join(f'"{w}"' for w in batch)
             prompt = (
-                f"Among these {lang} words/expressions, identify any that are NOT valid "
-                f"{lang} words (typos, words from another language, abbreviations, "
-                f"gibberish, incomplete forms).\n"
+                f"Among these {lang} words/expressions, identify any that are NOT valid {lang}.\n"
+                f"Accept: real words, conjugated forms, multi-word expressions, phrases, slang, archaic terms.\n"
+                f"Flag ONLY: gibberish, typos producing no real word, or text clearly in a different language.\n"
                 f"Return ONLY a JSON array: "
                 f'[{{"word": "...", "reason": "..."}}] for suspicious ones only. '
                 f"If all look valid, return [].\nWords: {word_list}"

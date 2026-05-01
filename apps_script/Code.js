@@ -2,7 +2,7 @@ var WORKER_URL    = 'https://dark-brook-87cc.georg-dreym.workers.dev';
 var WORKER_SECRET = PropertiesService.getScriptProperties().getProperty('WORKER_SECRET');
 var LANG_FULL     = { Spanish: 'Spanish', French: 'French', English: 'English', Greek: 'Modern Greek' };
 
-function doPost(e) {
+function doPost_old(e) {
   // ── Récupère et nettoie les paramètres ───────────────────
   var rawWord = (e.parameter.word  || '').trim();
   var lang    = (e.parameter.lang  || '').toLowerCase().trim();
