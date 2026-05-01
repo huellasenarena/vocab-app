@@ -3978,6 +3978,36 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         currentWords      = currentWords.filter(w => w.toLowerCase() !== wordLow);
         previousWordsPool = previousWordsPool.filter(w => w.toLowerCase() !== wordLow);
 
+        // Piocher un remplaçant pour maintenir le nombre de mots (même logique que onSliderChange)
+        if (allWords.length > 0 && currentWords.length > 0) {
+          let eligible = null;
+          if (practiceMode === 'spaced') {
+            const trulyDue = allWords.filter(w => {
+              const prog = progressMap[w.toLowerCase()];
+              return prog && prog.nextReview && isDue(w);
+            });
+            const neverPracticed = allWords.filter(w => isNewWord(w));
+            const newToShow = neverPracticed.slice(0, Math.max(0, maxNewPerDay - todayNewCount));
+            eligible = new Set([...trulyDue, ...newToShow]);
+          }
+          const nextFromPool = previousWordsPool.find(w =>
+            !currentWords.includes(w) && (!eligible || eligible.has(w))
+          );
+          if (nextFromPool) {
+            currentWords.push(nextFromPool);
+          } else if (eligible) {
+            const candidates = [...eligible].filter(w => !currentWords.includes(w));
+            if (candidates.length > 0) {
+              const newWord = candidates[Math.floor(Math.random() * candidates.length)];
+              currentWords.push(newWord);
+              previousWordsPool.push(newWord);
+            }
+          } else {
+            const newWord = pickWeightedOne(currentWords);
+            if (newWord) { currentWords.push(newWord); previousWordsPool.push(newWord); }
+          }
+        }
+
         if (currentWords.length === 0) {
           await nextWord();
         } else {
