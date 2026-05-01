@@ -219,6 +219,20 @@ Toggle dans le header. Raccourci clavier `Opt+←` (sur Mac/iPad clavier externe
 - Mot nouveau (card unique ou chip) → `fetchHint(word)` direct
 - Mot à réviser (mode espacé, avant soumission) → `showJeNeSaisPas(word)` → panneau de confirmation, textarea bloqué. Confirmer = `saveProgress(word, false)` + `startQCM(word)`
 
+### Suppression de mot (menu contextuel)
+
+Right-click (Mac/iPad trackpad) ou long press 500ms (touch) sur un `.word-chip` ou `#single-word-card` → menu `#word-ctx-menu` (`position: fixed; z-index: 10000`), positionné au point de clic/tap, clampé au viewport.
+
+- **Guard `_justLongPressed`** : bloque le `click` qui suit un long press — vérifié dans `chipHint` et `singleCardHint` avant toute action
+- **`deleteWordFromSheets(word)`** :
+  1. Lit `currentLang!A:B` → trouve l'index 0-based de la ligne (col B = mot)
+  2. `GET /v4/spreadsheets/${SHEET_ID}?fields=sheets.properties` → sheetIds numériques des onglets
+  3. `batchUpdate` avec `DeleteDimensionRequest` sur l'onglet langue (vraie suppression de ligne)
+  4. Idem sur Progress si la ligne existe (cherche col A = mot, skip header row)
+  5. Met à jour `allWords`, `progressMap`, `definitionCache` en mémoire
+  6. Pioche un remplaçant avec le même pool que `onSliderChange` → `renderWordDisplay()`
+- **`batchUpdate` vs `:clear`** : `deleteWordFromSheets` supprime vraiment la ligne. `cleanOrphans` utilise `:clear` — intentionnel (nettoyage passif, différent).
+
 ### Couleurs des mots
 
 - **Nouveau** : doré (`var(--accent)`) — pas de classe spéciale
