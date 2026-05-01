@@ -29,7 +29,7 @@ function _doPost(e) {
 
   if (!word) return ContentService.createTextOutput('Erreur : le mot est vide.');
 
-  // 1. DÉTECTION DE LANGUE
+  // 1 & 2. DÉTECTION DE LANGUE ET VÉRIFICATION DU SENS
   var tabMap = {
     'english': 'English', 'anglais': 'English', 'en': 'English',
     'spanish': 'Spanish', 'espagnol': 'Spanish', 'es': 'Spanish',
@@ -37,26 +37,31 @@ function _doPost(e) {
     'french':  'French',  'français': 'French',  'fr': 'French'
   };
 
-  var sheetName;
-  if (lang !== 'auto' && tabMap[lang]) {
-    sheetName = tabMap[lang];
+  var sheetName = (lang !== 'auto' && tabMap[lang]) ? tabMap[lang] : null;
+
+  if (!sheetName && !ignoreSens) {
+    // Cas principal du raccourci : on fait détection + validation en 1 seul appel IA
+    var analysis = analyzeWordLanguageAndSenseWithGemma(word);
+    if (!analysis.sheetName) return ContentService.createTextOutput('Erreur : langue non détectée. Réessaie ou précise la langue.');
+    sheetName = analysis.sheetName;
+    if (!analysis.valid) return ContentService.createTextOutput('INVALID:' + analysis.reason + ' | ' + sheetName);
   } else {
-    var detected = identifyLanguageWithGemma(word);
-    if (!detected) return ContentService.createTextOutput('Erreur : langue non détectée. Réessaie ou précise la langue.');
-    sheetName = detected;
+    // Cas spécifiques : langue déjà connue OU on veut juste la langue (ignoreSens = true)
+    if (!sheetName) {
+      sheetName = identifyLanguageWithGemma(word);
+      if (!sheetName) return ContentService.createTextOutput('Erreur : langue non détectée. Réessaie ou précise la langue.');
+    }
+    if (!ignoreSens) {
+      var validation = validateWordWithGemma(word, sheetName);
+      if (!validation.valid) {
+        return ContentService.createTextOutput('INVALID:' + validation.reason + ' | ' + sheetName);
+      }
+    }
   }
 
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return ContentService.createTextOutput("Erreur : onglet '" + sheetName + "' introuvable.");
-
-  // 2. VÉRIFICATION DU SENS
-  if (!ignoreSens) {
-    var validation = validateWordWithGemma(word, sheetName);
-    if (!validation.valid) {
-      return ContentService.createTextOutput('INVALID:' + validation.reason + ' | ' + sheetName);
-    }
-  }
 
   // 3. DOUBLONS
   var lastRow = sheet.getLastRow();
@@ -158,6 +163,39 @@ function callGemma(prompt, maxTokens) {
     if (code !== 200) return null;
     return (JSON.parse(body).text || '').trim();
   } catch (e) { Logger.log('Gemma exception: ' + e); return null; }
+}
+
+function analyzeWordLanguageAndSenseWithGemma(word) {
+  var prompt =
+    'Analyze the expression: "' + word + '".\n' +
+    '1. Identify its language (must be one of: French, English, Spanish, Greek).\n' +
+    '2. Check if it is a valid word or expression in that language (allow real words, conjugated forms, phrases, slang).\n' +
+    'Answer NO only for gibberish, typos producing no real word, or text clearly in a different language.\n' +
+    'Reply STRICTLY in one of these two formats:\n' +
+    'VALID | <LanguageName>\n' +
+    'INVALID: <brief reason> | <LanguageName>';
+
+  var res = callGemma(prompt, 60);
+  if (!res) return { valid: false, reason: 'Erreur API Gemma', sheetName: null };
+
+  var parts = res.split('|');
+  var statusPart = (parts[0] || '').trim();
+  var langPart = (parts[1] || '').trim();
+
+  var validLangs = ['English', 'Spanish', 'French', 'Greek'];
+  var sheetName = null;
+  for (var i = 0; i < validLangs.length; i++) {
+    if (langPart.toLowerCase().indexOf(validLangs[i].toLowerCase()) !== -1) {
+      sheetName = validLangs[i];
+      break;
+    }
+  }
+
+  if (/^INVALID/i.test(statusPart)) {
+    return { valid: false, reason: statusPart.replace(/^INVALID[:\s]*/i, '').trim(), sheetName: sheetName };
+  }
+
+  return { valid: true, sheetName: sheetName };
 }
 
 function identifyLanguageWithGemma(word) {
