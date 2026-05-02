@@ -52,7 +52,7 @@ Partagés Éditeur avec l'email du service account. Tous les appels passent par 
 | Blacklist | A:English B:Spanish C:French D:Greek (row 1 = headers) |
 | Grammar: Spanish | Row 1 = catégories, Row 2+ = formes |
 
-**Tokens — particularité date** : colonnes B/C/D (OpenAI) en date UTC via `todayStr()`, colonnes E/F/G (Google) en date PT via `todayStrPT()` (reset quotas Google). Pendant la fenêtre de transition (~7-8h entre minuit UTC et minuit PT), deux lignes actives avec colonnes partielles.
+**Tokens — particularité date** : colonnes B/C/D (OpenAI) en date UTC via `todayStr()`, colonnes E/F/G (Google) en date PT via `todayStrPT()` (reset quotas Google). Pour tout ce qui touche à la progression utilisateur (mots à réviser, limite nouveaux/jour), l'app utilise la date locale via `todayStrLocal()`.
 
 **Grammaire** : onglet `Grammar: Spanish` (main sheet), row 1 = catégories (presente, pasado, futuro, subjuntivo, condicional, imperativo, misc.), rows 2+ = formes. Aplati côté JS en `"${cat} ${forme}"` (ex: `"futuro simple"`, `"subjuntivo pluscuamperfecto"`).
 
@@ -133,7 +133,10 @@ Affichés sous `<h1>Vocab</h1>`, DM Mono. Toggle ⚙️ "Afficher compteur token
 | "Je ne sais pas" | inchangé | +1 jour | inchangées (= ✗) |
 | 2ème+ tentative dans la session | ignoré | ignoré | ignoré |
 
+**Changement de jour** : l'application utilise l'heure locale de l'utilisateur (`todayStrLocal()`). Les mots prévus pour le lendemain apparaissent à minuit heure locale.
+
 **SM-2** (jours jusqu'à `NextReview`) : `net ≤ 1 → 1`, `net=2 → 6`, `net=3 → 14`, `net=4 → 30`, `net=5 → 60`, `net ≥ 6 → 120` (max).
+
 
 **Étoiles** : ☆☆☆ (`net ≤ 0`) · ★☆☆ (`net=1`) · ★★☆ (`net=2`) · ★★★ (`net ≥ 3`, considéré maîtrisé).
 
@@ -218,6 +221,20 @@ Toggle dans le header. Raccourci clavier `Opt+←` (sur Mac/iPad clavier externe
 
 - Mot nouveau (card unique ou chip) → `fetchHint(word)` direct
 - Mot à réviser (mode espacé, avant soumission) → `showJeNeSaisPas(word)` → panneau de confirmation, textarea bloqué. Confirmer = `saveProgress(word, false)` + `startQCM(word)`
+
+### Suppression de mot (menu contextuel)
+
+Right-click (Mac/iPad trackpad) ou long press 500ms (touch) sur un `.word-chip` ou `#single-word-card` → menu `#word-ctx-menu` (`position: fixed; z-index: 10000`), positionné au point de clic/tap, clampé au viewport.
+
+- **Guard `_justLongPressed`** : bloque le `click` qui suit un long press — vérifié dans `chipHint` et `singleCardHint` avant toute action
+- **`deleteWordFromSheets(word)`** :
+  1. Lit `currentLang!A:B` → trouve l'index 0-based de la ligne (col B = mot)
+  2. `GET /v4/spreadsheets/${SHEET_ID}?fields=sheets.properties` → sheetIds numériques des onglets
+  3. `batchUpdate` avec `DeleteDimensionRequest` sur l'onglet langue (vraie suppression de ligne)
+  4. Idem sur Progress si la ligne existe (cherche col A = mot, skip header row)
+  5. Met à jour `allWords`, `progressMap`, `definitionCache` en mémoire
+  6. Pioche un remplaçant avec le même pool que `onSliderChange` → `renderWordDisplay()`
+- **`batchUpdate` vs `:clear`** : `deleteWordFromSheets` supprime vraiment la ligne. `cleanOrphans` utilise `:clear` — intentionnel (nettoyage passif, différent).
 
 ### Couleurs des mots
 
@@ -317,7 +334,7 @@ Convertit `**gras**`, `*italique*`, `##` headings, `•` puces. `##` → `<br><s
 
 1. **gpt-5.4 hallucinations** : rares mais possibles. Garde-fous dans les prompts (CRITICAL FILTER, B2-STEP 2) imparfaits.
 
-2. **Apps Script `doPost`** : ajout de mots depuis raccourci iPhone, URL séparée. Normalise (strip Markdown `*`, points finaux, lowercase). Ordre des checks : (1) **validation Gemma** (`gemma-4-31b-it`, `thinkingLevel: minimal`) → retourne `"INVALID:raison"` si mot invalide dans la langue, sauf si `force=true` ; (2) doublon exact bloqué ; (3) quasi-doublon → `"SIMILAR:motExistant"` sauf si `force=true`. `force=true` bypasse INVALID et SIMILAR. Le raccourci iPhone gère ces deux cas via alertes de confirmation. Code versionné dans `apps_script/` (clasp). `WORKER_SECRET` stocké dans PropertiesService (pas en dur). Menu **🔍 Audit** dans Sheets (`Audit.js`) : scanne tous les onglets langue par batch de 30, surligne les suspects en rouge avec commentaire cellule.
+2. **Apps Script `doPost`** : ajout de mots depuis raccourci iPhone, URL séparée. `Code_test.js` est le script actif (remplace `Code.js`). Architecture : `doPost` wrapper → `_doPost` (logique) + `updateTokensGemma` (incrémente col E onglet Tokens après chaque appel). Ordre des checks : (1) **détection langue** Gemma si `lang=auto` — échec → erreur explicite (pas de fallback silencieux) ; (2) **validation** Gemma (`gemma-4-31b-it`) → `INVALID:raison | langue` ; (3) doublon exact bloqué ; (4) **similarité** — pré-filtre `normSim`+`isSimilarCandidate` (préfixe 4 chars, substring, suffixe 3 chars, normalisation accents, 15 candidats max) + juge LLM → `SIMILAR:mot | langue`. `ignore_sens=true` / `ignore_sim=true` bypasse chaque check. **OAuth scope requis** : `script.external_request` dans `appsscript.json` — si les appels Gemma échouent avec "no permission", révoquer l'autorisation sur myaccount.google.com/permissions et relancer depuis l'éditeur. Menu **🔍 Audit** dans Sheets (`Audit.js`) : modèle `gemma-3-4b-it` (30 RPM / 14 400 RPD), batch 60 mots, sleep 2 200ms entre batches. Sélection d'onglet (actif par défaut ou choix numéroté), plage de lignes, mémoire par onglet dans Script Properties (`AUDIT_END_English`, `AUDIT_END_Spanish`, etc.).
 
 3. **`kindle_import.py`** : import Kindle → Sheets via Worker (`/sheets` + `X-Worker-Secret`, plus d'OAuth2). Lit `vocab.db` + `My Clippings.txt`. Déduplication contre Sheets (substring ou article-stripped) : menu `i/n/d` (importer / ne pas / ignorer les deux). Inter-clips : `SequenceMatcher ≥ 0.80`, menu `1/2/+/-`. **Validation Gemma batch** (30 mots/appel) après déduplication : suspects marqués `⚠️ raison` dans la revue paginée. Revue paginée 10/page avant import. **User-Agent navigateur requis** dans les requêtes Worker (sinon 403 Cloudflare 1010).
 
@@ -329,20 +346,21 @@ Convertit `**gras**`, `*italique*`, `##` headings, `•` puces. `##` → `<br><s
 
 ## Apps Script & Raccourci (Ajout de mots)
 
-Le flux d'ajout est centralisé dans l'Apps Script (`Code_test.js` en phase de test, destiné à remplacer `Code.js`). Il utilise un système d'entonnoir intelligent :
+Le flux d'ajout est centralisé dans l'Apps Script (`Code_test.js`, script actif — `Code.js` conservé mais inactif). Il utilise un système d'entonnoir intelligent :
 
-1.  **Détection de Langue (IA)** : Si `lang=auto`, Gemma identifie la langue (French, English, Spanish, Greek).
-2.  **Vérification du Sens (IA)** : Vérifie si le mot est valide (gibberish check). Peut être sauté avec `ignore_sens=true`.
-3.  **Vérification des Doublons (Double passe)** :
+1.  **Analyse Combinée (IA)** : Si `lang=auto`, Gemma identifie la langue (French, English, Spanish, Greek) ET vérifie si le mot est valide en un seul appel. Format de réponse : `VALID | Langue` ou `INVALID: raison | Langue`.
+2.  **Vérification des Doublons (Double passe)** :
     *   **Passe 1 (Exact)** : Bloque si le mot exact existe déjà.
-    *   **Passe 2 (Similitude/IA)** : Scanne les mots visuellement proches, puis utilise un **Juge LLM** pour déterminer s'il s'agit d'une simple variation (conjugaison, genre, nombre). Peut être sauté avec `ignore_sim=true`.
+    *   **Passe 2 (Similitude/IA)** : Scanne les mots visuellement proches, puis utilise un **Juge LLM** pour déterminer s'il s'agit d'une simple variation (conjugaison, genre, nombre).
 
-**Réponses API** : `MESSAGE | LANGUE` (ex: `INVALID:raison | Spanish` ou `SIMILAR:mot | French`). La langue est renvoyée pour permettre au raccourci de la mémoriser et d'éviter un deuxième appel IA lors d'un "force".
+**Paramètres de bypass** :
+- `ignore_sens=true` : Saute l'analyse IA du sens (garde juste la détection de langue rapide).
+- `ignore_sim=true` : Saute la détection des doublons similaires.
 
 **Raccourci iOS** : 
 - Envoie `lang=auto` au premier appel.
-- Scinde la réponse par ` | ` pour extraire le message et la langue.
-- Propose de forcer via `ignore_sens=true` ou `ignore_sim=true` en renvoyant la langue extraite.
+- Si réponse `INVALID` ou `SIMILAR`, propose de forcer via une alerte.
+- Le forçage renvoie la requête avec les paramètres `ignore_*` appropriés.
 
 ---
 
