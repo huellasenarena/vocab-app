@@ -52,7 +52,7 @@ Partagés Éditeur avec l'email du service account. Tous les appels passent par 
 | Blacklist | A:English B:Spanish C:French D:Greek (row 1 = headers) |
 | Grammar: Spanish | Row 1 = catégories, Row 2+ = formes |
 
-**Tokens — particularité date** : colonnes B/C/D (OpenAI) en date UTC via `todayStr()`, colonnes E/F/G (Google) en date PT via `todayStrPT()` (reset quotas Google). Pendant la fenêtre de transition (~7-8h entre minuit UTC et minuit PT), deux lignes actives avec colonnes partielles.
+**Tokens — particularité date** : colonnes B/C/D (OpenAI) en date UTC via `todayStr()`, colonnes E/F/G (Google) en date PT via `todayStrPT()` (reset quotas Google). Pour tout ce qui touche à la progression utilisateur (mots à réviser, limite nouveaux/jour), l'app utilise la date locale via `todayStrLocal()`.
 
 **Grammaire** : onglet `Grammar: Spanish` (main sheet), row 1 = catégories (presente, pasado, futuro, subjuntivo, condicional, imperativo, misc.), rows 2+ = formes. Aplati côté JS en `"${cat} ${forme}"` (ex: `"futuro simple"`, `"subjuntivo pluscuamperfecto"`).
 
@@ -133,7 +133,10 @@ Affichés sous `<h1>Vocab</h1>`, DM Mono. Toggle ⚙️ "Afficher compteur token
 | "Je ne sais pas" | inchangé | +1 jour | inchangées (= ✗) |
 | 2ème+ tentative dans la session | ignoré | ignoré | ignoré |
 
+**Changement de jour** : l'application utilise l'heure locale de l'utilisateur (`todayStrLocal()`). Les mots prévus pour le lendemain apparaissent à minuit heure locale.
+
 **SM-2** (jours jusqu'à `NextReview`) : `net ≤ 1 → 1`, `net=2 → 6`, `net=3 → 14`, `net=4 → 30`, `net=5 → 60`, `net ≥ 6 → 120` (max).
+
 
 **Étoiles** : ☆☆☆ (`net ≤ 0`) · ★☆☆ (`net=1`) · ★★☆ (`net=2`) · ★★★ (`net ≥ 3`, considéré maîtrisé).
 
@@ -345,18 +348,19 @@ Convertit `**gras**`, `*italique*`, `##` headings, `•` puces. `##` → `<br><s
 
 Le flux d'ajout est centralisé dans l'Apps Script (`Code_test.js`, script actif — `Code.js` conservé mais inactif). Il utilise un système d'entonnoir intelligent :
 
-1.  **Détection de Langue (IA)** : Si `lang=auto`, Gemma identifie la langue (French, English, Spanish, Greek).
-2.  **Vérification du Sens (IA)** : Vérifie si le mot est valide (gibberish check). Peut être sauté avec `ignore_sens=true`.
-3.  **Vérification des Doublons (Double passe)** :
+1.  **Analyse Combinée (IA)** : Si `lang=auto`, Gemma identifie la langue (French, English, Spanish, Greek) ET vérifie si le mot est valide en un seul appel. Format de réponse : `VALID | Langue` ou `INVALID: raison | Langue`.
+2.  **Vérification des Doublons (Double passe)** :
     *   **Passe 1 (Exact)** : Bloque si le mot exact existe déjà.
-    *   **Passe 2 (Similitude/IA)** : Scanne les mots visuellement proches, puis utilise un **Juge LLM** pour déterminer s'il s'agit d'une simple variation (conjugaison, genre, nombre). Peut être sauté avec `ignore_sim=true`.
+    *   **Passe 2 (Similitude/IA)** : Scanne les mots visuellement proches, puis utilise un **Juge LLM** pour déterminer s'il s'agit d'une simple variation (conjugaison, genre, nombre).
 
-**Réponses API** : `MESSAGE | LANGUE` (ex: `INVALID:raison | Spanish` ou `SIMILAR:mot | French`). La langue est renvoyée pour permettre au raccourci de la mémoriser et d'éviter un deuxième appel IA lors d'un "force".
+**Paramètres de bypass** :
+- `ignore_sens=true` : Saute l'analyse IA du sens (garde juste la détection de langue rapide).
+- `ignore_sim=true` : Saute la détection des doublons similaires.
 
 **Raccourci iOS** : 
 - Envoie `lang=auto` au premier appel.
-- Scinde la réponse par ` | ` pour extraire le message et la langue.
-- Propose de forcer via `ignore_sens=true` ou `ignore_sim=true` en renvoyant la langue extraite.
+- Si réponse `INVALID` ou `SIMILAR`, propose de forcer via une alerte.
+- Le forçage renvoie la requête avec les paramètres `ignore_*` appropriés.
 
 ---
 
