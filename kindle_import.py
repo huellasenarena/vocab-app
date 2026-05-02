@@ -352,6 +352,7 @@ def read_vocab_db(db_path):
             FROM WORDS w
             JOIN LOOKUPS l ON l.word_key = w.id
             JOIN BOOK_INFO b ON l.book_key = b.id
+            WHERE w.category = 0
         """)
         for title, authors, lang, stem in cur.fetchall():
             if not stem:
@@ -394,21 +395,28 @@ def read_clippings(clip_path):
 
 # ── Réinitialisation Kindle ───────────────────────────────────────────────────
 def reset_vocab_db(db_path, books_to_remove):
-    """Supprime les entrées des livres choisis dans vocab.db."""
+    """Marque les mots des livres choisis comme maîtrisés (category = 100) dans vocab.db."""
     conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
     for title in books_to_remove:
         cur.execute("SELECT id FROM BOOK_INFO WHERE title LIKE ?", (f"%{title[:30]}%",))
         rows = cur.fetchall()
         for (book_id,) in rows:
-            cur.execute("DELETE FROM LOOKUPS WHERE book_key = ?", (book_id,))
             cur.execute("""
-                DELETE FROM WORDS WHERE id NOT IN (
-                    SELECT DISTINCT word_key FROM LOOKUPS
-                )
-            """)
+                UPDATE WORDS SET category = 100 
+                WHERE id IN (SELECT word_key FROM LOOKUPS WHERE book_key = ?)
+            """, (book_id,))
     conn.commit()
     conn.close()
+    
+    # Nettoyage des journaux pour forcer la liseuse à relire la base
+    for ext in ['-journal', '-wal', '-shm']:
+        journal_path = db_path.with_name(db_path.name + ext)
+        if journal_path.exists():
+            try:
+                journal_path.unlink()
+            except:
+                pass
 
 def reset_clippings(clip_path, books_to_remove):
     """Supprime les surlignements des livres choisis dans My Clippings.txt."""
@@ -661,15 +669,15 @@ def main():
                     sheets_append(f"{sheet}!A:B", rows)
                     print(f"   ✅ {len(rows)} entrées ajoutées dans '{sheet}'")
 
-    # 8. Réinitialisation Kindle
+    # 8. Mise à jour de la Kindle
     sep()
-    print("\n🗑️  Réinitialisation de la Kindle :\n")
+    print("\n📖  Mise à jour de la Kindle :\n")
     books_to_reset = chosen_titles
 
-    do_reset = ask("Supprimer les mots importés de vocab.db sur la Kindle ?")
+    do_reset = ask("Marquer les mots importés comme maîtrisés dans vocab.db ?")
     if do_reset and has_db:
         reset_vocab_db(db_path, books_to_reset)
-        print("   ✅ vocab.db réinitialisé")
+        print("   ✅ Mots marqués comme maîtrisés")
 
     do_reset_clips = ask("Supprimer les surlignements importés de My Clippings.txt ?")
     if do_reset_clips and has_clips:
@@ -681,7 +689,7 @@ def main():
     print("\n✨ Import terminé !\n")
     print(f"   📥 {total_new} entrées importées dans Google Sheets")
     print(f"   🚫 {total_dup} doublons ignorés")
-    if do_reset:   print("   🗑️  vocab.db réinitialisé")
+    if do_reset:   print("   ✅ Mots marqués comme maîtrisés")
     if do_reset_clips: print("   🗑️  My Clippings.txt nettoyé")
     sep("═")
     print()
