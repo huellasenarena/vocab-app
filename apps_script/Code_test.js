@@ -21,9 +21,11 @@ function _doPost(e) {
 
   var word = rawWord
     .replace(/[\r\n]+/g, ' ')
-    .replace(/[''ʼ]/g, "'")
+    .replace(/[‘’`ʼ]/g, "'")
+    .replace(/…/g, '...') // Normaliser le vrai caractère de points de suspension
+    .replace(/(?<!\.)\.(?!\.)/g, '') // Supprimer les points uniques (qui n'ont pas de point avant ou après)
     .replace(/\s+/g, ' ')
-    .replace(/[^\p{L}\p{M} '¿?-]/gu, '')
+    .replace(/[^\p{L}\p{M} '¿?\.\-]/gu, '') // Conserver les points restants (qui font partie de ...)
     .trim()
     .toLowerCase();
 
