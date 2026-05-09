@@ -1534,7 +1534,7 @@
       const n        = parseInt(val);
       const langInfo = getLang();
       document.getElementById('slider-value').textContent = n === 1 ? '1 mot' : `${n} mots`;
-      localStorage.setItem(KEY_WORD_COUNT, n.toString());
+      localStorage.setItem(KEY_WORD_COUNT + '_' + currentLang, n.toString());
       document.getElementById('sentence-label').textContent =
         n === 1 ? langInfo.sentencePromptSingle : langInfo.sentencePrompt;
 
@@ -1593,6 +1593,13 @@
       }
       sessionFirstResult = {};
       currentLang = lang;
+      previousWordsPool = [];
+      const _langWC = parseInt(localStorage.getItem(KEY_WORD_COUNT + '_' + lang)) || 1;
+      document.getElementById('word-count-slider').value = _langWC;
+      document.getElementById('slider-value').textContent = _langWC === 1 ? '1 mot' : `${_langWC} mots`;
+      maxNewPerDay = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + lang)) || 60;
+      document.getElementById('max-new-slider').value = maxNewPerDay;
+      document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
       const langInfo = getLang();
       document.getElementById('lang-tag').textContent                  = `← ${langInfo.name}`;
       document.getElementById('qcm-question').textContent              = langInfo.qcmQuestion;
@@ -2315,7 +2322,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
     function setMaxNewPerDay(val) {
       maxNewPerDay = val;
-      localStorage.setItem(KEY_MAX_NEW, val);
+      localStorage.setItem(KEY_MAX_NEW + '_' + currentLang, val);
       document.getElementById('max-new-value').textContent = val + ' mots';
       document.getElementById('max-new-slider').value = val;
       if (practiceMode === 'spaced' && allWords.length > 0) {
