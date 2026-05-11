@@ -3,6 +3,7 @@ var WORKER_SECRET = PropertiesService.getScriptProperties().getProperty('WORKER_
 var LANG_FULL     = { Spanish: 'Spanish', French: 'French', English: 'English', Greek: 'Modern Greek' };
 
 var _gemmaCallCount = 0;
+var _lastGemmaError = null;
 
 function doPost(e) {
   _gemmaCallCount = 0;
@@ -44,14 +45,20 @@ function _doPost(e) {
   if (!sheetName && !ignoreSens) {
     // Cas principal du raccourci : on fait détection + validation en 1 seul appel IA
     var analysis = analyzeWordLanguageAndSenseWithGemma(word);
-    if (!analysis.sheetName) return ContentService.createTextOutput('Erreur : langue non détectée. Réessaie ou précise la langue.');
+    if (!analysis.sheetName) {
+      var detail = _lastGemmaError ? ' (' + _lastGemmaError + ')' : '';
+      return ContentService.createTextOutput('Erreur : langue non détectée' + detail + '. Réessaie ou précise la langue.');
+    }
     sheetName = analysis.sheetName;
     if (!analysis.valid) return ContentService.createTextOutput('INVALID:' + analysis.reason + ' | ' + sheetName);
   } else {
     // Cas spécifiques : langue déjà connue OU on veut juste la langue (ignoreSens = true)
     if (!sheetName) {
       sheetName = identifyLanguageWithGemma(word);
-      if (!sheetName) return ContentService.createTextOutput('Erreur : langue non détectée. Réessaie ou précise la langue.');
+      if (!sheetName) {
+        var detail = _lastGemmaError ? ' (' + _lastGemmaError + ')' : '';
+        return ContentService.createTextOutput('Erreur : langue non détectée' + detail + '. Réessaie ou précise la langue.');
+      }
     }
     if (!ignoreSens) {
       var validation = validateWordWithGemma(word, sheetName);
@@ -76,16 +83,16 @@ function _doPost(e) {
   }
 
   if (!ignoreSim) {
-    var candidates = [];
     var wNorm = normSim(word);
+    var scored = [];
     for (var i = 0; i < data.length; i++) {
       var existing = (data[i][0] || '').toString().trim();
       if (!existing || existing.length < 2) continue;
-      if (isSimilarCandidate(wNorm, normSim(existing.toLowerCase()))) {
-        candidates.push(existing);
-      }
-      if (candidates.length >= 15) break;
+      var s = similarityScore(wNorm, normSim(existing.toLowerCase()));
+      if (s > 0) scored.push({ word: existing, score: s });
     }
+    scored.sort(function(a, b) { return b.score - a.score; });
+    var candidates = scored.slice(0, 5).map(function(x) { return x.word; });
 
     if (candidates.length > 0) {
       var similarWord = judgeSimilarityWithGemma(word, candidates, sheetName);
@@ -107,28 +114,34 @@ function todayPT() {
 }
 
 function updateTokensGemma(count) {
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName('Tokens');
-  if (!sheet) return;
-  var today  = todayPT();
-  var lastRow = sheet.getLastRow();
-  var rowIdx  = -1;
-  if (lastRow > 0) {
-    var dates = sheet.getRange(1, 1, lastRow, 1).getValues();
-    for (var i = 0; i < dates.length; i++) {
-      var d    = dates[i][0];
-      var dStr = (d instanceof Date)
-        ? Utilities.formatDate(d, 'America/Los_Angeles', 'yyyy-MM-dd')
-        : String(d).trim();
-      if (dStr === today) { rowIdx = i + 1; break; }
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('Tokens');
+    if (!sheet) return;
+    var today   = todayPT();
+    var lastRow = sheet.getLastRow();
+    var rowIdx  = -1;
+    if (lastRow > 0) {
+      var dates = sheet.getRange(1, 1, lastRow, 1).getValues();
+      for (var i = 0; i < dates.length; i++) {
+        var d    = dates[i][0];
+        var dStr = (d instanceof Date)
+          ? Utilities.formatDate(d, 'America/Los_Angeles', 'yyyy-MM-dd')
+          : String(d).trim();
+        if (dStr === today) { rowIdx = i + 1; break; }
+      }
     }
+    if (rowIdx === -1) {
+      rowIdx = lastRow + 1;
+      sheet.getRange(rowIdx, 1).setValue(new Date());
+    }
+    var cell = sheet.getRange(rowIdx, 5);
+    cell.setValue((Number(cell.getValue()) || 0) + count);
+  } finally {
+    lock.releaseLock();
   }
-  if (rowIdx === -1) {
-    rowIdx = lastRow + 1;
-    sheet.getRange(rowIdx, 1).setValue(today);
-  }
-  var cell = sheet.getRange(rowIdx, 5); // col E = GemmaRequests
-  cell.setValue((Number(cell.getValue()) || 0) + count);
 }
 
 // ── Gemma ────────────────────────────────────────────────────────────────────
@@ -137,34 +150,46 @@ function normSim(w) {
   return w.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '');
 }
 
-function isSimilarCandidate(wNorm, eNorm) {
-  if (!eNorm || eNorm.length < 2) return false;
-  // substring bidirectionnel
-  if (wNorm.length >= 3 && eNorm.indexOf(wNorm) !== -1) return true;
-  if (eNorm.length >= 3 && wNorm.indexOf(eNorm) !== -1) return true;
-  // préfixe commun 4 chars
+function similarityScore(wNorm, eNorm) {
+  if (!eNorm || eNorm.length < 2) return 0;
+  var score = 0;
   var minLen = Math.min(wNorm.length, eNorm.length);
-  if (minLen >= 4 && wNorm.substring(0, 4) === eNorm.substring(0, 4)) return true;
-  // suffixe commun 3 chars (conjugaisons, -ción, -ment...)
-  if (minLen >= 4 && wNorm.slice(-3) === eNorm.slice(-3)) return true;
-  return false;
+  if (wNorm.length >= 4 && eNorm.indexOf(wNorm) !== -1) score += 10;
+  else if (eNorm.length >= 4 && wNorm.indexOf(eNorm) !== -1) score += 10;
+  if (minLen >= 5 && wNorm.substring(0, 4) === eNorm.substring(0, 4)) score += 5;
+  if (minLen >= 6 && wNorm.slice(-4) === eNorm.slice(-4)) score += 3;
+  var lenDiff = Math.abs(wNorm.length - eNorm.length);
+  if (lenDiff <= 2) score += 2;
+  else if (lenDiff <= 4) score += 1;
+  return score;
 }
 
-function callGemma(prompt, maxTokens) {
+function callOpenAI(prompt, maxTokens) {
   _gemmaCallCount++;
-  var payload = { prompt: prompt, maxTokens: maxTokens, stream: false, geminiModel: 'gemma-4-31b-it', thinkingLevel: 'minimal' };
-  try {
-    var response = UrlFetchApp.fetch(WORKER_URL + '/gemini', {
-      method: 'post', contentType: 'application/json',
-      headers: { 'X-Worker-Secret': WORKER_SECRET },
-      payload: JSON.stringify(payload), muteHttpExceptions: true
-    });
-    var code = response.getResponseCode();
-    var body = response.getContentText();
-    Logger.log('Gemma ' + code + ': ' + body.substring(0, 300));
-    if (code !== 200) return null;
-    return (JSON.parse(body).text || '').trim();
-  } catch (e) { Logger.log('Gemma exception: ' + e); return null; }
+  var payload = { prompt: prompt, maxTokens: maxTokens, model: 'gpt-4.1-mini' };
+  var waits = [0, 2000, 5000];
+  for (var attempt = 0; attempt < waits.length; attempt++) {
+    if (waits[attempt] > 0) Utilities.sleep(waits[attempt]);
+    try {
+      var response = UrlFetchApp.fetch(WORKER_URL + '/openai-script', {
+        method: 'post', contentType: 'application/json',
+        headers: { 'X-Worker-Secret': WORKER_SECRET },
+        payload: JSON.stringify(payload), muteHttpExceptions: true
+      });
+      var code = response.getResponseCode();
+      var body = response.getContentText();
+      Logger.log('OpenAI ' + code + ': ' + body.substring(0, 300));
+      if (code === 429 || (code >= 500 && code < 600)) {
+        _lastGemmaError = 'HTTP ' + code + ' (tentative ' + (attempt + 1) + ')';
+        continue;
+      }
+      if (code !== 200) { _lastGemmaError = 'HTTP ' + code + ': ' + body.substring(0, 100); return null; }
+      _lastGemmaError = null;
+      return (JSON.parse(body).text || '').trim();
+    } catch (e) { Logger.log('OpenAI exception: ' + e); _lastGemmaError = String(e); return null; }
+  }
+  _lastGemmaError = 'Erreur après 3 tentatives';
+  return null;
 }
 
 function analyzeWordLanguageAndSenseWithGemma(word) {
@@ -177,8 +202,8 @@ function analyzeWordLanguageAndSenseWithGemma(word) {
     'VALID | <LanguageName>\n' +
     'INVALID: <brief reason> | <LanguageName>';
 
-  var res = callGemma(prompt, 60);
-  if (!res) return { valid: false, reason: 'Erreur API Gemma', sheetName: null };
+  var res = callOpenAI(prompt, 60);
+  if (!res) return { valid: false, reason: 'Erreur API OpenAI', sheetName: null };
 
   var parts = res.split('|');
   var statusPart = (parts[0] || '').trim();
@@ -204,7 +229,7 @@ function identifyLanguageWithGemma(word) {
   var prompt =
     'Which language is "' + word + '" from? Options: French, English, Spanish, Greek.\n' +
     'Reply with ONLY the language name, nothing else.';
-  var res = callGemma(prompt, 10);
+  var res = callOpenAI(prompt, 10);
   if (!res) return null;
   var valid = ['English', 'Spanish', 'French', 'Greek'];
   for (var i = 0; i < valid.length; i++) {
@@ -220,8 +245,8 @@ function validateWordWithGemma(word, sheetName) {
     'Answer YES for: real words, conjugated forms, multi-word expressions, phrases, slang, archaic terms.\n' +
     'Answer NO only for: gibberish, typos producing no real word, or text clearly in a different language.\n' +
     'Reply with YES or NO: <brief reason if NO>.';
-  var res = callGemma(prompt, 60);
-  if (res === null) return { valid: false, reason: 'Erreur API Gemma' };
+  var res = callOpenAI(prompt, 60);
+  if (res === null) return { valid: false, reason: 'Erreur API OpenAI' };
   if (/^NO\b/i.test(res)) return { valid: false, reason: res.replace(/^NO[:\s]*/i, '').trim() };
   return { valid: true };
 }
@@ -234,12 +259,12 @@ function judgeSimilarityWithGemma(word, candidates, sheetName) {
     'Existing words: ' + candidates.join(', ') + '.\n' +
     'Is "' + word + '" merely an inflected form of an existing word (same lemma: conjugation, plural, gender, diminutive)?\n' +
     'If YES, reply exactly "YES: <existing_word>". If it has distinct vocabulary value, reply "NO".';
-  var res = callGemma(prompt, 30);
+  var res = callOpenAI(prompt, 30);
   if (res && /^YES:/i.test(res)) return res.replace(/^YES:\s*/i, '').trim();
   return null;
 }
 
-function testGemma() {
-  var res = callGemma('Which language is "l\'historien" from? Options: French, English, Spanish, Greek. Reply with ONLY the language name, nothing else.', 10);
+function testOpenAI() {
+  var res = callOpenAI('Which language is "l\'historien" from? Options: French, English, Spanish, Greek. Reply with ONLY the language name, nothing else.', 10);
   Logger.log('Résultat: ' + res);
 }
