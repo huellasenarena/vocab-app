@@ -259,6 +259,7 @@ def call_openai(prompt, max_tokens=600):
                 headers={
                     "Content-Type": "application/json",
                     "X-Worker-Secret": WORKER_SECRET,
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
                 },
             )
             with urllib.request.urlopen(req, timeout=30) as r:
