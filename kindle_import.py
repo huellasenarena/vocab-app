@@ -4,7 +4,7 @@ kindle_import.py — Importe le vocabulaire Kindle vers Google Sheets.
 Usage : python3 kindle_import.py
 """
 
-import os, re, sys, json, sqlite3, shutil, glob
+import os, re, sys, json, sqlite3, shutil, glob, unicodedata
 from datetime import datetime
 from pathlib import Path
 from difflib import SequenceMatcher
@@ -45,33 +45,41 @@ TOO_COMMON = {
 def sep(char="─", n=55):
     print(char * n)
 
-ARTICLES_RE = re.compile(
-    r'^(el|la|los|las|un|una|unos|unas|the|a|an|le|les|une|des|o|η|τα|τον|την)\s+',
-    re.IGNORECASE
-)
+def norm_sim(w):
+    w = unicodedata.normalize('NFD', w)
+    w = ''.join(c for c in w if unicodedata.category(c) != 'Mn')
+    return re.sub(r'[^a-z]', '', w.lower())
 
-def strip_article(s):
-    return ARTICLES_RE.sub('', s).strip()
+def similarity_score(w_norm, e_norm):
+    if not e_norm or len(e_norm) < 2:
+        return 0
+    score = 0
+    min_len = min(len(w_norm), len(e_norm))
+    if len(w_norm) >= 4 and w_norm in e_norm:
+        score += 10
+    elif len(e_norm) >= 4 and e_norm in w_norm:
+        score += 10
+    if min_len >= 5 and w_norm[:4] == e_norm[:4]:
+        score += 5
+    if min_len >= 6 and w_norm[-4:] == e_norm[-4:]:
+        score += 3
+    len_diff = abs(len(w_norm) - len(e_norm))
+    if len_diff <= 2:
+        score += 2
+    elif len_diff <= 4:
+        score += 1
+    return score
 
-def are_similar(new_word, existing):
-    a, b = new_word.lower().strip(), existing.lower().strip()
-    if not b:
-        return False
-    min_len = min(len(a), len(b))
-    max_len = max(len(a), len(b))
-    if min_len >= 4 and max_len <= min_len * 3 and (a in b or b in a):
-        return True
-    a_core, b_core = strip_article(a), strip_article(b)
-    if len(a_core) >= 3 and a_core == b_core:
-        return True
-    return False
-
-def find_similar(word, existing_set):
-    """Retourne le premier mot existant similaire, ou None."""
+def find_top_candidates(word, existing_set, n=5):
+    """Retourne les N mots existants les plus similaires (même logique que l'Apps Script)."""
+    w_norm = norm_sim(word)
+    scored = []
     for e in existing_set:
-        if are_similar(word, e):
-            return e
-    return None
+        s = similarity_score(w_norm, norm_sim(e.lower()))
+        if s > 0:
+            scored.append((e, s))
+    scored.sort(key=lambda x: -x[1])
+    return [e for e, _ in scored[:n]]
 
 def normalize_word(w):
     """
@@ -265,30 +273,31 @@ def call_openai(prompt, max_tokens=600):
     raise Exception("Erreur après 3 tentatives")
 
 
-def llm_decide_similar_batch(pairs, sheet_name):
+def llm_decide_similar_batch(items, sheet_name):
     """
-    pairs: list of (new_word, existing_word)
-    Returns list of (new_word, existing_word, 'import'|'skip')
+    items: list of (new_word, [candidate1, candidate2, ...])
+    Returns list of (new_word, candidates, 'import'|'skip')
     Fallback 'import' si l'IA échoue (moins de pertes).
     """
-    if not pairs:
+    if not items:
         return []
     lang = SHEET_TO_LANG_FULL.get(sheet_name, sheet_name)
     decisions = {}
 
-    for start in range(0, len(pairs), AI_BATCH_SIZE):
-        batch = pairs[start : start + AI_BATCH_SIZE]
-        items = "\n".join(
-            f'{start + i + 1}. nouveau: "{a}", existant: "{b}"'
-            for i, (a, b) in enumerate(batch)
+    for start in range(0, len(items), AI_BATCH_SIZE):
+        batch = items[start : start + AI_BATCH_SIZE]
+        lines = "\n".join(
+            f'{start + i + 1}. nouveau: "{new}", existants: {", ".join(repr(c) for c in candidates)}'
+            for i, (new, candidates) in enumerate(batch)
         )
         prompt = (
-            f"These are {lang} word pairs where a new word resembles an existing one.\n"
+            f"These are {lang} words where a new word resembles existing vocabulary.\n"
             f"Decide for each:\n"
-            f"- 'skip': same concept (conjugation, inflection, same meaning)\n"
-            f"- 'import': genuinely different (different meaning, expression vs base word, etc.)\n"
+            f"- 'skip': the new word is merely an inflected form of one of the existing words "
+            f"(conjugation, plural, gender, diminutive, same meaning)\n"
+            f"- 'import': genuinely different vocabulary value\n"
             f"When in doubt, choose 'import'.\n"
-            f"Return ONLY a JSON array: [{{\"i\": 1, \"d\": \"import\"}},...]\n\n{items}"
+            f"Return ONLY a JSON array: [{{\"i\": 1, \"d\": \"import\"}},...]\n\n{lines}"
         )
         try:
             text = call_openai(prompt, max_tokens=400)
@@ -300,8 +309,8 @@ def llm_decide_similar_batch(pairs, sheet_name):
             print(f"   ⚠️  Batch IA similaires échoué : {e}")
 
     return [
-        (a, b, decisions.get(i, "import"))
-        for i, (a, b) in enumerate(pairs)
+        (new, candidates, decisions.get(i, "import"))
+        for i, (new, candidates) in enumerate(items)
     ]
 
 
@@ -663,7 +672,7 @@ def main():
     for sheet, words in final.items():
         existing = get_existing_words(sheet)
         new_words = []
-        similar_pairs = []
+        similar_items = []
         dups = 0
         for w in words:
             w = normalize_word(w)
@@ -671,24 +680,24 @@ def main():
             if w_low in existing:
                 dups += 1
             else:
-                similar = find_similar(w_low, existing)
-                if similar:
-                    similar_pairs.append((w, similar))
+                candidates = find_top_candidates(w_low, existing)
+                if candidates:
+                    similar_items.append((w, candidates))
                 else:
                     new_words.append([today, w])
 
-        if similar_pairs:
-            print(f"   🤖 {len(similar_pairs)} paire(s) similaire(s) → décision IA...")
-            ai_decisions = llm_decide_similar_batch(similar_pairs, sheet)
+        if similar_items:
+            print(f"   🤖 {len(similar_items)} mot(s) similaire(s) → décision IA...")
+            ai_decisions = llm_decide_similar_batch(similar_items, sheet)
             imported_count = 0
-            for w, sim, decision in ai_decisions:
+            for w, candidates, decision in ai_decisions:
                 if decision == "import":
                     new_words.append([today, w])
                     imported_count += 1
-                    print(f"      ✓ « {w} » (proche de « {sim} ») → importé")
+                    print(f"      ✓ « {w} » (proche de « {', '.join(candidates[:2])} ») → importé")
                 else:
                     dups += 1
-                    print(f"      ✗ « {w} » (proche de « {sim} ») → ignoré")
+                    print(f"      ✗ « {w} » (proche de « {', '.join(candidates[:2])} ») → ignoré")
             print(f"      → {imported_count}/{len(ai_decisions)} acceptés par l'IA")
 
         ready[sheet] = new_words
