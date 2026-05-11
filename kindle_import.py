@@ -57,7 +57,9 @@ def are_similar(new_word, existing):
     a, b = new_word.lower().strip(), existing.lower().strip()
     if not b:
         return False
-    if a in b or b in a:
+    min_len = min(len(a), len(b))
+    max_len = max(len(a), len(b))
+    if min_len >= 4 and max_len <= min_len * 3 and (a in b or b in a):
         return True
     a_core, b_core = strip_article(a), strip_article(b)
     if len(a_core) >= 3 and a_core == b_core:
@@ -70,6 +72,20 @@ def find_similar(word, existing_set):
         if are_similar(word, e):
             return e
     return None
+
+def normalize_word(w):
+    """
+    Normalise un mot avant import :
+    - strip whitespace
+    - première lettre en minuscule
+    Exception : questions (se terminent par ?) → première lettre conservée.
+    """
+    w = w.strip()
+    if not w:
+        return w
+    if w.endswith('?'):
+        return w
+    return w[0].lower() + w[1:]
 
 def ask(prompt, choices=("o","n")):
     """Pose une question o/n. Entrée seule = oui (premier choix)."""
@@ -220,31 +236,73 @@ def review_words(ready, suspects=None):
 # ── Sheets API (via Cloudflare Worker) ──────────────────────────────────────
 TIMEOUT = 15
 
-def call_gemma(prompt, max_tokens=600):
-    """Appelle Gemma 4 31B via le Worker Cloudflare."""
-    payload = {
-        "prompt": prompt,
-        "maxTokens": max_tokens,
-        "stream": False,
-        "geminiModel": "gemma-4-31b-it",
-        "thinkingLevel": "minimal",
-    }
+def call_openai(prompt, max_tokens=600):
+    """Appelle gpt-4.1-mini via la route /openai-script du Worker."""
+    payload = {"prompt": prompt, "maxTokens": max_tokens, "model": "gpt-4.1-mini"}
     data = json.dumps(payload).encode()
-    req = urllib.request.Request(
-        f"{WORKER_URL}/gemini",
-        data=data,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "X-Worker-Secret": WORKER_SECRET,
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        },
-    )
-    with urllib.request.urlopen(req, timeout=30) as r:
-        result = json.loads(r.read())
-    if "error" in result:
-        raise Exception(result["error"])
-    return result.get("text", "")
+    for attempt in range(3):
+        if attempt > 0:
+            import time; time.sleep(3 * attempt)
+        try:
+            req = urllib.request.Request(
+                f"{WORKER_URL}/openai-script",
+                data=data,
+                method="POST",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Worker-Secret": WORKER_SECRET,
+                },
+            )
+            with urllib.request.urlopen(req, timeout=30) as r:
+                result = json.loads(r.read())
+            if "error" in result:
+                raise Exception(result["error"])
+            return result.get("text", "")
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 500, 502, 503) and attempt < 2:
+                continue
+            raise
+    raise Exception("Erreur après 3 tentatives")
+
+
+def llm_decide_similar_batch(pairs, sheet_name):
+    """
+    pairs: list of (new_word, existing_word)
+    Returns list of (new_word, existing_word, 'import'|'skip')
+    Fallback 'import' si l'IA échoue (moins de pertes).
+    """
+    if not pairs:
+        return []
+    lang = SHEET_TO_LANG_FULL.get(sheet_name, sheet_name)
+    decisions = {}
+
+    for start in range(0, len(pairs), AI_BATCH_SIZE):
+        batch = pairs[start : start + AI_BATCH_SIZE]
+        items = "\n".join(
+            f'{start + i + 1}. nouveau: "{a}", existant: "{b}"'
+            for i, (a, b) in enumerate(batch)
+        )
+        prompt = (
+            f"These are {lang} word pairs where a new word resembles an existing one.\n"
+            f"Decide for each:\n"
+            f"- 'skip': same concept (conjugation, inflection, same meaning)\n"
+            f"- 'import': genuinely different (different meaning, expression vs base word, etc.)\n"
+            f"When in doubt, choose 'import'.\n"
+            f"Return ONLY a JSON array: [{{\"i\": 1, \"d\": \"import\"}},...]\n\n{items}"
+        )
+        try:
+            text = call_openai(prompt, max_tokens=400)
+            match = re.search(r"\[.*\]", text, re.DOTALL)
+            if match:
+                for r in json.loads(match.group()):
+                    decisions[r["i"] - 1] = r["d"]
+        except Exception as e:
+            print(f"   ⚠️  Batch IA similaires échoué : {e}")
+
+    return [
+        (a, b, decisions.get(i, "import"))
+        for i, (a, b) in enumerate(pairs)
+    ]
 
 
 def validate_words_ai(ready):
@@ -267,7 +325,7 @@ def validate_words_ai(ready):
                 f"If all look valid, return [].\nWords: {word_list}"
             )
             try:
-                text = call_gemma(prompt)
+                text = call_openai(prompt)
                 match = re.search(r"\[.*\]", text, re.DOTALL)
                 if match:
                     items = json.loads(match.group())
@@ -605,33 +663,34 @@ def main():
     for sheet, words in final.items():
         existing = get_existing_words(sheet)
         new_words = []
+        similar_pairs = []
         dups = 0
         for w in words:
-            w_low = w.strip().lower()
+            w = normalize_word(w)
+            w_low = w.lower()
             if w_low in existing:
                 dups += 1
             else:
                 similar = find_similar(w_low, existing)
                 if similar:
-                    sep()
-                    print(f"⚠️  « {w} » ressemble à « {similar} » déjà dans '{sheet}'")
-                    print()
-                    print(f"   i  = importer « {w} » quand même")
-                    print(f"   n  = ne pas importer (défaut)")
-                    print(f"   d  = ignorer les deux — supprime aussi « {similar} » de Sheets")
-                    choice = input("   Choix [i/n/d] : ").strip().lower()
-                    if choice == 'i':
-                        new_words.append([today, w])
-                    elif choice == 'd':
-                        row_idx = existing[similar]
-                        sheets_clear(f"{sheet}!A{row_idx}:B{row_idx}")
-                        del existing[similar]
-                        print(f"   → « {similar} » supprimé de Sheets")
-                        dups += 1
-                    else:
-                        dups += 1
+                    similar_pairs.append((w, similar))
                 else:
                     new_words.append([today, w])
+
+        if similar_pairs:
+            print(f"   🤖 {len(similar_pairs)} paire(s) similaire(s) → décision IA...")
+            ai_decisions = llm_decide_similar_batch(similar_pairs, sheet)
+            imported_count = 0
+            for w, sim, decision in ai_decisions:
+                if decision == "import":
+                    new_words.append([today, w])
+                    imported_count += 1
+                    print(f"      ✓ « {w} » (proche de « {sim} ») → importé")
+                else:
+                    dups += 1
+                    print(f"      ✗ « {w} » (proche de « {sim} ») → ignoré")
+            print(f"      → {imported_count}/{len(ai_decisions)} acceptés par l'IA")
+
         ready[sheet] = new_words
         total_new += len(new_words)
         total_dup += dups
@@ -641,7 +700,7 @@ def main():
         print("\n✅ Tous les mots existent déjà dans Sheets — rien à importer.")
     else:
         sep()
-        print("🤖 Validation IA avec Gemma...\n")
+        print("🤖 Validation IA avec gpt-4.1-mini...\n")
         suspects = {}
         try:
             suspects = validate_words_ai(ready)
