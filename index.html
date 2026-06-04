@@ -608,6 +608,11 @@
       display: none;
     }
     .no-count-notice { font-size: 0.78rem; font-style: italic; opacity: 0.7; margin-top: 0.5rem; }
+    .verdict-score {
+      font-family: 'DM Mono', monospace; font-size: 1.5rem; font-weight: 700;
+      padding-bottom: 0.6rem; margin-bottom: 0.75rem;
+      border-bottom: 1px solid currentColor; opacity: 0.9;
+    }
 
     /* ── Bouton QCM ── */
     .qcm-offer {
@@ -1266,6 +1271,7 @@
     let sentenceSubmitted      = false;
     let lastSubmittedSentence  = '';
     let qcmWord            = "";
+    let _qcmWordsOffer     = []; // mots disponibles pour QCM après un verdict ✗ multi-mots
     let practiceMode       = 'spaced';
     let grammarForms        = [];   // liste aplatie des formes grammaticales espagnoles
     let grammarFormsEnabled = localStorage.getItem(KEY_GRAMMAR) !== 'false'; // true par défaut
@@ -2058,6 +2064,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('qcm-offer').classList.remove('visible');
       document.getElementById('qcm-section').classList.remove('visible');
       document.getElementById('qcm-result').textContent       = '';
+      _qcmWordsOffer = [];
       document.getElementById('related-box').classList.remove('visible');
       document.getElementById('related-chips').innerHTML      = '';
       _relatedWordsShown = [];
@@ -2750,6 +2757,7 @@ Respond entirely in ${langName}.`;
       noCountNotice.textContent = '';
       document.getElementById('qcm-offer').classList.remove('visible');
       document.getElementById('qcm-section').classList.remove('visible');
+      _qcmWordsOffer = [];
 
       const langInfo   = getLang();
       const langName   = langInfo.mistralName;
@@ -2920,6 +2928,12 @@ Respond entirely in ${feedbackLang}.`;
         feedbackLabel.textContent = isCorrect ? '✓' : '✗';
         feedbackBox.classList.add(isCorrect ? 'correct' : 'incorrect');
 
+        // Score multi-mots
+        if (!isSingle) {
+          const correctCount = Object.values(wordResults).filter(v => v).length;
+          feedbackText.innerHTML = `<div class="verdict-score">${correctCount} / ${currentWords.length}</div>` + feedbackText.innerHTML;
+        }
+
         // ── Progression + History (première tentative seulement) ─
         const savePromises  = [];
         const historyRows   = [];
@@ -2983,6 +2997,7 @@ Respond entirely in ${feedbackLang}.`;
                 return !line || line.includes('✗');
               });
           const wordsForQCM = failedWords.length > 0 ? failedWords : [currentWords[0]];
+          _qcmWordsOffer = wordsForQCM;
           document.getElementById('qcm-question').textContent = langInfo.qcmQuestion;
           document.getElementById('qcm-offer-buttons').innerHTML = wordsForQCM
             .map(w => `<button class="btn-qcm" onclick="startQCM('${w.replace(/'/g, "\\'")}')">🎯 QCM — <span class="qcm-offer-word">${w}</span></button>`)
@@ -3087,6 +3102,7 @@ Write all scenarios in ${langName}.`;
       // Colorie la réponse
       btn.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
 
+      const resultEl = document.getElementById('qcm-result');
       // Si faux, montre la bonne réponse
       if (!isCorrect) {
         document.querySelectorAll('.qcm-choice').forEach(b => {
@@ -3094,13 +3110,34 @@ Write all scenarios in ${langName}.`;
         });
         // Compte comme ✗ supplémentaire
         await saveProgress(qcmWord, false);
-        document.getElementById('qcm-result').textContent  = '✗ Pas tout à fait…';
-        document.getElementById('qcm-result').className    = 'qcm-result incorrect';
+        resultEl.textContent = '✗ Pas tout à fait…';
+        resultEl.className   = 'qcm-result incorrect';
       } else {
         // Résultat neutre — ni ✓ ni ✗ dans la progression
-        document.getElementById('qcm-result').textContent = '✓ Bonne situation !';
-        document.getElementById('qcm-result').className   = 'qcm-result correct';
+        resultEl.textContent = '✓ Bonne situation !';
+        resultEl.className   = 'qcm-result correct';
       }
+      if (_qcmWordsOffer.length > 1) {
+        const btn = document.createElement('button');
+        btn.className = 'btn-secondary';
+        btn.style.cssText = 'display:block;margin-top:0.75rem';
+        btn.textContent = '← Autres QCMs';
+        btn.onclick = showQCMOffer;
+        resultEl.appendChild(btn);
+      }
+    }
+
+    function showQCMOffer() {
+      document.getElementById('qcm-section').classList.remove('visible');
+      document.getElementById('qcm-offer').classList.add('visible');
+      requestAnimationFrame(() => {
+        const offer = document.getElementById('qcm-offer');
+        const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
+        const rect = offer.getBoundingClientRect();
+        if (rect.top < safeTop + 8) {
+          window.scrollTo({ top: window.scrollY + rect.top - safeTop - 8, behavior: 'smooth' });
+        }
+      });
     }
 
     // ── Sauvegarde hint utilisé ───────────────────────────────
