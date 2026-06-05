@@ -2090,6 +2090,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       try {
         const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!B:B`);
         allWords = (data.values || []).map(r => r[0]).filter(w => w && w.trim());
+        for (let i = allWords.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
+        }
       } catch (e) { allWords = []; }
     }
 
@@ -2240,16 +2244,21 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // ── Formes grammaticales ──────────────────────────────────
     async function loadGrammarForms() {
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Grammar:%20Spanish!A:G`);
-        const rows = data.values || [];
-        if (rows.length < 2) { grammarForms = []; return; }
-        const headers = rows[0]; // ex: ["presente","pasado","futuro",...]
+        const fields = 'sheets(data(rowData(values(userEnteredValue/stringValue,userEnteredFormat/textFormat/strikethrough))))';
+        const path   = `/v4/spreadsheets/${SHEET_ID}?ranges=${encodeURIComponent('Grammar: Spanish!A:G')}&fields=${encodeURIComponent(fields)}`;
+        const data   = await sheetsApi(path);
+        const rowData = data.sheets?.[0]?.data?.[0]?.rowData || [];
+        if (rowData.length < 2) { grammarForms = []; return; }
+        const headerCells = rowData[0].values || [];
         grammarForms = [];
-        for (let r = 1; r < rows.length; r++) {
-          for (let c = 0; c < headers.length; c++) {
-            const cat  = (headers[c] || '').trim();
-            const form = (rows[r][c] || '').trim();
-            if (cat && form) grammarForms.push(`${cat} ${form}`);
+        for (let r = 1; r < rowData.length; r++) {
+          const cells = rowData[r].values || [];
+          for (let c = 0; c < headerCells.length; c++) {
+            const cat  = (headerCells[c]?.userEnteredValue?.stringValue || '').trim();
+            const cell = cells[c] || {};
+            const form = (cell.userEnteredValue?.stringValue || '').trim();
+            const struck = cell.userEnteredFormat?.textFormat?.strikethrough === true;
+            if (cat && form && !struck) grammarForms.push(`${cat} ${form}`);
           }
         }
       } catch (e) {
