@@ -392,6 +392,44 @@ Après `clasp push`, **redéployer** dans l'éditeur Apps Script pour que le rac
 
 ---
 
-## Idée future (non implémentée)
+## Idées futures (non implémentées)
 
 **Auth Google OAuth** : remplacer le mot de passe SHA-256 par "Se connecter avec Google". Worker vérifierait le token Google au lieu du `WORKER_SECRET`, éliminant le secret visible en clair. Reconnexion silencieuse via refresh token en localStorage. ~20h estimées. Non prioritaire (app mono-utilisateur).
+
+---
+
+**Généralisation multi-utilisateur** (~35-45h) — projet CV potentiel
+
+Objectif : transformer l'app en produit public utilisable par n'importe qui, sans friction.
+
+### Stack cible
+
+- **Auth** : Google OAuth (login avec compte Google)
+- **Base de données** : Cloudflare D1 (SQLite sur l'edge, gratuit, déjà dans l'écosystème Worker). Les onglets Sheets (Words, Progress, History, Session, Tokens, Blacklist, Grammar) deviennent des tables SQL filtrées par `user_id`.
+- **IA** : BYOK (Bring Your Own Key) — chaque utilisateur entre sa propre clé OpenAI (et optionnellement Gemini) dans les settings. Stockée en localStorage ou chiffrée en D1. Zéro coût IA côté serveur.
+- **Hébergement** : GitHub Pages (inchangé) + Cloudflare Worker (inchangé)
+
+### Ajout de mots — préserver le flux sans friction
+
+Trois méthodes pour l'utilisateur :
+1. **Token personnel** : chaque user reçoit un token unique dans les settings. L'URL `worker.dev/add?token=xxx&word=yyy&lang=auto` remplace l'URL Apps Script dans le Raccourci iPhone — setup 30 secondes, identique à aujourd'hui.
+2. **Android / autres** : même token, via l'app **HTTP Shortcuts** (Android) ou tout outil pouvant faire une requête HTTP (Alfred, Raycast, curl, Zapier…).
+3. **Champ dans l'app** : input texte + bouton Ajouter dans l'UI — pour les utilisateurs sans Raccourci ou pour les ajouts ponctuels.
+4. **Import CSV** (bonus) : importer une liste d'un coup.
+
+### Phases et estimations
+
+| Phase | Contenu | Durée |
+|---|---|---|
+| 1 | Auth Google OAuth + sessions | ~8h |
+| 2 | Migration Google Sheets → D1 (25+ appels à réécrire) | ~18h |
+| 3 | BYOK (UI settings + passage de la clé au Worker) | ~4h |
+| 4 | Multi-tenant (queries filtrées par user_id + onboarding) | ~5h |
+| 5a | PWA installable (manifest + service worker, sans App Store) | ~3h |
+| 5b | App Store via Capacitor (wrapper iOS + Apple Dev $99/an) | ~12h |
+
+**Total : 35-45h** (PWA) ou **45-55h** (App Store)
+
+### Note App Store
+
+Publier sur l'App Store est possible via Capacitor (wrapper web→natif) mais nécessite la Phase 2 complète d'abord (l'app actuelle est mono-utilisateur avec credentials hardcodés). Pour un CV, une PWA installable + URL live + repo GitHub public est souvent plus rapide et aussi convaincant.
