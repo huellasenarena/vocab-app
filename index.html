@@ -1222,6 +1222,7 @@
     const KEY_GEMINI_THINKING  = "vocab_gemini_thinking";
     const KEY_GEMMA_THINKING   = "vocab_gemma_thinking";
     const KEY_WORD_COUNT       = "vocab_word_count";
+    const SESSION_LANG_COLS    = { English: 1, Spanish: 2, French: 3, Greek: 4 }; // index dans la ligne [Date, En, Es, Fr, Gr]
     const KEY_GRAMMAR_COUNT    = "vocab_grammar_count";
     const GEMINI_MODEL_IDS = { gemma: 'gemma-4-31b-it', geminiflash: 'gemini-3-flash-preview', geminiflashlite: 'gemini-3.1-flash-lite-preview' };
     const DAILY_LIMITS = { gpt4: 235000, gemma: 1500, geminiflash: 20, geminiflashlite: 500 };
@@ -1589,14 +1590,6 @@
 
     // ── Sélection de langue ───────────────────────────────────
     async function selectLanguage(lang) {
-      // Sauvegarde les résultats en cours avant de changer de langue
-      for (const word of currentWords) {
-        const key = word.toLowerCase();
-        if (sessionFirstResult.hasOwnProperty(key)) {
-          await saveHistory(word, sessionFirstResult[key]);
-          delete sessionFirstResult[key];
-        }
-      }
       sessionFirstResult = {};
       currentLang = lang;
       previousWordsPool = [];
@@ -1613,7 +1606,7 @@
       resetPracticeUI();
       onSliderChange(wordCount());
       document.getElementById('word-count-label').textContent = 'chargement...';
-      const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(), loadTodayTokens(), loadBlacklist(lang) ];
+      const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(lang), loadTodayTokens(), loadBlacklist(lang) ];
       if (lang === 'Spanish') loadFns.push(loadGrammarForms());
       else grammarForms = [];
       await Promise.all(loadFns);
@@ -1632,39 +1625,54 @@
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; // YYYY-MM-DD Local
     }
 
-    async function loadTodayCount() {
+    async function loadTodayCount(lang) {
       const today    = todayStrLocal();
-      const localKey = `vocab_today_new_${today}`;
+      const localKey = `vocab_today_new_${lang}_${today}`;
       const localVal = parseInt(localStorage.getItem(localKey)) || 0;
+      const colIdx   = SESSION_LANG_COLS[lang] ?? 1;
       try {
-        const data      = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Session!A:B`);
-        const rows      = (data.values || []).slice(1); // skip header
-        const row       = rows.find(r => r[0] === today);
-        const sheetsVal = row ? (parseInt(row[1]) || 0) : 0;
-        // Prend le max (Sheets = source de vérité, localStorage = fallback multi-appareils)
-        todayNewCount = Math.max(sheetsVal, localVal);
-        localStorage.setItem(localKey, todayNewCount); // synchronise
-        sessionNewPracticed = new Set(); // reset pour cette session
+        const data   = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Session!A:E`);
+        const all    = data.values || [];
+        const header = all[0] || [];
+        if (header[1] !== 'English') {
+          // Migration : ancien format (NewWordsPracticed global) → par langue
+          await sheetsApi(
+            `/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('Session!A1:E1')}?valueInputOption=RAW`,
+            'PUT',
+            { values: [['Date', 'English', 'Spanish', 'French', 'Greek']] }
+          );
+          todayNewCount = localVal; // repart de 0 (anciens totaux globaux non migrables)
+        } else {
+          const rows      = all.slice(1);
+          const row       = rows.find(r => r[0] === today);
+          const sheetsVal = row ? (parseInt(row[colIdx]) || 0) : 0;
+          todayNewCount   = Math.max(sheetsVal, localVal);
+        }
+        localStorage.setItem(localKey, todayNewCount);
+        sessionNewPracticed = new Set();
       } catch (e) {
-        todayNewCount = localVal; // fallback si Sheets inaccessible
+        todayNewCount = localVal;
       }
     }
 
-    async function saveTodayCount(newCount) {
-      const today    = todayStrLocal();
-      const localKey = `vocab_today_new_${today}`;
-      localStorage.setItem(localKey, newCount); // toujours sauvegarder en local
+    async function saveTodayCount(lang, newCount) {
+      const today      = todayStrLocal();
+      const localKey   = `vocab_today_new_${lang}_${today}`;
+      localStorage.setItem(localKey, newCount);
+      const colIdx     = SESSION_LANG_COLS[lang] ?? 1;
+      const colLetter  = ['A','B','C','D','E'][colIdx];
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Session!A:B`);
+        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Session!A:E`);
         const rows = (data.values || []).slice(1);
         const idx  = rows.findIndex(r => r[0] === today);
-
         if (idx >= 0) {
-          const range = encodeURIComponent(`Session!B${idx + 2}`);
+          const range = encodeURIComponent(`Session!${colLetter}${idx + 2}`);
           await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[newCount]] });
         } else {
-          const range = encodeURIComponent('Session!A:B');
-          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[today, newCount]] });
+          const newRow = [today, '', '', '', ''];
+          newRow[colIdx] = newCount;
+          const range = encodeURIComponent('Session!A:E');
+          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [newRow] });
         }
       } catch (e) {
         console.error('[Session] Erreur saveTodayCount:', e.message);
@@ -2978,7 +2986,7 @@ Respond entirely in ${feedbackLang}.`;
 
         // Envoi groupé : history en un seul appel, progress en parallèle
         if (historyRows.length > 0) savePromises.push(saveHistoryBatch(historyRows));
-        if (todayNewCount !== prevNewCount) savePromises.push(saveTodayCount(todayNewCount));
+        if (todayNewCount !== prevNewCount) savePromises.push(saveTodayCount(currentLang, todayNewCount));
         await Promise.all(savePromises);
 
         // Met à jour le compteur affiché
