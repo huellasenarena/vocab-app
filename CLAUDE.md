@@ -48,7 +48,7 @@ Partagés Éditeur avec l'email du service account. Tous les appels passent par 
 |---|---|
 | Progress | A:Word B:Language C:Correct D:Incorrect E:LastPracticed F:HintUsed G:NextReview |
 | History | A:Date B:Word C:Language D:Result(✓/✗) |
-| Session | A:Date(YYYY-MM-DD) B:NewWordsPracticed |
+| Session | A:Date(YYYY-MM-DD) B:English C:Spanish D:French E:Greek |
 | Tokens | A:Date B:OpenAIInputTokens C:OpenAIOutputTokens D:OpenAIRequests E:GemmaRequests F:GeminiFlashRequests G:GeminiFlashLiteRequests |
 | Blacklist | A:English B:Spanish C:French D:Greek (row 1 = headers) |
 | Grammar: Spanish | Row 1 = catégories, Row 2+ = formes |
