@@ -2915,14 +2915,16 @@ Respond entirely in ${feedbackLang}.`;
           }
         });
 
-        // Cherche le verdict global : première ligne commençant par ✓ ou ✗
-        const lines     = reply.split('\n').map(l => l.trim()).filter(Boolean);
-        const verdict   = lines.find(l => l.startsWith('✓') || l.startsWith('✗')) || reply;
+        // Cherche le verdict global : première ligne contenant ✓ ou ✗ (le modèle les met parfois inline dans le heading)
+        const lines       = reply.split('\n').map(l => l.trim()).filter(Boolean);
+        const verdictLine = lines.find(l => /[✓✗]/.test(l)) || '';
+        const verdictMark = verdictLine.match(/[✓✗]/);
+        const verdictTrue = verdictMark ? verdictMark[0] === '✓' : false;
 
         // Score indépendant par mot en mode multi
         const wordResults = {};
         if (isSingle) {
-          wordResults[currentWords[0].toLowerCase()] = verdict.startsWith('✓');
+          wordResults[currentWords[0].toLowerCase()] = verdictTrue;
         } else {
           currentWords.forEach(w => {
             const wEscaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -2940,7 +2942,7 @@ Respond entirely in ${feedbackLang}.`;
         // Force isCorrect=false si au moins un mot est ✗
         const isCorrect = !isSingle
           ? Object.values(wordResults).every(v => v)
-          : verdict.startsWith('✓');
+          : verdictTrue;
 
         feedbackLabel.textContent = isCorrect ? '✓' : '✗';
         feedbackBox.classList.add(isCorrect ? 'correct' : 'incorrect');
