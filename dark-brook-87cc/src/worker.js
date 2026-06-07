@@ -453,10 +453,12 @@ export default {
       if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
       try {
         if (request.method === 'GET') {
-          const lang = new URL(request.url).searchParams.get('lang');
+          const sp = new URL(request.url).searchParams;
+          const lang = sp.get('lang');
           const { results } = await env.DB.prepare(
-            'SELECT word FROM words WHERE user_id = ? AND language = ? ORDER BY created_at'
+            'SELECT word, created_at FROM words WHERE user_id = ? AND language = ? ORDER BY created_at'
           ).bind(auth.uid, lang).all();
+          if (sp.get('detail')) return json({ words: results });
           return json({ words: results.map(r => r.word) });
         }
         if (request.method === 'POST') {
