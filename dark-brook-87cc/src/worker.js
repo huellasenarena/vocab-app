@@ -91,24 +91,111 @@ function genToken() {
 
 const ADD_LANGS = ['English', 'Spanish', 'French', 'Greek'];
 
-// Détection de langue d'un mot via la clé serveur (gpt-4.1-mini). Retourne une langue de ADD_LANGS ou null.
-async function detectLanguage(word, env) {
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.OPENAI_API_KEY_SCRIPT}` },
-      body: JSON.stringify({
-        model: 'gpt-4.1-mini',
-        messages: [{ role: 'user', content: `Detect the language of this word or phrase. Reply with EXACTLY one word among: English, Spanish, French, Greek. If none fits, reply Unknown.\n\n"${word}"` }],
-        max_tokens: 5, temperature: 0
-      })
-    });
-    const data = await res.json();
-    const txt = (data.choices?.[0]?.message?.content || '').trim().toLowerCase();
-    return ADD_LANGS.find(l => txt.includes(l.toLowerCase())) || null;
-  } catch {
-    return null;
+// ── Logique d'ajout intelligent (portée de l'Apps Script, lecture D1) ──
+const LANG_FULL = { Spanish: 'Spanish', French: 'French', English: 'English', Greek: 'Modern Greek' };
+
+// Appel LLM serveur (gpt-4.1-mini via OPENAI_API_KEY_SCRIPT), retries sur 429/5xx
+async function callScriptLLM(prompt, maxTokens, env) {
+  const waits = [0, 2000, 5000];
+  for (let attempt = 0; attempt < waits.length; attempt++) {
+    if (waits[attempt]) await new Promise(r => setTimeout(r, waits[attempt]));
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.OPENAI_API_KEY_SCRIPT}` },
+        body: JSON.stringify({ model: 'gpt-4.1-mini', messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0 })
+      });
+      if (res.status === 429 || res.status >= 500) continue;
+      if (!res.ok) return null;
+      const data = await res.json();
+      return (data.choices?.[0]?.message?.content || '').trim();
+    } catch {
+      return null;
+    }
   }
+  return null;
+}
+
+// Détection langue + validité en un appel → { valid, reason, lang }
+async function analyzeWordLangSense(word, env) {
+  const prompt = `Analyze the expression: "${word}".
+1. Identify its language (must be one of: French, English, Spanish, Greek).
+2. Check if it is a valid word or expression in that language (allow real words, conjugated forms, phrases, slang).
+Answer NO only for gibberish, typos producing no real word, or text clearly in a different language.
+Reply STRICTLY in one of these two formats:
+VALID | <LanguageName>
+INVALID: <brief reason> | <LanguageName>`;
+  const res = await callScriptLLM(prompt, 60, env);
+  if (!res) return { valid: false, reason: 'Erreur API OpenAI', lang: null };
+  const parts = res.split('|');
+  const statusPart = (parts[0] || '').trim();
+  const langPart = (parts[1] || '').trim();
+  const lang = ADD_LANGS.find(l => langPart.toLowerCase().includes(l.toLowerCase())) || null;
+  if (/^INVALID/i.test(statusPart)) return { valid: false, reason: statusPart.replace(/^INVALID[:\s]*/i, '').trim(), lang };
+  return { valid: true, lang };
+}
+
+async function identifyLang(word, env) {
+  const prompt = `Which language is "${word}" from? Options: French, English, Spanish, Greek.
+Reply with ONLY the language name, nothing else.`;
+  const res = await callScriptLLM(prompt, 10, env);
+  if (!res) return null;
+  return ADD_LANGS.find(l => res.toLowerCase().includes(l.toLowerCase())) || null;
+}
+
+async function validateWord(word, lang, env) {
+  const langName = LANG_FULL[lang] || lang;
+  const prompt = `Is "${word}" a valid ${langName} word or expression?
+Answer YES for: real words, conjugated forms, multi-word expressions, phrases, slang, archaic terms.
+Answer NO only for: gibberish, typos producing no real word, or text clearly in a different language.
+Reply with YES or NO: <brief reason if NO>.`;
+  const res = await callScriptLLM(prompt, 60, env);
+  if (res === null) return { valid: false, reason: 'Erreur API OpenAI' };
+  if (/^NO\b/i.test(res)) return { valid: false, reason: res.replace(/^NO[:\s]*/i, '').trim() };
+  return { valid: true };
+}
+
+async function judgeSimilarity(word, candidates, lang, env) {
+  const langName = LANG_FULL[lang] || lang;
+  const prompt = `Language: ${langName}.
+I want to add "${word}" to my vocabulary list.
+Existing words: ${candidates.join(', ')}.
+Is "${word}" merely an inflected form of an existing word (same lemma: conjugation, plural, gender, diminutive)?
+If YES, reply exactly "YES: <existing_word>". If it has distinct vocabulary value, reply "NO".`;
+  const res = await callScriptLLM(prompt, 30, env);
+  if (res && /^YES:/i.test(res)) return res.replace(/^YES:\s*/i, '').trim();
+  return null;
+}
+
+function normSim(w) {
+  return w.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '');
+}
+
+function similarityScore(wNorm, eNorm) {
+  if (!eNorm || eNorm.length < 2) return 0;
+  let score = 0;
+  const minLen = Math.min(wNorm.length, eNorm.length);
+  if (wNorm.length >= 4 && eNorm.indexOf(wNorm) !== -1) score += 10;
+  else if (eNorm.length >= 4 && wNorm.indexOf(eNorm) !== -1) score += 10;
+  if (minLen >= 5 && wNorm.substring(0, 4) === eNorm.substring(0, 4)) score += 5;
+  if (minLen >= 6 && wNorm.slice(-4) === eNorm.slice(-4)) score += 3;
+  const lenDiff = Math.abs(wNorm.length - eNorm.length);
+  if (lenDiff <= 2) score += 2;
+  else if (lenDiff <= 4) score += 1;
+  return score;
+}
+
+// Normalisation du mot (port de l'Apps Script)
+function normalizeWord(raw) {
+  return (raw || '')
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[‘’`ʼ]/g, "'")
+    .replace(/…/g, '...')
+    .replace(/(?<!\.)\.(?!\.)/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[^\p{L}\p{M} '¿?\.\-\+]/gu, '')
+    .trim()
+    .toLowerCase();
 }
 
 // ---- Vérification ID token Google (OAuth, JWKS RS256) ----
@@ -247,33 +334,98 @@ export default {
       return json({ user });
     }
 
-    // Ajout de mot par token perso (raccourci iPhone / outils externes) → D1
+    // Ajout de mot par token perso (raccourci iPhone / outils externes) → D1.
+    // Porte la logique de l'Apps Script : langue + validité + similarité, réponses texte identiques.
     if (path === '/add') {
+      const textOut = (s) => new Response(s, { status: 200, headers: { ...CORS, 'Content-Type': 'text/plain; charset=utf-8' } });
       try {
         const params = new URL(request.url).searchParams;
-        const token = params.get('token');
-        const word = (params.get('word') || '').trim();
-        let lang = (params.get('lang') || 'auto').trim();
-        if (!token) return json({ error: { message: 'token manquant' } }, 401);
-        if (!word) return json({ error: { message: 'word manquant' } }, 400);
-        const user = await env.DB.prepare('SELECT id FROM users WHERE add_token = ?').bind(token).first();
-        if (!user) return json({ error: { message: 'token invalide' } }, 403);
-        if (lang === 'auto') {
-          lang = await detectLanguage(word, env);
-          if (!lang) return json({ error: { message: `langue non détectée pour "${word}" — précise &lang=Spanish` } }, 400);
+        let token = params.get('token');
+        let rawWord = params.get('word');
+        let lang = (params.get('lang') || '').toLowerCase().trim();
+        let ignoreSens = params.get('ignore_sens') === 'true';
+        let ignoreSim = params.get('ignore_sim') === 'true';
+        if (request.method === 'POST') {
+          let body = {};
+          const ct = request.headers.get('content-type') || '';
+          try {
+            if (ct.includes('application/json')) body = await request.json();
+            else { const fd = await request.formData(); fd.forEach((v, k) => { body[k] = v; }); }
+          } catch {}
+          token = token || body.token;
+          rawWord = rawWord || body.word;
+          if (!lang) lang = (body.lang || '').toLowerCase().trim();
+          if (!ignoreSens) ignoreSens = body.ignore_sens === 'true';
+          if (!ignoreSim) ignoreSim = body.ignore_sim === 'true';
         }
-        const CODE_MAP = { en: 'English', es: 'Spanish', fr: 'French', el: 'Greek' };
-        if (CODE_MAP[lang.toLowerCase()]) lang = CODE_MAP[lang.toLowerCase()];
-        const match = ADD_LANGS.find(l => l.toLowerCase() === lang.toLowerCase());
-        if (!match) return json({ error: { message: 'lang invalide (English|Spanish|French|Greek)' } }, 400);
-        lang = match;
-        const res = await env.DB.prepare(
+        if (!token) return textOut('Erreur : token manquant.');
+        const user = await env.DB.prepare('SELECT id FROM users WHERE add_token = ?').bind(token).first();
+        if (!user) return textOut('Erreur : token invalide.');
+
+        const word = normalizeWord(rawWord);
+        if (!word) return textOut('Erreur : le mot est vide.');
+
+        const tabMap = {
+          english: 'English', anglais: 'English', en: 'English',
+          spanish: 'Spanish', espagnol: 'Spanish', es: 'Spanish',
+          greek: 'Greek', grec: 'Greek', el: 'Greek',
+          french: 'French', 'français': 'French', fr: 'French'
+        };
+        let language = (lang && lang !== 'auto' && tabMap[lang]) ? tabMap[lang] : null;
+
+        // 1 & 2 — détection langue + validité
+        if (!language && !ignoreSens) {
+          const analysis = await analyzeWordLangSense(word, env);
+          if (!analysis.lang) return textOut('Erreur : langue non détectée. Réessaie ou précise la langue.');
+          language = analysis.lang;
+          if (!analysis.valid) return textOut('INVALID:' + analysis.reason + ' | ' + language);
+        } else {
+          if (!language) {
+            language = await identifyLang(word, env);
+            if (!language) return textOut('Erreur : langue non détectée. Réessaie ou précise la langue.');
+          }
+          if (!ignoreSens) {
+            const v = await validateWord(word, language, env);
+            if (!v.valid) return textOut('INVALID:' + v.reason + ' | ' + language);
+          }
+        }
+
+        // mots existants pour cette langue (D1)
+        const { results } = await env.DB.prepare(
+          'SELECT word FROM words WHERE user_id = ? AND language = ?'
+        ).bind(user.id, language).all();
+        const existing = results.map(r => r.word);
+
+        // 3 — doublon exact
+        if (existing.some(e => (e || '').trim().toLowerCase() === word)) {
+          return textOut("Doublon : '" + word + "' existe déjà dans " + language + ".");
+        }
+
+        // similarité (top 5 candidats → juge LLM)
+        if (!ignoreSim) {
+          const wNorm = normSim(word);
+          const scored = [];
+          for (const e of existing) {
+            const ex = (e || '').trim();
+            if (ex.length < 2) continue;
+            const s = similarityScore(wNorm, normSim(ex.toLowerCase()));
+            if (s > 0) scored.push({ word: ex, score: s });
+          }
+          scored.sort((a, b) => b.score - a.score);
+          const candidates = scored.slice(0, 5).map(x => x.word);
+          if (candidates.length > 0) {
+            const sim = await judgeSimilarity(word, candidates, language, env);
+            if (sim) return textOut('SIMILAR:' + sim + ' | ' + language);
+          }
+        }
+
+        // 4 — ajout
+        await env.DB.prepare(
           'INSERT OR IGNORE INTO words (user_id, language, word, created_at) VALUES (?, ?, ?, ?)'
-        ).bind(user.id, lang, word, new Date().toISOString()).run();
-        const added = res.meta.changes > 0;
-        return json({ ok: true, word, language: lang, added, message: added ? `✅ "${word}" ajouté (${lang})` : `déjà présent (${lang})` });
+        ).bind(user.id, language, word, new Date().toISOString()).run();
+        return textOut("Succès (" + language + ") : '" + word + "' ajouté.");
       } catch (err) {
-        return json({ error: { message: err.message } }, 500);
+        return textOut('Erreur : ' + err.message);
       }
     }
 
