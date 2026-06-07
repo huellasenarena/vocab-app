@@ -105,8 +105,9 @@
 
     .input-group { width: 100%; display: flex; flex-direction: column; gap: 0.75rem; }
 
-    input[type="password"], textarea {
+    input[type="password"], input[type="email"], textarea {
       width: 100%;
+      box-sizing: border-box;
       color: var(--text);
       font-family: 'Lora', serif;
       font-size: 1rem;
@@ -115,13 +116,19 @@
       transition: border-color 0.2s;
       resize: none;
     }
-    input[type="password"] {
+    input[type="password"], input[type="email"] {
       font-family: 'DM Mono', monospace;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
     }
-    input[type="password"]:focus { border-color: var(--accent); }
+    input[type="password"]:focus, input[type="email"]:focus { border-color: var(--accent); }
+    /* Neutralise le fond blanc de l'autofill Safari/Chrome */
+    input:-webkit-autofill, input:-webkit-autofill:focus, input:-webkit-autofill:hover {
+      -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+      -webkit-text-fill-color: var(--text);
+      caret-color: var(--text);
+    }
     textarea { background: transparent; border: none; border-radius: 0; }
 
     .textarea-wrap {
@@ -730,7 +737,8 @@
     .mot-row { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.55rem 0.2rem; border-bottom:1px solid var(--border); }
     .mot-row .mot-w { font-family:'Lora', Georgia, serif; font-size:1rem; }
     .mot-row .mot-lang-tag { font-size:0.78rem; margin-left:0.4rem; opacity:0.7; }
-    .mot-row .mot-actions { display:flex; gap:0.2rem; flex-shrink:0; }
+    .mot-row .mot-actions { display:flex; align-items:center; gap:0.2rem; flex-shrink:0; }
+    .mot-row .mot-date { font-size:0.72rem; color:var(--muted); margin-right:0.35rem; white-space:nowrap; }
     .mot-row .mot-actions button { background:none; border:none; cursor:pointer; font-size:1rem; padding:0.2rem 0.45rem; opacity:0.65; }
     .mot-row .mot-actions button:hover { opacity:1; }
 
@@ -3341,8 +3349,16 @@ Write all scenarios in ${langName}.`;
     let historyFilter  = 'all';
 
     // ── Écran « Mes mots » ─────────────────────────────────────
-    let motsData = [];      // [{ word, lang }]
+    let motsData = [];      // [{ word, lang, created_at }]
     let motsFilter = 'all';
+
+    const motTs = s => { const d = new Date(String(s || '').replace(' ', 'T')); return isNaN(d) ? 0 : d.getTime(); };
+    function sortMots() { motsData.sort((a, b) => motTs(b.created_at) - motTs(a.created_at) || a.word.localeCompare(b.word)); }
+    function fmtMotDate(s) {
+      const t = motTs(s);
+      if (!t) return '';
+      return new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    }
 
     async function showMots() {
       showScreen('screen-mots');
@@ -3351,11 +3367,12 @@ Write all scenarios in ${langName}.`;
         '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
       try {
         const resps = await Promise.all(
-          LANGS.map(l => authFetch(`/api/words?lang=${encodeURIComponent(l.key)}`).then(r => r.json()))
+          LANGS.map(l => authFetch(`/api/words?lang=${encodeURIComponent(l.key)}&detail=1`).then(r => r.json()))
         );
         motsData = [];
-        LANGS.forEach((l, i) => (resps[i].words || []).forEach(w => motsData.push({ word: w, lang: l.key })));
-        motsData.sort((a, b) => a.word.localeCompare(b.word));
+        LANGS.forEach((l, i) => (resps[i].words || []).forEach(w =>
+          motsData.push({ word: w.word, lang: l.key, created_at: w.created_at })));
+        sortMots();
         renderMotsFilters();
         renderMots();
       } catch (err) {
@@ -3387,10 +3404,10 @@ Write all scenarios in ${langName}.`;
       list.innerHTML = rows.map(m => {
         const info = LANGS.find(x => x.key === m.lang);
         const esc  = m.word.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        const tag  = motsFilter === 'all' ? `<span class="mot-lang-tag">${info?.flag || ''}</span>` : '';
         return `<div class="mot-row">
-          <span class="mot-w">${m.word}${tag}</span>
+          <span class="mot-w">${info?.flag || ''} ${m.word}</span>
           <span class="mot-actions">
+            <span class="mot-date">${fmtMotDate(m.created_at)}</span>
             <button onclick="editMot('${m.lang}','${esc}')" title="Renommer">✏️</button>
             <button onclick="deleteMot('${m.lang}','${esc}')" title="Supprimer">🗑</button>
           </span>
@@ -3409,7 +3426,7 @@ Write all scenarios in ${langName}.`;
         if (!r.ok) throw new Error(data.error?.message || 'erreur');
         const m = motsData.find(x => x.lang === lang && x.word === word);
         if (m) m.word = newWord;
-        motsData.sort((a, b) => a.word.localeCompare(b.word));
+        sortMots();
         renderMots();
       } catch (e) { alert('Erreur : ' + e.message); }
     }
