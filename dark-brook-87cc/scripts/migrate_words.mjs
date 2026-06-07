@@ -7,7 +7,8 @@
 //   wrangler d1 execute vocab --remote --file=/tmp/words.sql     (prod, plus tard)
 
 const PROD     = 'https://dark-brook-87cc.georg-dreym.workers.dev';
-const SECRET   = 'vocab-app-secret-2026';
+const SECRET   = process.env.WORKER_SECRET || '';
+if (!SECRET) { console.error('WORKER_SECRET manquant — export WORKER_SECRET=... avant de lancer'); process.exit(1); }
 const SHEET_ID = '1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc';
 const LANGS    = ['English', 'Spanish', 'French', 'Greek'];
 
