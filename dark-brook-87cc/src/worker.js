@@ -84,6 +84,33 @@ async function requireAuth(request, env) {
   return verifyJWT(auth.slice(7), env.JWT_SECRET);
 }
 
+// Token perso (route /add) — URL-safe, ~32 caractères
+function genToken() {
+  return base64url(crypto.getRandomValues(new Uint8Array(24)).buffer);
+}
+
+const ADD_LANGS = ['English', 'Spanish', 'French', 'Greek'];
+
+// Détection de langue d'un mot via la clé serveur (gpt-4.1-mini). Retourne une langue de ADD_LANGS ou null.
+async function detectLanguage(word, env) {
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.OPENAI_API_KEY_SCRIPT}` },
+      body: JSON.stringify({
+        model: 'gpt-4.1-mini',
+        messages: [{ role: 'user', content: `Detect the language of this word or phrase. Reply with EXACTLY one word among: English, Spanish, French, Greek. If none fits, reply Unknown.\n\n"${word}"` }],
+        max_tokens: 5, temperature: 0
+      })
+    });
+    const data = await res.json();
+    const txt = (data.choices?.[0]?.message?.content || '').trim().toLowerCase();
+    return ADD_LANGS.find(l => txt.includes(l.toLowerCase())) || null;
+  } catch {
+    return null;
+  }
+}
+
 // ---- Vérification ID token Google (OAuth, JWKS RS256) ----
 
 let _googleJwks = null;
@@ -210,9 +237,44 @@ export default {
     if (path === '/me') {
       const auth = await requireAuth(request, env);
       if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
-      const user = await env.DB.prepare('SELECT id, email, created_at FROM users WHERE id = ?').bind(auth.uid).first();
+      const user = await env.DB.prepare('SELECT id, email, created_at, add_token FROM users WHERE id = ?').bind(auth.uid).first();
       if (!user) return json({ error: { message: 'utilisateur introuvable' } }, 404);
+      if (!user.add_token) {
+        const tok = genToken();
+        await env.DB.prepare('UPDATE users SET add_token = ? WHERE id = ?').bind(tok, user.id).run();
+        user.add_token = tok;
+      }
       return json({ user });
+    }
+
+    // Ajout de mot par token perso (raccourci iPhone / outils externes) → D1
+    if (path === '/add') {
+      try {
+        const params = new URL(request.url).searchParams;
+        const token = params.get('token');
+        const word = (params.get('word') || '').trim();
+        let lang = (params.get('lang') || 'auto').trim();
+        if (!token) return json({ error: { message: 'token manquant' } }, 401);
+        if (!word) return json({ error: { message: 'word manquant' } }, 400);
+        const user = await env.DB.prepare('SELECT id FROM users WHERE add_token = ?').bind(token).first();
+        if (!user) return json({ error: { message: 'token invalide' } }, 403);
+        if (lang === 'auto') {
+          lang = await detectLanguage(word, env);
+          if (!lang) return json({ error: { message: `langue non détectée pour "${word}" — précise &lang=Spanish` } }, 400);
+        }
+        const CODE_MAP = { en: 'English', es: 'Spanish', fr: 'French', el: 'Greek' };
+        if (CODE_MAP[lang.toLowerCase()]) lang = CODE_MAP[lang.toLowerCase()];
+        const match = ADD_LANGS.find(l => l.toLowerCase() === lang.toLowerCase());
+        if (!match) return json({ error: { message: 'lang invalide (English|Spanish|French|Greek)' } }, 400);
+        lang = match;
+        const res = await env.DB.prepare(
+          'INSERT OR IGNORE INTO words (user_id, language, word, created_at) VALUES (?, ?, ?, ?)'
+        ).bind(user.id, lang, word, new Date().toISOString()).run();
+        const added = res.meta.changes > 0;
+        return json({ ok: true, word, language: lang, added, message: added ? `✅ "${word}" ajouté (${lang})` : `déjà présent (${lang})` });
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
     }
 
     // ---- Données utilisateur (D1, protégées par JWT, filtrées par user_id) ----

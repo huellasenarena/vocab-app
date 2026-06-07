@@ -1026,6 +1026,13 @@
           onchange="setGeminiKey(this.value)"
           style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
       </div>
+      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
+        <span>Lien d'ajout (raccourci iPhone)</span>
+        <input type="text" id="add-url-input" readonly placeholder="connecte-toi pour générer ton lien"
+          onclick="this.select()"
+          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;">
+        <span style="font-size:0.7rem;color:var(--muted);">Remplace <code>WORD</code> par le mot dans ton raccourci. <code>lang=auto</code> détecte la langue.</span>
+      </div>
       <label class="settings-row">
         <span>Afficher compteur tokens</span>
         <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
@@ -1904,6 +1911,17 @@
       localStorage.setItem(KEY_GEMINI_KEY, geminiKey);
     }
 
+    // Récupère le token perso (route /add) et construit le lien du raccourci iPhone
+    async function loadAddToken() {
+      const el = document.getElementById('add-url-input');
+      try {
+        const r = await authFetch('/me');
+        const data = await r.json();
+        const tok = data.user?.add_token;
+        if (tok) el.value = `${API_ENDPOINT}/add?token=${tok}&word=WORD&lang=auto`;
+      } catch { /* silencieux */ }
+    }
+
     function setGptEffort(val) {
       gptEffort = val;
       localStorage.setItem(KEY_GPT_EFFORT, val);
@@ -2340,6 +2358,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         document.getElementById('model-select').value = currentModel;
         document.getElementById('openai-key-input').value = openaiKey;
         document.getElementById('gemini-key-input').value = geminiKey;
+        loadAddToken();
       }
     }
 
