@@ -1,4 +1,11 @@
 credentials.json
 token.json
-dark-brook-87cc/
 apps_script/.clasp.json
+
+# Le code du Worker est versionné, mais ses secrets/artefacts restent exclus
+# (le .gitignore interne dark-brook-87cc/.gitignore couvre .dev.vars*, node_modules/, .wrangler/)
+dark-brook-87cc/.DS_Store
+
+# Artefacts Python (kindle_import)
+__pycache__/
+*.pyc

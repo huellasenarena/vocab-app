@@ -1,0 +1,22 @@
+# Secrets pour le DEV LOCAL (wrangler dev). Copier en .dev.vars et remplir.
+# .dev.vars est gitignoré — ne jamais committer les vraies valeurs.
+# En prod, ces valeurs sont des secrets Cloudflare (wrangler secret put ...).
+
+# --- IA (existant) ---
+OPENAI_API_KEY=sk-...
+OPENAI_API_KEY_SCRIPT=sk-...
+GEMINI_KEY=...
+UNSPLASH_KEY=...
+
+# --- Google Sheets (existant, sera retiré après migration D1) ---
+SA_JSON={"type":"service_account", ...}
+
+# --- Auth héritée (sera remplacée par JWT, à retirer en fin de Phase 1) ---
+WORKER_SECRET=dev-secret-local
+
+# --- Auth multi-utilisateur (Phase 1) ---
+# Clé de signature des JWT de session émis par le Worker
+JWT_SECRET=dev-jwt-secret-change-me
+# Google OAuth (console.cloud.google.com → OAuth client)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
