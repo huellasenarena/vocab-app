@@ -2,9 +2,9 @@
 
 App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **Cloudflare D1** (SQLite edge) via Cloudflare Worker. Auth = email/mdp **+ Google OAuth** (JWT). IA = **BYOK** (chaque utilisateur sa clé), multi-provider. Utilisateur communique en **français**.
 
-- URL : https://huellasenarena.github.io/vocab-app
+- URL : https://byov.net (domaine custom Cloudflare, **BYOV** = *Bring Your Own Vocab*) — ancienne URL `https://huellasenarena.github.io/vocab-app` toujours active
 - Repo : `~/Desktop/vocab-app/` (remote SSH `git@github.com:huellasenarena/vocab-app.git`), **public**
-- Push sur `main` → GitHub Actions déploie sur `gh-pages` (~1 min). **Ne jamais éditer `gh-pages`.**
+- Push sur `main` → GitHub Actions déploie sur `gh-pages` (~1 min). **Ne jamais éditer `gh-pages`.** Le `cname: byov.net` est dans `deploy.yml` (sinon le CNAME serait écrasé à chaque déploiement).
 - Le Worker (`dark-brook-87cc/`) est **versionné dans le repo** (peut être commité).
 
 > **Historique** : avant juin 2026, l'app était mono-utilisateur (backend Google Sheets, secret `WORKER_SECRET` en dur dans le HTML). Migrée en multi-utilisateur (D1 + auth + BYOK) et déployée le 2026-06-07. Voir la mémoire `project_generalization` pour le détail des phases.
