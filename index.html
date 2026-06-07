@@ -1367,6 +1367,7 @@
       }
 
       showScreen(localStorage.getItem(KEY_JWT) ? 'screen-lang' : 'screen-auth');
+      if (localStorage.getItem(KEY_JWT)) loadAccountInfo();
       initGoogleSignIn();
       document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
       document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
@@ -1428,6 +1429,7 @@
         if (!res.ok) throw new Error(data.error?.message || 'erreur de connexion');
         localStorage.setItem(KEY_JWT, data.token);
         document.getElementById('auth-password').value = '';
+        await loadAccountInfo();
         showScreen('screen-lang');
       } catch (err) {
         errEl.textContent = err.message;
@@ -1468,6 +1470,7 @@
         const data = await r.json();
         if (!r.ok) throw new Error(data.error?.message || 'erreur de connexion Google');
         localStorage.setItem(KEY_JWT, data.token);
+        await loadAccountInfo();
         showScreen('screen-lang');
       } catch (err) {
         errEl.textContent = err.message;
@@ -1905,20 +1908,35 @@
     function setOpenaiKey(val) {
       openaiKey = (val || '').trim();
       localStorage.setItem(KEY_OPENAI_KEY, openaiKey);
+      saveKeysToServer();
     }
     function setGeminiKey(val) {
       geminiKey = (val || '').trim();
       localStorage.setItem(KEY_GEMINI_KEY, geminiKey);
+      saveKeysToServer();
     }
 
-    // Récupère le token perso (route /add) et construit le lien du raccourci iPhone
-    async function loadAddToken() {
-      const el = document.getElementById('add-url-input');
+    // Sync : pousse les clés vers D1 (partagées entre appareils)
+    async function saveKeysToServer() {
+      try {
+        await authFetch('/api/keys', { method: 'POST', body: JSON.stringify({ openaiKey, geminiKey }) });
+      } catch { /* silencieux */ }
+    }
+
+    let myAddToken = '';
+    // Récupère le compte depuis D1 : clés BYOK (sync) + token d'ajout
+    async function loadAccountInfo() {
       try {
         const r = await authFetch('/me');
-        const data = await r.json();
-        const tok = data.user?.add_token;
-        if (tok) el.value = `${API_ENDPOINT}/add?token=${tok}&word=WORD&lang=auto`;
+        const u = (await r.json()).user;
+        if (!u) return;
+        myAddToken = u.add_token || '';
+        if (u.openai_key) { openaiKey = u.openai_key; localStorage.setItem(KEY_OPENAI_KEY, openaiKey); }
+        if (u.gemini_key) { geminiKey = u.gemini_key; localStorage.setItem(KEY_GEMINI_KEY, geminiKey); }
+        const oi = document.getElementById('openai-key-input'); if (oi) oi.value = openaiKey;
+        const gi = document.getElementById('gemini-key-input'); if (gi) gi.value = geminiKey;
+        const au = document.getElementById('add-url-input');
+        if (au && myAddToken) au.value = `${API_ENDPOINT}/add?token=${myAddToken}&word=WORD&lang=auto`;
       } catch { /* silencieux */ }
     }
 
@@ -2358,7 +2376,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         document.getElementById('model-select').value = currentModel;
         document.getElementById('openai-key-input').value = openaiKey;
         document.getElementById('gemini-key-input').value = geminiKey;
-        loadAddToken();
+        loadAccountInfo();
       }
     }
 
