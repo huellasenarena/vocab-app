@@ -243,7 +243,7 @@ async function verifyGoogleIdToken(idToken, clientId) {
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, GET, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, X-Worker-Secret, Authorization, X-OpenAI-Key, X-Gemini-Key',
 };
 
@@ -472,6 +472,18 @@ export default {
           await env.DB.batch([
             env.DB.prepare('DELETE FROM words WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, lang, word),
             env.DB.prepare('DELETE FROM progress WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, lang, word)
+          ]);
+          return json({ ok: true });
+        }
+        if (request.method === 'PUT') {
+          const { lang, oldWord, newWord } = await request.json();
+          const nw = (newWord || '').trim();
+          if (!lang || !oldWord || !nw) return json({ error: { message: 'lang, oldWord, newWord requis' } }, 400);
+          const exists = await env.DB.prepare('SELECT 1 FROM words WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, lang, nw).first();
+          if (exists) return json({ error: { message: 'ce mot existe déjà' } }, 409);
+          await env.DB.batch([
+            env.DB.prepare('UPDATE words SET word = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, auth.uid, lang, oldWord),
+            env.DB.prepare('UPDATE progress SET word = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, auth.uid, lang, oldWord)
           ]);
           return json({ ok: true });
         }
