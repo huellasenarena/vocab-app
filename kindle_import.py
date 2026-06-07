@@ -17,7 +17,9 @@ import urllib.request, urllib.parse
 SHEET_ID       = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc"
 SCRIPT_DIR     = Path(__file__).parent
 WORKER_URL     = "https://dark-brook-87cc.georg-dreym.workers.dev"
-WORKER_SECRET  = "vocab-app-secret-2026"
+WORKER_SECRET  = os.environ.get("WORKER_SECRET", "")
+if not WORKER_SECRET:
+    sys.exit("WORKER_SECRET manquant — exporte-le avant de lancer : export WORKER_SECRET=...")
 
 LANG_TO_SHEET  = {"es": "Spanish", "fr": "French", "en": "English", "el": "Greek"}
 LANG_NAMES     = {"es": "Espagnol", "fr": "Français", "en": "Anglais", "el": "Grec"}
