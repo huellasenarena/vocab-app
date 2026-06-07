@@ -9,6 +9,84 @@ function b64json(obj) {
   return base64url(new TextEncoder().encode(JSON.stringify(obj)));
 }
 
+// ---- Auth multi-utilisateur (Phase 1) ----
+
+function b64urlToBytes(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(s);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
+
+const PBKDF2_ITER = 100000;
+
+async function hashPassword(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITER, hash: 'SHA-256' }, keyMaterial, 256
+  );
+  return `pbkdf2$${PBKDF2_ITER}$${base64url(salt.buffer)}$${base64url(bits)}`;
+}
+
+async function verifyPassword(password, stored) {
+  const [scheme, iterStr, saltB64, hashB64] = (stored || '').split('$');
+  if (scheme !== 'pbkdf2') return false;
+  const salt = b64urlToBytes(saltB64);
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: parseInt(iterStr, 10), hash: 'SHA-256' }, keyMaterial, 256
+  );
+  return timingSafeEqual(base64url(bits), hashB64);
+}
+
+async function signJWT(payload, secret, expSeconds = 60 * 60 * 24 * 30) {
+  const now = Math.floor(Date.now() / 1000);
+  const data = `${b64json({ alg: 'HS256', typ: 'JWT' })}.${b64json({ ...payload, iat: now, exp: now + expSeconds })}`;
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+  return `${data}.${base64url(sig)}`;
+}
+
+async function verifyJWT(token, secret) {
+  try {
+    const parts = (token || '').split('.');
+    if (parts.length !== 3) return null;
+    const key = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+    );
+    const ok = await crypto.subtle.verify(
+      'HMAC', key, b64urlToBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`)
+    );
+    if (!ok) return null;
+    const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[1])));
+    if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+async function requireAuth(request, env) {
+  const auth = request.headers.get('Authorization') || '';
+  if (!auth.startsWith('Bearer ')) return null;
+  return verifyJWT(auth.slice(7), env.JWT_SECRET);
+}
+
 async function getServiceAccountToken(env) {
   if (cachedToken && Date.now() < tokenExpiry - 60000) return cachedToken;
   const sa  = JSON.parse(env.SA_JSON);
@@ -41,8 +119,14 @@ async function getServiceAccountToken(env) {
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Worker-Secret',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Worker-Secret, Authorization',
 };
+
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status, headers: { ...CORS, 'Content-Type': 'application/json' }
+  });
+}
 
 const ALLOWED_SHEET_IDS = [
   '1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc',
@@ -53,13 +137,58 @@ export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
+    const path = new URL(request.url).pathname;
+
+    // ---- Routes multi-utilisateur (publiques ou JWT, pas de X-Worker-Secret) ----
+
+    if (path === '/auth/signup') {
+      try {
+        const { email, password } = await request.json();
+        const mail = (email || '').trim().toLowerCase();
+        if (!mail || !password) return json({ error: { message: 'email et mot de passe requis' } }, 400);
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) return json({ error: { message: 'email invalide' } }, 400);
+        if (password.length < 8) return json({ error: { message: 'mot de passe trop court (min 8 caractères)' } }, 400);
+        const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(mail).first();
+        if (existing) return json({ error: { message: 'un compte existe déjà avec cet email' } }, 409);
+        const res = await env.DB.prepare(
+          'INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)'
+        ).bind(mail, await hashPassword(password), new Date().toISOString()).run();
+        const uid = res.meta.last_row_id;
+        return json({ token: await signJWT({ uid, email: mail }, env.JWT_SECRET), user: { id: uid, email: mail } });
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
+    if (path === '/auth/login') {
+      try {
+        const { email, password } = await request.json();
+        const mail = (email || '').trim().toLowerCase();
+        const user = await env.DB.prepare('SELECT id, email, password_hash FROM users WHERE email = ?').bind(mail).first();
+        if (!user || !user.password_hash || !(await verifyPassword(password, user.password_hash))) {
+          return json({ error: { message: 'identifiants invalides' } }, 401);
+        }
+        return json({ token: await signJWT({ uid: user.id, email: user.email }, env.JWT_SECRET), user: { id: user.id, email: user.email } });
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
+    if (path === '/me') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      const user = await env.DB.prepare('SELECT id, email, created_at FROM users WHERE id = ?').bind(auth.uid).first();
+      if (!user) return json({ error: { message: 'utilisateur introuvable' } }, 404);
+      return json({ user });
+    }
+
+    // ---- Routes héritées (gated par X-Worker-Secret, inchangées) ----
+
     if (request.headers.get('X-Worker-Secret') !== env.WORKER_SECRET) {
       return new Response(JSON.stringify({ error: { message: 'Unauthorized — secret manquant ou incorrect' } }), {
         status: 403, headers: { ...CORS, 'Content-Type': 'application/json' }
       });
     }
-
-    const path = new URL(request.url).pathname;
 
     if (path === '/sheets') {
       try {
