@@ -1,124 +1,148 @@
 # Vocab App — Contexte projet
 
-App single-file `index.html`, GitHub Pages. Backend = Google Sheets via Cloudflare Worker (service account). Multi-provider IA. Utilisateur communique en **français**.
+App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **Cloudflare D1** (SQLite edge) via Cloudflare Worker. Auth = email/mdp **+ Google OAuth** (JWT). IA = **BYOK** (chaque utilisateur sa clé), multi-provider. Utilisateur communique en **français**.
 
 - URL : https://huellasenarena.github.io/vocab-app
-- Repo : `~/Desktop/vocab-app/` (remote SSH `git@github.com:huellasenarena/vocab-app.git`)
+- Repo : `~/Desktop/vocab-app/` (remote SSH `git@github.com:huellasenarena/vocab-app.git`), **public**
 - Push sur `main` → GitHub Actions déploie sur `gh-pages` (~1 min). **Ne jamais éditer `gh-pages`.**
+- Le Worker (`dark-brook-87cc/`) est **versionné dans le repo** (peut être commité).
+
+> **Historique** : avant juin 2026, l'app était mono-utilisateur (backend Google Sheets, secret `WORKER_SECRET` en dur dans le HTML). Migrée en multi-utilisateur (D1 + auth + BYOK) et déployée le 2026-06-07. Voir la mémoire `project_generalization` pour le détail des phases.
 
 ---
 
 ## Cloudflare Worker
 
-URL : `https://dark-brook-87cc.georg-dreym.workers.dev`
+URL : `https://dark-brook-87cc.georg-dreym.workers.dev` · Code : `~/Desktop/vocab-app/dark-brook-87cc/src/worker.js`
 
-Cinq routes :
-- `/` (défaut) → OpenAI (Responses API, `OPENAI_API_KEY`, app principale)
-- `/sheets` → Google Sheets (JWT RS256 signé via `SA_JSON`, token caché 1h)
-- `/unsplash` → `api.unsplash.com/photos/random`
-- `/gemini` → Google AI Studio (Gemma + Gemini)
-- `/openai-script` → OpenAI Chat Completions (`OPENAI_API_KEY_SCRIPT`, clé séparée) — utilisé par Apps Script et `kindle_import.py`. Accepte `{prompt, maxTokens, model}`, retourne `{text}`. `temperature: 0`.
+### Routes
 
-Secrets (dashboard Cloudflare) : `OPENAI_API_KEY`, `OPENAI_API_KEY_SCRIPT`, `SA_JSON`, `UNSPLASH_KEY`, `GEMINI_KEY`, `WORKER_SECRET`.
+**Publiques (auth)**
+- `/auth/signup`, `/auth/login` → email/mdp (PBKDF2), retourne `{ token, user }` (JWT HS256, 30 j)
+- `/auth/google` → vérifie l'ID token Google (JWKS RS256, contrôle `iss`/`aud`/`exp`), **lie par email** si compte mdp existant, sinon crée → retourne JWT
+- `/me` (JWT) → `{ user: { id, email, created_at, add_token, openai_key, gemini_key } }` ; génère `add_token` au besoin
+- `/add` (token perso, **pas de JWT**) → ajout de mot externe (raccourci iPhone) — voir section dédiée
 
-**Sécurité** : header `X-Worker-Secret` requis sinon 403. La route `/sheets` valide que le `sheetPath` cible un Sheet ID dans `ALLOWED_SHEET_IDS`.
+**Données utilisateur (JWT, filtrées par `user_id`)**
+- `/api/words` GET (`?lang=`, `?detail=1` → +`created_at`) · POST · DELETE (mot+progress) · **PUT** (renommer)
+- `/api/progress`, `/api/session`, `/api/history`, `/api/blacklist`, `/api/grammar`, `/api/usage`
+- `/api/keys` POST → stocke `openai_key`/`gemini_key` en D1 (sync multi-appareils)
 
-**Code** : `~/Desktop/vocab-app/dark-brook-87cc/` (exclu du repo GitHub via `.gitignore`).
+**IA (JWT + BYOK : clé utilisateur par header)**
+- `/` (défaut) → OpenAI Responses API, clé via header **`X-OpenAI-Key`** (400 si absente)
+- `/gemini` → Google AI Studio, clé via header **`X-Gemini-Key`**
+- `/unsplash` → photo random (clé propriétaire `UNSPLASH_KEY`, gardée par JWT)
+
+**Externe (gardée par `X-Worker-Secret`)**
+- `/openai-script` → OpenAI Chat Completions (`OPENAI_API_KEY_SCRIPT`). Utilisée par `kindle_import.py` (l'ajout de mots, lui, passe par `/add` qui appelle OpenAI directement).
+
+### Secrets (dashboard Cloudflare)
+`JWT_SECRET`, `OPENAI_API_KEY_SCRIPT`, `UNSPLASH_KEY`, `WORKER_SECRET`. Var publique : `GOOGLE_CLIENT_ID` (dans `wrangler.jsonc`).
+*Morts/inutilisés (BYOK + D1)* : `OPENAI_API_KEY`, `GEMINI_KEY`, `SA_JSON` (peuvent être supprimés).
+
+### Sécurité
+- Routes IA + données = **JWT** (`Authorization: Bearer`). Plus aucun secret dans `index.html`.
+- `/openai-script` = `X-Worker-Secret`. ⚠️ `WORKER_SECRET` a fuité (repo public + historique git) → **rotation à faire** quand l'utilisateur veut (les scripts lisent désormais la valeur depuis `process.env.WORKER_SECRET`, plus en dur).
 
 ```bash
 cd ~/Desktop/vocab-app/dark-brook-87cc
 wrangler deploy
 wrangler secret put NOM_SECRET
 ```
-
-Cold start après inactivité prolongée : ~100-200ms supplémentaires sur la 1re requête.
+Cold start après inactivité : ~100-200ms sur la 1re requête.
 
 ---
 
-## Google Sheets
+## Authentification
 
-Sheet ID vocab : `1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc`
-Partagés Éditeur avec l'email du service account. Tous les appels passent par `sheetsApi(sheetPath, method, body)`.
+- **Email/mdp** : `hashPassword`/`verifyPassword` = PBKDF2-SHA256 (100k itérations, Web Crypto), format `pbkdf2$iter$salt$hash`.
+- **Google OAuth** : lib Google Identity Services (front), bouton « Continuer avec Google » sur `screen-auth`. Le Worker vérifie l'ID token via les clés publiques Google (JWKS, cache selon `max-age`). `GOOGLE_CLIENT_ID` prod = `742808037031-...apps.googleusercontent.com` (origines JS autorisées : `localhost:8080` + `huellasenarena.github.io`).
+- **Liaison par email** : même email = un seul compte (qu'on entre par Google ou mdp) → `google_id` rattaché à la ligne existante.
+- **Session** : JWT HS256 signé par le Worker, stocké `localStorage` (`KEY_JWT = vocab_jwt`). Front : `authFetch(path, opts)` ajoute le header. `API_ENDPOINT` auto-détecté (localhost → worker local `:8787`, sinon prod).
 
-**Onglets** : `English`, `Spanish`, `French`, `Greek`, `Progress`, `History`, `Session`, `Tokens`, `Blacklist`, `Grammar: Spanish`. Mots dans colonne B (timestamp en A) pour chaque onglet langue.
+---
 
-### Schémas
+## Cloudflare D1 (base `vocab`)
 
-| Onglet | Colonnes |
+ID : `87b54745-9878-402b-a4a5-e76720516dea`, binding `DB`. Migrations dans `dark-brook-87cc/migrations/` (`0001_init.sql`, `0002_byok_keys.sql`). Appliquer : `wrangler d1 migrations apply vocab --local|--remote`.
+
+Toutes les tables de données portent `user_id`. Les onglets Sheets d'avant sont devenus des tables relationnelles.
+
+| Table | Colonnes clés |
 |---|---|
-| Progress | A:Word B:Language C:Correct D:Incorrect E:LastPracticed F:HintUsed G:NextReview |
-| History | A:Date B:Word C:Language D:Result(✓/✗) |
-| Session | A:Date(YYYY-MM-DD) B:English C:Spanish D:French E:Greek |
-| Tokens | A:Date B:OpenAIInputTokens C:OpenAIOutputTokens D:OpenAIRequests E:GemmaRequests F:GeminiFlashRequests G:GeminiFlashLiteRequests |
-| Blacklist | A:English B:Spanish C:French D:Greek (row 1 = headers) |
-| Grammar: Spanish | Row 1 = catégories, Row 2+ = formes |
+| `users` | id, email, password_hash, google_id, **add_token**, **openai_key**, **gemini_key**, created_at |
+| `words` | user_id, language, word, created_at — `UNIQUE(user_id, language, word)` |
+| `progress` | user_id, language, word, correct, incorrect, last_practiced, hint_used, next_review |
+| `history` | user_id, date, word, language, result (1/0) |
+| `sessions` | user_id, date (YYYY-MM-DD), language, new_count |
+| `usage` | user_id, date, openai_input, openai_output, openai_requests, gemma_requests, geminiflash_req, geminiflashlite_req |
+| `blacklist` | user_id, language, word |
+| `grammar_forms` | user_id, language, category, form |
 
-**Tokens — particularité date** : colonnes B/C/D (OpenAI) en date UTC via `todayStr()`, colonnes E/F/G (Google) en date PT via `todayStrPT()` (reset quotas Google). Pour tout ce qui touche à la progression utilisateur (mots à réviser, limite nouveaux/jour), l'app utilise la date locale via `todayStrLocal()`.
+`language` ∈ `English` · `Spanish` · `French` · `Greek` (**codé en dur** — voir Idées futures).
 
-**Grammaire** : onglet `Grammar: Spanish` (main sheet), row 1 = catégories (presente, pasado, futuro, subjuntivo, condicional, imperativo, misc.), rows 2+ = formes. Aplati côté JS en `"${cat} ${forme}"` (ex: `"futuro simple"`, `"subjuntivo pluscuamperfecto"`).
+**Date** : progression/sessions en heure **locale** (`todayStrLocal()`). Tokens (`usage`) : OpenAI en UTC, Google en PT (reset quotas). Migration one-time : `scripts/migrate_data.mjs <user_id>` (lit l'ancien Sheet → SQL). Pour `--remote`, retirer les `BEGIN TRANSACTION/COMMIT` du SQL (D1 distante les refuse).
+
+**Grammaire** : `grammar_forms` par utilisateur ; aplati côté JS en `"${category} ${form}"` (ex: `"futuro simple"`).
+
+---
+
+## BYOK (Bring Your Own Key) + sync
+
+Chaque utilisateur entre sa clé OpenAI et/ou Gemini dans ⚙️ (`KEY_OPENAI_KEY`, `KEY_GEMINI_KEY`). Vars `openaiKey`/`geminiKey`. Envoyées au Worker par header (`X-OpenAI-Key`/`X-Gemini-Key`) à chaque requête IA — **jamais de clé partagée**, zéro coût IA serveur.
+
+- `checkApiKey()` (dans `checkDailyLimit()`) bloque avant l'appel réseau si la clé du modèle sélectionné manque.
+- **Sync multi-appareils** : `loadAccountInfo()` (au login/chargement/⚙️) récupère les clés depuis D1 (`/me`) ; `setOpenaiKey`/`setGeminiKey` poussent vers le serveur (`saveKeysToServer` → `/api/keys`). La clé saisie sur un appareil suit sur les autres. Stockage D1 = chiffré au repos par Cloudflare, accès protégé par JWT (pas de chiffrement applicatif).
+- La clé de `/add` (`OPENAI_API_KEY_SCRIPT`, propriétaire) est **séparée** de la clé BYOK de la pratique (volontaire).
+
+---
+
+## Ajout de mots — route `/add` (raccourci iPhone)
+
+`GET|POST /add?token=<add_token>&word=<mot>&lang=auto` → insère dans D1 pour l'utilisateur du token. Accepte `word`/`lang`/`ignore_sens`/`ignore_sim` en query **ou corps POST** (formulaire), `token` dans l'URL. Réponses **texte** (mêmes formats que l'ancien Apps Script, le raccourci les parse) :
+
+- `INVALID:<raison> | <Langue>` — mot non valide
+- `SIMILAR:<mot> | <Langue>` — variante d'un mot existant
+- `Doublon : '<mot>' existe déjà dans <Langue>.`
+- `Succès (<Langue>) : '<mot>' ajouté.`
+
+Entonnoir (porté de l'ancien Apps Script, lit les mots existants depuis D1) :
+1. **Langue + validité** (`gpt-4.1-mini` via `OPENAI_API_KEY_SCRIPT`) si `lang=auto` (`analyzeWordLangSense`), sinon `identifyLang` + `validateWord`. Codes ISO `es/fr/en/el` acceptés.
+2. **Doublon exact** bloqué.
+3. **Similarité** : `normSim` + `similarityScore` sur tous les mots existants, top 5 → **juge LLM** (`judgeSimilarity`).
+
+`ignore_sens=true` / `ignore_sim=true` bypassent (1)/(3). Retries 429/5xx (3 tentatives).
+
+**Raccourci iOS** : POST le mot dans le corps, `token`+`lang=auto` dans l'URL ; gère `INVALID:`/`SIMILAR:` par alerte « ajouter quand même ? » → renvoie avec `ignore_*`.
 
 ---
 
 ## Modèles IA
 
-Sélectionnable dans ⚙️, persisté en `localStorage` (`vocab_model`). `currentModel` ∈ `'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'`.
+Sélectionnable dans ⚙️, persisté `localStorage` (`vocab_model`). `currentModel` ∈ `'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'`. Toutes les requêtes IA passent par `${API_ENDPOINT}` avec `Authorization: Bearer <JWT>` + la clé BYOK en header.
 
 ### GPT-5.4 (OpenAI) — `'gpt4'`
-
-Reasoning model via **Responses API** (`/v1/responses`, route Worker par défaut). Pas de `temperature`. Body : `input` (pas `messages`), `max_output_tokens` (pas `max_tokens`). Vision : content types `input_text` / `input_image`.
-
-- `reasoning: { effort: gptEffort }` envoyé sauf si `gptEffort === 'none'` (sinon 400).
-- `max_output_tokens` compte **reasoning + texte ensemble**. Avec `effort: 'low'`, ~1024 tokens de reasoning consommés avant tout texte → budget min 2000 pour ~1000 tokens visibles. En dessous, `output_text` peut être `null` → throw "Réponse vide".
-- Évaluation/QCM/définition GPT : budget = **16000** (large pour absorber le reasoning). Gemini : `2000 + N*400` pour eval, `1500` pour QCM.
-- Streaming SSE : event `response.output_text.delta` → `parsed.delta`. **Usage uniquement dans `response.completed`** (capture obligatoire).
-- **Reasoning tokens** dans `usage.output_tokens_details.reasoning_tokens` (champ séparé, **pas** inclus dans `output_tokens`). `trackTokens` les ajoute à `todayOutputTokens` ET à `_pendingOutput` (oublier dans `_pending` perdait ~80% des tokens à chaque sync Sheets).
-- Fonctions : `callMistral`, `callMistralStream`, `callMistralVision` (timeout connexion 30s, rolling timeout 60s sur stream). Noms `callMistral*` conservés par héritage.
+Reasoning model via **Responses API** (route Worker défaut). Pas de `temperature`. Body : `input`, `max_output_tokens`. Vision : `input_text`/`input_image`.
+- `reasoning: { effort: gptEffort }` sauf si `none`.
+- `max_output_tokens` compte **reasoning + texte**. Eval/QCM/définition : budget **16000**.
+- Streaming SSE : `response.output_text.delta`. **Usage dans `response.completed`**. Reasoning tokens dans `usage.output_tokens_details.reasoning_tokens` (séparé). `trackTokens` les ajoute à `todayOutputTokens` ET `_pendingOutput`.
+- Fonctions : `callMistral`, `callMistralStream`, `callAIVision` (vision GPT) — envoient `X-OpenAI-Key`. Noms `callMistral*` par héritage.
 
 ### Gemma 4 31B — `'gemma'`
+Route `/gemini`, `gemma-4-31b-it`. `thinkingLevel` ∈ `minimal`(défaut)|`high` (`NONE`/`thinkingBudget:0` non supportés). Worker filtre les chunks `thought:true`.
 
-Quota gratuit **1500 req/jour** (reset minuit PT). Route `/gemini`, model ID `gemma-4-31b-it`. Supporte vision.
+### Gemini 3 Flash / 3.1 Flash Lite — `'geminiflash'`/`'geminiflashlite'`
+`gemini-3-flash-preview` / `gemini-3.1-flash-lite-preview`. `thinkingLevel` ∈ `none`(défaut)|`minimal`|`low`|`medium`|`high`. Sans thinking : `temperature: 0.2`.
 
-- `thinkingLevel` ∈ `'minimal'` (défaut) | `'high'`. `'NONE'` et `thinkingBudget: 0` **non supportés**.
-- Worker applique `thinkingConfig: { thinkingLevel: val.toUpperCase() }` et **supprime `temperature`** (recommandation Google).
-- Worker filtre les chunks `thought: true` (stream + non-streaming) — les pensées ne sortent jamais au client.
-- Stream définition : Gemma génère parfois du texte de vérification avant `## ` → côté client, gate qui supprime tout chunk avant le 1er `## ` accumulé.
+### Niveau de raisonnement — ⚙️
+Un `<select>` dynamique (`updateReasoningUI()`) : GPT→`gptEffort` (défaut low) · Gemini→`geminiThinkingLevel` (défaut none) · Gemma→`gemmaThinkingLevel` (défaut minimal).
 
-### Gemini 3 Flash / 3.1 Flash Lite — `'geminiflash'` / `'geminiflashlite'`
-
-Route `/gemini`, IDs `gemini-3-flash-preview` / `gemini-3.1-flash-lite-preview`. Quotas : 20 / 500 req/jour (reset minuit PT).
-
-- `thinkingLevel` ∈ `'none'` (défaut) | `'minimal'` | `'low'` | `'medium'` | `'high'`.
-- Avec thinking actif : Worker supprime `temperature`. Sans thinking : `temperature: 0.2`.
-
-### Niveau de raisonnement — UI ⚙️
-
-Un seul `<select>` dynamique mis à jour par `updateReasoningUI()` selon `currentModel` :
-- GPT-5.4 → `gptEffort` (`KEY_GPT_EFFORT`), valeurs `none|low|medium|high`, défaut `low`
-- Gemini Flash (3 + 3.1) → `geminiThinkingLevel` (`KEY_GEMINI_THINKING`), `none|minimal|low|medium|high`, défaut `none`
-- Gemma → `gemmaThinkingLevel` (`KEY_GEMMA_THINKING`), `minimal|high`, défaut `minimal`
-
-`setReasoningLevel(val)` dispatche. `geminiThinkingBody()` retourne `{ thinkingLevel }` ou `{}` si `none`.
-
-### Wrappers modèle-agnostiques
-
-`callAI(prompt, maxTokens)` / `callAIStream(prompt, onChunk, maxTokens)` / `callAIVision(imageUrl, prompt, maxTokens)` : appellent `checkDailyLimit()` puis dispatch selon `currentModel`. `isGemini()` = `currentModel ∈ {gemma, geminiflash, geminiflashlite}`. `geminiModelId()` lit `GEMINI_MODEL_IDS` (le Worker utilise `geminiModel` du body).
+### Wrappers
+`callAI` / `callAIStream` / `callAIVision` → `checkDailyLimit()` (qui appelle `checkApiKey()`) puis dispatch selon `currentModel`. `isGemini()` = gemma|geminiflash|geminiflashlite.
+> Doublon connu : 2 déclarations `callAIVision` (la 2e, GPT, écrase le dispatcher → l'Imagen utilise toujours GPT).
 
 ### Compteurs tokens / requêtes
-
-Affichés sous `<h1>Vocab</h1>`, DM Mono. Toggle ⚙️ "Afficher compteur tokens" (`KEY_SHOW_TOKENS`).
-
-| Modèle | Affichage | Variable principale |
-|---|---|---|
-| GPT-5.4 | `X / 235 000 tokens` | `todayInputTokens + todayOutputTokens` |
-| Gemma | `X / 1500 req` | `todayGemmaRequests` |
-| Gemini Flash | `X / 20 req` | `todayGeminiFlashRequests` |
-| Gemini Flash Lite | `X / 500 req` | `todayGeminiFlashLiteRequests` |
-
-`DAILY_LIMITS = { gpt4: 235000, gemma: 1500, geminiflash: 20, geminiflashlite: 500 }`. ≥80% : compteur orange. ≥100% : rouge + `checkDailyLimit()` throw → impossible d'appeler le modèle.
-
-`trackTokens(usage)` (GPT) — incrémente `todayInputTokens`, `todayOutputTokens` (texte + reasoning), `todayGptRequests` ; ajoute aussi à `_pendingInput`/`_pendingOutput`/`_pendingGptReq`. `trackGeminiRequest()` (Google) — incrémente le compteur du modèle actif + son `_pending*`. Les deux appellent `saveTodayTokensDebounced()` (debounce 2s — **pas** `saveTodayTokens()` directement).
-
-**Multi-appareils** : `saveTodayTokens()` lit la valeur Sheets actuelle puis ajoute uniquement les `_pending*` capturés au moment du save. Les `_pending*` sont décrémentés (pas remis à 0) après save pour ne pas perdre les tokens arrivés pendant l'`await`.
+Sous `<h1>Vocab</h1>`, toggle ⚙️ (`KEY_SHOW_TOKENS`). `DAILY_LIMITS = { gpt4: 250000, gemma: 1500, geminiflash: 20, geminiflashlite: 500 }`. ≥80% orange, ≥100% rouge + `checkDailyLimit()` throw. `trackTokens`/`trackGeminiRequest` → `saveTodayTokensDebounced()` (2s). Persistés en **D1** (`/api/usage`) : `saveTodayTokens()` lit la valeur D1 puis ajoute les `_pending*` (multi-appareils).
 
 ---
 
@@ -126,312 +150,134 @@ Affichés sous `<h1>Vocab</h1>`, DM Mono. Toggle ⚙️ "Afficher compteur token
 
 | Situation | Compteur | NextReview | Étoiles |
 |---|---|---|---|
-| Nouveau + ✓ (avec ou sans hint) | −1 nouveau | +1 jour | inchangées |
+| Nouveau + ✓ | −1 nouveau | +1 jour | inchangées |
 | Nouveau + ✗ | inchangé | inchangé | inchangées |
 | À réviser + ✓ sans hint | inchangé | SM-2 | +1 |
 | À réviser + ✓ avec hint | inchangé | +1 jour | inchangées |
-| À réviser + ✗ | inchangé | +1 jour | inchangées |
-| "Je ne sais pas" | inchangé | +1 jour | inchangées (= ✗) |
+| À réviser + ✗ / "Je ne sais pas" | inchangé | +1 jour | inchangées |
 | 2ème+ tentative dans la session | ignoré | ignoré | ignoré |
 
-**Changement de jour** : l'application utilise l'heure locale de l'utilisateur (`todayStrLocal()`). Les mots prévus pour le lendemain apparaissent à minuit heure locale.
-
-**SM-2** (jours jusqu'à `NextReview`) : `net ≤ 1 → 1`, `net=2 → 6`, `net=3 → 14`, `net=4 → 30`, `net=5 → 60`, `net ≥ 6 → 120` (max).
-
-
-**Étoiles** : ☆☆☆ (`net ≤ 0`) · ★☆☆ (`net=1`) · ★★☆ (`net=2`) · ★★★ (`net ≥ 3`, considéré maîtrisé).
-
-**Limite quotidienne** : `maxNewPerDay` (défaut 60, configurable 5-100 via ⚙️, `KEY_MAX_NEW`). `pickWords` calcule `newRemaining = max(0, maxNewPerDay - todayNewCount)` puis `newToShow = neverPracticed.slice(0, newRemaining)`. **Important** : `onSliderChange` doit aussi respecter cette limite quand il complète `currentWords` en mode espacé (utiliser le même pool éligible que `pickWords`, pas `pickWeightedOne` qui pioche dans tout `allWords`).
+**Changement de jour** : heure locale (`todayStrLocal()`).
+**SM-2** (jours) : `net ≤ 1 → 1`, `2 → 6`, `3 → 14`, `4 → 30`, `5 → 60`, `≥ 6 → 120`.
+**Étoiles** : ☆☆☆ (`net ≤ 0`) · ★☆☆ (`1`) · ★★☆ (`2`) · ★★★ (`≥ 3`, maîtrisé).
+**Limite quotidienne** : `maxNewPerDay` (défaut 60, par langue, `KEY_MAX_NEW`). Slider ⚙️ : valeurs `MAX_NEW_VALUES` = 1,2,3,4,5 puis pas de 5 jusqu'à 100 (`maxNewToIndex`). `pickWords` : `newRemaining = max(0, maxNewPerDay - todayNewCount)`. `onSliderChange` en mode espacé pioche dans le pool éligible `[...trulyDue, ...newToShow]` (jamais `pickWeightedOne`).
 
 ---
 
 ## Modes de pratique
 
-- 📅 **Espacée** — révision SM-2, limite nouveaux/jour. Sliders : nombre de mots (1-30) + nombre de formes grammaticales (1-10, Español uniquement)
-- 🎯 **Situation** — recall actif, mots ★★★ uniquement (`net ≥ 3`). Génère une scène concrète sans mentionner le mot
-- 🎲 **Libre** — tirage pondéré classique (`pickWeightedOne`, poids 10/8/5/1 selon net)
-- 📸 **Imagen** — photo Unsplash random, description en espagnol, analyse via `callAIVision`. Indépendant de la liste de mots
+- 📅 **Espacée** — SM-2, limite nouveaux/jour. Sliders : nombre de mots (1-30) + formes grammaticales (1-10, Español). Bouton bas **« 📅 mes révisions à venir »** → écran `screen-revisions` (mots pratiqués langue courante + prochaine date, triés).
+- 🎯 **Situation** — recall actif, mots ★★★ (`net ≥ 3`). Scène sans mentionner le mot.
+- 🎲 **Libre** — tirage pondéré (`pickWeightedOne`, poids 10/8/5/1).
+- 📸 **Imagen** — photo Unsplash, description espagnol, `callAIVision`. Indépendant de la liste.
 
 ---
 
 ## Prompts IA
 
-Tous les prompts répondent dans `feedbackLang` (langue cible). `LANGS` définit les mappings (English, Spanish, French, Modern Greek).
+Tous répondent dans `feedbackLang`. `LANGS` = mappings (English, Spanish, French, Modern Greek).
 
 ### Évaluation
-
-Deux **BLOCS indépendants** :
-- **BLOC 1 — Verdict** : ✓ ou ✗ uniquement sur le(s) mot(s) cible(s). Si un mot ✗ → verdict global ✗. Mot absent du texte → ✗ automatique.
-- **BLOC 2 — Analyse linguistique** : grammaire/registre/ponctuation/naturel, totalement indépendant du verdict.
-
-Règles critiques :
-- Period/semicolon/colon entre phrases = TOUJOURS correct (jamais signaler comme virgule manquante)
-- Analyser UNIQUEMENT ce qui est écrit, pas des variantes imaginaires
-- Accepter formes archaïques/dialectales/littéraires + mots archaïques autonomes (ex: "desque", "maguer")
-- **CRITICAL FILTER RULE** : items incertains/corrects → silently dropped (ne pas inclure)
-- Version améliorée : seulement si verdict ✓, en italique, doit utiliser le mot cible exact
-
-Format sortie : `## Verdict` (✓/✗ + une phrase), `## Analyse linguistique` (liste numérotée ou "Aucune erreur"), `## Version améliorée` (si ✓).
-
-**Parsing verdict côté client (multi-mots)** : pour chaque mot cible, on cherche la 1re ligne le contenant puis le 1er `✓`/`✗`. `wordResults` (objet `mot→bool`) est la **source unique de vérité** : il détermine `isCorrect` (couleur boîte + score `N / total`) ET la liste des mots ratés proposés au QCM. **Piège accents** : utiliser des frontières Unicode `(^|[^\p{L}])mot([^\p{L}]|$)` (flag `u`), jamais `\b…\b` ASCII — `\b` traite les lettres accentuées comme non-mots, donc `\bánimo\b` échoue → mot faussement marqué « absent → ✗ » (critique pour le grec, tout accentué).
+Deux **BLOCS indépendants** : (1) **Verdict** ✓/✗ sur le(s) mot(s) cible(s) (un ✗ → verdict ✗ ; mot absent → ✗) ; (2) **Analyse linguistique** (grammaire/registre/ponctuation), indépendante du verdict.
+Règles : period/semicolon/colon entre phrases = TOUJOURS correct · analyser UNIQUEMENT l'écrit · accepter archaïsmes/dialectes · **CRITICAL FILTER** (items incertains/corrects → silently dropped) · version améliorée seulement si ✓ (italique, mot cible exact).
+Format : `## Verdict`, `## Analyse linguistique`, `## Version améliorée`.
+**Parsing verdict (multi-mots)** : pour chaque mot, 1re ligne le contenant puis 1er `✓`/`✗`. `wordResults` (mot→bool) = **source unique de vérité** (couleur boîte, score `N/total`, contours mots, QCM). **Piège accents** : frontières Unicode `(^|[^\p{L}])mot([^\p{L}]|$)` flag `u`, jamais `\b…\b` ASCII (échoue sur accentués, critique pour le grec).
 
 ### Définition
-
-Cache `definitionCache["mot|lang|model"]` valide 24h (clé inclut le modèle pour permettre rechargement après changement). Lock global `_hintInFlight` : tant qu'un streaming est en cours, tout autre clic sur un mot est ignoré silencieusement (cache hit reste instantané).
-
-4 sections `##` dans la langue cible : Définition, Registre, Collocations (`• *expression* — explication`), Exemple en italique.
+Cache `definitionCache["mot|lang|model"]` 24h. Lock `_hintInFlight`. 4 sections `##` : Définition, Registre, Collocations, Exemple (italique).
 
 ### QCM
+4 scénarios (le mot cible n'apparaît pas), 1 correct + 3 distracteurs, Fisher-Yates JS. JSON via regex.
 
-4 scénarios courts (1-2 phrases), 1 correct + 3 distracteurs. Le mot cible **ne doit pas apparaître** dans aucun scénario. Mélangé Fisher-Yates côté JS. JSON extrait via regex (`[\s*{` → dernier `]`). Scroll immédiat vers la section dès le clic, avant la réponse API.
+### Mots du même univers (`fetchRelatedWords`)
+1 mot → 3 du même champ ; N mots → 3 liés (`relatedTo`). Affiché après ✓, filtre `allWords` + `blacklistWords`, `＋` pour ajouter. **Blacklist** : au `nextWord()`, les mots non ajoutés → `/api/blacklist` (fire-and-forget), plus jamais suggérés.
 
-### Situation (mode recall actif)
-
-Génère une scène concrète **sans mentionner le mot**. Évaluation en 3 étapes internes.
-
-### Mots du même univers (`fetchRelatedWords(words)`)
-
-Accepte string ou array :
-- 1 mot : 3 mots du même champ sémantique, format `[{"word","note"}]`
-- N mots : 3 mots les plus utiles liés au set, format `[{"word","note","relatedTo"}]` — chip affiche `↖ mot-source`
-
-Affiché après ✓. Filtre les mots déjà dans `allWords` **et** dans `blacklistWords`. Bouton `＋` pour ajouter (marque dans `_relatedWordsAdded`).
-
-**Blacklist** : au clic "Autre mot" (`nextWord()`), les mots affichés mais non ajoutés sont envoyés dans l'onglet `Blacklist` (colonne de la langue) via `saveToBlacklist()` fire-and-forget — ils ne seront plus jamais suggérés.
-
-### Mode Imagen — prompt vision
-
-Prompt en anglais, réponse en espagnol. Sections imposées :
-- `## Precisión` — éléments corrects en **gras**, omissions notables, 2-4 phrases
-- `## Análisis lingüístico` — *forma incorrecta* → **forma correcta** — explication. CRITICAL FILTER. Si rien : "Sin errores detectados."
-- `## Vocabulario sugerido` — JSON 3-5 entrées `[{"word","note"}]`
-
-Convention `(?)` : utilisateur marque un mot inconnu → l'IA l'identifie et l'intègre à l'analyse.
-
-JSON Vocabulario extrait par regex côté JS, retiré du texte rendu, affiché en chips avec `＋` (`addImageVocabWord`). Mots déjà dans `allWords` filtrés avant affichage.
+### Mode Imagen (vision)
+Prompt anglais, réponse espagnol. Sections : `## Precisión`, `## Análisis lingüístico` (CRITICAL FILTER), `## Vocabulario sugerido` (JSON `[{word,note}]`). Convention `(?)` pour mot inconnu. JSON extrait, retiré du rendu, chips avec `＋`.
 
 ---
 
 ## Comportements UI / iOS
 
-### Mots cachés (👁 Cacher)
+### Écrans
+`screen-loading`, `screen-auth`, `screen-lang` (sélecteur langue + 📊 stats / 📋 historique / 📝 mes mots / 🚪 logout), `screen-practice`, `screen-stats`, `screen-history`, `screen-mots`, `screen-revisions`. `showScreen(id)`.
 
-Toggle dans le header. Raccourci clavier `Opt+←` (sur Mac/iPad clavier externe). Blur 7px sur `.word-main`, `.chip-word`, `#sticky-words-text`, `.hint-word-in-label`, `.qcm-word`, `.qcm-offer-word`. Désactivé dans les TEXTAREA/INPUT pour préserver la nav par mot native.
+### Mes mots (`screen-mots`, `showMots`)
+Voir/chercher/renommer/supprimer. Charge les 4 langues (`/api/words?...&detail=1`), tri **chronologique** (récent d'abord, `created_at`), filtres par langue + compteurs, recherche live. Lignes `.mot-row` : drapeau + mot + date + ✏️ (`editMot` → `PUT /api/words`, refuse collision) + 🗑 (`deleteMot` → `DELETE`).
 
-`Opt+→` = "Autre mot" (`nextWord()`), même garde-fou TEXTAREA/INPUT.
-
-### Chips cliquables (pas de bouton "Définition")
-
-- Mot nouveau (card unique ou chip) → `fetchHint(word)` direct
-- Mot à réviser (mode espacé, avant soumission) → `showJeNeSaisPas(word)` → panneau de confirmation, textarea bloqué. Confirmer = `saveProgress(word, false)` + `startQCM(word)`
+### Mots cachés (👁) · Chips cliquables
+Toggle header, raccourci `Opt+←` (blur 7px). `Opt+→` = `nextWord()`. Mot nouveau → `fetchHint`. Mot à réviser (avant soumission) → `showJeNeSaisPas` → `saveProgress(false)` + `startQCM`.
 
 ### Suppression de mot (menu contextuel)
+Right-click / long press 500ms sur `.word-chip`/`#single-word-card` → `#word-ctx-menu`. Guard `_justLongPressed`. **`deleteWordFromSheets(word)`** (nom hérité) : `DELETE /api/words` (mot + progress), met à jour `allWords`/`progressMap`/`definitionCache` en mémoire, pioche un remplaçant (même pool que `onSliderChange`).
 
-Right-click (Mac/iPad trackpad) ou long press 500ms (touch) sur un `.word-chip` ou `#single-word-card` → menu `#word-ctx-menu` (`position: fixed; z-index: 10000`), positionné au point de clic/tap, clampé au viewport.
+### Couleurs / contours des mots
+- Nouveau : doré (`--accent`) · À réviser : blanc (`chip-review`/`card-review`).
+- **Après vérification** : contour vert (`--success`) si ✓, rouge (`#e05a5a`) si ✗ (`applyWordOutlines` d'après `wordResults`, classes `chip-correct/incorrect`/`card-correct/incorrect`), reset au mot suivant.
 
-- **Guard `_justLongPressed`** : bloque le `click` qui suit un long press — vérifié dans `chipHint` et `singleCardHint` avant toute action
-- **`deleteWordFromSheets(word)`** :
-  1. Lit `currentLang!A:B` → trouve l'index 0-based de la ligne (col B = mot)
-  2. `GET /v4/spreadsheets/${SHEET_ID}?fields=sheets.properties` → sheetIds numériques des onglets
-  3. `batchUpdate` avec `DeleteDimensionRequest` sur l'onglet langue (vraie suppression de ligne)
-  4. Idem sur Progress si la ligne existe (cherche col A = mot, skip header row)
-  5. Met à jour `allWords`, `progressMap`, `definitionCache` en mémoire
-  6. Pioche un remplaçant avec le même pool que `onSliderChange` → `renderWordDisplay()`
-- **`batchUpdate` vs `:clear`** : `deleteWordFromSheets` supprime vraiment la ligne. `cleanOrphans` utilise `:clear` — intentionnel (nettoyage passif, différent).
+### Champs / boutons
+- Inputs : `input[type=password|email]` stylés pareil (fond surface, radius), autofill Safari neutralisé (`-webkit-autofill`).
+- Bouton Vérifier inline iMessage (`.btn-submit-inline` dans `.textarea-wrap`), `↑`/spinner.
+- `#btn-next-below` « Autre mot → » après ✓ (autoscroll sauf `scroller.stoppedAtTop`).
+- Bouton Réessayer injecté après échec API.
+- Protection double soumission (`lastSubmittedSentence`) + « Autre mot » avec phrase non vérifiée (`confirm()`).
 
-### Couleurs des mots
+### iOS
+- `--safe-top` par JS : iPhone 59px, iPad 32/44px, sinon `env(safe-area-inset-top)`. `#status-curtain` (CSS pur, `z-index:9999`). PWA standalone : iOS auto-scrolle au focus input, on se fie au rideau.
+- **Sticky bar `#sticky-words-bar` : retirée** (instable en PWA ; `_updateStickyVisibility` = no-op, élément `display:none`).
+- Autoscroll focus textarea (ignore réductions <150px = barre URL). Auto-scroll streaming `startAutoScroll(box, spacer)` : suit le bas, stoppe quand le haut atteint `PAD_TOP`, spacer dynamique, interrompu par `wheel`/`touchmove`.
 
-- **Nouveau** : doré (`var(--accent)`) — pas de classe spéciale
-- **À réviser** : blanc (`var(--text)`) — classe `chip-review` (chips) ou `card-review` (`#single-word-card`)
-
-### Bouton "Autre mot →" sous le verdict ✓
-
-`#btn-next-below`, affiché uniquement après verdict correct. Autoscroll post-streaming pour le révéler — **sauf si `scroller.stoppedAtTop`** (boîte plus grande que l'écran : on ne pousse pas le haut hors écran).
-
-### Bouton Vérifier inline (style iMessage)
-
-Intégré dans le textarea (coin bas-droit), toujours visible même clavier ouvert sur iPhone. Structure : `<div class="textarea-wrap">` (position relative) contient textarea + `<button class="btn-submit-inline">` (position absolute). Textarea : `padding-bottom: 3.2rem; overflow: hidden`. `.textarea-wrap` a `-webkit-transform: translateZ(0)` pour forcer le clipping iOS Safari. Icône `↑` au repos, spinner pendant chargement.
-
-### Bouton Réessayer
-
-Injecté dans la zone d'erreur après échec API. Cibles : `submitSentence`, `startQCM(qcmWord)`, `fetchHint(word)`, `generateSituation(word)`, `fetchRelatedWords(currentWords)`.
-
-### Protection double soumission
-
-`lastSubmittedSentence` : même phrase que la précédente → shake + ignore. Reset à `null` sur erreur API (permet de réessayer la même phrase). Reset à `''` au changement de modèle.
-
-### Protection "Autre mot" avec phrase non vérifiée
-
-Au début de `nextWord()` : si textarea non vide ET ≠ `lastSubmittedSentence` → `confirm()` natif. Couvre phrase écrite mais jamais vérifiée + phrase vérifiée puis modifiée.
-
-### iOS — `--safe-top` et rideau status bar
-
-`viewport-fit=cover` permet au contenu de passer derrière la status bar. `--safe-top` est défini par JS au chargement :
-- iPhone/iPod : `59px` hardcodé
-- iPad : `32px` hardcodé (détection `/iPad/.test(UA)` OU `maxTouchPoints > 1 && /Macintosh/`)
-- Mac/autres : `env(safe-area-inset-top, 0px)` via CSS
-
-`env(safe-area-inset-top)` n'est PAS utilisé sur iPhone/iPad : résolution incorrecte dans certains contextes PWA standalone.
-
-`body { padding-top: var(--safe-top) }`. `html { background: var(--bg) }` couvre le rubber band.
-
-**`#status-curtain`** : `position: fixed; top: 0; height: var(--safe-top); background: var(--bg); z-index: 9999` — CSS pur, **aucun JS**. Dans l'état stabilisé (clavier ouvert, animation finie), `vv.offsetTop = 0` et `top: 0` est la bonne position. Glitch bref pendant l'animation du clavier inévitable (comportement identique à ChatGPT PWA — iOS scrolle window pendant l'animation, puis stabilise).
-
-**Approches CSS abandonnées** (toutes échouent en standalone PWA) : `curtain.style.top = vv.offsetTop`, `position: absolute + scrollY`, `mask-attachment: fixed`, `html { overflow: hidden; height: 100dvh }`, `interactive-widget=resizes-content`. Conclusion : iOS PWA auto-scrolle window au focus input — accepter ce scroll, se fier au rideau CSS pur.
-
-### iOS — Sticky bar (`#sticky-words-bar`)
-
-**Désactivée sur iPhone/iPad** (`_isIOS = true`) car instable dans les contextes PWA. Active uniquement sur Mac/Desktop.
-
-CSS : `position: fixed; top: 0; padding-top: calc(var(--safe-top) + 0.55rem)` → la barre couvre la zone status bar ET affiche le mot juste en dessous. `z-index: 500` (sous le rideau 9999).
-
-`_updateStickyVisibility()` compare le rect du mot avec `safeTop + 10`. Listeners : `window scroll` + `vv scroll/resize` + `setTimeout(200ms, 500ms)` après `vv.resize` (capture position post-clavier-iOS). Appelée aussi directement après chaque `window.scrollTo` dans `startAutoScroll` (events scroll programmatiques décalés sur iPad).
-
-### iOS — Autoscroll au focus textarea
-
-Au focus de `sentence-input` : note `origHeight = vv.height`. Écoute `vv.resize` mais ignore les réductions <150px (barre URL Safari). Réduction >150px = clavier ouvert : `gap = rect.bottom - vv.height + 12` → `window.scrollBy({ top: gap, behavior: 'smooth' })`. Toujours exécuté même si gap négatif (ramène le textarea vers le clavier).
-
-Fallback `setTimeout(800ms)` pour clavier déjà ouvert. **Ignoré si `origHeight - vv.height ≤ 100px`** (iPad clavier physique : seule la barre d'outils ~50px apparaît, pas de scroll nécessaire — évite scroll parasite).
-
-### Auto-scroll streaming (`startAutoScroll(box, spacer)`)
-
-`PAD_TOP = max(safeTop + 20, stickyBarHeight + 16)`. La hauteur de sticky bar est **toujours** prise en compte même si `.visible` n'est pas encore activée (peut apparaître pendant le scroll). Suit le bas de la boîte chunk par chunk, s'arrête quand le **haut** atteint `PAD_TOP` (`stoppedAtTop = true`). Le scroll final post-streaming respecte `stoppedAtTop`.
-
-Spacer (`#scroll-spacer`) : grandit dynamiquement si `bottomTarget > maxScrollY`. Déclaré **avant** le `try` dans `submitSentence` (accessible dans le `catch`). `cleanupSpacer()` appelé après streaming ET dans le `catch` (évite l'espace noir géant en cas d'erreur).
-
-Scroll interrompu si `wheel`/`touchmove` utilisateur. Mode Imagen : scroll simple non-streaming via `requestAnimationFrame` + `window.scrollTo`.
-
-### Slider multi-mots
-
-`previousWordsPool` mémorise les mots vus dans la session. Réduire/augmenter le slider réutilise les mots précédents. `onSliderChange` met aussi à jour les formes grammaticales.
-
-**En mode espacé** : `onSliderChange` calcule le pool éligible `[...trulyDue, ...newToShow]` (mêmes règles que `pickWords`) et ne pioche QUE dedans. Si `previousWordsPool` contient des mots non éligibles, ils sont skippés. **Ne jamais utiliser `pickWeightedOne` en mode espacé** (sinon des nouveaux mots peuvent dépasser la limite quotidienne).
-
-### Slider formes grammaticales
-
-`#grammar-slider-section` (1-10), persisté `KEY_GRAMMAR_COUNT`. Visible uniquement si `grammarFormsEnabled && currentLang === 'Spanish' && grammarForms.length > 0 && practiceMode ∉ {situation, image}` (`renderGrammarForms` gère la visibilité).
-
-### Notice aide utilisée
-
-Affichée après le streaming (peuplée synchrone après `scroller.cleanup()`, avant le `requestAnimationFrame` final). Template `{words}` dans `hintNotice` de chaque langue. Vidée au début de chaque submission.
-
-### Nettoyage orphelins Progress
-
-À chaque `loadProgress`, `setTimeout(cleanOrphans, 500)` vide les lignes Progress dont le mot n'existe plus dans l'onglet de langue. Ne touche PAS `progressMap` en mémoire.
-
-### Historique chronologique
-
-Onglet `History` = journal pur (1 ligne par tentative, écriture batch via `saveHistoryBatch`). `Progress` = scores cumulés. Lus en parallèle pour l'affichage de l'écran historique.
+### Historique / stats
+Lus depuis D1 en parallèle (`/api/history` journal + `/api/progress` scores cumulés). Filtre par langue.
 
 ### renderMarkdown
-
-Convertit `**gras**`, `*italique*`, `##` headings, `•` puces. `##` → `<br><strong class="md-h2">…</strong><br>`. Max 2 `<br>` consécutifs. `<br>` en tête supprimés.
-
-`.md-h2` stylé différemment selon contexte :
-- `.feedback-box.image` : DM Mono uppercase, accent, border-bottom (style label)
-- `.feedback-box.correct/incorrect` : héritage couleur (vert/rouge), gras
+`**gras**`, `*italique*`, `##` → `<br><strong class="md-h2">…</strong><br>`, `•` puces. Max 2 `<br>`. `.md-h2` stylé selon contexte (image = label DM Mono ; correct/incorrect = couleur héritée).
 
 ---
 
 ## Problèmes connus
 
-1. **gpt-5.4 hallucinations** : rares mais possibles. Garde-fous dans les prompts (CRITICAL FILTER, B2-STEP 2) imparfaits.
-
-2. **Apps Script `doPost`** : ajout de mots depuis raccourci iPhone, URL séparée. `Code_test.js` est le script actif (remplace `Code.js`). Architecture : `doPost` wrapper → `_doPost` (logique) + `updateTokensGemma` (incrémente col E onglet Tokens après chaque appel). Ordre des checks : (1) **détection langue + validation** `gpt-4.1-mini` via `/openai-script` si `lang=auto` — échec → erreur explicite (pas de fallback silencieux) ; (2) doublon exact bloqué ; (3) **similarité** — score tous les mots existants (`normSim` + `similarityScore`), top 5 candidats + juge LLM → `SIMILAR:mot | langue`. `ignore_sens=true` / `ignore_sim=true` bypasse chaque check. Retry sur 429 et 5xx (3 tentatives, délais 0/2s/5s). **OAuth scope requis** : `script.external_request` dans `appsscript.json`. Menu **🔍 Audit** dans Sheets (`Audit.js`) : modèle `gemma-3-4b-it` (30 RPM / 14 400 RPD), batch 60 mots, sleep 2 200ms entre batches. Sélection d'onglet (actif par défaut ou choix numéroté), plage de lignes, mémoire par onglet dans Script Properties (`AUDIT_END_English`, `AUDIT_END_Spanish`, etc.).
-
-3. **`kindle_import.py`** : import Kindle → Sheets via Worker (`/sheets` + `X-Worker-Secret`, plus d'OAuth2). Lit `vocab.db` (mots non maîtrisés, `category = 0`) + `My Clippings.txt`. **Normalisation** : `normalize_word` lowercase la première lettre sauf si le mot se termine par `?` (questions conservées telles quelles). Déduplication contre Sheets : score tous les mots existants (`norm_sim` + `similarity_score`, même logique que l'Apps Script), top 5 candidats + **décision `gpt-4.1-mini` batch** (`llm_decide_similar_batch` via `/openai-script`, fallback `import`). Inter-clips : `SequenceMatcher ≥ 0.80`, menu `1/2/+/-`. **Validation `gpt-4.1-mini` batch** (30 mots/appel) après déduplication : suspects marqués `⚠️ raison` dans la revue paginée. Revue paginée 10/page avant import. Après import, propose de marquer les mots comme maîtrisés (`category = 100`) dans `vocab.db` au lieu de les supprimer (évite la corruption). **User-Agent navigateur requis** dans les requêtes Worker (sinon 403 Cloudflare 1010). Retry sur 429/5xx (3 tentatives, délai 3s/6s).
-
-4. **Gemma 4 thinking** : `'NONE'` et `thinkingBudget: 0` non supportés. Niveaux confirmés : `'MINIMAL'`, `'HIGH'`.
-
-5. **Gemini Flash thinking + temperature** : Worker n'envoie PAS `temperature` quand thinking actif. Sans thinking : `temperature: 0.2`.
-
----
-
-## Apps Script & Raccourci (Ajout de mots)
-
-Le flux d'ajout est centralisé dans l'Apps Script (`Code_test.js`, script actif — `Code.js` conservé mais inactif). Il utilise un système d'entonnoir intelligent :
-
-1.  **Analyse Combinée (IA)** : Si `lang=auto`, Gemma identifie la langue (French, English, Spanish, Greek) ET vérifie si le mot est valide en un seul appel. Format de réponse : `VALID | Langue` ou `INVALID: raison | Langue`.
-2.  **Vérification des Doublons (Double passe)** :
-    *   **Passe 1 (Exact)** : Bloque si le mot exact existe déjà.
-    *   **Passe 2 (Similitude/IA)** : Scanne les mots visuellement proches, puis utilise un **Juge LLM** pour déterminer s'il s'agit d'une simple variation (conjugaison, genre, nombre).
-
-**Paramètres de bypass** :
-- `ignore_sens=true` : Saute l'analyse IA du sens (garde juste la détection de langue rapide).
-- `ignore_sim=true` : Saute la détection des doublons similaires.
-
-**Raccourci iOS** : 
-- Envoie `lang=auto` au premier appel.
-- Si réponse `INVALID` ou `SIMILAR`, propose de forcer via une alerte.
-- Le forçage renvoie la requête avec les paramètres `ignore_*` appropriés.
+1. **gpt-5.4 hallucinations** : rares. Garde-fous prompts (CRITICAL FILTER) imparfaits.
+2. **Doublon `callAIVision`** : 2 déclarations, la 2e (GPT) écrase le dispatcher → Imagen utilise toujours GPT (pas Gemini vision).
+3. **`WORKER_SECRET` exposé** (repo public + historique git) → rotation à faire (scripts lisent déjà `process.env.WORKER_SECRET`).
+4. **`kindle_import.py`** : import Kindle, écrit encore dans **Google Sheets** (outil pré-D1, orphelin) + utilise `/openai-script`. À refaire vers `/add`/D1 si besoin. User-Agent navigateur requis (sinon 403 Cloudflare 1010).
+5. **Gemma 4 thinking** : `NONE`/`thinkingBudget:0` non supportés (`MINIMAL`/`HIGH` seulement).
 
 ---
 
 ## Workflow
 
 ### Modifier `index.html`
-
 ```bash
 node -e "const fs=require('fs'),html=fs.readFileSync('index.html','utf8'),m=html.match(/<script>([\s\S]*?)<\/script>/);fs.writeFileSync('/tmp/check.js',m[1]);" && node --check /tmp/check.js && echo "OK"
 ```
-
 Toujours vérifier la syntaxe JS avant `git push`. Tester en local (Safari).
 
 ### Modifier le Worker
-
-`cd ~/Desktop/vocab-app/dark-brook-87cc && wrangler deploy`. Ne pas commiter ce dossier.
-
-### Modifier l'Apps Script
-
-Code dans `apps_script/` (versionné dans le repo). Déploiement via clasp :
-
 ```bash
-cd ~/Desktop/vocab-app/apps_script
-clasp push        # met à jour le code dans Sheets
+cd ~/Desktop/vocab-app/dark-brook-87cc && node --check src/worker.js && wrangler deploy
 ```
+Le Worker est versionné → commiter `dark-brook-87cc/src/worker.js`, `wrangler.jsonc`, `migrations/`.
 
-Après `clasp push`, **redéployer** dans l'éditeur Apps Script pour que le raccourci iPhone prenne les changements : Déployer > Gérer les déploiements > ✏️ > Nouvelle version > Déployer. `.clasp.json` exclu du repo (`.gitignore`).
+### Dev local
+`wrangler dev` (D1 `--local`, `.dev.vars` pour `JWT_SECRET`) + `python3 -m http.server 8080`. `API_ENDPOINT` détecte localhost. L'IA est testable en local en collant une vraie clé dans ⚙️ (BYOK).
+
+### Déployer en prod
+Worker : `wrangler deploy`. Front : push `main` → GitHub Actions → `gh-pages`. Migrations D1 : `wrangler d1 migrations apply vocab --remote`.
 
 ---
 
-## Idées futures (non implémentées)
+## Idées futures
 
-**Auth Google OAuth** : remplacer le mot de passe SHA-256 par "Se connecter avec Google". Worker vérifierait le token Google au lieu du `WORKER_SECRET`, éliminant le secret visible en clair. Reconnexion silencieuse via refresh token en localStorage. ~20h estimées. Non prioritaire (app mono-utilisateur).
+**Faites ✅** : Auth Google OAuth + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · Mes mots · calendrier des révisions · déploiement prod.
 
----
+**À faire / à concevoir** :
+- **BYOK total** (priorité, important pour l'utilisateur) : l'**ajout de mots** (`/add`) utilise encore `OPENAI_API_KEY_SCRIPT` (clé propriétaire) car le raccourci n'a pas d'UI BYOK. À rendre BYOK (clé de l'utilisateur côté requête, ou clé D1 réutilisée).
+- **Page d'instructions / onboarding** : l'app n'est pas évidente (login, clé BYOK, raccourci, modes).
+- **Langues configurables par utilisateur** : EN/ES/FR/Greek codés en dur (sélecteur, prompts, détection `/add`) → un utilisateur apprenant une autre langue ne peut pas.
+- **Rotation `WORKER_SECRET`** + suppression secrets morts (`SA_JSON`, `OPENAI_API_KEY`, `GEMINI_KEY`).
+- **Sécurité/scalabilité** : OK pour des centaines d'utilisateurs ; 1ers plafonds = quotas D1 gratuits (~100K écritures/j) + clé `/add` du propriétaire.
+- **PWA installable** (manifest + service worker) · **App Store** via Capacitor (nécessite Apple Dev $99/an).
+- `kindle_import.py` → cibler D1/`/add`.
 
-**Généralisation multi-utilisateur** (~35-45h) — projet CV potentiel
-
-Objectif : transformer l'app en produit public utilisable par n'importe qui, sans friction.
-
-### Stack cible
-
-- **Auth** : Google OAuth (login avec compte Google)
-- **Base de données** : Cloudflare D1 (SQLite sur l'edge, gratuit, déjà dans l'écosystème Worker). Les onglets Sheets (Words, Progress, History, Session, Tokens, Blacklist, Grammar) deviennent des tables SQL filtrées par `user_id`.
-- **IA** : BYOK (Bring Your Own Key) — chaque utilisateur entre sa propre clé OpenAI (et optionnellement Gemini) dans les settings. Stockée en localStorage ou chiffrée en D1. Zéro coût IA côté serveur.
-- **Hébergement** : GitHub Pages (inchangé) + Cloudflare Worker (inchangé)
-
-### Ajout de mots — préserver le flux sans friction
-
-Trois méthodes pour l'utilisateur :
-1. **Token personnel** : chaque user reçoit un token unique dans les settings. L'URL `worker.dev/add?token=xxx&word=yyy&lang=auto` remplace l'URL Apps Script dans le Raccourci iPhone — setup 30 secondes, identique à aujourd'hui.
-2. **Android / autres** : même token, via l'app **HTTP Shortcuts** (Android) ou tout outil pouvant faire une requête HTTP (Alfred, Raycast, curl, Zapier…).
-3. **Champ dans l'app** : input texte + bouton Ajouter dans l'UI — pour les utilisateurs sans Raccourci ou pour les ajouts ponctuels.
-4. **Import CSV** (bonus) : importer une liste d'un coup.
-
-### Phases et estimations
-
-| Phase | Contenu | Durée |
-|---|---|---|
-| 1 | Auth Google OAuth + sessions | ~8h |
-| 2 | Migration Google Sheets → D1 (25+ appels à réécrire) | ~18h |
-| 3 | BYOK (UI settings + passage de la clé au Worker) | ~4h |
-| 4 | Multi-tenant (queries filtrées par user_id + onboarding) | ~5h |
-| 5a | PWA installable (manifest + service worker, sans App Store) | ~3h |
-| 5b | App Store via Capacitor (wrapper iOS + Apple Dev $99/an) | ~12h |
-
-**Total : 35-45h** (PWA) ou **45-55h** (App Store)
-
-### Note App Store
-
-Publier sur l'App Store est possible via Capacitor (wrapper web→natif) mais nécessite la Phase 2 complète d'abord (l'app actuelle est mono-utilisateur avec credentials hardcodés). Pour un CV, une PWA installable + URL live + repo GitHub public est souvent plus rapide et aussi convaincant.
+> Case study portfolio : `~/Desktop/vocab-app/portfolio-case-study.md` (ES+EN).
