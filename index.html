@@ -2928,7 +2928,8 @@ Respond entirely in ${feedbackLang}.`;
         } else {
           currentWords.forEach(w => {
             const wEscaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const line = lines.find(l => new RegExp(`\\b${wEscaped}\\b`, 'i').test(l));
+            // Frontières Unicode (\b ASCII échoue sur mots accentués : ánimo, corazón…)
+            const line = lines.find(l => new RegExp(`(^|[^\\p{L}])${wEscaped}([^\\p{L}]|$)`, 'iu').test(l));
             if (line) {
               // Cherche le PREMIER ✓ ou ✗ dans la ligne (pas n'importe où)
               const firstCheck = line.match(/[✓✗]/);
