@@ -1410,6 +1410,14 @@
       return res;
     }
 
+    // Upsert d'une ligne de progression (D1, par utilisateur)
+    async function upsertProgress(word, fields) {
+      await authFetch('/api/progress', {
+        method: 'POST',
+        body: JSON.stringify({ lang: currentLang, word, ...fields })
+      });
+    }
+
     document.getElementById('auth-password').addEventListener('keydown', e => {
       if (e.key === 'Enter') submitAuth();
     });
@@ -1679,25 +1687,10 @@
       const today    = todayStrLocal();
       const localKey = `vocab_today_new_${lang}_${today}`;
       const localVal = parseInt(localStorage.getItem(localKey)) || 0;
-      const colIdx   = SESSION_LANG_COLS[lang] ?? 1;
       try {
-        const data   = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Session!A:E`);
-        const all    = data.values || [];
-        const header = all[0] || [];
-        if (header[1] !== 'English') {
-          // Migration : ancien format (NewWordsPracticed global) → par langue
-          await sheetsApi(
-            `/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('Session!A1:E1')}?valueInputOption=RAW`,
-            'PUT',
-            { values: [['Date', 'English', 'Spanish', 'French', 'Greek']] }
-          );
-          todayNewCount = localVal; // repart de 0 (anciens totaux globaux non migrables)
-        } else {
-          const rows      = all.slice(1);
-          const row       = rows.find(r => r[0] === today);
-          const sheetsVal = row ? (parseInt(row[colIdx]) || 0) : 0;
-          todayNewCount   = Math.max(sheetsVal, localVal);
-        }
+        const res  = await authFetch(`/api/session?lang=${encodeURIComponent(lang)}&date=${today}`);
+        const data = await res.json();
+        todayNewCount = Math.max(data.count || 0, localVal);
         localStorage.setItem(localKey, todayNewCount);
         sessionNewPracticed = new Set();
       } catch (e) {
@@ -1706,24 +1699,11 @@
     }
 
     async function saveTodayCount(lang, newCount) {
-      const today      = todayStrLocal();
-      const localKey   = `vocab_today_new_${lang}_${today}`;
+      const today    = todayStrLocal();
+      const localKey = `vocab_today_new_${lang}_${today}`;
       localStorage.setItem(localKey, newCount);
-      const colIdx     = SESSION_LANG_COLS[lang] ?? 1;
-      const colLetter  = ['A','B','C','D','E'][colIdx];
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Session!A:E`);
-        const rows = (data.values || []).slice(1);
-        const idx  = rows.findIndex(r => r[0] === today);
-        if (idx >= 0) {
-          const range = encodeURIComponent(`Session!${colLetter}${idx + 2}`);
-          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[newCount]] });
-        } else {
-          const newRow = [today, '', '', '', ''];
-          newRow[colIdx] = newCount;
-          const range = encodeURIComponent('Session!A:E');
-          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [newRow] });
-        }
+        await authFetch('/api/session', { method: 'POST', body: JSON.stringify({ lang, date: today, count: newCount }) });
       } catch (e) {
         console.error('[Session] Erreur saveTodayCount:', e.message);
       }
@@ -2158,24 +2138,16 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     async function loadProgress(lang) {
       progressMap = {};
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`);
-        const rows = data.values || [];
-        (rows).forEach((row, i) => {
-          if (i === 0) return;
-          const word       = row[0] || '', rowLang = row[1] || '';
-          const correct    = parseInt(row[2]) || 0;
-          const incorrect  = parseInt(row[3]) || 0;
-          const hintUsed   = parseInt(row[5]) || 0;
-          const nextReview = row[6] || null;
-          if (word && rowLang === lang)
-            progressMap[word.toLowerCase()] = { correct, incorrect, hintUsed, nextReview, rowIndex: i + 1 };
+        const res  = await authFetch(`/api/progress?lang=${encodeURIComponent(lang)}`);
+        const data = await res.json();
+        (data.progress || []).forEach(r => {
+          progressMap[(r.word || '').toLowerCase()] = {
+            correct:    r.correct     || 0,
+            incorrect:  r.incorrect   || 0,
+            hintUsed:   r.hint_used   || 0,
+            nextReview: r.next_review || null
+          };
         });
-
-        // ── Nettoyage automatique des orphelins ───────────────
-        // Attend que allWords soit chargé (peut être vide si appelé en parallèle)
-        // On planifie le nettoyage après le chargement complet
-        setTimeout(() => cleanOrphans(lang, rows), 500);
-
       } catch (e) {}
     }
 
@@ -3212,22 +3184,16 @@ Write all scenarios in ${langName}.`;
     async function saveHint(word) {
       const key      = word.toLowerCase();
       const existing = progressMap[key];
-      const now      = new Date().toISOString();
+      const hintUsed = (existing?.hintUsed || 0) + 1;
+      const correct  = existing?.correct || 0;
+      const incorrect = existing?.incorrect || 0;
+      const nextReview = existing?.nextReview || null;
       try {
-        if (existing) {
-          const hintUsed = (existing.hintUsed || 0) + 1;
-          const range    = `Progress!E${existing.rowIndex}:F${existing.rowIndex}`;
-          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, 'PUT', { values: [[now, hintUsed]] });
-          progressMap[key].hintUsed = hintUsed;
-        } else {
-          const range = encodeURIComponent('Progress!A:F');
-          const data  = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[word, currentLang, 0, 0, now, 1]] });
-          const match = (data.updates?.updatedRange || '').match(/(\d+)$/);
-          progressMap[key] = { correct: 0, incorrect: 0, hintUsed: 1, rowIndex: match ? parseInt(match[1]) : null };
-        }
-        console.log(`[Sheets] ✓ Hint sauvegardé : ${word}`);
+        await upsertProgress(word, { correct, incorrect, hintUsed, nextReview });
+        progressMap[key] = { correct, incorrect, hintUsed, nextReview };
+        console.log(`[D1] ✓ Hint sauvegardé : ${word}`);
       } catch (err) {
-        console.error(`[Sheets] Erreur saveHint :`, err.message);
+        console.error(`[D1] Erreur saveHint :`, err.message);
       }
     }
 
@@ -3235,20 +3201,14 @@ Write all scenarios in ${langName}.`;
     async function saveProgressNew(word) {
       const key      = word.toLowerCase();
       const existing = progressMap[key];
-      const now      = new Date().toISOString();
       const nextReview = addDays(1);
+      const correct   = existing?.correct   || 0;
+      const incorrect = existing?.incorrect || 0;
+      const hintUsed  = existing?.hintUsed  || 0;
 
       try {
-        if (existing) {
-          const range = `Progress!E${existing.rowIndex}:G${existing.rowIndex}`;
-          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, 'PUT', { values: [[now, existing.hintUsed || 0, nextReview]] });
-          progressMap[key].nextReview = nextReview;
-        } else {
-          const range = encodeURIComponent('Progress!A:G');
-          const data  = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[word, currentLang, 0, 0, now, 0, nextReview]] });
-          const match = (data.updates?.updatedRange || '').match(/(\d+)$/);
-          progressMap[key] = { correct: 0, incorrect: 0, hintUsed: 0, nextReview, rowIndex: match ? parseInt(match[1]) : null };
-        }
+        await upsertProgress(word, { correct, incorrect, hintUsed, nextReview });
+        progressMap[key] = { correct, incorrect, hintUsed, nextReview };
         console.log(`[Session] Nouveau mot sorti du pool : ${word}`);
       } catch (err) {
         console.error('[Session] Erreur saveProgressNew:', err.message);
@@ -3264,8 +3224,7 @@ Write all scenarios in ${langName}.`;
 
       if (!existing) return;
       try {
-        const range = `Progress!E${existing.rowIndex}:G${existing.rowIndex}`;
-        await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, 'PUT', { values: [[now, existing.hintUsed || 0, nextReview]] });
+        await upsertProgress(word, { correct: existing.correct, incorrect: existing.incorrect, hintUsed: existing.hintUsed || 0, nextReview });
         progressMap[key].nextReview = nextReview;
         console.log(`[Session] Révision avec hint : ${word} → demain`);
       } catch (err) {
@@ -3277,30 +3236,14 @@ Write all scenarios in ${langName}.`;
     async function saveProgress(word, isCorrect) {
       const key      = word.toLowerCase();
       const existing = progressMap[key];
-      const now      = new Date().toISOString();
 
       try {
-        let data;
-
-        if (existing) {
-          const correct    = existing.correct   + (isCorrect ? 1 : 0);
-          const incorrect  = existing.incorrect + (isCorrect ? 0 : 1);
-          const nextReview = calcNextReview({ correct: existing.correct, incorrect: existing.incorrect }, isCorrect);
-          const range      = `Progress!C${existing.rowIndex}:G${existing.rowIndex}`;
-          data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, 'PUT', { values: [[correct, incorrect, now, existing.hintUsed || 0, nextReview]] });
-          progressMap[key].correct    = correct;
-          progressMap[key].incorrect  = incorrect;
-          progressMap[key].nextReview = nextReview;
-
-        } else {
-          const correct    = isCorrect ? 1 : 0;
-          const incorrect  = isCorrect ? 0 : 1;
-          const nextReview = calcNextReview(null, isCorrect);
-          const range      = encodeURIComponent('Progress!A:G');
-          data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[word, currentLang, correct, incorrect, now, 0, nextReview]] });
-          const match      = (data.updates?.updatedRange || '').match(/(\d+)$/);
-          progressMap[key] = { correct, incorrect, hintUsed: 0, nextReview, rowIndex: match ? parseInt(match[1]) : null };
-        }
+        const correct    = (existing?.correct   || 0) + (isCorrect ? 1 : 0);
+        const incorrect  = (existing?.incorrect || 0) + (isCorrect ? 0 : 1);
+        const hintUsed   = existing?.hintUsed || 0;
+        const nextReview = calcNextReview(existing ? { correct: existing.correct, incorrect: existing.incorrect } : null, isCorrect);
+        await upsertProgress(word, { correct, incorrect, hintUsed, nextReview });
+        progressMap[key] = { correct, incorrect, hintUsed, nextReview };
 
         if (currentWords.length === 1) updateStars(word);
         // Met à jour le compteur en mode espacé

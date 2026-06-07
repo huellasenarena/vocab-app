@@ -217,6 +217,62 @@ export default {
       }
     }
 
+    if (path === '/api/progress') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      try {
+        if (request.method === 'GET') {
+          const lang = new URL(request.url).searchParams.get('lang');
+          const { results } = await env.DB.prepare(
+            'SELECT word, correct, incorrect, hint_used, next_review FROM progress WHERE user_id = ? AND language = ?'
+          ).bind(auth.uid, lang).all();
+          return json({ progress: results });
+        }
+        if (request.method === 'POST') {
+          const { lang, word, correct, incorrect, hintUsed, nextReview } = await request.json();
+          if (!lang || !word) return json({ error: { message: 'lang et word requis' } }, 400);
+          await env.DB.prepare(
+            `INSERT INTO progress (user_id, language, word, correct, incorrect, last_practiced, hint_used, next_review)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(user_id, language, word) DO UPDATE SET
+               correct = excluded.correct, incorrect = excluded.incorrect,
+               last_practiced = excluded.last_practiced, hint_used = excluded.hint_used,
+               next_review = excluded.next_review`
+          ).bind(auth.uid, lang, word, correct || 0, incorrect || 0, new Date().toISOString(), hintUsed || 0, nextReview || null).run();
+          return json({ ok: true });
+        }
+        return json({ error: { message: 'méthode non supportée' } }, 405);
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
+    if (path === '/api/session') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      try {
+        if (request.method === 'GET') {
+          const params = new URL(request.url).searchParams;
+          const row = await env.DB.prepare(
+            'SELECT new_count FROM sessions WHERE user_id = ? AND date = ? AND language = ?'
+          ).bind(auth.uid, params.get('date'), params.get('lang')).first();
+          return json({ count: row ? row.new_count : 0 });
+        }
+        if (request.method === 'POST') {
+          const { lang, date, count } = await request.json();
+          if (!lang || !date) return json({ error: { message: 'lang et date requis' } }, 400);
+          await env.DB.prepare(
+            `INSERT INTO sessions (user_id, date, language, new_count) VALUES (?, ?, ?, ?)
+             ON CONFLICT(user_id, date, language) DO UPDATE SET new_count = excluded.new_count`
+          ).bind(auth.uid, date, lang, count || 0).run();
+          return json({ ok: true });
+        }
+        return json({ error: { message: 'méthode non supportée' } }, 405);
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
     // ---- Routes héritées (gated par X-Worker-Secret, inchangées) ----
 
     if (request.headers.get('X-Worker-Secret') !== env.WORKER_SECRET) {
