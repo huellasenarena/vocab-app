@@ -1718,16 +1718,18 @@
 
     async function loadTodayTokens() {
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:G`);
-        const rows = (data.values || []).slice(1);
-        const utcRow = rows.find(r => r[0] === todayStr());
-        const ptRow  = rows.find(r => r[0] === todayStrPT());
-        todayInputTokens             = utcRow ? (parseInt(utcRow[1]) || 0) : 0;
-        todayOutputTokens            = utcRow ? (parseInt(utcRow[2]) || 0) : 0;
-        todayGptRequests             = utcRow ? (parseInt(utcRow[3]) || 0) : 0;
-        todayGemmaRequests           = ptRow  ? (parseInt(ptRow[4])  || 0) : 0;
-        todayGeminiFlashRequests     = ptRow  ? (parseInt(ptRow[5])  || 0) : 0;
-        todayGeminiFlashLiteRequests = ptRow  ? (parseInt(ptRow[6])  || 0) : 0;
+        const utcDate = todayStr(), ptDate = todayStrPT();
+        const [u, p] = await Promise.all([
+          authFetch(`/api/usage?date=${utcDate}`).then(r => r.json()),
+          utcDate === ptDate ? Promise.resolve(null) : authFetch(`/api/usage?date=${ptDate}`).then(r => r.json())
+        ]);
+        const utc = u.usage, pt = (p ? p.usage : u.usage);
+        todayInputTokens             = utc.openai_input   || 0;
+        todayOutputTokens            = utc.openai_output  || 0;
+        todayGptRequests             = utc.openai_requests || 0;
+        todayGemmaRequests           = pt.gemma_requests   || 0;
+        todayGeminiFlashRequests     = pt.geminiflash_req  || 0;
+        todayGeminiFlashLiteRequests = pt.geminiflashlite_req || 0;
         updateTokenDisplay();
       } catch (e) {
         todayInputTokens = todayOutputTokens = todayGptRequests = todayGemmaRequests = todayGeminiFlashRequests = todayGeminiFlashLiteRequests = 0;
@@ -1741,56 +1743,23 @@
       const pIn = _pendingInput, pOut = _pendingOutput, pGptReq = _pendingGptReq;
       const pGemma = _pendingGemma, pFlash = _pendingFlash, pFlashLite = _pendingFlashLite;
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Tokens!A:G`);
-        const rows = (data.values || []).slice(1);
-
+        // OpenAI compté en date UTC, Google (Gemma/Gemini) en date PT (reset quotas).
+        // L'incrément est atomique côté D1 (ON CONFLICT ... col = col + delta).
         if (utcDate === ptDate) {
-          const idx = rows.findIndex(r => r[0] === utcDate);
-          const row = idx >= 0 ? rows[idx] : null;
-          const nIn     = (row ? parseInt(row[1]) || 0 : 0) + pIn;
-          const nOut    = (row ? parseInt(row[2]) || 0 : 0) + pOut;
-          const nGptReq = (row ? parseInt(row[3]) || 0 : 0) + pGptReq;
-          const nGemma  = (row ? parseInt(row[4]) || 0 : 0) + pGemma;
-          const nFlash  = (row ? parseInt(row[5]) || 0 : 0) + pFlash;
-          const nFLite  = (row ? parseInt(row[6]) || 0 : 0) + pFlashLite;
-          if (idx >= 0) {
-            const range = encodeURIComponent(`Tokens!B${idx + 2}:G${idx + 2}`);
-            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[nIn, nOut, nGptReq, nGemma, nFlash, nFLite]] });
-          } else {
-            const range = encodeURIComponent('Tokens!A:G');
-            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[utcDate, nIn, nOut, nGptReq, nGemma, nFlash, nFLite]] });
-          }
-          todayInputTokens = nIn; todayOutputTokens = nOut; todayGptRequests = nGptReq;
-          todayGemmaRequests = nGemma; todayGeminiFlashRequests = nFlash; todayGeminiFlashLiteRequests = nFLite;
+          const res = await authFetch('/api/usage', { method: 'POST', body: JSON.stringify({
+            date: utcDate, openaiInput: pIn, openaiOutput: pOut, openaiRequests: pGptReq,
+            gemmaRequests: pGemma, geminiflashReq: pFlash, geminiflashliteReq: pFlashLite
+          }) });
+          const u = (await res.json()).usage;
+          todayInputTokens = u.openai_input; todayOutputTokens = u.openai_output; todayGptRequests = u.openai_requests;
+          todayGemmaRequests = u.gemma_requests; todayGeminiFlashRequests = u.geminiflash_req; todayGeminiFlashLiteRequests = u.geminiflashlite_req;
         } else {
-          // Fenêtre de transition (minuit UTC → minuit PT) : deux lignes distinctes
-          const utcIdx = rows.findIndex(r => r[0] === utcDate);
-          const utcRow = utcIdx >= 0 ? rows[utcIdx] : null;
-          const nIn     = (utcRow ? parseInt(utcRow[1]) || 0 : 0) + pIn;
-          const nOut    = (utcRow ? parseInt(utcRow[2]) || 0 : 0) + pOut;
-          const nGptReq = (utcRow ? parseInt(utcRow[3]) || 0 : 0) + pGptReq;
-          if (utcIdx >= 0) {
-            const range = encodeURIComponent(`Tokens!B${utcIdx + 2}:D${utcIdx + 2}`);
-            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[nIn, nOut, nGptReq]] });
-          } else {
-            const range = encodeURIComponent('Tokens!A:G');
-            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[utcDate, nIn, nOut, nGptReq, '', '', '']] });
-          }
-          todayInputTokens = nIn; todayOutputTokens = nOut; todayGptRequests = nGptReq;
-
-          const ptIdx = rows.findIndex(r => r[0] === ptDate);
-          const ptRow = ptIdx >= 0 ? rows[ptIdx] : null;
-          const nGemma = (ptRow ? parseInt(ptRow[4]) || 0 : 0) + pGemma;
-          const nFlash = (ptRow ? parseInt(ptRow[5]) || 0 : 0) + pFlash;
-          const nFLite = (ptRow ? parseInt(ptRow[6]) || 0 : 0) + pFlashLite;
-          if (ptIdx >= 0) {
-            const range = encodeURIComponent(`Tokens!E${ptIdx + 2}:G${ptIdx + 2}`);
-            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW`, 'PUT', { values: [[nGemma, nFlash, nFLite]] });
-          } else {
-            const range = encodeURIComponent('Tokens!A:G');
-            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[ptDate, '', '', '', nGemma, nFlash, nFLite]] });
-          }
-          todayGemmaRequests = nGemma; todayGeminiFlashRequests = nFlash; todayGeminiFlashLiteRequests = nFLite;
+          const [ru, rp] = await Promise.all([
+            authFetch('/api/usage', { method: 'POST', body: JSON.stringify({ date: utcDate, openaiInput: pIn, openaiOutput: pOut, openaiRequests: pGptReq }) }).then(r => r.json()),
+            authFetch('/api/usage', { method: 'POST', body: JSON.stringify({ date: ptDate, gemmaRequests: pGemma, geminiflashReq: pFlash, geminiflashliteReq: pFlashLite }) }).then(r => r.json())
+          ]);
+          todayInputTokens = ru.usage.openai_input; todayOutputTokens = ru.usage.openai_output; todayGptRequests = ru.usage.openai_requests;
+          todayGemmaRequests = rp.usage.gemma_requests; todayGeminiFlashRequests = rp.usage.geminiflash_req; todayGeminiFlashLiteRequests = rp.usage.geminiflashlite_req;
         }
         // Déduire seulement ce qui a été sauvegardé (d'autres tokens peuvent être arrivés pendant l'await)
         _pendingInput -= pIn; _pendingOutput -= pOut; _pendingGptReq -= pGptReq;
@@ -2273,23 +2242,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // ── Formes grammaticales ──────────────────────────────────
     async function loadGrammarForms() {
       try {
-        const fields = 'sheets(data(rowData(values(userEnteredValue/stringValue,userEnteredFormat/textFormat/strikethrough))))';
-        const path   = `/v4/spreadsheets/${SHEET_ID}?ranges=${encodeURIComponent('Grammar: Spanish!A:G')}&fields=${encodeURIComponent(fields)}`;
-        const data   = await sheetsApi(path);
-        const rowData = data.sheets?.[0]?.data?.[0]?.rowData || [];
-        if (rowData.length < 2) { grammarForms = []; return; }
-        const headerCells = rowData[0].values || [];
-        grammarForms = [];
-        for (let r = 1; r < rowData.length; r++) {
-          const cells = rowData[r].values || [];
-          for (let c = 0; c < headerCells.length; c++) {
-            const cat  = (headerCells[c]?.userEnteredValue?.stringValue || '').trim();
-            const cell = cells[c] || {};
-            const form = (cell.userEnteredValue?.stringValue || '').trim();
-            const struck = cell.userEnteredFormat?.textFormat?.strikethrough === true;
-            if (cat && form && !struck) grammarForms.push(`${cat} ${form}`);
-          }
-        }
+        const res  = await authFetch(`/api/grammar?lang=${encodeURIComponent(currentLang)}`);
+        const data = await res.json();
+        grammarForms = (data.forms || []).map(f => `${f.category} ${f.form}`);
       } catch (e) {
         console.error('[Grammar] Erreur chargement:', e.message);
         grammarForms = [];
@@ -2298,31 +2253,23 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
     async function loadBlacklist(lang) {
       try {
-        const col  = BLACKLIST_COLS[lang] || 'A';
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(`Blacklist!${col}:${col}`)}`);
-        const vals = (data.values || []).flat().slice(1); // skip header
-        blacklistWords = new Set(vals.filter(Boolean).map(v => v.toLowerCase()));
+        const res  = await authFetch(`/api/blacklist?lang=${encodeURIComponent(lang)}`);
+        const data = await res.json();
+        blacklistWords = new Set((data.words || []).filter(Boolean).map(v => v.toLowerCase()));
       } catch (e) {
         blacklistWords = new Set();
-        console.warn('[Sheets] loadBlacklist:', e.message);
+        console.warn('[D1] loadBlacklist:', e.message);
       }
     }
 
     async function saveToBlacklist(words, lang) {
       if (!words.length) return;
-      // Même pattern que saveTodayTokens : append sur la range complète (A:D) avec la
-      // ligne entière. Évite l'ambiguïté de détection de tableau pour les colonnes non-A.
-      const COL_IDX = { English: 0, Spanish: 1, French: 2, Greek: 3 };
-      const idx = COL_IDX[lang] ?? 0;
-      const range = encodeURIComponent('Blacklist!A:D');
       try {
-        await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', {
-          values: words.map(w => { const r = ['', '', '', '']; r[idx] = w; return r; })
-        });
+        await authFetch('/api/blacklist', { method: 'POST', body: JSON.stringify({ lang, words }) });
         words.forEach(w => blacklistWords.add(w.toLowerCase()));
-        console.log(`[Sheets] Blacklist ← ${words.join(', ')} (${lang})`);
+        console.log(`[D1] Blacklist ← ${words.join(', ')} (${lang})`);
       } catch (e) {
-        console.error('[Sheets] saveToBlacklist:', e.message);
+        console.error('[D1] saveToBlacklist:', e.message);
       }
     }
 
@@ -3268,9 +3215,8 @@ Write all scenarios in ${langName}.`;
     }
 
     async function saveHistoryBatch(rows) {
-      const range = encodeURIComponent('History!A:D');
       try {
-        await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, 'POST', { values: rows });
+        await authFetch('/api/history', { method: 'POST', body: JSON.stringify({ rows }) });
       } catch (err) {
         console.error(`[History] Erreur réseau :`, err.message);
       }
@@ -3286,31 +3232,25 @@ Write all scenarios in ${langName}.`;
         '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
 
       try {
-        const [histData, progData] = await Promise.all([
-          sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/History!A:D`),
-          sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`)
+        const [histResp, progResp] = await Promise.all([
+          authFetch('/api/history').then(r => r.json()),
+          authFetch('/api/progress').then(r => r.json())
         ]);
 
         // Construit un index de progression : "word|lang" → { correct, incorrect, hintUsed }
         const progIndex = {};
-        (progData.values || []).slice(1).forEach(row => {
-          const key = `${(row[0] || '').toLowerCase()}|${row[1] || ''}`;
+        (progResp.progress || []).forEach(row => {
+          const key = `${(row.word || '').toLowerCase()}|${row.language || ''}`;
           progIndex[key] = {
-            correct:   parseInt(row[2]) || 0,
-            incorrect: parseInt(row[3]) || 0,
-            hintUsed:  parseInt(row[5]) || 0,
+            correct:   row.correct   || 0,
+            incorrect: row.incorrect || 0,
+            hintUsed:  row.hint_used || 0,
           };
         });
 
-        // Construit l'historique chronologique (plus récent en premier)
-        historyData = (histData.values || []).slice(1)
-          .filter(row => row[0] && row[1] && row[2] && row[3])
-          .map(row => ({
-            date:     row[0] || '',
-            word:     row[1] || '',
-            lang:     row[2] || '',
-            result:   row[3] || '',
-          }))
+        // Historique chronologique (plus récent en premier)
+        historyData = (histResp.history || [])
+          .filter(e => e.date && e.word && e.lang && e.result)
           .reverse(); // plus récent en premier
 
         // Enrichit avec les stats de Progress
@@ -3398,17 +3338,17 @@ Write all scenarios in ${langName}.`;
       const grid  = document.getElementById('stats-grid');
       grid.innerHTML = '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
       try {
-        const [progressData, ...wordCountData] = await Promise.all([
-          sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Progress!A:G`),
-          ...LANGS.map(l => sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(l.key)}!B:B`))
+        const [progResp, ...wordResps] = await Promise.all([
+          authFetch('/api/progress').then(r => r.json()),
+          ...LANGS.map(l => authFetch(`/api/words?lang=${encodeURIComponent(l.key)}`).then(r => r.json()))
         ]);
         const wordCounts    = {};
-        LANGS.forEach((l, i) => { wordCounts[l.key] = (wordCountData[i].values || []).filter(r => r[0] && r[0].trim()).length; });
+        LANGS.forEach((l, i) => { wordCounts[l.key] = (wordResps[i].words || []).filter(w => w && w.trim()).length; });
 
         const statsByLang = {};
         LANGS.forEach(l => { statsByLang[l.key] = { mastered: 0, learning: 0, struggling: 0, total: wordCounts[l.key] || 0 }; });
-        (progressData.values || []).slice(1).forEach(row => {
-          const lang = row[1] || '', correct = parseInt(row[2]) || 0, incorrect = parseInt(row[3]) || 0;
+        (progResp.progress || []).forEach(row => {
+          const lang = row.language || '', correct = row.correct || 0, incorrect = row.incorrect || 0;
           if (!statsByLang[lang]) return;
           const net = correct - incorrect;
           if (net >= 3) statsByLang[lang].mastered++;

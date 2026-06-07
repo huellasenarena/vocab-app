@@ -81,6 +81,58 @@ for (const r of sessRows) {
 }
 console.error(`session           : ${totalSess} lignes`);
 
+// ── Blacklist (Blacklist!A:D, normalisée) ─────────────────────
+const bl = await sheets(`/v4/spreadsheets/${SHEET_ID}/values/Blacklist!A:D`);
+const blRows = (bl.values || []).slice(1); // skip header
+let totalBl = 0;
+for (const r of blRows) {
+  for (let c = 0; c < LANGS.length; c++) {
+    const w = (r[c] || '').trim();
+    if (w) {
+      sql += `INSERT OR IGNORE INTO blacklist (user_id, language, word) VALUES (${userId}, '${LANGS[c]}', '${esc(w)}');\n`;
+      totalBl++;
+    }
+  }
+}
+console.error(`blacklist         : ${totalBl} lignes`);
+
+// ── Grammaire (Grammar: Spanish, formes non barrées) ──────────
+const gfields = 'sheets(data(rowData(values(userEnteredValue/stringValue,userEnteredFormat/textFormat/strikethrough))))';
+const gram = await sheets(`/v4/spreadsheets/${SHEET_ID}?ranges=${encodeURIComponent('Grammar: Spanish!A:G')}&fields=${encodeURIComponent(gfields)}`);
+const gRowData = gram.sheets?.[0]?.data?.[0]?.rowData || [];
+let totalGram = 0;
+if (gRowData.length >= 2) {
+  sql += `DELETE FROM grammar_forms WHERE user_id = ${userId};\n`;
+  const header = gRowData[0].values || [];
+  for (let r = 1; r < gRowData.length; r++) {
+    const cells = gRowData[r].values || [];
+    for (let c = 0; c < header.length; c++) {
+      const cat  = (header[c]?.userEnteredValue?.stringValue || '').trim();
+      const cell = cells[c] || {};
+      const form = (cell.userEnteredValue?.stringValue || '').trim();
+      const struck = cell.userEnteredFormat?.textFormat?.strikethrough === true;
+      if (cat && form && !struck) {
+        sql += `INSERT INTO grammar_forms (user_id, language, category, form) VALUES (${userId}, 'Spanish', '${esc(cat)}', '${esc(form)}');\n`;
+        totalGram++;
+      }
+    }
+  }
+}
+console.error(`grammaire         : ${totalGram} formes`);
+
+// ── Historique (History!A:D) ──────────────────────────────────
+const hist = await sheets(`/v4/spreadsheets/${SHEET_ID}/values/History!A:D`);
+const histRows = (hist.values || []).slice(1); // skip header
+let totalHist = 0;
+sql += `DELETE FROM history WHERE user_id = ${userId};\n`;
+for (const r of histRows) {
+  const date = r[0], word = r[1], lang = r[2], result = r[3];
+  if (!date || !word || !LANGS.includes(lang)) continue;
+  sql += `INSERT INTO history (user_id, date, word, language, result) VALUES (${userId}, '${esc(date)}', '${esc(word)}', '${esc(lang)}', ${result === '✓' ? 1 : 0});\n`;
+  totalHist++;
+}
+console.error(`historique        : ${totalHist} lignes`);
+
 sql += 'COMMIT;\n';
-console.error(`Total : ${totalWords} mots, ${totalProg} progressions, ${totalSess} sessions pour user_id=${userId}`);
+console.error(`Total : ${totalWords} mots, ${totalProg} progressions, ${totalSess} sessions, ${totalBl} blacklist, ${totalGram} grammaire, ${totalHist} historique pour user_id=${userId}`);
 process.stdout.write(sql);

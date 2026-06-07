@@ -223,9 +223,13 @@ export default {
       try {
         if (request.method === 'GET') {
           const lang = new URL(request.url).searchParams.get('lang');
-          const { results } = await env.DB.prepare(
-            'SELECT word, correct, incorrect, hint_used, next_review FROM progress WHERE user_id = ? AND language = ?'
-          ).bind(auth.uid, lang).all();
+          const { results } = lang
+            ? await env.DB.prepare(
+                'SELECT word, language, correct, incorrect, hint_used, next_review FROM progress WHERE user_id = ? AND language = ?'
+              ).bind(auth.uid, lang).all()
+            : await env.DB.prepare(
+                'SELECT word, language, correct, incorrect, hint_used, next_review FROM progress WHERE user_id = ?'
+              ).bind(auth.uid).all();
           return json({ progress: results });
         }
         if (request.method === 'POST') {
@@ -266,6 +270,111 @@ export default {
              ON CONFLICT(user_id, date, language) DO UPDATE SET new_count = excluded.new_count`
           ).bind(auth.uid, date, lang, count || 0).run();
           return json({ ok: true });
+        }
+        return json({ error: { message: 'méthode non supportée' } }, 405);
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
+    if (path === '/api/history') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      try {
+        if (request.method === 'GET') {
+          const { results } = await env.DB.prepare(
+            'SELECT date, word, language AS lang, result FROM history WHERE user_id = ? ORDER BY id'
+          ).bind(auth.uid).all();
+          return json({ history: results.map(r => ({ ...r, result: r.result ? '✓' : '✗' })) });
+        }
+        if (request.method === 'POST') {
+          const { rows } = await request.json(); // [[date, word, lang, '✓'|'✗'], ...]
+          if (!Array.isArray(rows) || rows.length === 0) return json({ ok: true });
+          const stmt = env.DB.prepare('INSERT INTO history (user_id, date, word, language, result) VALUES (?, ?, ?, ?, ?)');
+          await env.DB.batch(rows.map(r => stmt.bind(auth.uid, r[0], r[1], r[2], r[3] === '✓' ? 1 : 0)));
+          return json({ ok: true });
+        }
+        return json({ error: { message: 'méthode non supportée' } }, 405);
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
+    if (path === '/api/blacklist') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      try {
+        if (request.method === 'GET') {
+          const lang = new URL(request.url).searchParams.get('lang');
+          const { results } = await env.DB.prepare(
+            'SELECT word FROM blacklist WHERE user_id = ? AND language = ?'
+          ).bind(auth.uid, lang).all();
+          return json({ words: results.map(r => r.word) });
+        }
+        if (request.method === 'POST') {
+          const { lang, words } = await request.json();
+          if (!lang || !Array.isArray(words) || words.length === 0) return json({ ok: true });
+          const stmt = env.DB.prepare('INSERT OR IGNORE INTO blacklist (user_id, language, word) VALUES (?, ?, ?)');
+          await env.DB.batch(words.map(w => stmt.bind(auth.uid, lang, w)));
+          return json({ ok: true });
+        }
+        return json({ error: { message: 'méthode non supportée' } }, 405);
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
+    if (path === '/api/grammar') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      try {
+        if (request.method === 'GET') {
+          const lang = new URL(request.url).searchParams.get('lang');
+          const { results } = await env.DB.prepare(
+            'SELECT category, form FROM grammar_forms WHERE user_id = ? AND language = ?'
+          ).bind(auth.uid, lang).all();
+          return json({ forms: results });
+        }
+        return json({ error: { message: 'méthode non supportée' } }, 405);
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
+    if (path === '/api/usage') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      const ZERO = { openai_input: 0, openai_output: 0, openai_requests: 0, gemma_requests: 0, geminiflash_req: 0, geminiflashlite_req: 0 };
+      try {
+        if (request.method === 'GET') {
+          const date = new URL(request.url).searchParams.get('date');
+          const row = await env.DB.prepare(
+            'SELECT openai_input, openai_output, openai_requests, gemma_requests, geminiflash_req, geminiflashlite_req FROM usage WHERE user_id = ? AND date = ?'
+          ).bind(auth.uid, date).first();
+          return json({ usage: row || ZERO });
+        }
+        if (request.method === 'POST') {
+          const b = await request.json();
+          if (!b.date) return json({ error: { message: 'date requise' } }, 400);
+          const d = {
+            i: b.openaiInput || 0, o: b.openaiOutput || 0, r: b.openaiRequests || 0,
+            g: b.gemmaRequests || 0, f: b.geminiflashReq || 0, l: b.geminiflashliteReq || 0
+          };
+          await env.DB.prepare(
+            `INSERT INTO usage (user_id, date, openai_input, openai_output, openai_requests, gemma_requests, geminiflash_req, geminiflashlite_req)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(user_id, date) DO UPDATE SET
+               openai_input = openai_input + excluded.openai_input,
+               openai_output = openai_output + excluded.openai_output,
+               openai_requests = openai_requests + excluded.openai_requests,
+               gemma_requests = gemma_requests + excluded.gemma_requests,
+               geminiflash_req = geminiflash_req + excluded.geminiflash_req,
+               geminiflashlite_req = geminiflashlite_req + excluded.geminiflashlite_req`
+          ).bind(auth.uid, b.date, d.i, d.o, d.r, d.g, d.f, d.l).run();
+          const row = await env.DB.prepare(
+            'SELECT openai_input, openai_output, openai_requests, gemma_requests, geminiflash_req, geminiflashlite_req FROM usage WHERE user_id = ? AND date = ?'
+          ).bind(auth.uid, b.date).first();
+          return json({ usage: row || ZERO });
         }
         return json({ error: { message: 'méthode non supportée' } }, 405);
       } catch (err) {
