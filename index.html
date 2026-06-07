@@ -1209,7 +1209,6 @@
 
   <script>
     // ── Configuration ─────────────────────────────────────────
-    const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
     // API du Worker : local en dev (localhost), prod sinon
     const API_ENDPOINT  = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
       ? 'http://localhost:8787'
@@ -1583,17 +1582,6 @@
     });
 
     // ── Proxy Sheets via Cloudflare Worker (service account) ──
-    async function sheetsApi(sheetPath, method = 'GET', body = null) {
-      const res = await fetch(`${API_ENDPOINT}/sheets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-        body: JSON.stringify({ sheetPath, method, body })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      return data;
-    }
-
     // ── Slider ────────────────────────────────────────────────
     function onSliderChange(val) {
       const n        = parseInt(val);
@@ -2118,38 +2106,6 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           };
         });
       } catch (e) {}
-    }
-
-    // Supprime les lignes Progress dont le mot n'existe plus dans la langue
-    async function cleanOrphans(lang, allRows) {
-      if (!allWords || allWords.length === 0) return;
-      const wordSet    = new Set(allWords.map(w => w.toLowerCase()));
-      const toDelete   = []; // rowIndex des lignes orphelines
-
-      allRows.forEach((row, i) => {
-        if (i === 0) return; // skip header
-        const word    = (row[0] || '').toLowerCase();
-        const rowLang = row[1] || '';
-        if (rowLang === lang && word && !wordSet.has(word)) {
-          toDelete.push(i + 1); // rowIndex (1-indexed)
-        }
-      });
-
-      if (toDelete.length === 0) return;
-
-      console.log(`[Progress] ${toDelete.length} orphelin(s) trouvé(s) pour ${lang} — nettoyage...`);
-
-      // Supprime en ordre inverse pour ne pas décaler les indices
-      for (const rowIndex of toDelete.reverse()) {
-        try {
-          // Vide la ligne (on ne peut pas supprimer une ligne facilement sans batchUpdate)
-          const range = encodeURIComponent(`Progress!A${rowIndex}:G${rowIndex}`);
-          await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:clear`, 'POST');
-          console.log(`[Progress] ✓ Ligne ${rowIndex} vidée`);
-        } catch (e) {
-          console.error(`[Progress] Erreur nettoyage ligne ${rowIndex}:`, e.message);
-        }
-      }
     }
 
     // ── Mode de pratique ─────────────────────────────────────
