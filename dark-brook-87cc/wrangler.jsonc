@@ -1,0 +1,33 @@
+{
+  "name": "dark-brook-87cc",
+  "main": "src/worker.js",
+  "workers_dev": true,
+  "preview_urls": false,
+  "compatibility_date": "2026-04-07",
+  "vars": {
+    // Client ID OAuth Google (public, pas un secret) — type "Application Web"
+    "GOOGLE_CLIENT_ID": "742808037031-fvn2quk75f541mtn5b9vlv9merkhie41.apps.googleusercontent.com"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vocab",
+      "database_id": "87b54745-9878-402b-a4a5-e76720516dea"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  }
+}
