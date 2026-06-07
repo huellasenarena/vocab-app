@@ -929,14 +929,16 @@
     <div style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-top:1rem"></div>
   </div>
 
-  <!-- ── Écran 1 : Mot de passe ── -->
-  <div class="screen" id="screen-password">
+  <!-- ── Écran 1 : Connexion / Inscription ── -->
+  <div class="screen" id="screen-auth">
     <h1 class="app-title">Vocab</h1>
     <p class="app-subtitle">ton espace de pratique</p>
     <div class="input-group">
-      <input type="password" id="pwd-input" placeholder="mot de passe" autofocus />
-      <button class="btn-primary" onclick="checkPassword()">Entrer</button>
-      <p class="error-msg" id="error-msg"></p>
+      <input type="email" id="auth-email" placeholder="email" autocomplete="email" autofocus />
+      <input type="password" id="auth-password" placeholder="mot de passe" autocomplete="current-password" />
+      <button class="btn-primary" id="auth-submit" onclick="submitAuth()">Se connecter</button>
+      <button class="btn-ghost" id="auth-toggle" onclick="toggleAuthMode()">Pas de compte ? Créer un compte</button>
+      <p class="error-msg" id="auth-error"></p>
     </div>
   </div>
 
@@ -952,6 +954,7 @@
     </div>
     <button class="btn-ghost" onclick="showStats()">📊 voir mes statistiques</button>
     <button class="btn-ghost" onclick="showHistory()">📋 historique des mots</button>
+    <button class="btn-ghost" onclick="logout()">🚪 se déconnecter</button>
     <p class="error-msg" id="lang-error-msg"></p>
   </div>
 
@@ -1206,13 +1209,16 @@
 
   <script>
     // ── Configuration ─────────────────────────────────────────
-    const PASSWORD_HASH = "37a3fe961eeb61778465d62305d999d7c1d550ee99af1efd530a61f1a03be39b";
     const SHEET_ID      = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc";
-    const API_ENDPOINT  = "https://dark-brook-87cc.georg-dreym.workers.dev";
+    // API du Worker : local en dev (localhost), prod sinon
+    const API_ENDPOINT  = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+      ? 'http://localhost:8787'
+      : 'https://dark-brook-87cc.georg-dreym.workers.dev';
     const WORKER_SECRET = "vocab-app-secret-2026";
     const MISTRAL_MODEL = "gpt-5.4";
 
     const KEY_PWD_OK           = "vocab_pwd_ok";
+    const KEY_JWT              = "vocab_jwt";
     const KEY_GRAMMAR          = "vocab_grammar_enabled";
     const KEY_MAX_NEW          = "vocab_max_new_per_day";
     const KEY_SHOW_TOKENS      = "vocab_show_tokens";
@@ -1317,8 +1323,7 @@
         document.documentElement.style.setProperty('--safe-top', '44px');
       }
 
-      const pwdOk = localStorage.getItem(KEY_PWD_OK) === "true";
-      showScreen(pwdOk ? 'screen-lang' : 'screen-password');
+      showScreen(localStorage.getItem(KEY_JWT) ? 'screen-lang' : 'screen-auth');
       document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
       document.getElementById('max-new-slider').value = maxNewPerDay;
       document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
@@ -1350,21 +1355,56 @@
       renderGrammarForms();
     }
 
-    // ── Mot de passe ──────────────────────────────────────────
-    async function checkPassword() {
-      const input = document.getElementById('pwd-input').value;
-      const hash  = await sha256(input);
-      if (hash === PASSWORD_HASH) {
-        localStorage.setItem(KEY_PWD_OK, "true");
+    // ── Authentification (email / mot de passe) ───────────────
+    let authMode = 'login'; // 'login' | 'signup'
+
+    function toggleAuthMode() {
+      authMode = authMode === 'login' ? 'signup' : 'login';
+      document.getElementById('auth-submit').textContent = authMode === 'login' ? 'Se connecter' : 'Créer le compte';
+      document.getElementById('auth-toggle').textContent = authMode === 'login' ? 'Pas de compte ? Créer un compte' : 'Déjà un compte ? Se connecter';
+      document.getElementById('auth-password').setAttribute('autocomplete', authMode === 'login' ? 'current-password' : 'new-password');
+      document.getElementById('auth-error').textContent = '';
+    }
+
+    async function submitAuth() {
+      const email    = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+      const errEl    = document.getElementById('auth-error');
+      const btn      = document.getElementById('auth-submit');
+      errEl.textContent = '';
+      if (!email || !password) { errEl.textContent = 'email et mot de passe requis'; return; }
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${API_ENDPOINT}/auth/${authMode}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || 'erreur de connexion');
+        localStorage.setItem(KEY_JWT, data.token);
+        document.getElementById('auth-password').value = '';
         showScreen('screen-lang');
-      } else {
-        document.getElementById('error-msg').textContent = 'mot de passe incorrect';
-        document.getElementById('pwd-input').value = '';
-        document.getElementById('pwd-input').focus();
+      } catch (err) {
+        errEl.textContent = err.message;
+      } finally {
+        btn.disabled = false;
       }
     }
-    document.getElementById('pwd-input').addEventListener('keydown', e => {
-      if (e.key === 'Enter') checkPassword();
+
+    function logout() {
+      localStorage.removeItem(KEY_JWT);
+      localStorage.removeItem(KEY_PWD_OK); // nettoyage de l'ancienne clé
+      showScreen('screen-auth');
+    }
+
+    function getJWT() { return localStorage.getItem(KEY_JWT); }
+
+    document.getElementById('auth-password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') submitAuth();
+    });
+    document.getElementById('auth-email').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('auth-password').focus();
     });
 
     // Cmd+Enter (Mac) ou Ctrl+Enter (Windows) pour vérifier la phrase
