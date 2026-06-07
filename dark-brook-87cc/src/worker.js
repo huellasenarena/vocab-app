@@ -87,7 +87,7 @@ async function requireAuth(request, env) {
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Worker-Secret, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Worker-Secret, Authorization, X-OpenAI-Key, X-Gemini-Key',
 };
 
 function json(obj, status = 200) {
@@ -345,15 +345,12 @@ export default {
       }
     }
 
-    // ---- Routes héritées (gated par X-Worker-Secret, inchangées) ----
+    // ---- Routes IA (JWT + BYOK : clé utilisateur passée par header) ----
 
-    if (request.headers.get('X-Worker-Secret') !== env.WORKER_SECRET) {
-      return new Response(JSON.stringify({ error: { message: 'Unauthorized — secret manquant ou incorrect' } }), {
-        status: 403, headers: { ...CORS, 'Content-Type': 'application/json' }
-      });
-    }
-
+    // /unsplash : clé propriétaire (gratuite), protégée par JWT
     if (path === '/unsplash') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
       try {
         const { query } = await request.json();
         const apiUrl = `https://api.unsplash.com/photos/random?orientation=landscape&content_filter=high${query ? `&query=${encodeURIComponent(query)}` : ''}`;
@@ -373,6 +370,10 @@ export default {
     }
 
     if (path === '/gemini') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      const geminiKey = request.headers.get('X-Gemini-Key');
+      if (!geminiKey) return json({ error: { message: 'Clé Gemini manquante — ajoute-la dans ⚙️' } }, 400);
       try {
         const { prompt, maxTokens = 1000, imageUrl, stream = false, geminiModel = 'gemini-2.5-pro', thinkingLevel } = await request.json();
 
@@ -403,8 +404,8 @@ export default {
         };
 
         const action = stream
-          ? `streamGenerateContent?alt=sse&key=${env.GEMINI_KEY}`
-          : `generateContent?key=${env.GEMINI_KEY}`;
+          ? `streamGenerateContent?alt=sse&key=${geminiKey}`
+          : `generateContent?key=${geminiKey}`;
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:${action}`;
 
         const geminiRes = await fetch(endpoint, {
@@ -478,7 +479,11 @@ export default {
       }
     }
 
+    // /openai-script : externe (Apps Script + kindle_import.py), gardé par X-Worker-Secret + clé propriétaire
     if (path === '/openai-script') {
+      if (request.headers.get('X-Worker-Secret') !== env.WORKER_SECRET) {
+        return json({ error: { message: 'Unauthorized — secret manquant ou incorrect' } }, 403);
+      }
       try {
         const { prompt, maxTokens = 200, model = 'gpt-4.1-mini' } = await request.json();
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -507,12 +512,16 @@ export default {
       }
     }
 
-    // OpenAI proxy
+    // OpenAI proxy (route par défaut, BYOK : JWT + clé utilisateur)
+    const auth = await requireAuth(request, env);
+    if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+    const openaiKey = request.headers.get('X-OpenAI-Key');
+    if (!openaiKey) return json({ error: { message: 'Clé OpenAI manquante — ajoute-la dans ⚙️' } }, 400);
     try {
       const body = await request.text();
       const res = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.OPENAI_API_KEY}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
         body
       });
       return new Response(res.body, {

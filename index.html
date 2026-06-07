@@ -1004,6 +1004,18 @@
           style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
         </select>
       </div>
+      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
+        <span>Clé API OpenAI (GPT)</span>
+        <input type="password" id="openai-key-input" placeholder="sk-…" autocomplete="off"
+          onchange="setOpenaiKey(this.value)"
+          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+      </div>
+      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
+        <span>Clé API Gemini / Gemma</span>
+        <input type="password" id="gemini-key-input" placeholder="AIza…" autocomplete="off"
+          onchange="setGeminiKey(this.value)"
+          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+      </div>
       <label class="settings-row">
         <span>Afficher compteur tokens</span>
         <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
@@ -1213,7 +1225,6 @@
     const API_ENDPOINT  = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
       ? 'http://localhost:8787'
       : 'https://dark-brook-87cc.georg-dreym.workers.dev';
-    const WORKER_SECRET = "vocab-app-secret-2026";
     const MISTRAL_MODEL = "gpt-5.4";
 
     const KEY_PWD_OK           = "vocab_pwd_ok";
@@ -1226,6 +1237,8 @@
     const KEY_GPT_EFFORT       = "vocab_gpt_effort";
     const KEY_GEMINI_THINKING  = "vocab_gemini_thinking";
     const KEY_GEMMA_THINKING   = "vocab_gemma_thinking";
+    const KEY_OPENAI_KEY       = "vocab_openai_key";
+    const KEY_GEMINI_KEY       = "vocab_gemini_key";
     const KEY_WORD_COUNT       = "vocab_word_count";
     const SESSION_LANG_COLS    = { English: 1, Spanish: 2, French: 3, Greek: 4 }; // index dans la ligne [Date, En, Es, Fr, Gr]
     const KEY_GRAMMAR_COUNT    = "vocab_grammar_count";
@@ -1304,6 +1317,8 @@
     let gptEffort           = localStorage.getItem(KEY_GPT_EFFORT)      || 'low';     // 'none'|'low'|'medium'|'high'
     let geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';    // 'none'|'minimal'|'low'|'medium'|'high'
     let gemmaThinkingLevel  = localStorage.getItem(KEY_GEMMA_THINKING)  || 'minimal'; // 'minimal'|'high'
+    let openaiKey           = localStorage.getItem(KEY_OPENAI_KEY) || ''; // BYOK : clé OpenAI de l'utilisateur
+    let geminiKey           = localStorage.getItem(KEY_GEMINI_KEY) || ''; // BYOK : clé Gemini de l'utilisateur
     let currentPhotoUrl    = '';
     let imageTheme         = localStorage.getItem(KEY_IMAGE_THEME) || '';
     const definitionCache  = {}; // { "mot|lang|model": "texte définition" }
@@ -1787,7 +1802,17 @@
     function isLimitReached() { return usagePct() >= 1; }
 
     function checkDailyLimit() {
+      checkApiKey();
       if (isLimitReached()) throw new Error('Limite journalière atteinte — change de modèle dans ⚙️');
+    }
+
+    // BYOK : vérifie que la clé du modèle sélectionné est présente
+    function checkApiKey() {
+      if (isGemini()) {
+        if (!geminiKey) throw new Error('Clé API Gemini manquante — ajoute-la dans ⚙️');
+      } else if (!openaiKey) {
+        throw new Error('Clé API OpenAI manquante — ajoute-la dans ⚙️');
+      }
     }
 
     function updateTokenDisplay() {
@@ -1823,6 +1848,15 @@
       updateTokenDisplay();
       updateReasoningUI();
       lastSubmittedSentence = '';
+    }
+
+    function setOpenaiKey(val) {
+      openaiKey = (val || '').trim();
+      localStorage.setItem(KEY_OPENAI_KEY, openaiKey);
+    }
+    function setGeminiKey(val) {
+      geminiKey = (val || '').trim();
+      localStorage.setItem(KEY_GEMINI_KEY, geminiKey);
     }
 
     function setGptEffort(val) {
@@ -1890,7 +1924,7 @@
       try {
         const resp = await fetch(`${API_ENDPOINT}/unsplash`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT() },
           body: JSON.stringify({ query: imageTheme })
         });
         const data = await resp.json();
@@ -2259,6 +2293,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         document.getElementById('toggle-tokens').checked = showTokenCounter;
         document.getElementById('image-theme-select').value = imageTheme;
         document.getElementById('model-select').value = currentModel;
+        document.getElementById('openai-key-input').value = openaiKey;
+        document.getElementById('gemini-key-input').value = geminiKey;
       }
     }
 
@@ -3661,7 +3697,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       try {
         const res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-Gemini-Key': geminiKey },
           body: JSON.stringify({ prompt, maxTokens, stream: false, geminiModel: geminiModelId(), ...geminiThinkingBody() }),
           signal: controller.signal
         });
@@ -3684,7 +3720,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       try {
         const res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-Gemini-Key': geminiKey },
           body: JSON.stringify({ prompt, maxTokens, imageUrl, stream: false, geminiModel: geminiModelId(), ...geminiThinkingBody() }),
           signal: controller.signal
         });
@@ -3708,7 +3744,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       try {
         res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-Gemini-Key': geminiKey },
           body: JSON.stringify({ prompt, maxTokens, stream: true, geminiModel: geminiModelId(), ...geminiThinkingBody() }),
           signal: controller.signal
         });
@@ -3752,9 +3788,9 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 60000);
       try {
-        const res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
+        const res = await fetch(`${API_ENDPOINT}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-OpenAI-Key': openaiKey },
           body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } }) }),
           signal: controller.signal
         });
@@ -3778,9 +3814,9 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 60000);
       try {
-        const res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
+        const res = await fetch(`${API_ENDPOINT}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-OpenAI-Key': openaiKey },
           body: JSON.stringify({
             model: MISTRAL_MODEL,
             input: [{ role: 'user', content: [
@@ -3815,9 +3851,9 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       const resetTimer = () => { clearTimeout(timer); timer = setTimeout(() => controller.abort(), 60000); };
       let res;
       try {
-        res = await fetch('https://dark-brook-87cc.georg-dreym.workers.dev', {
+        res = await fetch(`${API_ENDPOINT}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-OpenAI-Key': openaiKey },
           body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } }), stream: true }),
           signal: controller.signal
         });
