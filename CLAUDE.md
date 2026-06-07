@@ -173,6 +173,8 @@ Règles critiques :
 
 Format sortie : `## Verdict` (✓/✗ + une phrase), `## Analyse linguistique` (liste numérotée ou "Aucune erreur"), `## Version améliorée` (si ✓).
 
+**Parsing verdict côté client (multi-mots)** : pour chaque mot cible, on cherche la 1re ligne le contenant puis le 1er `✓`/`✗`. `wordResults` (objet `mot→bool`) est la **source unique de vérité** : il détermine `isCorrect` (couleur boîte + score `N / total`) ET la liste des mots ratés proposés au QCM. **Piège accents** : utiliser des frontières Unicode `(^|[^\p{L}])mot([^\p{L}]|$)` (flag `u`), jamais `\b…\b` ASCII — `\b` traite les lettres accentuées comme non-mots, donc `\bánimo\b` échoue → mot faussement marqué « absent → ✗ » (critique pour le grec, tout accentué).
+
 ### Définition
 
 Cache `definitionCache["mot|lang|model"]` valide 24h (clé inclut le modèle pour permettre rechargement après changement). Lock global `_hintInFlight` : tant qu'un streaming est en cours, tout autre clic sur un mot est ignoré silencieusement (cache hit reste instantané).
