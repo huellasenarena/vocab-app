@@ -720,6 +720,12 @@
     .word-chip.chip-review .chip-word { color: var(--text); }
     .word-card.card-review #current-word { color: var(--text); }
 
+    /* ── Contour résultat (après vérification) ── */
+    .word-chip.chip-correct,
+    .word-card.card-correct   { border-color: var(--success); box-shadow: 0 0 0 1px var(--success); }
+    .word-chip.chip-incorrect,
+    .word-card.card-incorrect { border-color: #e05a5a; box-shadow: 0 0 0 1px #e05a5a; }
+
     /* ── Bouton hint "révision" dans le dropdown ── */
     .hint-word-btn.review { color: var(--accent); border-color: var(--accent); }
 
@@ -988,9 +994,9 @@
           <span>Nouveaux mots / jour (espacé)</span>
           <span id="max-new-value" style="color: var(--accent); font-weight: 600;"></span>
         </div>
-        <input type="range" id="max-new-slider" min="5" max="100" step="5"
+        <input type="range" id="max-new-slider" min="0" max="23" step="1"
           style="width:100%; accent-color: var(--accent);"
-          oninput="setMaxNewPerDay(+this.value)">
+          oninput="setMaxNewPerDay(MAX_NEW_VALUES[+this.value])">
       </div>
       <div class="settings-row" style="cursor:default;">
         <span>Modèle IA</span>
@@ -1233,6 +1239,16 @@
     // Client ID OAuth Google (public, pas un secret) — ⚠️ remplace par ton Client ID
     const GOOGLE_CLIENT_ID = "742808037031-fvn2quk75f541mtn5b9vlv9merkhie41.apps.googleusercontent.com";
 
+    // Valeurs du slider "Nouveaux mots / jour" : fines de 1 à 5, puis pas de 5 jusqu'à 100
+    const MAX_NEW_VALUES = [1,2,3,4,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100];
+    function maxNewToIndex(v) {
+      const i = MAX_NEW_VALUES.indexOf(v);
+      if (i >= 0) return i;
+      let best = 0;
+      for (let k = 0; k < MAX_NEW_VALUES.length; k++) if (MAX_NEW_VALUES[k] <= v) best = k;
+      return best;
+    }
+
     const KEY_PWD_OK           = "vocab_pwd_ok";
     const KEY_JWT              = "vocab_jwt";
     const KEY_GRAMMAR          = "vocab_grammar_enabled";
@@ -1346,7 +1362,7 @@
       showScreen(localStorage.getItem(KEY_JWT) ? 'screen-lang' : 'screen-auth');
       initGoogleSignIn();
       document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
-      document.getElementById('max-new-slider').value = maxNewPerDay;
+      document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
       document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
       document.getElementById('toggle-tokens').checked = showTokenCounter;
       document.getElementById('image-theme-select').value = imageTheme;
@@ -1513,23 +1529,13 @@
     const _isIOS = /iPhone|iPod|iPad/.test(navigator.userAgent) ||
                    (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
 
+    // Barre sticky désactivée (retirée à la demande) — fonction conservée en no-op
+    // car appelée depuis le scroll/resize et l'autoscroll streaming.
     function _updateStickyVisibility() {
-      if (_isIOS) { _stickyBar.classList.remove('visible'); return; }
-      if (!currentWords.length || practiceMode === 'image') {
-        _stickyBar.classList.remove('visible'); return;
-      }
-      const wordEl = currentWords.length === 1
-        ? document.getElementById('single-word-card')
-        : document.getElementById('multi-word-chips');
-      if (!wordEl || wordEl.style.display === 'none') {
-        _stickyBar.classList.remove('visible'); return;
-      }
-      _stickyBar.classList.toggle('visible', wordEl.getBoundingClientRect().top <= _safeTop());
+      _stickyBar.classList.remove('visible');
     }
 
-    if (_isIOS) {
-      _stickyBar.style.display = 'none';
-    }
+    _stickyBar.style.display = 'none';
 
     // btn-next-below (verdict ✓ uniquement)
     new MutationObserver(() => {
@@ -1697,7 +1703,7 @@
       document.getElementById('word-count-slider').value = _langWC;
       document.getElementById('slider-value').textContent = _langWC === 1 ? '1 mot' : `${_langWC} mots`;
       maxNewPerDay = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + lang)) || 60;
-      document.getElementById('max-new-slider').value = maxNewPerDay;
+      document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
       document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
       const langInfo = getLang();
       document.getElementById('lang-tag').textContent                  = `← ${langInfo.name}`;
@@ -2112,7 +2118,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       lastSubmittedSentence  = '';
       currentWords       = [];
       document.getElementById('current-word').textContent     = '…';
-      document.getElementById('single-word-card').classList.remove('card-review');
+      document.getElementById('single-word-card').classList.remove('card-review', 'card-correct', 'card-incorrect');
       document.getElementById('word-stars').textContent       = '☆☆☆';
       document.getElementById('word-stars').className         = 'stars s0';
       document.getElementById('hint-used-badge').classList.remove('visible');
@@ -2327,7 +2333,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       panel.classList.toggle('visible');
       if (panel.classList.contains('visible')) {
         document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
-        document.getElementById('max-new-slider').value = maxNewPerDay;
+        document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
         document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
         document.getElementById('toggle-tokens').checked = showTokenCounter;
         document.getElementById('image-theme-select').value = imageTheme;
@@ -2347,7 +2353,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       maxNewPerDay = val;
       localStorage.setItem(KEY_MAX_NEW + '_' + currentLang, val);
       document.getElementById('max-new-value').textContent = val + ' mots';
-      document.getElementById('max-new-slider').value = val;
+      document.getElementById('max-new-slider').value = maxNewToIndex(val);
       if (practiceMode === 'spaced' && allWords.length > 0) {
         const trulyDue     = allWords.filter(w => { const p = progressMap[w.toLowerCase()]; return p && p.nextReview && isDue(w); });
         const neverPrac    = allWords.filter(w => isNewWord(w));
@@ -2458,6 +2464,21 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
       if (practiceMode !== 'situation' && practiceMode !== 'free') renderWordDisplay();
       if (practiceMode !== 'situation') renderGrammarForms();
+    }
+
+    // Contour vert/rouge par mot après vérification (wordResults : mot→bool)
+    function applyWordOutlines(wordResults) {
+      const single = document.getElementById('single-word-card');
+      single.classList.remove('card-correct', 'card-incorrect');
+      if (currentWords.length === 1 && single.style.display !== 'none') {
+        const r = wordResults[currentWords[0].toLowerCase()];
+        if (r !== undefined) single.classList.add(r ? 'card-correct' : 'card-incorrect');
+      }
+      document.querySelectorAll('#multi-word-chips .word-chip').forEach(chip => {
+        chip.classList.remove('chip-correct', 'chip-incorrect');
+        const w = chip.querySelector('.chip-word').textContent.toLowerCase();
+        if (w in wordResults) chip.classList.add(wordResults[w] ? 'chip-correct' : 'chip-incorrect');
+      });
     }
 
     function renderWordDisplay() {
@@ -2946,6 +2967,7 @@ Respond entirely in ${feedbackLang}.`;
 
         feedbackLabel.textContent = isCorrect ? '✓' : '✗';
         feedbackBox.classList.add(isCorrect ? 'correct' : 'incorrect');
+        applyWordOutlines(wordResults);
 
         // Score multi-mots
         if (!isSingle) {
