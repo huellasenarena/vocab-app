@@ -1400,6 +1400,16 @@
 
     function getJWT() { return localStorage.getItem(KEY_JWT); }
 
+    // Appel d'une route de données protégée par JWT (Authorization: Bearer)
+    async function authFetch(path, opts = {}) {
+      const res = await fetch(`${API_ENDPOINT}${path}`, {
+        ...opts,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getJWT()}`, ...(opts.headers || {}) }
+      });
+      if (res.status === 401) { logout(); throw new Error('session expirée, reconnecte-toi'); }
+      return res;
+    }
+
     document.getElementById('auth-password').addEventListener('keydown', e => {
       if (e.key === 'Enter') submitAuth();
     });
@@ -2056,10 +2066,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       }
       btn.disabled = true;
       btn.textContent = '…';
-      const range = encodeURIComponent(`${currentLang}!A:B`);
-      const now   = new Date().toISOString();
       try {
-        await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[now, word]] });
+        await authFetch('/api/words', { method: 'POST', body: JSON.stringify({ lang: currentLang, word }) });
         allWords.push(word);
         btn.textContent = '✓';
         btn.style.color = 'var(--success)';
@@ -2136,8 +2144,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // ── Lecture mots ──────────────────────────────────────────
     async function loadWords(sheetName) {
       try {
-        const data = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}!B:B`);
-        allWords = (data.values || []).map(r => r[0]).filter(w => w && w.trim());
+        const res  = await authFetch(`/api/words?lang=${encodeURIComponent(sheetName)}`);
+        const data = await res.json();
+        allWords = (data.words || []).filter(w => w && w.trim());
         for (let i = allWords.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
@@ -3749,11 +3758,8 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       btn.disabled = true;
       btn.textContent = '…';
 
-      const range = encodeURIComponent(`${currentLang}!A:B`);
-      const now   = new Date().toISOString();
-
       try {
-        await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, 'POST', { values: [[now, word]] });
+        await authFetch('/api/words', { method: 'POST', body: JSON.stringify({ lang: currentLang, word }) });
         btn.textContent = '✓';
         btn.style.color = 'var(--success)';
         allWords.push(word); // ajoute en mémoire pour éviter un double-ajout immédiat
@@ -4048,35 +4054,8 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     async function deleteWordFromSheets(word) {
       const wordLow = word.toLowerCase();
       try {
-        // Trouver la ligne dans l'onglet langue (col B = mot)
-        const langData = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(currentLang + '!A:B')}`);
-        const langRows = langData.values || [];
-        const langIdx  = langRows.findIndex(r => (r[1] || '').toLowerCase() === wordLow);
-        if (langIdx < 0) throw new Error(`"${word}" introuvable dans ${currentLang}`);
-
-        // Récupérer les sheetIds numériques pour batchUpdate
-        const meta       = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties`);
-        const sheetsList = meta.sheets || [];
-        const langSheetId = sheetsList.find(s => s.properties.title === currentLang)?.properties.sheetId;
-        const progSheetId = sheetsList.find(s => s.properties.title === 'Progress')?.properties.sheetId;
-        if (langSheetId == null) throw new Error(`Onglet "${currentLang}" introuvable`);
-
-        // Supprimer la ligne dans l'onglet langue
-        await sheetsApi(`/v4/spreadsheets/${SHEET_ID}:batchUpdate`, 'POST', {
-          requests: [{ deleteDimension: { range: { sheetId: langSheetId, dimension: 'ROWS', startIndex: langIdx, endIndex: langIdx + 1 } } }]
-        });
-
-        // Supprimer la ligne Progress si elle existe
-        if (progSheetId != null) {
-          const progData = await sheetsApi(`/v4/spreadsheets/${SHEET_ID}/values/Progress!A:A`);
-          const progRows = progData.values || [];
-          const progIdx  = progRows.findIndex((r, i) => i > 0 && (r[0] || '').toLowerCase() === wordLow);
-          if (progIdx > 0) {
-            await sheetsApi(`/v4/spreadsheets/${SHEET_ID}:batchUpdate`, 'POST', {
-              requests: [{ deleteDimension: { range: { sheetId: progSheetId, dimension: 'ROWS', startIndex: progIdx, endIndex: progIdx + 1 } } }]
-            });
-          }
-        }
+        // Supprime le mot (et sa progression) côté D1
+        await authFetch('/api/words', { method: 'DELETE', body: JSON.stringify({ lang: currentLang, word }) });
 
         // Mettre à jour l'état en mémoire
         allWords          = allWords.filter(w => w.toLowerCase() !== wordLow);

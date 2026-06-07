@@ -118,7 +118,7 @@ async function getServiceAccountToken(env) {
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, X-Worker-Secret, Authorization',
 };
 
@@ -180,6 +180,41 @@ export default {
       const user = await env.DB.prepare('SELECT id, email, created_at FROM users WHERE id = ?').bind(auth.uid).first();
       if (!user) return json({ error: { message: 'utilisateur introuvable' } }, 404);
       return json({ user });
+    }
+
+    // ---- Données utilisateur (D1, protégées par JWT, filtrées par user_id) ----
+
+    if (path === '/api/words') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      try {
+        if (request.method === 'GET') {
+          const lang = new URL(request.url).searchParams.get('lang');
+          const { results } = await env.DB.prepare(
+            'SELECT word FROM words WHERE user_id = ? AND language = ? ORDER BY created_at'
+          ).bind(auth.uid, lang).all();
+          return json({ words: results.map(r => r.word) });
+        }
+        if (request.method === 'POST') {
+          const { lang, word } = await request.json();
+          if (!lang || !word || !word.trim()) return json({ error: { message: 'lang et word requis' } }, 400);
+          await env.DB.prepare(
+            'INSERT OR IGNORE INTO words (user_id, language, word, created_at) VALUES (?, ?, ?, ?)'
+          ).bind(auth.uid, lang, word.trim(), new Date().toISOString()).run();
+          return json({ ok: true });
+        }
+        if (request.method === 'DELETE') {
+          const { lang, word } = await request.json();
+          await env.DB.batch([
+            env.DB.prepare('DELETE FROM words WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, lang, word),
+            env.DB.prepare('DELETE FROM progress WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, lang, word)
+          ]);
+          return json({ ok: true });
+        }
+        return json({ error: { message: 'méthode non supportée' } }, 405);
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
     }
 
     // ---- Routes héritées (gated par X-Worker-Secret, inchangées) ----
