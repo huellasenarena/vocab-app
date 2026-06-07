@@ -324,7 +324,7 @@ export default {
     if (path === '/me') {
       const auth = await requireAuth(request, env);
       if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
-      const user = await env.DB.prepare('SELECT id, email, created_at, add_token FROM users WHERE id = ?').bind(auth.uid).first();
+      const user = await env.DB.prepare('SELECT id, email, created_at, add_token, openai_key, gemini_key FROM users WHERE id = ?').bind(auth.uid).first();
       if (!user) return json({ error: { message: 'utilisateur introuvable' } }, 404);
       if (!user.add_token) {
         const tok = genToken();
@@ -332,6 +332,23 @@ export default {
         user.add_token = tok;
       }
       return json({ user });
+    }
+
+    // BYOK : sync des clés IA entre appareils (stockées en D1)
+    if (path === '/api/keys') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      if (request.method === 'POST') {
+        try {
+          const { openaiKey, geminiKey } = await request.json();
+          await env.DB.prepare('UPDATE users SET openai_key = ?, gemini_key = ? WHERE id = ?')
+            .bind(openaiKey || null, geminiKey || null, auth.uid).run();
+          return json({ ok: true });
+        } catch (err) {
+          return json({ error: { message: err.message } }, 500);
+        }
+      }
+      return json({ error: { message: 'méthode non supportée' } }, 405);
     }
 
     // Ajout de mot par token perso (raccourci iPhone / outils externes) → D1.
