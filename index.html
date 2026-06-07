@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Vocab</title>
 
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <link rel="manifest" href="manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -939,6 +941,8 @@
       <button class="btn-primary" id="auth-submit" onclick="submitAuth()">Se connecter</button>
       <button class="btn-ghost" id="auth-toggle" onclick="toggleAuthMode()">Pas de compte ? Créer un compte</button>
       <p class="error-msg" id="auth-error"></p>
+      <div style="text-align:center;color:var(--muted);font-size:0.8rem;margin:0.2rem 0;">— ou —</div>
+      <div id="google-signin-btn" style="display:flex;justify-content:center;"></div>
     </div>
   </div>
 
@@ -1226,6 +1230,8 @@
       ? 'http://localhost:8787'
       : 'https://dark-brook-87cc.georg-dreym.workers.dev';
     const MISTRAL_MODEL = "gpt-5.4";
+    // Client ID OAuth Google (public, pas un secret) — ⚠️ remplace par ton Client ID
+    const GOOGLE_CLIENT_ID = "742808037031-fvn2quk75f541mtn5b9vlv9merkhie41.apps.googleusercontent.com";
 
     const KEY_PWD_OK           = "vocab_pwd_ok";
     const KEY_JWT              = "vocab_jwt";
@@ -1338,6 +1344,7 @@
       }
 
       showScreen(localStorage.getItem(KEY_JWT) ? 'screen-lang' : 'screen-auth');
+      initGoogleSignIn();
       document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
       document.getElementById('max-new-slider').value = maxNewPerDay;
       document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
@@ -1410,6 +1417,38 @@
       localStorage.removeItem(KEY_JWT);
       localStorage.removeItem(KEY_PWD_OK); // nettoyage de l'ancienne clé
       showScreen('screen-auth');
+    }
+
+    // ── Connexion Google (OAuth, ID token) ────────────────────
+    function initGoogleSignIn() {
+      if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.startsWith('TON_')) return; // non configuré
+      if (!window.google || !google.accounts || !google.accounts.id) {
+        setTimeout(initGoogleSignIn, 200); // la lib GIS n'est pas encore chargée
+        return;
+      }
+      google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
+      google.accounts.id.renderButton(
+        document.getElementById('google-signin-btn'),
+        { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'pill', width: 240 }
+      );
+    }
+
+    async function handleGoogleCredential(resp) {
+      const errEl = document.getElementById('auth-error');
+      errEl.textContent = '';
+      try {
+        const r = await fetch(`${API_ENDPOINT}/auth/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken: resp.credential })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error?.message || 'erreur de connexion Google');
+        localStorage.setItem(KEY_JWT, data.token);
+        showScreen('screen-lang');
+      } catch (err) {
+        errEl.textContent = err.message;
+      }
     }
 
     function getJWT() { return localStorage.getItem(KEY_JWT); }

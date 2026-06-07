@@ -4,6 +4,10 @@
   "workers_dev": true,
   "preview_urls": false,
   "compatibility_date": "2026-04-07",
+  "vars": {
+    // Client ID OAuth Google (public, pas un secret) — type "Application Web"
+    "GOOGLE_CLIENT_ID": "742808037031-fvn2quk75f541mtn5b9vlv9merkhie41.apps.googleusercontent.com"
+  },
   "d1_databases": [
     {
       "binding": "DB",

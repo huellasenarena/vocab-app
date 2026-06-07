@@ -84,6 +84,49 @@ async function requireAuth(request, env) {
   return verifyJWT(auth.slice(7), env.JWT_SECRET);
 }
 
+// ---- Vérification ID token Google (OAuth, JWKS RS256) ----
+
+let _googleJwks = null;
+let _googleJwksExp = 0;
+
+async function getGoogleJwks() {
+  const now = Date.now();
+  if (_googleJwks && now < _googleJwksExp) return _googleJwks;
+  const res = await fetch('https://www.googleapis.com/oauth2/v3/certs');
+  const data = await res.json();
+  const maxAge = parseInt((res.headers.get('cache-control') || '').match(/max-age=(\d+)/)?.[1] || '3600', 10);
+  _googleJwks = data.keys;
+  _googleJwksExp = now + maxAge * 1000;
+  return _googleJwks;
+}
+
+async function verifyGoogleIdToken(idToken, clientId) {
+  try {
+    const parts = (idToken || '').split('.');
+    if (parts.length !== 3) return null;
+    const header = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[0])));
+    if (header.alg !== 'RS256') return null;
+    const keys = await getGoogleJwks();
+    const jwk = keys.find(k => k.kid === header.kid);
+    if (!jwk) return null;
+    const key = await crypto.subtle.importKey(
+      'jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']
+    );
+    const ok = await crypto.subtle.verify(
+      'RSASSA-PKCS1-v1_5', key, b64urlToBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`)
+    );
+    if (!ok) return null;
+    const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[1])));
+    if (payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') return null;
+    if (payload.aud !== clientId) return null;
+    if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) return null;
+    if (!payload.email) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
@@ -130,6 +173,33 @@ export default {
         const user = await env.DB.prepare('SELECT id, email, password_hash FROM users WHERE email = ?').bind(mail).first();
         if (!user || !user.password_hash || !(await verifyPassword(password, user.password_hash))) {
           return json({ error: { message: 'identifiants invalides' } }, 401);
+        }
+        return json({ token: await signJWT({ uid: user.id, email: user.email }, env.JWT_SECRET), user: { id: user.id, email: user.email } });
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
+    if (path === '/auth/google') {
+      try {
+        const { idToken } = await request.json();
+        const gp = await verifyGoogleIdToken(idToken, env.GOOGLE_CLIENT_ID);
+        if (!gp) return json({ error: { message: 'token Google invalide' } }, 401);
+        const email = (gp.email || '').trim().toLowerCase();
+        const googleId = gp.sub;
+        let user = await env.DB.prepare('SELECT id, email FROM users WHERE google_id = ?').bind(googleId).first();
+        if (!user) {
+          const existing = await env.DB.prepare('SELECT id, email FROM users WHERE email = ?').bind(email).first();
+          if (existing) {
+            // Liaison : email déjà inscrit (mdp) → on rattache le compte Google
+            await env.DB.prepare('UPDATE users SET google_id = ? WHERE id = ?').bind(googleId, existing.id).run();
+            user = existing;
+          } else {
+            const res = await env.DB.prepare(
+              'INSERT INTO users (email, google_id, created_at) VALUES (?, ?, ?)'
+            ).bind(email, googleId, new Date().toISOString()).run();
+            user = { id: res.meta.last_row_id, email };
+          }
         }
         return json({ token: await signJWT({ uid: user.id, email: user.email }, env.JWT_SECRET), user: { id: user.id, email: user.email } });
       } catch (err) {
