@@ -3010,12 +3010,11 @@ Respond entirely in ${feedbackLang}.`;
         // Propose le QCM pour chaque mot raté
         if (!isCorrect) {
           const langInfo   = getLang();
+          // Réutilise wordResults (source unique de vérité) au lieu d'un matching
+          // includes divergent qui retombait sur currentWords[0] (faux mot proposé).
           const failedWords = isSingle
             ? [currentWords[0]]
-            : currentWords.filter(w => {
-                const line = lines.find(l => l.toLowerCase().includes(w.toLowerCase()));
-                return !line || line.includes('✗');
-              });
+            : currentWords.filter(w => !wordResults[w.toLowerCase()]);
           const wordsForQCM = failedWords.length > 0 ? failedWords : [currentWords[0]];
           _qcmWordsOffer = wordsForQCM;
           document.getElementById('qcm-question').textContent = langInfo.qcmQuestion;
