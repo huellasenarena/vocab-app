@@ -324,7 +324,7 @@ export default {
     if (path === '/me') {
       const auth = await requireAuth(request, env);
       if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
-      const user = await env.DB.prepare('SELECT id, email, created_at, add_token, openai_key, gemini_key FROM users WHERE id = ?').bind(auth.uid).first();
+      const user = await env.DB.prepare('SELECT id, email, created_at, add_token, openai_key, gemini_key, settings FROM users WHERE id = ?').bind(auth.uid).first();
       if (!user) return json({ error: { message: 'utilisateur introuvable' } }, 404);
       if (!user.add_token) {
         const tok = genToken();
@@ -332,6 +332,23 @@ export default {
         user.add_token = tok;
       }
       return json({ user });
+    }
+
+    // Sync des réglages (sliders, modèle, niveaux…) entre appareils — blob JSON en D1
+    if (path === '/api/settings') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      if (request.method === 'POST') {
+        try {
+          const { settings } = await request.json();
+          await env.DB.prepare('UPDATE users SET settings = ? WHERE id = ?')
+            .bind(JSON.stringify(settings || {}), auth.uid).run();
+          return json({ ok: true });
+        } catch (err) {
+          return json({ error: { message: err.message } }, 500);
+        }
+      }
+      return json({ error: { message: 'méthode non supportée' } }, 405);
     }
 
     // BYOK : sync des clés IA entre appareils (stockées en D1)
@@ -485,7 +502,8 @@ export default {
           if (exists) return json({ error: { message: 'ce mot existe déjà' } }, 409);
           await env.DB.batch([
             env.DB.prepare('UPDATE words SET word = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, auth.uid, lang, oldWord),
-            env.DB.prepare('UPDATE progress SET word = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, auth.uid, lang, oldWord)
+            env.DB.prepare('UPDATE progress SET word = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, auth.uid, lang, oldWord),
+            env.DB.prepare('UPDATE history SET word = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, auth.uid, lang, oldWord)
           ]);
           return json({ ok: true });
         }
@@ -612,6 +630,26 @@ export default {
             'SELECT category, form FROM grammar_forms WHERE user_id = ? AND language = ?'
           ).bind(auth.uid, lang).all();
           return json({ forms: results });
+        }
+        if (request.method === 'POST') {
+          const { lang, category, form } = await request.json();
+          const cat = (category || '').trim(), frm = (form || '').trim();
+          if (!lang || !cat || !frm) return json({ error: { message: 'lang, category, form requis' } }, 400);
+          const exists = await env.DB.prepare(
+            'SELECT 1 FROM grammar_forms WHERE user_id = ? AND language = ? AND category = ? AND form = ?'
+          ).bind(auth.uid, lang, cat, frm).first();
+          if (exists) return json({ error: { message: 'cette forme existe déjà' } }, 409);
+          await env.DB.prepare(
+            'INSERT INTO grammar_forms (user_id, language, category, form) VALUES (?, ?, ?, ?)'
+          ).bind(auth.uid, lang, cat, frm).run();
+          return json({ ok: true });
+        }
+        if (request.method === 'DELETE') {
+          const { lang, category, form } = await request.json();
+          await env.DB.prepare(
+            'DELETE FROM grammar_forms WHERE user_id = ? AND language = ? AND category = ? AND form = ?'
+          ).bind(auth.uid, lang, category, form).run();
+          return json({ ok: true });
         }
         return json({ error: { message: 'méthode non supportée' } }, 405);
       } catch (err) {

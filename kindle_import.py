@@ -14,12 +14,15 @@ LONG_CLIP_THRESHOLD = 5  # mots
 import urllib.request, urllib.parse
 
 # ── Config ──────────────────────────────────────────────────────────────────
-SHEET_ID       = "1PlDftzA1wQYikkSRc-GDS0jvY_mOaj-M673TfAqxVxc"
 SCRIPT_DIR     = Path(__file__).parent
 WORKER_URL     = "https://dark-brook-87cc.georg-dreym.workers.dev"
-WORKER_SECRET  = os.environ.get("WORKER_SECRET", "")
-if not WORKER_SECRET:
-    sys.exit("WORKER_SECRET manquant — exporte-le avant de lancer : export WORKER_SECRET=...")
+# Token d'ajout perso (le même que le raccourci iPhone) — visible dans ⚙️ de l'app
+# ou via la réponse de /me. L'import passe désormais par la route /add (D1), pas Sheets.
+ADD_TOKEN      = os.environ.get("ADD_TOKEN", "")
+if not ADD_TOKEN:
+    sys.exit("ADD_TOKEN manquant — exporte-le avant de lancer : export ADD_TOKEN=...")
+# En-tête navigateur requis (sinon 403 Cloudflare 1010)
+_UA            = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
 LANG_TO_SHEET  = {"es": "Spanish", "fr": "French", "en": "English", "el": "Greek"}
 LANG_NAMES     = {"es": "Espagnol", "fr": "Français", "en": "Anglais", "el": "Grec"}
@@ -510,9 +513,27 @@ def reset_clippings(clip_path, books_to_remove):
     return removed
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+# ── Import via la route /add (D1) ────────────────────────────────────────────
+def add_word(word, lang_code, ignore_sens=False, ignore_sim=False):
+    """Ajoute un mot via /add. Retourne la réponse texte du Worker
+    (Succès… / Doublon… / INVALID:… / SIMILAR:… / Erreur…)."""
+    params = {"token": ADD_TOKEN, "word": word, "lang": lang_code or "auto"}
+    if ignore_sens: params["ignore_sens"] = "true"
+    if ignore_sim:  params["ignore_sim"]  = "true"
+    url = WORKER_URL + "/add?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"User-Agent": _UA})
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=40) as r:
+                return r.read().decode("utf-8").strip()
+        except Exception as e:
+            if attempt == 2:
+                return f"Erreur : {e}"
+
+
 def main():
     sep("═")
-    print("  📖  Kindle → Google Sheets Import")
+    print("  📖  Kindle → base BYOV (D1) via /add")
     sep("═")
 
     # 1. Détection Kindle
@@ -664,81 +685,56 @@ def main():
         else:
             final[sheet] = [w for _, w in normal]
 
-    # 7. Déduplication et résumé avant import
+    # 7. Import vers la base (D1) via la route /add
+    #    /add fait lui-même : détection langue, validité, doublon, similarité (juge LLM).
     sep()
-    print("☁️  Vérification des doublons dans Google Sheets...\n")
-    today = datetime.today().strftime("%Y-%m-%d")
-    ready = {}  # {sheet: [[date, word], ...]}
-    total_new = 0
-    total_dup = 0
+    SHEET_TO_CODE = {"Spanish": "es", "French": "fr", "English": "en", "Greek": "el"}
+    total_words = sum(len(w) for w in final.values())
+    print(f"☁️  Import de {total_words} mot(s) vers la base via /add...\n")
+    if not ask("Lancer l'import maintenant ?"):
+        print("   Import annulé.")
+        return
+
+    total_new = total_dup = total_invalid = total_similar = total_err = 0
 
     for sheet, words in final.items():
-        existing = get_existing_words(sheet)
-        new_words = []
-        similar_items = []
-        dups = 0
+        code = SHEET_TO_CODE.get(sheet, "auto")
+        # dédoublonne localement (insensible à la casse) avant d'appeler /add
+        uniq, seen = [], set()
         for w in words:
-            w = normalize_word(w)
-            w_low = w.lower()
-            if w_low in existing:
-                dups += 1
-            else:
-                candidates = find_top_candidates(w_low, existing)
-                if candidates:
-                    similar_items.append((w, candidates))
+            w = normalize_word(w); wl = w.lower()
+            if w and wl not in seen:
+                seen.add(wl); uniq.append(w)
+        sep()
+        print(f"— {sheet} : {len(uniq)} mot(s) —")
+        for w in uniq:
+            txt = add_word(w, code)
+            if txt.startswith("Succès"):
+                total_new += 1; print(f"   ✓ {w}")
+            elif txt.startswith("Doublon"):
+                total_dup += 1; print(f"   = {w} (déjà présent)")
+            elif txt.startswith("INVALID:"):
+                reason = txt[len("INVALID:"):].split("|")[0].strip()
+                print(f"   ⚠️  {w} — {reason}")
+                if ask("      importer quand même ?"):
+                    t2 = add_word(w, code, ignore_sens=True)
+                    if t2.startswith("Succès"):   total_new += 1; print("      ✓ ajouté")
+                    elif t2.startswith("Doublon"): total_dup += 1; print("      = déjà présent")
+                    else:                          total_err += 1; print(f"      ✗ {t2}")
                 else:
-                    new_words.append([today, w])
-
-        if similar_items:
-            print(f"   🤖 {len(similar_items)} mot(s) similaire(s) → décision IA...")
-            ai_decisions = llm_decide_similar_batch(similar_items, sheet)
-            imported_count = 0
-            for w, candidates, decision in ai_decisions:
-                if decision == "import":
-                    new_words.append([today, w])
-                    imported_count += 1
-                    print(f"      ✓ « {w} » (proche de « {', '.join(candidates[:2])} ») → importé")
+                    total_invalid += 1
+            elif txt.startswith("SIMILAR:"):
+                sim = txt[len("SIMILAR:"):].split("|")[0].strip()
+                print(f"   ⚠️  {w} — proche de « {sim} »")
+                if ask("      importer quand même ?"):
+                    t2 = add_word(w, code, ignore_sim=True)
+                    if t2.startswith("Succès"):   total_new += 1; print("      ✓ ajouté")
+                    elif t2.startswith("Doublon"): total_dup += 1; print("      = déjà présent")
+                    else:                          total_err += 1; print(f"      ✗ {t2}")
                 else:
-                    dups += 1
-                    print(f"      ✗ « {w} » (proche de « {', '.join(candidates[:2])} ») → ignoré")
-            print(f"      → {imported_count}/{len(ai_decisions)} acceptés par l'IA")
-
-        ready[sheet] = new_words
-        total_new += len(new_words)
-        total_dup += dups
-        print(f"   {sheet}: {len(new_words)} nouveaux, {dups} doublons ignorés")
-
-    if total_new == 0:
-        print("\n✅ Tous les mots existent déjà dans Sheets — rien à importer.")
-    else:
-        sep()
-        print("🤖 Validation IA avec gpt-4.1-mini...\n")
-        suspects = {}
-        try:
-            suspects = validate_words_ai(ready)
-            if suspects:
-                print(f"   ⚠️  {len(suspects)} mot(s) suspect(s) détecté(s) — marqués ⚠️ dans la revue")
+                    total_similar += 1
             else:
-                print("   ✅ Tous les mots semblent valides")
-        except Exception as e:
-            print(f"   ⚠️  Validation IA ignorée : {e}")
-
-        sep()
-        if ask("Revoir les mots avant d'importer ?"):
-            ready = review_words(ready, suspects)
-            total_new = sum(len(rows) for rows in ready.values())
-
-        sep()
-        print(f"\n📊 Résumé avant import :")
-        print(f"   • {total_new} nouvelles entrées à importer")
-        print(f"   • {total_dup} doublons ignorés")
-        print(f"   • {flagged_total} mots communs détectés")
-        print()
-        if ask("Importer maintenant dans Google Sheets ?"):
-            for sheet, rows in ready.items():
-                if rows:
-                    sheets_append(f"{sheet}!A:B", rows)
-                    print(f"   ✅ {len(rows)} entrées ajoutées dans '{sheet}'")
+                total_err += 1; print(f"   ✗ {w} — {txt}")
 
     # 8. Mise à jour de la Kindle
     sep()
@@ -758,8 +754,11 @@ def main():
     # 9. Résumé final
     sep("═")
     print("\n✨ Import terminé !\n")
-    print(f"   📥 {total_new} entrées importées dans Google Sheets")
-    print(f"   🚫 {total_dup} doublons ignorés")
+    print(f"   📥 {total_new} mot(s) ajouté(s) dans la base")
+    print(f"   🚫 {total_dup} doublon(s) ignoré(s)")
+    if total_invalid: print(f"   ⚠️  {total_invalid} invalide(s) ignoré(s)")
+    if total_similar: print(f"   ⚠️  {total_similar} variante(s) ignorée(s)")
+    if total_err:     print(f"   ✗ {total_err} erreur(s)")
     if do_reset:   print("   ✅ Mots marqués comme maîtrisés")
     if do_reset_clips: print("   🗑️  My Clippings.txt nettoyé")
     sep("═")
