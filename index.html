@@ -249,6 +249,12 @@
     .lang-btn:hover { border-color: var(--accent); background: #222; transform: translateY(-2px); }
     .lang-btn .flag { font-size: 1.8rem; }
     .lang-btn .lang-name { font-size: 0.85rem; color: var(--muted); }
+    /* Point 10 : vert si tout est fait aujourd'hui, rouge s'il reste des mots */
+    .lang-btn.due  { border-color: #e05a5a; }
+    .lang-btn.done { border-color: var(--success); }
+    .lang-btn .lang-badge { font-size: 0.68rem; font-family: 'DM Mono', monospace; min-height: 0.8rem; }
+    .lang-btn.due  .lang-badge { color: #e05a5a; }
+    .lang-btn.done .lang-badge { color: var(--success); }
 
     /* ── Header pratique ── */
     .practice-header { width: 100%; display: flex; align-items: center; justify-content: space-between; }
@@ -289,6 +295,19 @@
       margin-top: -0.75rem;
     }
     .due-count .highlight { color: var(--accent); }
+
+    /* ── État « terminé » du mode espacé : on masque tout sauf la carte ✓ ── */
+    #spaced-done-card { display: none; }
+    #screen-practice.spaced-done #due-count,
+    #screen-practice.spaced-done .slider-section,
+    #screen-practice.spaced-done #single-word-card,
+    #screen-practice.spaced-done #multi-word-chips,
+    #screen-practice.spaced-done .action-row,
+    #screen-practice.spaced-done #revisions-bar,
+    #screen-practice.spaced-done #sentence-section { display: none !important; }
+    #screen-practice.spaced-done #spaced-done-card { display: flex; }
+    #spaced-done-card .done-check { font-size: 3rem; color: var(--success); line-height: 1; }
+    #spaced-done-card .done-msg { font-size: 0.9rem; color: var(--muted); margin: 0; }
 
     /* ── Mots liés ── */
     .related-box {
@@ -503,7 +522,23 @@
       align-items: center;
       gap: 0.75rem;
       text-align: center;
+      position: relative;
     }
+    /* Boutons modifier / supprimer sur la carte et les chips */
+    .card-actions { position: absolute; top: 0.5rem; right: 0.5rem; display: flex; gap: 0.1rem; }
+    .card-action-btn {
+      background: none; border: none; cursor: pointer; opacity: 0.5;
+      font-size: 0.95rem; line-height: 1; padding: 0.25rem 0.35rem; color: var(--muted);
+      transition: opacity 0.15s;
+    }
+    .card-action-btn:hover { opacity: 1; }
+    .chip-del {
+      position: absolute; top: 0.15rem; right: 0.3rem;
+      background: none; border: none; cursor: pointer; opacity: 0.45;
+      font-size: 0.85rem; line-height: 1; padding: 0.15rem 0.25rem; color: var(--muted);
+    }
+    .chip-del:hover { opacity: 1; }
+    .word-chip { position: relative; }
     .word-label { font-size: 0.75rem; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
     .word-main  { font-size: 2rem; font-weight: 600; color: var(--accent); line-height: 1.2; }
     .word-meta  { display: flex; align-items: center; gap: 0.75rem; }
@@ -610,6 +645,26 @@
     .feedback-box.visible   { display: block; }
     .feedback-box.correct   { background: #0e2018; border: 1px solid var(--success); color: var(--success); }
     .feedback-box.incorrect { background: #200e0e; border: 1px solid var(--error);   color: var(--error); }
+    .feedback-box.partial   { background: #201a0e; border: 1px solid #e0a85a;        color: #e0a85a; }
+
+    /* Sections repliables de la boîte de vérification */
+    .fb-controls { display: flex; justify-content: flex-end; margin-bottom: 0.25rem; }
+    .fb-toggle-all { background: none; border: none; color: inherit; opacity: 0.7; cursor: pointer;
+      font-family: 'DM Mono', monospace; font-size: 0.7rem; padding: 0.1rem 0.2rem; }
+    .fb-toggle-all:hover { opacity: 1; }
+    .fb-section + .fb-section { border-top: 1px solid currentColor; }
+    .fb-section { opacity: 1; }
+    .fb-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+      cursor: pointer; padding: 0.55rem 0; }
+    .fb-title { font-family: 'DM Mono', monospace; font-size: 0.72rem; text-transform: uppercase;
+      letter-spacing: 0.08em; font-weight: 600; }
+    .fb-chevron { font-size: 0.8rem; flex-shrink: 0; transition: transform 0.2s; }
+    .fb-section.collapsed .fb-chevron { transform: rotate(-90deg); }
+    .fb-body { padding-bottom: 0.55rem; }
+    .fb-section.collapsed .fb-body {
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden; opacity: 0.6;
+    }
     .feedback-box.image     { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
     .feedback-box.image .md-h2 {
       font-family: 'DM Mono', monospace;
@@ -629,8 +684,8 @@
     .no-count-notice { font-size: 0.78rem; font-style: italic; opacity: 0.7; margin-top: 0.5rem; }
     .verdict-score {
       font-family: 'DM Mono', monospace; font-size: 1.5rem; font-weight: 700;
-      padding-bottom: 0.6rem; margin-bottom: 0.75rem;
-      border-bottom: 1px solid currentColor; opacity: 0.9;
+      padding-top: 0.6rem; margin-top: 0.75rem; text-align: center;
+      border-top: 1px solid currentColor; opacity: 0.9;
     }
 
     /* ── Bouton QCM ── */
@@ -669,6 +724,18 @@
       animation: fadeIn 0.4s ease;
     }
     .qcm-section.visible { display: flex; }
+    .qcm-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      cursor: pointer;
+    }
+    .qcm-head-text { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; min-width: 0; }
+    .qcm-chevron { color: var(--muted); font-size: 0.9rem; flex-shrink: 0; transition: transform 0.2s; }
+    .qcm-section.collapsed .qcm-chevron { transform: rotate(-90deg); }
+    .qcm-section.collapsed .qcm-body { display: none; }
+    .qcm-body { display: flex; flex-direction: column; gap: 0.75rem; }
     .qcm-question {
       font-family: 'DM Mono', monospace;
       font-size: 0.78rem;
@@ -744,7 +811,16 @@
     .word-card.card-incorrect { border-color: #e05a5a; box-shadow: 0 0 0 1px #e05a5a; }
 
     /* ── Écran « Mes mots » ── */
-    .mot-row { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.55rem 0.2rem; border-bottom:1px solid var(--border); }
+    /* ── Écran ajouter du contenu ── */
+    .add-field-label { display:block; font-family:'DM Mono',monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin:0.85rem 0 0.3rem; }
+    .add-input { width:100%; box-sizing:border-box; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:0.6rem 0.7rem; font-family:'Lora',serif; }
+    .add-result { margin-top:0.8rem; font-size:0.88rem; min-height:1.2rem; line-height:1.5; }
+    .add-result.ok   { color:var(--success); }
+    .add-result.err  { color:var(--error); }
+    .add-result.warn { color:#e0a85a; }
+
+    .mot-row { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.6rem 0.85rem; margin-bottom:0.5rem; border:1px solid var(--border); border-radius:12px; background:var(--surface); transition:border-color 0.15s; }
+    .mot-row:hover { border-color:var(--accent); }
     .mot-row .mot-w { font-family:'Lora', Georgia, serif; font-size:1rem; }
     .mot-row .mot-lang-tag { font-size:0.78rem; margin-left:0.4rem; opacity:0.7; }
     .mot-row .mot-actions { display:flex; align-items:center; gap:0.2rem; flex-shrink:0; }
@@ -984,14 +1060,15 @@
     <h1 class="app-title">BYOV</h1>
     <p class="app-subtitle">quelle langue aujourd'hui ?</p>
     <div class="lang-grid">
-      <button class="lang-btn" onclick="selectLanguage('English')"><span class="flag">🇬🇧</span><span class="lang-name">English</span></button>
-      <button class="lang-btn" onclick="selectLanguage('Spanish')"><span class="flag">🇪🇸</span><span class="lang-name">Español</span></button>
-      <button class="lang-btn" onclick="selectLanguage('French')"><span class="flag">🇫🇷</span><span class="lang-name">Français</span></button>
-      <button class="lang-btn" onclick="selectLanguage('Greek')"><span class="flag">🇬🇷</span><span class="lang-name">Ελληνικά</span></button>
+      <button class="lang-btn" data-lang="English" onclick="selectLanguage('English')"><span class="flag">🇬🇧</span><span class="lang-name">English</span><span class="lang-badge"></span></button>
+      <button class="lang-btn" data-lang="Spanish" onclick="selectLanguage('Spanish')"><span class="flag">🇪🇸</span><span class="lang-name">Español</span><span class="lang-badge"></span></button>
+      <button class="lang-btn" data-lang="French" onclick="selectLanguage('French')"><span class="flag">🇫🇷</span><span class="lang-name">Français</span><span class="lang-badge"></span></button>
+      <button class="lang-btn" data-lang="Greek" onclick="selectLanguage('Greek')"><span class="flag">🇬🇷</span><span class="lang-name">Ελληνικά</span><span class="lang-badge"></span></button>
     </div>
     <button class="btn-ghost" onclick="showStats()">📊 voir mes statistiques</button>
     <button class="btn-ghost" onclick="showHistory()">📋 historique des mots</button>
     <button class="btn-ghost" onclick="showMots()">📝 gérer mes mots</button>
+    <button class="btn-ghost" onclick="showAddContent()">➕ ajouter du contenu</button>
     <button class="btn-ghost" onclick="logout()">🚪 se déconnecter</button>
     <p class="error-msg" id="lang-error-msg"></p>
   </div>
@@ -1114,6 +1191,10 @@
 
     <!-- Mot unique -->
     <div id="single-word-card" class="word-card" onclick="singleCardHint()" style="cursor:pointer">
+      <div class="card-actions">
+        <button class="card-action-btn" title="Modifier le mot" onclick="event.stopPropagation(); editCurrentCardWord()">✏️</button>
+        <button class="card-action-btn" title="Supprimer le mot" onclick="event.stopPropagation(); deleteCurrentCardWord()">✕</button>
+      </div>
       <span class="word-label">mot du jour</span>
       <span class="word-main" id="current-word">…</span>
       <div class="word-meta">
@@ -1125,6 +1206,14 @@
 
     <!-- Multi-mots chips -->
     <div id="multi-word-chips" class="words-chips" style="display:none;"></div>
+
+    <!-- Carte « terminé pour aujourd'hui » (mode espacé) -->
+    <div id="spaced-done-card" class="word-card">
+      <span class="word-label">terminé</span>
+      <span class="done-check">✓</span>
+      <p class="done-msg">Tout fait pour aujourd'hui — reviens demain !</p>
+      <button class="btn-ghost" onclick="showRevisions()">📅 mes révisions à venir</button>
+    </div>
 
     <!-- Confirmation "Je ne sais pas" -->
     <div class="confirm-panel" id="confirm-panel">
@@ -1228,10 +1317,17 @@
 
     <!-- Section QCM -->
     <div class="qcm-section" id="qcm-section">
-      <span class="qcm-question" id="qcm-question">Quelle est la bonne définition ?</span>
-      <span class="qcm-word" id="qcm-word"></span>
-      <div class="qcm-choices" id="qcm-choices"></div>
-      <div class="qcm-result" id="qcm-result"></div>
+      <div class="qcm-head" onclick="toggleQcmCollapse()">
+        <div class="qcm-head-text">
+          <span class="qcm-question" id="qcm-question">Quelle est la bonne définition ?</span>
+          <span class="qcm-word" id="qcm-word"></span>
+        </div>
+        <span class="qcm-chevron" id="qcm-chevron">▾</span>
+      </div>
+      <div class="qcm-body" id="qcm-body">
+        <div class="qcm-choices" id="qcm-choices"></div>
+        <div class="qcm-result" id="qcm-result"></div>
+      </div>
     </div>
 
     <!-- Calendrier des révisions (mode espacé) -->
@@ -1290,8 +1386,52 @@
       <h1 class="app-title">Révisions</h1>
       <button class="btn-ghost" onclick="showScreen('screen-practice')">← retour</button>
     </div>
+    <div class="history-filters" id="revisions-sort">
+      <button class="filter-btn active" onclick="setRevisionsSort('next')">📅 Plus proche</button>
+      <button class="filter-btn" onclick="setRevisionsSort('far')">📆 Plus lointaine</button>
+      <button class="filter-btn" onclick="setRevisionsSort('az')">🔤 A-Z</button>
+    </div>
     <div class="history-list" id="revisions-list">
       <p style="color:var(--muted);font-style:italic;">Chargement…</p>
+    </div>
+  </div>
+
+  <!-- ── Écran : Ajouter du contenu ── -->
+  <div class="screen" id="screen-add">
+    <div class="stats-header">
+      <h1 class="app-title">Ajouter</h1>
+      <button class="btn-ghost" onclick="showScreen('screen-lang')">← retour</button>
+    </div>
+    <div class="history-filters" id="add-mode-tabs">
+      <button class="filter-btn active" onclick="setAddMode('word')">📝 Mot</button>
+      <button class="filter-btn" onclick="setAddMode('grammar')">🔤 Forme grammaticale</button>
+    </div>
+
+    <label class="add-field-label">Langue</label>
+    <select id="add-lang-select" class="add-input" onchange="onAddLangChange()">
+      <option value="English">🇬🇧 English</option>
+      <option value="Spanish">🇪🇸 Español</option>
+      <option value="French">🇫🇷 Français</option>
+      <option value="Greek">🇬🇷 Ελληνικά</option>
+    </select>
+
+    <!-- Panneau : ajouter un mot -->
+    <div id="add-word-panel">
+      <label class="add-field-label">Mot ou expression</label>
+      <input type="text" id="add-word-input" class="add-input" autocapitalize="off" autocomplete="off" placeholder="ex. resilience">
+      <button class="btn-primary" style="width:100%;margin-top:0.7rem" onclick="addWordFromApp()">Ajouter le mot</button>
+      <div id="add-word-result" class="add-result"></div>
+    </div>
+
+    <!-- Panneau : ajouter une forme grammaticale -->
+    <div id="add-grammar-panel" style="display:none">
+      <label class="add-field-label">Catégorie</label>
+      <input type="text" id="add-cat-input" class="add-input" autocapitalize="off" autocomplete="off" placeholder="ex. futuro simple">
+      <label class="add-field-label">Forme</label>
+      <input type="text" id="add-form-input" class="add-input" autocapitalize="off" autocomplete="off" placeholder="ex. hablaré">
+      <button class="btn-primary" style="width:100%;margin-top:0.7rem" onclick="addGrammarForm()">Ajouter la forme</button>
+      <div id="add-grammar-result" class="add-result"></div>
+      <div class="history-list" id="add-grammar-list" style="margin-top:1rem"></div>
     </div>
   </div>
 
@@ -1379,6 +1519,9 @@
     let lastSubmittedSentence  = '';
     let qcmWord            = "";
     let _qcmWordsOffer     = []; // mots disponibles pour QCM après un verdict ✗ multi-mots
+    let _qcmStartedWords   = new Set(); // mots dont le QCM a déjà été lancé ce tour (1 seul QCM/mot)
+    // Casse : on affiche et on envoie les mots en minuscules (le modèle gère la majuscule en début de phrase).
+    const lc = s => (s == null ? '' : String(s).toLocaleLowerCase());
     let practiceMode       = 'spaced';
     let grammarForms        = [];   // liste aplatie des formes grammaticales espagnoles
     let grammarFormsEnabled = localStorage.getItem(KEY_GRAMMAR) !== 'false'; // true par défaut
@@ -1405,8 +1548,12 @@
     let gptEffort           = localStorage.getItem(KEY_GPT_EFFORT)      || 'low';     // 'none'|'low'|'medium'|'high'
     let geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';    // 'none'|'minimal'|'low'|'medium'|'high'
     let gemmaThinkingLevel  = localStorage.getItem(KEY_GEMMA_THINKING)  || 'minimal'; // 'minimal'|'high'
-    let openaiKey           = localStorage.getItem(KEY_OPENAI_KEY) || ''; // BYOK : clé OpenAI de l'utilisateur
-    let geminiKey           = localStorage.getItem(KEY_GEMINI_KEY) || ''; // BYOK : clé Gemini de l'utilisateur
+    // Nettoie une clé API : ne garde que l'ASCII imprimable (pas d'espace, retour à la
+    // ligne, espace insécable… qui font planter la construction de l'en-tête en Safari
+    // → « The string did not match the expected pattern »).
+    const sanitizeKey = k => (k || '').replace(/[^\x21-\x7E]/g, '');
+    let openaiKey           = sanitizeKey(localStorage.getItem(KEY_OPENAI_KEY)); // BYOK : clé OpenAI
+    let geminiKey           = sanitizeKey(localStorage.getItem(KEY_GEMINI_KEY)); // BYOK : clé Gemini
     let currentPhotoUrl    = '';
     let imageTheme         = localStorage.getItem(KEY_IMAGE_THEME) || '';
     const definitionCache  = {}; // { "mot|lang|model": "texte définition" }
@@ -1418,38 +1565,82 @@
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
 
-      // Safe area iOS — iPhone/iPod : 59px (Dynamic Island/notch), iPad : 44px (status bar + marge)
-      if (/iPhone|iPod/.test(navigator.userAgent)) {
+      // Safe area iOS — uniquement en PWA installée (standalone), où la barre d'état
+      // recouvre le contenu. En Safari normal (barre d'URL présente), on garde env()
+      // ≈ 0 pour ne pas afficher un gros rideau noir inutile en haut.
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      if (isStandalone && /iPhone|iPod/.test(navigator.userAgent)) {
         document.documentElement.style.setProperty('--safe-top', '59px');
-      } else if (/iPad/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))) {
+      } else if (isStandalone && (/iPad/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)))) {
         document.documentElement.style.setProperty('--safe-top', '44px');
       }
 
       showScreen(localStorage.getItem(KEY_JWT) ? 'screen-lang' : 'screen-auth');
       if (localStorage.getItem(KEY_JWT)) loadAccountInfo();
       initGoogleSignIn();
-      document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
-      document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
-      document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
-      document.getElementById('toggle-tokens').checked = showTokenCounter;
-      document.getElementById('image-theme-select').value = imageTheme;
-      document.getElementById('model-select').value = currentModel;
-      updateReasoningUI();
-      const _savedWC = parseInt(localStorage.getItem(KEY_WORD_COUNT)) || 1;
-      document.getElementById('word-count-slider').value = _savedWC;
-      document.getElementById('slider-value').textContent = _savedWC === 1 ? '1 mot' : `${_savedWC} mots`;
-      const _savedGC = parseInt(localStorage.getItem(KEY_GRAMMAR_COUNT)) || 1;
-      document.getElementById('grammar-count-slider').value = _savedGC;
-      document.getElementById('grammar-slider-value').textContent = _savedGC === 1 ? '1 forme' : `${_savedGC} formes`;
+      applySettingsUI();
     });
 
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
+      if (id === 'screen-lang') updateLangBadges();
     }
 
     function getLang() { return LANGS.find(l => l.key === currentLang) || LANGS[0]; }
+
+    // Point 10 : colore chaque carte de langue — vert si tout est fait aujourd'hui,
+    // rouge s'il reste des mots (dûs + nouveaux dans la limite quotidienne).
+    async function updateLangBadges() {
+      const today = todayStrLocal();
+      await Promise.all(LANGS.map(async (l) => {
+        const btn = document.querySelector(`.lang-btn[data-lang="${l.key}"]`);
+        if (!btn) return;
+        const badge = btn.querySelector('.lang-badge');
+        try {
+          const [wordsR, progR, sessR] = await Promise.all([
+            authFetch(`/api/words?lang=${encodeURIComponent(l.key)}`).then(r => r.json()),
+            authFetch(`/api/progress?lang=${encodeURIComponent(l.key)}`).then(r => r.json()),
+            authFetch(`/api/session?lang=${encodeURIComponent(l.key)}&date=${today}`).then(r => r.json()),
+          ]);
+          const words = (wordsR.words || []).filter(w => w && w.trim());
+          const prog  = {};
+          (progR.progress || []).forEach(r => { prog[(r.word || '').toLowerCase()] = r.next_review || null; });
+          const maxNew   = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + l.key)) || 60;
+          const todayNew = sessR.count || 0;
+          let due = 0, neverPrac = 0;
+          for (const w of words) {
+            const nr = prog[w.toLowerCase()];
+            if (!nr) neverPrac++;
+            else if (nr <= today) due++;
+          }
+          const available = due + Math.min(Math.max(0, maxNew - todayNew), neverPrac);
+          btn.classList.remove('due', 'done');
+          if (words.length === 0) { if (badge) badge.textContent = ''; return; }
+          if (available > 0) { btn.classList.add('due');  if (badge) badge.textContent = `${available} à faire`; }
+          else               { btn.classList.add('done'); if (badge) badge.textContent = '✓ fait'; }
+        } catch (e) { /* hors-ligne / non connecté : pas de badge */ }
+      }));
+    }
     function wordCount() { return parseInt(document.getElementById('word-count-slider').value); }
+
+    // Plafonne le slider « nombre de mots » au nombre réellement disponible aujourd'hui
+    // (en espacé : dûs + nouveaux restants). Empêche de glisser au-delà des mots à faire.
+    function setWordSliderMax(maxCount) {
+      const slider = document.getElementById('word-count-slider');
+      const cap    = Math.max(1, Math.min(30, maxCount || 1));
+      const prev   = parseInt(slider.value) || 1; // lire AVANT de changer max (sinon le navigateur l'a déjà rogné)
+      slider.max   = cap;
+      const val    = Math.min(prev, cap);
+      slider.value = val;
+      document.getElementById('slider-value').textContent = val === 1 ? '1 mot' : `${val} mots`;
+      if (val !== prev) localStorage.setItem(KEY_WORD_COUNT + '_' + currentLang, String(val));
+    }
+
+    // État « terminé » : masque slider/carte/boutons/champ et n'affiche que la carte ✓
+    function setSpacedDone(done) {
+      document.getElementById('screen-practice').classList.toggle('spaced-done', done);
+    }
     function grammarCount() { return parseInt(document.getElementById('grammar-count-slider').value) || 1; }
 
     function onGrammarSliderChange(val) {
@@ -1457,6 +1648,7 @@
       document.getElementById('grammar-slider-value').textContent = n === 1 ? '1 forme' : `${n} formes`;
       localStorage.setItem(KEY_GRAMMAR_COUNT, n.toString());
       renderGrammarForms();
+      saveSettingsToServer();
     }
 
     // ── Authentification (email / mot de passe) ───────────────
@@ -1642,72 +1834,13 @@
       });
     }
     _ta.addEventListener('input', autoResizeTextarea);
+    // Autoscroll clavier retiré (trop glitchy) : on laisse iOS gérer nativement le
+    // défilement vers le champ focalisé. L'autoscroll du streaming (définition /
+    // vérification) reste géré séparément par startAutoScroll().
     _ta.addEventListener('focus', () => {
       if (!window.visualViewport) {
-        setTimeout(() => _ta.scrollIntoView({ block: 'end' }), 500);
-        return;
+        setTimeout(() => _ta.scrollIntoView({ block: 'end' }), 300);
       }
-      const origHeight  = window.visualViewport.height;
-      const origScrollY = window.scrollY;
-      let softHandled = false;
-
-      // Restaure scrollY si iOS a scrollé vers le haut inutilement.
-      // Seuil bas (20px) pour couvrir aussi le clavier physique iPad (toolbar ~44px).
-      const restoreScrollIfNeeded = () => {
-        if (window.scrollY < origScrollY - 20) {
-          window.scrollTo(0, origScrollY);
-          _updateStickyVisibility();
-        }
-      };
-
-      const onResize = () => {
-        const vv = window.visualViewport;
-        const reduction = origHeight - vv.height;
-        if (reduction <= 0) return; // viewport grandi ou inchangé
-
-        if (reduction > 150) {
-          // Clavier logiciel complet (iPhone / iPad soft keyboard)
-          if (softHandled) return;
-          softHandled = true;
-          window.visualViewport.removeEventListener('resize', onResize);
-          const rect = _ta.getBoundingClientRect();
-          const gap = rect.bottom - vv.height + 12;
-          if (gap > 0) {
-            // Textarea sous le clavier → scroll vers le bas
-            window.scrollBy({ top: gap, behavior: 'smooth' });
-          } else {
-            // Textarea déjà visible → iOS autoscrolle quand même → restaurer
-            setTimeout(restoreScrollIfNeeded, 150);
-            setTimeout(restoreScrollIfNeeded, 400);
-            setTimeout(restoreScrollIfNeeded, 700);
-          }
-        } else {
-          // Petite réduction : toolbar clavier physique iPad (~44px) ou barre URL.
-          // iOS peut quand même scroller légèrement → restaurer après stabilisation.
-          setTimeout(restoreScrollIfNeeded, 150);
-          setTimeout(restoreScrollIfNeeded, 450);
-        }
-      };
-
-      window.visualViewport.addEventListener('resize', onResize);
-      // Fallback : clavier déjà ouvert ou resize qui ne fire pas
-      setTimeout(() => {
-        window.visualViewport.removeEventListener('resize', onResize);
-        if (!softHandled) {
-          const vv = window.visualViewport;
-          const reduction = origHeight - vv.height;
-          if (reduction > 150) {
-            // Clavier logiciel ouvert mais resize n'a pas fire — même logique
-            const rect = _ta.getBoundingClientRect();
-            const gap = rect.bottom - vv.height + 12;
-            if (gap > 0) window.scrollBy({ top: gap, behavior: 'smooth' });
-            else {
-              setTimeout(restoreScrollIfNeeded, 150);
-            }
-          }
-          // Clavier physique : restore déjà planifié dans onResize si reduction > 0
-        }
-      }, 800);
     });
 
     // ── Proxy Sheets via Cloudflare Worker (service account) ──
@@ -1761,6 +1894,17 @@
         renderWordDisplay();
         renderGrammarForms();
       }
+
+      // Le pool éligible peut être plus petit que n (limite atteinte) → on recale
+      // le libellé et la valeur sur le nombre réel de mots, jamais au-delà.
+      // (Si plus aucun mot — état « terminé » —, on laisse le slider tel quel : min 1.)
+      const actual = currentWords.length;
+      if (actual >= 1 && actual !== n) {
+        document.getElementById('word-count-slider').value = actual;
+        document.getElementById('slider-value').textContent = actual === 1 ? '1 mot' : `${actual} mots`;
+        localStorage.setItem(KEY_WORD_COUNT + '_' + currentLang, String(actual));
+      }
+      saveSettingsToServer();
     }
 
     // ── Sélection de langue ───────────────────────────────────
@@ -1890,17 +2034,15 @@
     function trackTokens(usage) {
       if (!usage) return;
       const inp = usage.prompt_tokens    || usage.input_tokens    || 0;
+      // OpenAI (Responses & Chat Completions) : output_tokens INCLUT déjà les reasoning
+      // tokens. output_tokens_details.reasoning_tokens n'est qu'un sous-détail — ne PAS
+      // l'additionner (sinon on compte le raisonnement deux fois → surévaluation vs dashboard).
       const out = usage.completion_tokens || usage.output_tokens   || 0;
-      // Responses API : reasoning tokens séparés (non inclus dans output_tokens)
-      const reasoning = usage.output_tokens_details?.reasoning_tokens
-                     || usage.completion_tokens_details?.reasoning_tokens
-                     || usage.reasoning_tokens
-                     || 0;
       todayInputTokens  += inp;
-      todayOutputTokens += out + reasoning;
+      todayOutputTokens += out;
       todayGptRequests++;
       _pendingInput  += inp;
-      _pendingOutput += out + reasoning;
+      _pendingOutput += out;
       _pendingGptReq++;
       updateTokenDisplay();
       saveTodayTokensDebounced();
@@ -1954,6 +2096,7 @@
       showTokenCounter = val;
       localStorage.setItem(KEY_SHOW_TOKENS, val ? 'true' : 'false');
       updateTokenDisplay();
+      saveSettingsToServer();
     }
 
     function setModel(val) {
@@ -1962,15 +2105,16 @@
       updateTokenDisplay();
       updateReasoningUI();
       lastSubmittedSentence = '';
+      saveSettingsToServer();
     }
 
     function setOpenaiKey(val) {
-      openaiKey = (val || '').trim();
+      openaiKey = sanitizeKey(val);
       localStorage.setItem(KEY_OPENAI_KEY, openaiKey);
       saveKeysToServer();
     }
     function setGeminiKey(val) {
-      geminiKey = (val || '').trim();
+      geminiKey = sanitizeKey(val);
       localStorage.setItem(KEY_GEMINI_KEY, geminiKey);
       saveKeysToServer();
     }
@@ -1990,29 +2134,90 @@
         const u = (await r.json()).user;
         if (!u) return;
         myAddToken = u.add_token || '';
-        if (u.openai_key) { openaiKey = u.openai_key; localStorage.setItem(KEY_OPENAI_KEY, openaiKey); }
-        if (u.gemini_key) { geminiKey = u.gemini_key; localStorage.setItem(KEY_GEMINI_KEY, geminiKey); }
+        if (u.openai_key) { openaiKey = sanitizeKey(u.openai_key); localStorage.setItem(KEY_OPENAI_KEY, openaiKey); }
+        if (u.gemini_key) { geminiKey = sanitizeKey(u.gemini_key); localStorage.setItem(KEY_GEMINI_KEY, geminiKey); }
         const oi = document.getElementById('openai-key-input'); if (oi) oi.value = openaiKey;
         const gi = document.getElementById('gemini-key-input'); if (gi) gi.value = geminiKey;
         const au = document.getElementById('add-url-input');
         if (au && myAddToken) au.value = `${API_ENDPOINT}/add?token=${myAddToken}&word=WORD&lang=auto`;
+        // Sync des réglages multi-appareils (point 14)
+        if (u.settings) { try { applyServerSettings(JSON.parse(u.settings)); } catch { /* ignore */ } }
       } catch { /* silencieux */ }
+    }
+
+    // ── Sync des réglages entre appareils (point 14) ──────────
+    const _settingsDenylist = new Set([KEY_JWT, KEY_PWD_OK, KEY_OPENAI_KEY, KEY_GEMINI_KEY]);
+    function _isSyncableSettingKey(k) {
+      return k && k.startsWith('vocab_') && !_settingsDenylist.has(k) && !k.startsWith('vocab_today_new_');
+    }
+    function collectSettings() {
+      const o = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (_isSyncableSettingKey(k)) o[k] = localStorage.getItem(k);
+      }
+      return o;
+    }
+    let _saveSettingsTimer = null;
+    function saveSettingsToServer() {
+      if (!localStorage.getItem(KEY_JWT)) return;
+      clearTimeout(_saveSettingsTimer);
+      _saveSettingsTimer = setTimeout(() => {
+        authFetch('/api/settings', { method: 'POST', body: JSON.stringify({ settings: collectSettings() }) })
+          .catch(() => { /* silencieux */ });
+      }, 1500);
+    }
+    function applyServerSettings(settings) {
+      if (!settings || typeof settings !== 'object') return;
+      Object.entries(settings).forEach(([k, v]) => {
+        if (_isSyncableSettingKey(k) && v != null) localStorage.setItem(k, v);
+      });
+      reloadSettingsVars();
+      applySettingsUI();
+    }
+    function reloadSettingsVars() {
+      grammarFormsEnabled = localStorage.getItem(KEY_GRAMMAR) !== 'false';
+      maxNewPerDay        = parseInt(localStorage.getItem(KEY_MAX_NEW)) || 60;
+      showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
+      currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4';
+      gptEffort           = localStorage.getItem(KEY_GPT_EFFORT) || 'low';
+      geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';
+      gemmaThinkingLevel  = localStorage.getItem(KEY_GEMMA_THINKING) || 'minimal';
+      imageTheme          = localStorage.getItem(KEY_IMAGE_THEME) || '';
+    }
+    function applySettingsUI() {
+      document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
+      document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
+      document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
+      document.getElementById('toggle-tokens').checked = showTokenCounter;
+      document.getElementById('image-theme-select').value = imageTheme;
+      document.getElementById('model-select').value = currentModel;
+      updateReasoningUI();
+      const _savedWC = parseInt(localStorage.getItem(KEY_WORD_COUNT)) || 1;
+      document.getElementById('word-count-slider').value = _savedWC;
+      document.getElementById('slider-value').textContent = _savedWC === 1 ? '1 mot' : `${_savedWC} mots`;
+      const _savedGC = parseInt(localStorage.getItem(KEY_GRAMMAR_COUNT)) || 1;
+      document.getElementById('grammar-count-slider').value = _savedGC;
+      document.getElementById('grammar-slider-value').textContent = _savedGC === 1 ? '1 forme' : `${_savedGC} formes`;
     }
 
     function setGptEffort(val) {
       gptEffort = val;
       localStorage.setItem(KEY_GPT_EFFORT, val);
       lastSubmittedSentence = '';
+      saveSettingsToServer();
     }
     function setGeminiThinking(val) {
       geminiThinkingLevel = val;
       localStorage.setItem(KEY_GEMINI_THINKING, val);
       lastSubmittedSentence = '';
+      saveSettingsToServer();
     }
     function setGemmaThinking(val) {
       gemmaThinkingLevel = val;
       localStorage.setItem(KEY_GEMMA_THINKING, val);
       lastSubmittedSentence = '';
+      saveSettingsToServer();
     }
     function currentGeminiThinkingLevel() {
       return currentModel === 'gemma' ? gemmaThinkingLevel : geminiThinkingLevel;
@@ -2086,6 +2291,7 @@
     function setImageTheme(val) {
       imageTheme = val;
       localStorage.setItem(KEY_IMAGE_THEME, val);
+      saveSettingsToServer();
     }
 
     async function analyzePhoto() {
@@ -2216,6 +2422,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('single-word-card').classList.remove('card-review', 'card-correct', 'card-incorrect');
       document.getElementById('word-stars').textContent       = '☆☆☆';
       document.getElementById('word-stars').className         = 'stars s0';
+      document.getElementById('word-count-label').textContent = '';
       document.getElementById('hint-used-badge').classList.remove('visible');
       document.getElementById('hint-box').classList.remove('visible');
       document.getElementById('hint-text').textContent        = '';
@@ -2232,6 +2439,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('qcm-section').classList.remove('visible');
       document.getElementById('qcm-result').textContent       = '';
       _qcmWordsOffer = [];
+      _qcmStartedWords = new Set();
       document.getElementById('related-box').classList.remove('visible');
       document.getElementById('related-chips').innerHTML      = '';
       _relatedWordsShown = [];
@@ -2289,6 +2497,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('btn-mode-free').classList.toggle('active',      mode === 'free');
       document.getElementById('btn-mode-situation').classList.toggle('active', mode === 'situation');
       document.getElementById('btn-mode-image').classList.toggle('active',     mode === 'image');
+
+      setSpacedDone(false); // on quitte l'état « terminé » en changeant de mode
 
       const isImage = mode === 'image';
       document.getElementById('vocab-section').style.display  = isImage ? 'none' : '';
@@ -2445,11 +2655,13 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       grammarFormsEnabled = val;
       localStorage.setItem(KEY_GRAMMAR, val ? 'true' : 'false');
       renderGrammarForms();
+      saveSettingsToServer();
     }
 
     function setMaxNewPerDay(val) {
       maxNewPerDay = val;
       localStorage.setItem(KEY_MAX_NEW + '_' + currentLang, val);
+      saveSettingsToServer();
       document.getElementById('max-new-value').textContent = val + ' mots';
       document.getElementById('max-new-slider').value = maxNewToIndex(val);
       if (practiceMode === 'spaced' && allWords.length > 0) {
@@ -2457,6 +2669,14 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         const neverPrac    = allWords.filter(w => isNewWord(w));
         const newRemaining = Math.max(0, maxNewPerDay - todayNewCount);
         updateDueCountDisplay(trulyDue.length, newRemaining, neverPrac.length);
+        // La limite a changé → le pool éligible aussi : on recale le plafond du slider
+        // pour qu'il puisse remonter (ou se réduire) selon les mots désormais dispo.
+        const eligibleCount = trulyDue.length + Math.min(newRemaining, neverPrac.length);
+        setWordSliderMax(eligibleCount);
+        // Si on était en état « terminé » et que des mots redeviennent dispo, on relance.
+        if (eligibleCount > 0 && document.getElementById('screen-practice').classList.contains('spaced-done')) {
+          pickWords();
+        }
       }
     }
 
@@ -2467,6 +2687,13 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         document.getElementById('due-count').textContent        = '';
         return;
       }
+
+      setSpacedDone(false); // par défaut on n'est pas en état « terminé »
+
+      // Le bouton « mes révisions à venir » est dispo dès qu'on est en espacé
+      // (pas seulement après avoir cliqué l'onglet — selectLanguage n'appelle pas setMode).
+      const rbar = document.getElementById('revisions-bar');
+      if (rbar) rbar.style.display = (practiceMode === 'spaced') ? '' : 'none';
 
       // Affichage : mode situation cache la carte mot et les boutons hint/next
       const isSituationMode = practiceMode === 'situation';
@@ -2494,13 +2721,14 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         updateDueCountDisplay(trulyDue.length, newRemaining, neverPracticed.length);
 
         if (due.length === 0) {
-          document.getElementById('current-word').textContent     = '✓';
-          document.getElementById('word-count-label').textContent = 'Reviens demain !';
           currentWords = [];
+          setSpacedDone(true); // masque slider/carte/boutons, affiche la carte ✓
           return;
         }
+        setWordSliderMax(due.length); // plafonne le slider aux mots dispo aujourd'hui
+        const n2 = wordCount();       // relit après plafonnement éventuel
         currentWords = [];
-        for (let i = 0; i < Math.min(n, due.length); i++) {
+        for (let i = 0; i < Math.min(n2, due.length); i++) {
           // Poids : révisions = 3x plus probable que nouveaux
           const reviewAvailable = trulyDue.filter(w => !currentWords.includes(w));
           const newAvailable    = newToShow.filter(w => !currentWords.includes(w));
@@ -2554,8 +2782,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         document.getElementById('due-count').innerHTML =
           `<span class="highlight">${remaining}</span> mot${remaining > 1 ? 's' : ''} à pratiquer <span style="color:var(--muted);font-size:0.85em">(${allWords.length} au total)</span>`;
         document.getElementById('word-count-label').textContent = '';
+        setWordSliderMax(allWords.length); // pas plus de mots que la liste n'en contient
+        const nFree = wordCount();
         currentWords = [];
-        for (let i = 0; i < n; i++) currentWords.push(pickWeightedOne(currentWords));
+        for (let i = 0; i < nFree; i++) currentWords.push(pickWeightedOne(currentWords));
         previousWordsPool = [...currentWords]; // initialise le pool slider
         renderWordDisplay();
       }
@@ -2587,7 +2817,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (n === 1) {
         single.style.display = '';
         multi.style.display  = 'none';
-        document.getElementById('current-word').textContent = currentWords[0];
+        document.getElementById('current-word').textContent = lc(currentWords[0]);
         single.classList.toggle('card-review', practiceMode === 'spaced' && !isNewWord(currentWords[0]));
         updateStars(currentWords[0]);
       } else {
@@ -2598,7 +2828,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           const reviewCls  = (practiceMode === 'spaced' && !isNewWord(w)) ? ' chip-review' : '';
           const esc = w.replace(/'/g, "\\'");
           return `<button class="word-chip${reviewCls}" onclick="chipHint('${esc}')">
-            <span class="chip-word">${w}</span>
+            <span class="chip-del" title="Supprimer" onclick="event.stopPropagation(); deleteCardWord('${esc}')">✕</span>
+            <span class="chip-word">${lc(w)}</span>
             <span class="chip-stars ${starsInfo.cls}">${starsInfo.str}</span>
           </button>`;
         }).join('');
@@ -2622,6 +2853,16 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const starsEl = document.getElementById('word-stars');
       starsEl.textContent = info.str;
       starsEl.className   = `stars ${info.cls}`;
+    }
+
+    // Rafraîchit les étoiles des chips multi-mots (après une vérification)
+    function refreshChipStars() {
+      document.querySelectorAll('#multi-word-chips .word-chip').forEach(chip => {
+        const w = chip.querySelector('.chip-word').textContent.toLowerCase();
+        const info = getStarsInfo(w);
+        const s = chip.querySelector('.chip-stars');
+        if (s) { s.textContent = info.str; s.className = `chip-stars ${info.cls}`; }
+      });
     }
 
     async function nextWord() {
@@ -2659,6 +2900,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
     // ── "Je ne sais pas" ──────────────────────────────────────
     function showJeNeSaisPas(word) {
+      if (_qcmStartedWords.has(lc(word))) return; // déjà traité ce tour → pas de 2e ✗ ni de 2e QCM
       jeNeSaisPasWord = word;
       const n = currentWords.length;
       const text = n > 1
@@ -2686,6 +2928,16 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       updateStickyBar();
     }
 
+    // Révèle les mots cachés (appelé au moment de la vérification)
+    function revealHiddenWords() {
+      if (!wordsHidden) return;
+      wordsHidden = false;
+      document.body.classList.remove('words-hidden');
+      const btn = document.getElementById('btn-hide-words');
+      if (btn) { btn.classList.remove('active'); btn.textContent = '👁 Cacher'; }
+      updateStickyBar();
+    }
+
     function cancelJeNeSaisPas() {
       jeNeSaisPasWord = null;
       document.getElementById('confirm-panel').classList.remove('visible');
@@ -2695,6 +2947,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     async function confirmJeNeSaisPas() {
       const word = jeNeSaisPasWord;
       cancelJeNeSaisPas();
+      revealHiddenWords();
       await saveProgress(word, false);
       startQCM(word);
     }
@@ -2787,7 +3040,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const cacheKey   = `${word.toLowerCase()}|${currentLang}|${currentModel}`;
 
       // Met à jour le label et s'assure que la boîte est dépliée
-      document.getElementById('hint-box-label-text').innerHTML = `Définition — <span class="hint-word-in-label">${word.replace(/</g,'&lt;')}</span>`;
+      document.getElementById('hint-box-label-text').innerHTML = `Définition — <span class="hint-word-in-label">${lc(word).replace(/</g,'&lt;')}</span>`;
       hintBox.classList.remove('collapsed');
 
       // ── Cache hit : affichage instantané (valide 24h, pas de lock) ────
@@ -2807,7 +3060,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const langName = getLang().mistralName;
       const prompt = `You are a vocabulary teacher. The learner is studying ${langName}.
 
-Give the definition and one rich example sentence for: "${word}"
+Give the definition and one rich example sentence for: "${lc(word)}"
 
 Rules:
 - Treat it as a word or expression in ${langName}. It may be archaic, obsolete, dialectal, literary, or rare — accept it as such and explain its historical or specialized usage.
@@ -2842,6 +3095,16 @@ Respond entirely in ${langName}.`;
           scroller.onChunk();
         });
         scroller.cleanup();
+
+        // Fin du streaming : on remonte le haut de la définition près du haut de l'écran
+        // pour la lire depuis le début (sauf si l'utilisateur a scrollé lui-même).
+        if (!scroller.stoppedAtTop) {
+          requestAnimationFrame(() => {
+            const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
+            const top = hintBox.getBoundingClientRect().top + window.scrollY - (safeTop + 16);
+            window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+          });
+        }
 
         // Sauvegarde dans le cache avec timestamp (trimé si nécessaire)
         const trimIdx = fullText.indexOf('## ');
@@ -2878,6 +3141,7 @@ Respond entirely in ${langName}.`;
         return;
       }
       lastSubmittedSentence = sentence;
+      revealHiddenWords(); // les mots cachés réapparaissent dès la vérification
 
       const btn = document.getElementById('btn-submit');
       btn.disabled = true;
@@ -2897,7 +3161,7 @@ Respond entirely in ${langName}.`;
       const langInfo   = getLang();
       const langName   = langInfo.mistralName;
       const feedbackLang = langInfo.feedbackLang;
-      const wordsList    = currentWords.join('", "');
+      const wordsList    = currentWords.map(lc).join('", "');
       const isSingle     = currentWords.length === 1;
 
       const prompt = `You are a ${langName} language teacher preparing a student for a language proficiency exam.
@@ -2953,7 +3217,7 @@ ${isSingle
   : `First: a ## markdown heading in ${langName} for the overall verdict (e.g. "## Verdict"), then ✓ if ALL words pass BLOC 1, ✗ if any word fails.
 
 Then for each word, one line:
-${currentWords.map(w => `- "${w}": ✓ or ✗ — one sentence on usage and meaning`).join('\n')}`}
+${currentWords.map(w => `- "${lc(w)}": ✓ or ✗ — one sentence on usage and meaning`).join('\n')}`}
 
 Then a blank line, then a section with a ## markdown heading in ${langName} for the linguistic analysis (e.g. "## Analyse linguistique" in French, "## Análisis lingüístico" in Spanish, "## Γλωσσική ανάλυση" in Greek, "## Linguistic analysis" in English), followed by a numbered list of confirmed errors from B2-STEP 2 only. Each item must cover exactly one error. The bold label must name that specific error — never a preliminary observation that is then contradicted. If none, write the equivalent of "No errors detected" in ${langName}.
 
@@ -3034,10 +3298,12 @@ Respond entirely in ${feedbackLang}.`;
         });
 
         // Cherche le verdict global : première ligne contenant ✓ ou ✗ (le modèle les met parfois inline dans le heading)
+        // Tolère les variantes emoji ✅/❌/✔/✘ (sinon boîte rouge alors que le verdict est ✓).
+        const OK_RE = /[✓✔✅]/, KO_RE = /[✗✘❌]/, MARK_RE = /[✓✔✅✗✘❌]/;
         const lines       = reply.split('\n').map(l => l.trim()).filter(Boolean);
-        const verdictLine = lines.find(l => /[✓✗]/.test(l)) || '';
-        const verdictMark = verdictLine.match(/[✓✗]/);
-        const verdictTrue = verdictMark ? verdictMark[0] === '✓' : false;
+        const verdictLine = lines.find(l => MARK_RE.test(l)) || '';
+        const verdictMark = verdictLine.match(MARK_RE);
+        const verdictTrue = verdictMark ? OK_RE.test(verdictMark[0]) : false;
 
         // Score indépendant par mot en mode multi
         const wordResults = {};
@@ -3050,8 +3316,8 @@ Respond entirely in ${feedbackLang}.`;
             const line = lines.find(l => new RegExp(`(^|[^\\p{L}])${wEscaped}([^\\p{L}]|$)`, 'iu').test(l));
             if (line) {
               // Cherche le PREMIER ✓ ou ✗ dans la ligne (pas n'importe où)
-              const firstCheck = line.match(/[✓✗]/);
-              wordResults[w.toLowerCase()] = firstCheck ? firstCheck[0] === '✓' : false;
+              const firstCheck = line.match(MARK_RE);
+              wordResults[w.toLowerCase()] = firstCheck ? OK_RE.test(firstCheck[0]) : false;
             } else {
               wordResults[w.toLowerCase()] = false; // absent → ✗
             }
@@ -3063,15 +3329,21 @@ Respond entirely in ${feedbackLang}.`;
           ? Object.values(wordResults).every(v => v)
           : verdictTrue;
 
+        // Couleur 3 états : vert (tout ✓), orange (partiel), rouge (tout ✗)
+        const correctCount = Object.values(wordResults).filter(v => v).length;
+        const total = currentWords.length;
+        let colorClass;
+        if (isSingle)                     colorClass = isCorrect ? 'correct' : 'incorrect';
+        else if (correctCount === total)  colorClass = 'correct';
+        else if (correctCount === 0)      colorClass = 'incorrect';
+        else                              colorClass = 'partial';
         feedbackLabel.textContent = isCorrect ? '✓' : '✗';
-        feedbackBox.classList.add(isCorrect ? 'correct' : 'incorrect');
+        feedbackBox.classList.add(colorClass);
         applyWordOutlines(wordResults);
 
-        // Score multi-mots
-        if (!isSingle) {
-          const correctCount = Object.values(wordResults).filter(v => v).length;
-          feedbackText.innerHTML = `<div class="verdict-score">${correctCount} / ${currentWords.length}</div>` + feedbackText.innerHTML;
-        }
+        // Re-rendu en sections repliables (verdict ouvert, reste replié) ; note en bas
+        const scoreHtml = !isSingle ? `<div class="verdict-score">${correctCount} / ${total}</div>` : '';
+        feedbackText.innerHTML = renderFeedbackSections(reply, scoreHtml);
 
         // ── Progression + History (première tentative seulement) ─
         const savePromises  = [];
@@ -3119,6 +3391,18 @@ Respond entirely in ${feedbackLang}.`;
           updateDueCountDisplay(trulyDue.length, newRemaining, neverPrac.length);
         }
 
+        // Rafraîchit les étoiles des chips multi-mots (single géré dans saveProgress)
+        if (!isSingle) refreshChipStars();
+
+        // Point 19 : montre la prochaine date de révision sur la carte (mot seul)
+        if (practiceMode === 'spaced' && isSingle) {
+          const p = progressMap[currentWords[0].toLowerCase()];
+          if (p && p.nextReview) {
+            const lab = reviewLabel(p.nextReview, todayStrLocal());
+            document.getElementById('word-count-label').textContent = '📅 ' + lab.txt;
+          }
+        }
+
         // Mots liés après ✓
         if (isCorrect) {
           fetchRelatedWords(currentWords);
@@ -3159,12 +3443,14 @@ Respond entirely in ${feedbackLang}.`;
     // ── QCM ───────────────────────────────────────────────────
     async function startQCM(word) {
       qcmWord = word;
+      _qcmStartedWords.add(lc(word));
       document.getElementById('qcm-offer').classList.remove('visible');
       const section  = document.getElementById('qcm-section');
       const choicesEl = document.getElementById('qcm-choices');
       const resultEl  = document.getElementById('qcm-result');
       section.classList.add('visible');
-      document.getElementById('qcm-word').textContent = qcmWord;
+      section.classList.remove('collapsed');
+      document.getElementById('qcm-word').textContent = lc(qcmWord);
       resultEl.textContent = '';
       choicesEl.innerHTML  = '<div style="color:var(--muted);font-style:italic;padding:0.5rem"><span class="spinner"></span> Génération du QCM…</div>';
 
@@ -3180,13 +3466,13 @@ Respond entirely in ${feedbackLang}.`;
 
       const prompt = `You are a vocabulary teacher creating a challenging multiple-choice quiz in ${langName}.
 
-The word to test is: "${qcmWord}"
+The word to test is: "${lc(qcmWord)}"
 
 Generate exactly 4 short scenarios (1-2 sentences each):
-- 1 scenario where "${qcmWord}" is the natural, correct word to use
-- 3 distractor scenarios: situations that sound plausible but where "${qcmWord}" would be wrong or unnatural — use semantically close contexts that could genuinely fool a learner who doesn't know the word well
+- 1 scenario where "${lc(qcmWord)}" is the natural, correct word to use
+- 3 distractor scenarios: situations that sound plausible but where "${lc(qcmWord)}" would be wrong or unnatural — use semantically close contexts that could genuinely fool a learner who doesn't know the word well
 
-CRITICAL: Do NOT include the word "${qcmWord}" (or any of its inflected forms) in any of the 4 scenarios. The learner must identify the correct context without seeing the word.
+CRITICAL: Do NOT include the word "${lc(qcmWord)}" (or any of its inflected forms) in any of the 4 scenarios. The learner must identify the correct context without seeing the word.
 
 Return ONLY a JSON array of 4 objects, no other text, no markdown:
 [
@@ -3263,6 +3549,10 @@ Write all scenarios in ${langName}.`;
         btn.onclick = showQCMOffer;
         resultEl.appendChild(btn);
       }
+    }
+
+    function toggleQcmCollapse() {
+      document.getElementById('qcm-section').classList.toggle('collapsed');
     }
 
     function showQCMOffer() {
@@ -3480,19 +3770,140 @@ Write all scenarios in ${langName}.`;
       return { txt: d2.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), cls: '' };
     }
 
+    let revisionsRows = [];          // [{ word, next }]
+    let revisionsSort = 'next';      // 'next' | 'far' | 'az'
+
+    // ── Écran « Ajouter du contenu » (point 15) ───────────────
+    let addMode = 'word';
+    const _addLangCode = { English: 'en', Spanish: 'es', French: 'fr', Greek: 'el' };
+    const escapeJs = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+    function showAddContent() {
+      showScreen('screen-add');
+      document.getElementById('add-lang-select').value = currentLang || 'English';
+      document.getElementById('add-word-result').textContent   = '';
+      document.getElementById('add-grammar-result').textContent = '';
+      setAddMode('word');
+    }
+
+    function setAddMode(mode) {
+      addMode = mode;
+      document.querySelectorAll('#add-mode-tabs .filter-btn').forEach(b =>
+        b.classList.toggle('active', b.getAttribute('onclick').includes(`'${mode}'`)));
+      document.getElementById('add-word-panel').style.display    = mode === 'word'    ? '' : 'none';
+      document.getElementById('add-grammar-panel').style.display = mode === 'grammar' ? '' : 'none';
+      if (mode === 'grammar') loadAddGrammarList();
+    }
+
+    function onAddLangChange() { if (addMode === 'grammar') loadAddGrammarList(); }
+
+    async function addWordFromApp(ignore) {
+      const word = document.getElementById('add-word-input').value.trim();
+      const res  = document.getElementById('add-word-result');
+      if (!word) return;
+      if (!myAddToken) { res.className = 'add-result err'; res.textContent = "Token d'ajout indisponible — recharge la page."; return; }
+      const lang = document.getElementById('add-lang-select').value;
+      res.className = 'add-result'; res.innerHTML = '<span class="spinner"></span> Ajout…';
+      const params = new URLSearchParams({ token: myAddToken, word, lang: _addLangCode[lang] || 'auto' });
+      if (ignore === 'sens') params.set('ignore_sens', 'true');
+      if (ignore === 'sim')  params.set('ignore_sim', 'true');
+      try {
+        const r   = await fetch(`${API_ENDPOINT}/add?${params.toString()}`);
+        const txt = (await r.text()).trim();
+        if (txt.startsWith('Succès')) {
+          res.className = 'add-result ok'; res.textContent = '✓ ' + txt;
+          document.getElementById('add-word-input').value = '';
+          if (lang === currentLang) await loadWords(currentLang); // rafraîchit le pool si même langue
+        } else if (txt.startsWith('Doublon')) {
+          res.className = 'add-result warn'; res.textContent = txt;
+        } else if (txt.startsWith('INVALID:')) {
+          res.className = 'add-result warn';
+          res.innerHTML = `⚠️ ${escapeHtml(txt.slice(8))}<br><button class="btn-secondary" style="margin-top:0.5rem" onclick="addWordFromApp('sens')">Ajouter quand même</button>`;
+        } else if (txt.startsWith('SIMILAR:')) {
+          res.className = 'add-result warn';
+          res.innerHTML = `⚠️ Variante possible de : ${escapeHtml(txt.slice(8))}<br><button class="btn-secondary" style="margin-top:0.5rem" onclick="addWordFromApp('sim')">Ajouter quand même</button>`;
+        } else {
+          res.className = 'add-result err'; res.textContent = txt;
+        }
+      } catch (e) {
+        res.className = 'add-result err'; res.textContent = 'Erreur : ' + e.message;
+      }
+    }
+
+    async function addGrammarForm() {
+      const lang     = document.getElementById('add-lang-select').value;
+      const category = document.getElementById('add-cat-input').value.trim();
+      const form     = document.getElementById('add-form-input').value.trim();
+      const res      = document.getElementById('add-grammar-result');
+      if (!category || !form) { res.className = 'add-result err'; res.textContent = 'Catégorie et forme requises.'; return; }
+      res.className = 'add-result'; res.textContent = 'Ajout…';
+      try {
+        const r = await authFetch('/api/grammar', { method: 'POST', body: JSON.stringify({ lang, category, form }) });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error?.message || 'erreur');
+        res.className = 'add-result ok'; res.textContent = `✓ « ${form} » ajouté à « ${category} ».`;
+        document.getElementById('add-form-input').value = '';
+        loadAddGrammarList();
+        if (lang === currentLang) loadGrammarForms(); // rafraîchit le pool en mémoire
+      } catch (e) { res.className = 'add-result err'; res.textContent = 'Erreur : ' + e.message; }
+    }
+
+    async function loadAddGrammarList() {
+      const lang = document.getElementById('add-lang-select').value;
+      const list = document.getElementById('add-grammar-list');
+      list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
+      try {
+        const r = await authFetch(`/api/grammar?lang=${encodeURIComponent(lang)}`);
+        const forms = (await r.json()).forms || [];
+        if (forms.length === 0) { list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucune forme pour cette langue.</p>'; return; }
+        list.innerHTML = forms.map(f => `<div class="mot-row">
+          <span class="mot-w">${escapeHtml(f.form)} <span style="color:var(--muted);font-size:0.78rem">— ${escapeHtml(f.category)}</span></span>
+          <span class="mot-actions"><button onclick="deleteGrammarForm('${escapeJs(f.category)}','${escapeJs(f.form)}')" title="Supprimer">🗑</button></span>
+        </div>`).join('');
+      } catch (e) { list.innerHTML = `<p style="color:var(--error)">Erreur : ${e.message}</p>`; }
+    }
+
+    async function deleteGrammarForm(category, form) {
+      const lang = document.getElementById('add-lang-select').value;
+      if (!confirm(`Supprimer la forme « ${form} » ?`)) return;
+      try {
+        await authFetch('/api/grammar', { method: 'DELETE', body: JSON.stringify({ lang, category, form }) });
+        loadAddGrammarList();
+        if (lang === currentLang) loadGrammarForms();
+      } catch (e) { alert('Erreur : ' + e.message); }
+    }
+
     function showRevisions() {
       showScreen('screen-revisions');
-      const list  = document.getElementById('revisions-list');
-      const today = todayStrLocal();
-      const rows  = [];
+      revisionsRows = [];
       for (const w of allWords) {
         const p = progressMap[w.toLowerCase()];
-        if (p && p.nextReview) rows.push({ word: w, next: p.nextReview });
+        if (p && p.nextReview) revisionsRows.push({ word: w, next: p.nextReview });
       }
-      rows.sort((a, b) => a.next < b.next ? -1 : a.next > b.next ? 1 : a.word.localeCompare(b.word));
-      if (rows.length === 0) {
+      renderRevisions();
+    }
+
+    function setRevisionsSort(mode) {
+      revisionsSort = mode;
+      document.querySelectorAll('#revisions-sort .filter-btn').forEach(b =>
+        b.classList.toggle('active', b.getAttribute('onclick').includes(`'${mode}'`)));
+      renderRevisions();
+    }
+
+    function renderRevisions() {
+      const list  = document.getElementById('revisions-list');
+      const today = todayStrLocal();
+      if (revisionsRows.length === 0) {
         list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun mot programmé pour l\'instant — pratique des mots pour les voir apparaître ici.</p>';
         return;
+      }
+      const rows = [...revisionsRows];
+      if (revisionsSort === 'az') {
+        rows.sort((a, b) => lc(a.word).localeCompare(lc(b.word)));
+      } else if (revisionsSort === 'far') {
+        rows.sort((a, b) => a.next > b.next ? -1 : a.next < b.next ? 1 : lc(a.word).localeCompare(lc(b.word)));
+      } else { // 'next' — prochaine révision la plus proche
+        rows.sort((a, b) => a.next < b.next ? -1 : a.next > b.next ? 1 : lc(a.word).localeCompare(lc(b.word)));
       }
       const dueCount = rows.filter(r => r.next <= today).length;
       const head = dueCount > 0
@@ -3501,7 +3912,7 @@ Write all scenarios in ${langName}.`;
       list.innerHTML = head + rows.map(r => {
         const lab = reviewLabel(r.next, today);
         return `<div class="mot-row">
-          <span class="mot-w">${r.word}</span>
+          <span class="mot-w">${lc(r.word)}</span>
           <span class="mot-date ${lab.cls}">${lab.txt}</span>
         </div>`;
       }).join('');
@@ -3665,7 +4076,7 @@ Write all scenarios in ${langName}.`;
       document.getElementById('situation-answer-section').style.display = 'none';
 
       const langName = getLang().mistralName;
-      const prompt = `You are a language teacher. Create a vivid, concrete situation in ${langName} that clearly evokes the word or expression "${word}" WITHOUT mentioning the word itself, its direct synonyms, or its translation.
+      const prompt = `You are a language teacher. Create a vivid, concrete situation in ${langName} that clearly evokes the word or expression "${lc(word)}" WITHOUT mentioning the word itself, its direct synonyms, or its translation.
 
 The situation should be a short paragraph (2-4 sentences) describing a scene, a person, or an event that perfectly illustrates the meaning of "${word}". The reader who knows the word should immediately think of it.
 
@@ -3852,7 +4263,7 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
 
       const langName = getLang().mistralName;
       const prompt = wordList.length === 1
-        ? `You are a vocabulary teacher. The learner just successfully used the word "${wordList[0]}" in ${langName}.
+        ? `You are a vocabulary teacher. The learner just successfully used the word "${lc(wordList[0])}" in ${langName}.
 
 Suggest 3 semantically related words or expressions in ${langName} that belong to the same semantic field or are often used in similar contexts.
 
@@ -3862,7 +4273,7 @@ Return ONLY a JSON array, no other text:
   {"word": "...", "note": "..."},
   {"word": "...", "note": "..."}
 ]`
-        : `You are a vocabulary teacher. The learner just practiced these ${langName} words: ${wordList.map(w => `"${w}"`).join(', ')}.
+        : `You are a vocabulary teacher. The learner just practiced these ${langName} words: ${wordList.map(w => `"${lc(w)}"`).join(', ')}.
 
 Find the 3 most useful and commonly encountered related words or expressions in ${langName} — one per practiced word if possible, choosing the most important ones overall.
 
@@ -3944,6 +4355,54 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         .filter(l => !/^[✓✗]\s*$/.test(l.trim()))
         .join('\n')
         .replace(/^\n+/, '');
+    }
+
+    // ── Boîte de vérification en sections repliables ──────────
+    const escapeHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Découpe la réponse en sections d'après les titres ##
+    function parseFeedbackSections(text) {
+      const clean = stripVerdictLines(text);
+      const parts = clean.split(/^##\s+/m);
+      const sections = [];
+      const preamble = (parts.shift() || '').trim();
+      if (preamble) sections.push({ title: '', body: preamble });
+      for (const p of parts) {
+        const nl    = p.indexOf('\n');
+        const title = (nl === -1 ? p : p.slice(0, nl)).trim();
+        const body  = (nl === -1 ? '' : p.slice(nl + 1)).trim();
+        sections.push({ title, body });
+      }
+      return sections;
+    }
+
+    // Rend la boîte : verdict (1ère section) ouvert, le reste replié (aperçu 2 lignes).
+    // scoreHtml (note N/total) ajouté EN BAS.
+    function renderFeedbackSections(reply, scoreHtml) {
+      const sections = parseFeedbackSections(reply).filter(s => s.title || s.body);
+      let html = '<div class="fb-controls"><button class="fb-toggle-all" onclick="toggleAllFb(this)">⌄ Tout déplier</button></div>';
+      sections.forEach((s, i) => {
+        const collapsed = i === 0 ? '' : 'collapsed'; // verdict ouvert, reste replié
+        const title = escapeHtml(s.title || 'Verdict');
+        html += `<div class="fb-section ${collapsed}">
+          <div class="fb-head" onclick="toggleFbSection(this)">
+            <span class="fb-title">${title}</span>
+            <span class="fb-chevron">▾</span>
+          </div>
+          <div class="fb-body">${renderMarkdown(s.body)}</div>
+        </div>`;
+      });
+      if (scoreHtml) html += scoreHtml;
+      return html;
+    }
+
+    function toggleFbSection(head) { head.parentElement.classList.toggle('collapsed'); }
+
+    function toggleAllFb(btn) {
+      const secs = document.querySelectorAll('#feedback-text .fb-section');
+      const anyCollapsed = [...secs].some(s => s.classList.contains('collapsed'));
+      secs.forEach(s => s.classList.toggle('collapsed', !anyCollapsed));
+      btn.textContent = anyCollapsed ? '⌃ Tout replier' : '⌄ Tout déplier';
     }
 
     // ── Rendu Markdown simple ─────────────────────────────────
@@ -4266,6 +4725,36 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       } catch (e) {
         alert(`Erreur suppression : ${e.message}`);
       }
+    }
+
+    // ── Actions ✏️/✕ sur la carte de pratique (points 16 & 18) ─
+    function editCurrentCardWord()   { if (currentWords[0]) editWordOnCard(currentWords[0]); }
+    function deleteCurrentCardWord() { if (currentWords[0]) deleteCardWord(currentWords[0]); }
+
+    function deleteCardWord(word) {
+      if (!word) return;
+      if (!confirm(`Supprimer « ${lc(word)} » de ta liste ?`)) return;
+      deleteWordFromSheets(word);
+    }
+
+    async function editWordOnCard(word) {
+      const nw = prompt(`Modifier « ${lc(word)} » :`, lc(word));
+      if (nw === null) return;
+      const newWord = nw.trim();
+      if (!newWord || newWord === word) return;
+      try {
+        const r = await authFetch('/api/words', { method: 'PUT', body: JSON.stringify({ lang: currentLang, oldWord: word, newWord }) });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error?.message || 'erreur');
+        // Met à jour l'état local (mot + progression + cache définition)
+        const lowOld = word.toLowerCase(), lowNew = newWord.toLowerCase();
+        allWords          = allWords.map(w => w === word ? newWord : w);
+        currentWords      = currentWords.map(w => w === word ? newWord : w);
+        previousWordsPool = previousWordsPool.map(w => w === word ? newWord : w);
+        if (progressMap[lowOld]) { progressMap[lowNew] = progressMap[lowOld]; if (lowNew !== lowOld) delete progressMap[lowOld]; }
+        Object.keys(definitionCache).forEach(k => { if (k.startsWith(lowOld + '|')) delete definitionCache[k]; });
+        renderWordDisplay();
+      } catch (e) { alert('Erreur : ' + e.message); }
     }
 
     // ── SHA-256 ───────────────────────────────────────────────
