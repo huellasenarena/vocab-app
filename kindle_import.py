@@ -17,10 +17,48 @@ import urllib.request, urllib.parse
 SCRIPT_DIR     = Path(__file__).parent
 WORKER_URL     = "https://dark-brook-87cc.georg-dreym.workers.dev"
 # Token d'ajout perso (le même que le raccourci iPhone) — visible dans ⚙️ de l'app
-# ou via la réponse de /me. L'import passe désormais par la route /add (D1), pas Sheets.
-ADD_TOKEN      = os.environ.get("ADD_TOKEN", "")
+# ou via la réponse de /me. L'import passe par la route /add (D1), pas Sheets.
+# ⚠️  Ce jeton n'est PAS ta clé OpenAI — c'est l'add_token personnel.
+# Cherché dans l'ordre : variable d'env ADD_TOKEN, puis fichier .token (gitignored).
+TOKEN_FILE     = SCRIPT_DIR / ".token"
+CACHE_FILE     = SCRIPT_DIR / ".kindle_cache.json"
+
+def load_add_token():
+    tok = os.environ.get("ADD_TOKEN", "").strip()
+    if tok:
+        return tok
+    if TOKEN_FILE.exists():
+        return TOKEN_FILE.read_text(encoding="utf-8").strip()
+    return ""
+
+ADD_TOKEN      = load_add_token()
 if not ADD_TOKEN:
-    sys.exit("ADD_TOKEN manquant — exporte-le avant de lancer : export ADD_TOKEN=...")
+    sys.exit(
+        "ADD_TOKEN introuvable.\n"
+        f"  → Mets ton jeton perso (⚙️ de l'app) dans le fichier {TOKEN_FILE} :\n"
+        f"       echo 'ton_token' > {TOKEN_FILE}\n"
+        "  → ou exporte-le :  export ADD_TOKEN=ton_token\n"
+        "  ⚠️  Le jeton perso n'est PAS ta clé OpenAI."
+    )
+# Clé OpenAI DÉDIÉE à l'import Kindle (distincte de la clé du raccourci iPhone
+# et de la clé de vérification des phrases de l'app). Envoyée en header X-OpenAI-Key
+# au Worker ; sans elle, le Worker retombe sur la clé propriétaire OPENAI_API_KEY_SCRIPT.
+# Cherchée dans l'ordre : variable d'env OPENAI_KEY_IMPORT, puis fichier .openai_key.
+OPENAI_KEY_FILE = SCRIPT_DIR / ".openai_key"
+
+def load_import_key():
+    k = os.environ.get("OPENAI_KEY_IMPORT", "").strip()
+    if k:
+        return k
+    if OPENAI_KEY_FILE.exists():
+        return OPENAI_KEY_FILE.read_text(encoding="utf-8").strip()
+    return ""
+
+IMPORT_OPENAI_KEY = load_import_key()
+if not IMPORT_OPENAI_KEY:
+    print(f"⚠️  Aucune clé Kindle ({OPENAI_KEY_FILE} ou $OPENAI_KEY_IMPORT) — "
+          "le Worker utilisera la clé propriétaire en repli.")
+
 # En-tête navigateur requis (sinon 403 Cloudflare 1010)
 _UA            = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
@@ -513,6 +551,51 @@ def reset_clippings(clip_path, books_to_remove):
     return removed
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+# ── Vérification du token (fail-fast) ────────────────────────────────────────
+def check_token():
+    """Vérifie ADD_TOKEN AVANT toute la sélection (ping /add sans mot).
+    Évite de faire tout le travail de tri pour échouer à la fin."""
+    url = WORKER_URL + "/add?" + urllib.parse.urlencode({"token": ADD_TOKEN})
+    req = urllib.request.Request(url, headers={"User-Agent": _UA})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            resp = r.read().decode("utf-8").strip()
+    except Exception as e:
+        print(f"⚠️  Impossible de vérifier le token (réseau ?) : {e}")
+        return ask("   Continuer quand même ?")
+    if "token invalide" in resp.lower():
+        print("❌ Token invalide. Vérifie ton jeton perso (⚙️ de l'app).")
+        print(f"   Source utilisée : {'$ADD_TOKEN' if os.environ.get('ADD_TOKEN') else TOKEN_FILE}")
+        print("   ⚠️  Rappel : ce n'est PAS ta clé OpenAI.")
+        return False
+    return True
+
+
+# ── Cache de sélection (reprise après échec) ─────────────────────────────────
+def save_cache(final, chosen_titles):
+    try:
+        CACHE_FILE.write_text(json.dumps(
+            {"final": final, "chosen_titles": chosen_titles,
+             "saved_at": datetime.now().isoformat()},
+            ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as e:
+        print(f"   ⚠️  Impossible d'écrire le cache de sélection : {e}")
+
+def load_cache():
+    if not CACHE_FILE.exists():
+        return None
+    try:
+        return json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+def clear_cache():
+    try:
+        CACHE_FILE.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
 # ── Import via la route /add (D1) ────────────────────────────────────────────
 def add_word(word, lang_code, ignore_sens=False, ignore_sim=False):
     """Ajoute un mot via /add. Retourne la réponse texte du Worker
@@ -521,7 +604,10 @@ def add_word(word, lang_code, ignore_sens=False, ignore_sim=False):
     if ignore_sens: params["ignore_sens"] = "true"
     if ignore_sim:  params["ignore_sim"]  = "true"
     url = WORKER_URL + "/add?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={"User-Agent": _UA})
+    headers = {"User-Agent": _UA}
+    if IMPORT_OPENAI_KEY:
+        headers["X-OpenAI-Key"] = IMPORT_OPENAI_KEY
+    req = urllib.request.Request(url, headers=headers)
     for attempt in range(3):
         try:
             with urllib.request.urlopen(req, timeout=40) as r:
@@ -535,6 +621,37 @@ def main():
     sep("═")
     print("  📖  Kindle → base BYOV (D1) via /add")
     sep("═")
+
+    # 0. Vérification du token AVANT toute la sélection (fail-fast)
+    if not check_token():
+        sys.exit(1)
+
+    # 0bis. Reprise éventuelle d'une sélection précédente (import interrompu/échoué)
+    cached = load_cache()
+    if cached and cached.get("final"):
+        n = sum(len(w) for w in cached["final"].values())
+        when = str(cached.get("saved_at", "?"))[:16].replace("T", " ")
+        print(f"\n💾 Sélection précédente trouvée : {n} mot(s) (sauvegardée {when}).")
+        if ask("   Reprendre cette sélection (sans rescanner la Kindle) ?"):
+            final = cached["final"]
+            chosen_titles = cached.get("chosen_titles", [])
+            db_path = clip_path = None
+            has_db = has_clips = False
+            kindle = find_kindle()
+            if kindle:
+                db_path = kindle / "system" / "vocabulary" / "vocab.db"
+                has_db = db_path.exists()
+                for candidate in ["documents/My Clippings.txt", "My Clippings.txt"]:
+                    p = kindle / candidate
+                    if p.exists():
+                        clip_path = p; has_clips = True; break
+            else:
+                print("   (Kindle non branchée — l'import se fera quand même ;")
+                print("    la maj de la Kindle sera ignorée.)")
+            run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips)
+            return
+        else:
+            clear_cache()
 
     # 1. Détection Kindle
     print("\n🔍 Recherche de la Kindle...")
@@ -685,34 +802,69 @@ def main():
         else:
             final[sheet] = [w for _, w in normal]
 
+    # 7-9. Import + maj Kindle + résumé (run_import gère le cache de reprise)
+    run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips)
+
+
+def run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips):
+    """Import vers /add + maj Kindle + résumé.
+
+    Reprise incrémentale : le cache (.kindle_cache.json) contient TOUJOURS les
+    mots qu'il RESTE à traiter. Chaque mot envoyé/décidé est retiré du cache et
+    le fichier est réécrit. Si le script est coupé, la relance reprend pile où
+    il s'était arrêté. Un mot en erreur dure (réseau, etc.) reste dans le cache
+    pour être réessayé. Quand tout est traité → cache effacé."""
     # 7. Import vers la base (D1) via la route /add
     #    /add fait lui-même : détection langue, validité, doublon, similarité (juge LLM).
     sep()
     SHEET_TO_CODE = {"Spanish": "es", "French": "fr", "English": "en", "Greek": "el"}
-    total_words = sum(len(w) for w in final.values())
-    print(f"☁️  Import de {total_words} mot(s) vers la base via /add...\n")
-    if not ask("Lancer l'import maintenant ?"):
-        print("   Import annulé.")
-        return
 
-    total_new = total_dup = total_invalid = total_similar = total_err = 0
-
+    # Dédoublonnage local (insensible à la casse) → liste des mots restants = le cache
+    pending = {}
     for sheet, words in final.items():
-        code = SHEET_TO_CODE.get(sheet, "auto")
-        # dédoublonne localement (insensible à la casse) avant d'appeler /add
         uniq, seen = [], set()
         for w in words:
             w = normalize_word(w); wl = w.lower()
             if w and wl not in seen:
                 seen.add(wl); uniq.append(w)
+        if uniq:
+            pending[sheet] = uniq
+    save_cache(pending, chosen_titles)
+
+    total_words = sum(len(w) for w in pending.values())
+    if total_words == 0:
+        print("Rien à importer.")
+        clear_cache()
+        return
+    print(f"☁️  Import de {total_words} mot(s) vers la base via /add...\n")
+    if not ask("Lancer l'import maintenant ?"):
+        print("   Import annulé.")
+        print("   (sélection conservée — relance le script pour la reprendre)")
+        return
+
+    total_new = total_dup = total_invalid = total_similar = total_err = 0
+
+    def done(sheet, w):
+        """Mot traité → on le retire du cache et on réécrit le fichier."""
+        if w in pending.get(sheet, []):
+            pending[sheet].remove(w)
+            if not pending[sheet]:
+                pending.pop(sheet, None)
+        if pending:
+            save_cache(pending, chosen_titles)
+        else:
+            clear_cache()
+
+    for sheet in list(pending.keys()):
+        code = SHEET_TO_CODE.get(sheet, "auto")
         sep()
-        print(f"— {sheet} : {len(uniq)} mot(s) —")
-        for w in uniq:
+        print(f"— {sheet} : {len(pending[sheet])} mot(s) —")
+        for w in list(pending[sheet]):
             txt = add_word(w, code)
             if txt.startswith("Succès"):
-                total_new += 1; print(f"   ✓ {w}")
+                total_new += 1; print(f"   ✓ {w}"); done(sheet, w)
             elif txt.startswith("Doublon"):
-                total_dup += 1; print(f"   = {w} (déjà présent)")
+                total_dup += 1; print(f"   = {w} (déjà présent)"); done(sheet, w)
             elif txt.startswith("INVALID:"):
                 reason = txt[len("INVALID:"):].split("|")[0].strip()
                 print(f"   ⚠️  {w} — {reason}")
@@ -723,6 +875,7 @@ def main():
                     else:                          total_err += 1; print(f"      ✗ {t2}")
                 else:
                     total_invalid += 1
+                done(sheet, w)  # décision prise → traité dans tous les cas
             elif txt.startswith("SIMILAR:"):
                 sim = txt[len("SIMILAR:"):].split("|")[0].strip()
                 print(f"   ⚠️  {w} — proche de « {sim} »")
@@ -733,23 +886,35 @@ def main():
                     else:                          total_err += 1; print(f"      ✗ {t2}")
                 else:
                     total_similar += 1
+                done(sheet, w)  # décision prise → traité dans tous les cas
             else:
+                # erreur dure → on GARDE le mot dans le cache pour réessayer
                 total_err += 1; print(f"   ✗ {w} — {txt}")
 
-    # 8. Mise à jour de la Kindle
-    sep()
-    print("\n📖  Mise à jour de la Kindle :\n")
-    books_to_reset = chosen_titles
+    remaining = sum(len(w) for w in pending.values())
+    if remaining:
+        save_cache(pending, chosen_titles)
+        print(f"\n⚠️  {remaining} mot(s) non importés (erreurs) — conservés dans le cache.")
+        print("   Relance le script pour réessayer uniquement ceux-là.")
+        print("   (Maj de la Kindle ignorée tant qu'il reste des mots à importer.)")
+    else:
+        clear_cache()
 
-    do_reset = ask("Marquer les mots importés comme maîtrisés dans vocab.db ?")
-    if do_reset and has_db:
-        reset_vocab_db(db_path, books_to_reset)
-        print("   ✅ Mots marqués comme maîtrisés")
-
-    do_reset_clips = ask("Supprimer les surlignements importés de My Clippings.txt ?")
-    if do_reset_clips and has_clips:
-        n = reset_clippings(clip_path, books_to_reset)
-        print(f"   ✅ My Clippings.txt nettoyé ({n} entrées supprimées)")
+    # 8. Mise à jour de la Kindle — seulement si TOUT est importé
+    #    (sinon on marquerait comme maîtrisés des mots pas encore en base)
+    do_reset = do_reset_clips = False
+    if not remaining:
+        sep()
+        print("\n📖  Mise à jour de la Kindle :\n")
+        books_to_reset = chosen_titles
+        do_reset = ask("Marquer les mots importés comme maîtrisés dans vocab.db ?")
+        if do_reset and has_db:
+            reset_vocab_db(db_path, books_to_reset)
+            print("   ✅ Mots marqués comme maîtrisés")
+        do_reset_clips = ask("Supprimer les surlignements importés de My Clippings.txt ?")
+        if do_reset_clips and has_clips:
+            n = reset_clippings(clip_path, books_to_reset)
+            print(f"   ✅ My Clippings.txt nettoyé ({n} entrées supprimées)")
 
     # 9. Résumé final
     sep("═")
@@ -758,7 +923,7 @@ def main():
     print(f"   🚫 {total_dup} doublon(s) ignoré(s)")
     if total_invalid: print(f"   ⚠️  {total_invalid} invalide(s) ignoré(s)")
     if total_similar: print(f"   ⚠️  {total_similar} variante(s) ignorée(s)")
-    if total_err:     print(f"   ✗ {total_err} erreur(s)")
+    if total_err:     print(f"   ✗ {total_err} erreur(s) — conservées pour relance")
     if do_reset:   print("   ✅ Mots marqués comme maîtrisés")
     if do_reset_clips: print("   🗑️  My Clippings.txt nettoyé")
     sep("═")

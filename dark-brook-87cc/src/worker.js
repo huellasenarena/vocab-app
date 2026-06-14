@@ -89,6 +89,14 @@ function genToken() {
   return base64url(crypto.getRandomValues(new Uint8Array(24)).buffer);
 }
 
+// Nettoie une clé OpenAI fournie par un appelant (header) : ASCII imprimable
+// uniquement, sinon la construction de l'en-tête Authorization plante.
+function sanitizeScriptKey(k) {
+  if (!k) return '';
+  const clean = String(k).replace(/[^\x20-\x7E]/g, '').trim();
+  return clean.startsWith('sk-') ? clean : '';
+}
+
 const ADD_LANGS = ['English', 'Spanish', 'French', 'Greek'];
 
 // ── Logique d'ajout intelligent (portée de l'Apps Script, lecture D1) ──
@@ -399,6 +407,12 @@ export default {
         const word = normalizeWord(rawWord);
         if (!word) return textOut('Erreur : le mot est vide.');
 
+        // BYOK de l'entonnoir : si l'appelant fournit sa propre clé OpenAI
+        // (kindle_import.py via X-OpenAI-Key), on l'utilise pour les appels LLM ;
+        // sinon repli sur OPENAI_API_KEY_SCRIPT (raccourci iPhone). Voir api_keys_mapping.
+        const callerKey = sanitizeScriptKey(request.headers.get('X-OpenAI-Key'));
+        const aiEnv = callerKey ? { ...env, OPENAI_API_KEY_SCRIPT: callerKey } : env;
+
         const tabMap = {
           english: 'English', anglais: 'English', en: 'English',
           spanish: 'Spanish', espagnol: 'Spanish', es: 'Spanish',
@@ -409,17 +423,17 @@ export default {
 
         // 1 & 2 — détection langue + validité
         if (!language && !ignoreSens) {
-          const analysis = await analyzeWordLangSense(word, env);
+          const analysis = await analyzeWordLangSense(word, aiEnv);
           if (!analysis.lang) return textOut('Erreur : langue non détectée. Réessaie ou précise la langue.');
           language = analysis.lang;
           if (!analysis.valid) return textOut('INVALID:' + analysis.reason + ' | ' + language);
         } else {
           if (!language) {
-            language = await identifyLang(word, env);
+            language = await identifyLang(word, aiEnv);
             if (!language) return textOut('Erreur : langue non détectée. Réessaie ou précise la langue.');
           }
           if (!ignoreSens) {
-            const v = await validateWord(word, language, env);
+            const v = await validateWord(word, language, aiEnv);
             if (!v.valid) return textOut('INVALID:' + v.reason + ' | ' + language);
           }
         }
@@ -448,7 +462,7 @@ export default {
           scored.sort((a, b) => b.score - a.score);
           const candidates = scored.slice(0, 5).map(x => x.word);
           if (candidates.length > 0) {
-            const sim = await judgeSimilarity(word, candidates, language, env);
+            const sim = await judgeSimilarity(word, candidates, language, aiEnv);
             if (sim) return textOut('SIMILAR:' + sim + ' | ' + language);
           }
         }
@@ -839,11 +853,13 @@ export default {
       }
       try {
         const { prompt, maxTokens = 200, model = 'gpt-4.1-mini' } = await request.json();
+        // BYOK : clé fournie par l'appelant (kindle_import.py) sinon clé propriétaire.
+        const scriptKey = sanitizeScriptKey(request.headers.get('X-OpenAI-Key')) || env.OPENAI_API_KEY_SCRIPT;
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${env.OPENAI_API_KEY_SCRIPT}`
+            'Authorization': `Bearer ${scriptKey}`
           },
           body: JSON.stringify({
             model,
