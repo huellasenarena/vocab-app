@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-kindle_import.py — Importe le vocabulaire Kindle vers Google Sheets.
+kindle_import.py — Importe le vocabulaire Kindle vers la base BYOV (Cloudflare D1).
 Usage : python3 kindle_import.py
+Config : .token (jeton perso) + .openai_key (clé OpenAI dédiée Kindle).
+Dépendance optionnelle : `pip3 install wordfreq` (filtre des mots trop courants ;
+repli sur une liste interne si absent).
 """
 
 import os, re, sys, json, sqlite3, shutil, glob, unicodedata
@@ -85,6 +88,46 @@ TOO_COMMON = {
            "leave","call","very","just","but","also","than","then","when","where"},
     "el": set()
 }
+
+# ── Filtres locaux (sans IA) : fréquence + charabia ──────────────────────────
+# Mots trop courants → ignorés via wordfreq (couvre es/fr/en/el). Seuil "modéré"
+# = zipf >= 5.5 (~250-300 mots les plus fréquents par langue ; attrape « he », « ha »…).
+# Réglable via $COMMON_ZIPF_MIN. Repli sur TOO_COMMON si wordfreq absent.
+try:
+    from wordfreq import zipf_frequency as _zipf
+    _HAS_WORDFREQ = True
+except ImportError:
+    _HAS_WORDFREQ = False
+
+COMMON_ZIPF_MIN = float(os.environ.get("COMMON_ZIPF_MIN", "5.5"))
+_WF_LANG = {"es": "es", "fr": "fr", "en": "en", "el": "el"}
+_VOWELS = {
+    "es": "aeiouáéíóúü", "en": "aeiouy",
+    "fr": "aeiouyàâäéèêëîïôöùûüÿœæ", "el": None,  # grec : pas de filtre voyelle
+}
+
+def is_too_common(word, lang):
+    w = (word or "").strip().lower()
+    if not w or " " in w:        # on ne filtre que les mots simples
+        return False
+    if _HAS_WORDFREQ and lang in _WF_LANG:
+        return _zipf(w, _WF_LANG[lang]) >= COMMON_ZIPF_MIN
+    return w in TOO_COMMON.get(lang, set())
+
+def is_gibberish(word, lang):
+    """Charabia OCR : trop court, chiffres/symboles, ou (langues latines) mot
+    sans voyelle. Conservateur : ne touche pas les expressions multi-mots."""
+    w = (word or "").strip().lower()
+    if len(w) < 2:
+        return True
+    if not any(c.isalpha() for c in w):
+        return True
+    if any(c.isdigit() for c in w):
+        return True
+    vs = _VOWELS.get(lang)
+    if vs and " " not in w and not any(c in vs for c in w):
+        return True
+    return False
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 def sep(char="─", n=55):
@@ -623,6 +666,36 @@ def add_word(word, lang_code, ignore_sens=False, ignore_sim=False):
                 return f"Erreur : {e}"
 
 
+def _judge_chunk(words, lang_code):
+    url = WORKER_URL + "/judge-similar?" + urllib.parse.urlencode({"token": ADD_TOKEN})
+    headers = {"User-Agent": _UA, "Content-Type": "application/json"}
+    if IMPORT_OPENAI_KEY:
+        headers["X-OpenAI-Key"] = IMPORT_OPENAI_KEY
+    data = json.dumps({"lang": lang_code, "words": words}).encode()
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return json.loads(r.read()).get("skip", {}) or {}
+        except Exception as e:
+            if attempt == 2:
+                print(f"   ⚠️  similarité indisponible ({e}) — import sans ce filtre.")
+                return {}
+
+
+def judge_similar_batch(words, lang_code):
+    """Similarité groupée (GPT-5.4 côté Worker). Retourne {mot: mot_existant}
+    pour les flexions/doublons à ignorer. Découpe en lots de 30 pour rester
+    dans les limites du Worker (1 appel IA par requête)."""
+    if not words:
+        return {}
+    skip = {}
+    CH = 30
+    for i in range(0, len(words), CH):
+        skip.update(_judge_chunk(words[i:i + CH], lang_code))
+    return skip
+
+
 def main():
     sep("═")
     print("  📖  Kindle → base BYOV (D1) via /add")
@@ -743,11 +816,11 @@ def main():
             print("     ⚠️  Entrée invalide")
         print()
 
-    # 5. Collecte des mots
+    # 5. Collecte des mots (filtres LOCAUX sans IA : charabia + fréquence, auto)
     sep()
     print("🔎 Analyse des mots...\n")
-    # Regrouper par langue→sheet
-    to_import = {}  # {sheet_name: [words]}
+    to_import = {}  # {sheet_name: [word, ...]}
+    dropped_common = dropped_gibberish = 0
 
     for title in chosen_titles:
         lang = book_langs[title]
@@ -755,15 +828,16 @@ def main():
         if not sheet:
             print(f"   ⚠️  Langue '{lang}' non reconnue pour '{title}', ignoré.")
             continue
-        if sheet not in to_import:
-            to_import[sheet] = []
-
-        common = TOO_COMMON.get(lang, set())
+        to_import.setdefault(sheet, [])
 
         # Mots depuis vocab.db
         if title in db_books:
             for word in db_books[title]["words"]:
-                to_import[sheet].append(("word", word, word.lower() in common))
+                if is_gibberish(word, lang):
+                    dropped_gibberish += 1; continue
+                if is_too_common(word, lang):
+                    dropped_common += 1; continue
+                to_import[sheet].append(word)
 
         # Expressions depuis My Clippings (avec déduplication)
         for ctitle, cdata in clip_books.items():
@@ -783,30 +857,22 @@ def main():
                             print(f"⚠️  Expression longue ({word_count} mots) :")
                             print(f"   « {clip} »")
                             if ask("   Importer quand même ?"):
-                                to_import[sheet].append(("clip", clip, False))
+                                to_import[sheet].append(clip)
                         else:
-                            to_import[sheet].append(("clip", clip, False))
+                            to_import[sheet].append(clip)
                 break
 
-    # 6. Validation des ⚠️
-    final = {}  # {sheet_name: [entry]}
-    flagged_total = 0
-
-    for sheet, entries in to_import.items():
-        flagged = [(t, w) for t, w, flag in entries if flag]
-        normal  = [(t, w) for t, w, flag in entries if not flag]
-        flagged_total += len(flagged)
-
-        if flagged:
-            sep()
-            print(f"⚠️  Mots très communs détectés pour l'onglet '{sheet}' :\n")
-            kept_flagged = []
-            for _, word in flagged:
-                if ask(f"   « {word} »  — importer quand même ?"):
-                    kept_flagged.append(word)
-            final[sheet] = [w for _, w in normal] + kept_flagged
-        else:
-            final[sheet] = [w for _, w in normal]
+    # 6. Bilan des filtres locaux (aucune question : c'est automatique)
+    final = {sheet: words for sheet, words in to_import.items() if words}
+    sep()
+    print("🧹 Filtres locaux (sans IA) :")
+    src = "wordfreq" if _HAS_WORDFREQ else "liste interne (wordfreq absent)"
+    if dropped_common:
+        print(f"   • {dropped_common} mot(s) trop courant(s) ignoré(s) [{src}, zipf≥{COMMON_ZIPF_MIN}]")
+    if dropped_gibberish:
+        print(f"   • {dropped_gibberish} entrée(s) illisible(s) ignorée(s)")
+    if not (dropped_common or dropped_gibberish):
+        print("   • rien à filtrer")
 
     # 7-9. Import + maj Kindle + résumé (run_import gère le cache de reprise)
     run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips)
@@ -821,7 +887,8 @@ def run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips):
     il s'était arrêté. Un mot en erreur dure (réseau, etc.) reste dans le cache
     pour être réessayé. Quand tout est traité → cache effacé."""
     # 7. Import vers la base (D1) via la route /add
-    #    /add fait lui-même : détection langue, validité, doublon, similarité (juge LLM).
+    #    Validité IA = DÉSACTIVÉE (ignore_sens) ; similarité = pré-jugée en lot
+    #    (GPT-5.4 via /judge-similar) puis ignore_sim. /add ne fait que doublon + insert.
     sep()
     SHEET_TO_CODE = {"Spanish": "es", "French": "fr", "English": "en", "Greek": "el"}
 
@@ -848,7 +915,7 @@ def run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips):
         print("   (sélection conservée — relance le script pour la reprendre)")
         return
 
-    total_new = total_dup = total_invalid = total_similar = total_err = 0
+    total_new = total_dup = total_similar = total_err = 0
 
     def done(sheet, w):
         """Mot traité → on le retire du cache et on réécrit le fichier."""
@@ -865,34 +932,25 @@ def run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips):
         code = SHEET_TO_CODE.get(sheet, "auto")
         sep()
         print(f"— {sheet} : {len(pending[sheet])} mot(s) —")
+        # Pré-jugement similarité GROUPÉ (1 appel IA par lot) → mots à ignorer
+        print("   🔎 vérification des similaires (GPT-5.4)…")
+        skip = judge_similar_batch(pending[sheet], code)
         for w in list(pending[sheet]):
-            txt = add_word(w, code)
+            if w in skip:
+                total_similar += 1
+                m = skip[w]
+                if m and m.lower() != w.lower():
+                    print(f"   ↺ {w} (ignoré — proche de « {m} »)")
+                else:
+                    print(f"   = {w} (déjà présent)")
+                done(sheet, w)
+                continue
+            # validité OFF (ignore_sens) + similarité déjà jugée (ignore_sim)
+            txt = add_word(w, code, ignore_sens=True, ignore_sim=True)
             if txt.startswith("Succès"):
                 total_new += 1; print(f"   ✓ {w}"); done(sheet, w)
             elif txt.startswith("Doublon"):
                 total_dup += 1; print(f"   = {w} (déjà présent)"); done(sheet, w)
-            elif txt.startswith("INVALID:"):
-                reason = txt[len("INVALID:"):].split("|")[0].strip()
-                print(f"   ⚠️  {w} — {reason}")
-                if ask("      importer quand même ?"):
-                    t2 = add_word(w, code, ignore_sens=True)
-                    if t2.startswith("Succès"):   total_new += 1; print("      ✓ ajouté")
-                    elif t2.startswith("Doublon"): total_dup += 1; print("      = déjà présent")
-                    else:                          total_err += 1; print(f"      ✗ {t2}")
-                else:
-                    total_invalid += 1
-                done(sheet, w)  # décision prise → traité dans tous les cas
-            elif txt.startswith("SIMILAR:"):
-                sim = txt[len("SIMILAR:"):].split("|")[0].strip()
-                print(f"   ⚠️  {w} — proche de « {sim} »")
-                if ask("      importer quand même ?"):
-                    t2 = add_word(w, code, ignore_sim=True)
-                    if t2.startswith("Succès"):   total_new += 1; print("      ✓ ajouté")
-                    elif t2.startswith("Doublon"): total_dup += 1; print("      = déjà présent")
-                    else:                          total_err += 1; print(f"      ✗ {t2}")
-                else:
-                    total_similar += 1
-                done(sheet, w)  # décision prise → traité dans tous les cas
             else:
                 # erreur dure → on GARDE le mot dans le cache pour réessayer
                 total_err += 1; print(f"   ✗ {w} — {txt}")
@@ -927,8 +985,7 @@ def run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips):
     print("\n✨ Import terminé !\n")
     print(f"   📥 {total_new} mot(s) ajouté(s) dans la base")
     print(f"   🚫 {total_dup} doublon(s) ignoré(s)")
-    if total_invalid: print(f"   ⚠️  {total_invalid} invalide(s) ignoré(s)")
-    if total_similar: print(f"   ⚠️  {total_similar} variante(s) ignorée(s)")
+    if total_similar: print(f"   ↺ {total_similar} variante(s)/doublon(s) proches ignoré(s)")
     if total_err:     print(f"   ✗ {total_err} erreur(s) — conservées pour relance")
     if do_reset:   print("   ✅ Mots marqués comme maîtrisés")
     if do_reset_clips: print("   🗑️  My Clippings.txt nettoyé")
