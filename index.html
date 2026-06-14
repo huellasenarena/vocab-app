@@ -1190,6 +1190,10 @@
         <span>Afficher compteur tokens</span>
         <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
       </label>
+      <label class="settings-row">
+        <span>Mode situation compte dans la progression<br><span style="font-size:0.7rem;color:var(--muted);">étoiles + révisions (l'historique compte toujours)</span></span>
+        <input type="checkbox" id="toggle-situation-counts" onchange="setSituationCounts(this.checked)">
+      </label>
       <div class="settings-row" style="cursor:default;">
         <span>Thème photos (Imagen)</span>
         <select id="image-theme-select" onchange="setImageTheme(this.value)"
@@ -1510,6 +1514,7 @@
     const KEY_GRAMMAR          = "vocab_grammar_enabled";
     const KEY_MAX_NEW          = "vocab_max_new_per_day";
     const KEY_SHOW_TOKENS      = "vocab_show_tokens";
+    const KEY_SITUATION_COUNTS = "vocab_situation_counts"; // mode situation affecte-t-il la progression ?
     const KEY_IMAGE_THEME      = "vocab_image_theme";
     const KEY_MODEL            = "vocab_model";
     const KEY_GPT_EFFORT       = "vocab_gpt_effort";
@@ -1595,6 +1600,7 @@
     let _pendingFlash   = 0;
     let _pendingFlashLite = 0;
     let showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
+    let situationCounts     = localStorage.getItem(KEY_SITUATION_COUNTS) === 'true'; // défaut false : le mode situation ne touche pas la progression
     let currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4'; // 'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'
     let gptEffort           = localStorage.getItem(KEY_GPT_EFFORT)      || 'low';     // 'none'|'low'|'medium'|'high'
     let geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';    // 'none'|'minimal'|'low'|'medium'|'high'
@@ -2247,6 +2253,12 @@
       saveSettingsToServer();
     }
 
+    function setSituationCounts(val) {
+      situationCounts = val;
+      localStorage.setItem(KEY_SITUATION_COUNTS, val ? 'true' : 'false');
+      saveSettingsToServer();
+    }
+
     function setModel(val) {
       currentModel = val;
       localStorage.setItem(KEY_MODEL, val);
@@ -2327,6 +2339,7 @@
       grammarFormsEnabled = localStorage.getItem(KEY_GRAMMAR) !== 'false';
       maxNewPerDay        = parseInt(localStorage.getItem(KEY_MAX_NEW)) || 60;
       showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
+      situationCounts     = localStorage.getItem(KEY_SITUATION_COUNTS) === 'true';
       currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4';
       gptEffort           = localStorage.getItem(KEY_GPT_EFFORT) || 'low';
       geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';
@@ -2340,6 +2353,7 @@
       document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
       document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
       document.getElementById('toggle-tokens').checked = showTokenCounter;
+      document.getElementById('toggle-situation-counts').checked = situationCounts;
       document.getElementById('image-theme-select').value = imageTheme;
       document.getElementById('model-select').value = currentModel;
       updateReasoningUI();
@@ -4332,8 +4346,8 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
           document.getElementById('situation-reveal-box').style.display  = 'block';
         }
 
-        // Sauvegarde dans Progress et History
-        await saveProgress(word, isCorrect);
+        // Sauvegarde : Progress (étoiles + révisions) seulement si activé dans ⚙️ ; History toujours
+        if (situationCounts) await saveProgress(word, isCorrect);
         saveHistory(word, isCorrect);
 
         // Bouton "Autre situation"
@@ -4359,8 +4373,8 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
       document.getElementById('situation-reveal-box').style.display  = 'block';
       document.getElementById('situation-answer-section').style.display = 'none';
 
-      // Pénalité légère : NextReview = demain
-      await saveProgress(word, false);
+      // Pénalité légère : NextReview = demain (seulement si le mode situation compte) ; History toujours
+      if (situationCounts) await saveProgress(word, false);
       saveHistory(word, false);
 
       // Bouton "Autre situation"
