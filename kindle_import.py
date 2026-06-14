@@ -24,18 +24,14 @@ TOKEN_FILE     = SCRIPT_DIR / ".token"
 CACHE_FILE     = SCRIPT_DIR / ".kindle_cache.json"
 
 def load_add_token():
-    tok = os.environ.get("ADD_TOKEN", "").strip()
-    # Garde-fou : une clé OpenAI (sk-…) collée par erreur dans $ADD_TOKEN n'est
-    # PAS un jeton perso → on l'ignore et on retombe sur le fichier .token.
-    if tok.startswith("sk-"):
-        print("⚠️  $ADD_TOKEN ressemble à une clé OpenAI (sk-…), pas à un jeton perso.")
-        print("    → ignorée ; lecture de .token. (Fais `unset ADD_TOKEN` pour t'en débarrasser.)")
-        tok = ""
-    if tok:
-        return tok
+    # Le fichier .token est LA source de vérité (mis en place une fois, persistant).
+    # $ADD_TOKEN n'est qu'un secours si le fichier n'existe pas — il ne peut PAS
+    # l'écraser (sinon une vieille variable parasite casse tout, cf. bug vécu).
     if TOKEN_FILE.exists():
-        return TOKEN_FILE.read_text(encoding="utf-8").strip()
-    return ""
+        tok = TOKEN_FILE.read_text(encoding="utf-8").strip()
+        if tok:
+            return tok
+    return os.environ.get("ADD_TOKEN", "").strip()
 
 ADD_TOKEN      = load_add_token()
 if not ADD_TOKEN:
@@ -49,16 +45,16 @@ if not ADD_TOKEN:
 # Clé OpenAI DÉDIÉE à l'import Kindle (distincte de la clé du raccourci iPhone
 # et de la clé de vérification des phrases de l'app). Envoyée en header X-OpenAI-Key
 # au Worker ; sans elle, le Worker retombe sur la clé propriétaire OPENAI_API_KEY_SCRIPT.
-# Cherchée dans l'ordre : variable d'env OPENAI_KEY_IMPORT, puis fichier .openai_key.
+# Le fichier .openai_key est la source de vérité ; $OPENAI_KEY_IMPORT n'est qu'un
+# secours si le fichier n'existe pas (il ne peut pas l'écraser).
 OPENAI_KEY_FILE = SCRIPT_DIR / ".openai_key"
 
 def load_import_key():
-    k = os.environ.get("OPENAI_KEY_IMPORT", "").strip()
-    if k:
-        return k
     if OPENAI_KEY_FILE.exists():
-        return OPENAI_KEY_FILE.read_text(encoding="utf-8").strip()
-    return ""
+        k = OPENAI_KEY_FILE.read_text(encoding="utf-8").strip()
+        if k:
+            return k
+    return os.environ.get("OPENAI_KEY_IMPORT", "").strip()
 
 IMPORT_OPENAI_KEY = load_import_key()
 if not IMPORT_OPENAI_KEY:
@@ -570,13 +566,13 @@ def check_token():
         print(f"⚠️  Impossible de vérifier le token (réseau ?) : {e}")
         return ask("   Continuer quand même ?")
     if "token invalide" in resp.lower():
-        from_env = bool(os.environ.get("ADD_TOKEN"))
+        has_file = TOKEN_FILE.exists() and TOKEN_FILE.read_text(encoding="utf-8").strip()
+        src = TOKEN_FILE if has_file else "$ADD_TOKEN"
         print("❌ Token invalide. Vérifie ton jeton perso (⚙️ de l'app).")
-        print(f"   Source utilisée : {'$ADD_TOKEN' if from_env else TOKEN_FILE}")
+        print(f"   Source utilisée : {src}")
         print("   ⚠️  Rappel : ce n'est PAS ta clé OpenAI.")
-        if from_env:
-            print(f"   👉 La variable $ADD_TOKEN écrase le fichier {TOKEN_FILE}.")
-            print("      Fais  `unset ADD_TOKEN`  puis relance pour utiliser .token.")
+        if has_file:
+            print(f"   👉 Corrige la valeur dans {TOKEN_FILE}.")
         return False
     return True
 
