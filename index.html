@@ -1348,11 +1348,6 @@
         <div class="feedback-label" id="situation-feedback-label"></div>
         <div id="situation-feedback-text"></div>
       </div>
-      <!-- Mot révélé (uniquement après « Je ne sais pas » — sinon le verdict donne déjà le mot) -->
-      <div class="hint-box" id="situation-reveal-box" style="display:none;">
-        <div class="hint-label">Le mot</div>
-        <div id="situation-revealed-word" style="font-size:1.4rem;font-weight:600;color:var(--accent);text-align:center;padding:0.5rem 0;"></div>
-      </div>
     </div>
 
     <!-- Feedback -->
@@ -2643,7 +2638,6 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('situation-box').style.display           = 'none';
       document.getElementById('situation-answer-section').style.display = 'none';
       document.getElementById('situation-feedback-box').classList.remove('visible', 'correct', 'incorrect', 'partial');
-      document.getElementById('situation-reveal-box').style.display    = 'none';
       document.getElementById('situation-input').value                 = '';
       lockSituationAnswer(false);
     }
@@ -4538,10 +4532,14 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
 
     async function revealWord() {
       const words = currentWords;
-      const lbl = document.querySelector('#situation-reveal-box .hint-label');
-      if (lbl) lbl.textContent = words.length > 1 ? 'Les mots' : 'Le mot';
-      document.getElementById('situation-revealed-word').textContent = words.join(' · ');
-      document.getElementById('situation-reveal-box').style.display  = 'block';
+      // Révèle le(s) mot(s) DANS la boîte de verdict (même emplacement que la vérification)
+      const fb     = document.getElementById('situation-feedback-box');
+      const fbText = document.getElementById('situation-feedback-text');
+      fb.classList.remove('correct', 'partial');
+      fb.classList.add('visible', 'incorrect'); // abandon = compté raté
+      document.getElementById('situation-feedback-label').textContent = '✗';
+      const lead = words.length > 1 ? 'Les mots étaient' : 'Le mot était';
+      fbText.innerHTML = `${lead} : <strong>${words.map(w => lc(w)).join(', ')}</strong>`;
       lockSituationAnswer(true); // verrouille sans masquer (pas de saut visuel)
 
       // « Je ne sais pas » = tout raté → poids de relance accru jusqu'à réussite
