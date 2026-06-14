@@ -494,7 +494,8 @@
     #sticky-hide-btn.active { color: var(--accent); }
     .word-chip:active { opacity: 0.75; }
     .word-card { cursor: pointer; transition: border-color 0.15s; }
-    .word-card:hover { border-color: var(--accent); }
+    .word-card:not(#spaced-done-card):hover { border-color: var(--accent); }
+    #spaced-done-card { cursor: default; }
     .word-chip .chip-word {
       font-size: 1.1rem;
       font-weight: 600;
@@ -538,6 +539,12 @@
       font-size: 0.85rem; line-height: 1; padding: 0.15rem 0.25rem; color: var(--muted);
     }
     .chip-del:hover { opacity: 1; }
+    .chip-edit {
+      position: absolute; top: 0.15rem; left: 0.3rem;
+      background: none; border: none; cursor: pointer; opacity: 0.45;
+      font-size: 0.78rem; line-height: 1; padding: 0.15rem 0.25rem;
+    }
+    .chip-edit:hover { opacity: 1; }
     .word-chip { position: relative; }
     .word-label { font-size: 0.75rem; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
     .word-main  { font-size: 2rem; font-weight: 600; color: var(--accent); line-height: 1.2; }
@@ -641,6 +648,7 @@
     .feedback-box {
       width: 100%; border-radius: 8px; padding: 1.25rem; font-size: 0.92rem;
       line-height: 1.7; display: none; animation: fadeIn 0.4s ease;
+      border: 1px solid var(--border); /* bordure neutre pendant le streaming (avant verdict) */
     }
     .feedback-box.visible   { display: block; }
     .feedback-box.correct   { background: #0e2018; border: 1px solid var(--success); color: var(--success); }
@@ -660,10 +668,12 @@
       letter-spacing: 0.08em; font-weight: 600; }
     .fb-chevron { font-size: 0.8rem; flex-shrink: 0; transition: transform 0.2s; }
     .fb-section.collapsed .fb-chevron { transform: rotate(-90deg); }
-    .fb-body { padding-bottom: 0.55rem; }
+    .fb-body { padding-bottom: 0.55rem; line-height: 1.7; }
     .fb-section.collapsed .fb-body {
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
       overflow: hidden; opacity: 0.6;
+      /* clippe net à exactement 2 lignes (line-clamp seul laisse parfois dépasser la 3e) */
+      max-height: 3.4em; padding-bottom: 0;
     }
     .feedback-box.image     { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
     .feedback-box.image .md-h2 {
@@ -818,6 +828,8 @@
     .add-result.ok   { color:var(--success); }
     .add-result.err  { color:var(--error); }
     .add-result.warn { color:#e0a85a; }
+
+    .next-review-line { margin-top:0.7rem; font-family:'DM Mono',monospace; font-size:0.74rem; opacity:0.8; text-align:center; }
 
     .mot-row { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.6rem 0.85rem; margin-bottom:0.5rem; border:1px solid var(--border); border-radius:12px; background:var(--surface); transition:border-color 0.15s; }
     .mot-row:hover { border-color:var(--accent); }
@@ -1386,6 +1398,9 @@
       <h1 class="app-title">Révisions</h1>
       <button class="btn-ghost" onclick="showScreen('screen-practice')">← retour</button>
     </div>
+    <input type="text" id="revisions-search" placeholder="🔍 chercher un mot…" oninput="renderRevisions()"
+      autocapitalize="off" autocomplete="off"
+      style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.6rem;">
     <div class="history-filters" id="revisions-sort">
       <button class="filter-btn active" onclick="setRevisionsSort('next')">📅 Plus proche</button>
       <button class="filter-btn" onclick="setRevisionsSort('far')">📆 Plus lointaine</button>
@@ -2283,7 +2298,7 @@
       img.onload = () => img.classList.remove('photo-loading');
       img.src = currentPhotoUrl;
       document.getElementById('sentence-input').value = '';
-      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'image');
+      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'partial', 'image');
       document.getElementById('feedback-text').innerHTML = '';
       lastSubmittedSentence = '';
     }
@@ -2306,7 +2321,7 @@
       const feedbackText = document.getElementById('feedback-text');
       const vocabBox     = document.getElementById('image-vocab-box');
       const vocabChips   = document.getElementById('image-vocab-chips');
-      feedbackBox.classList.remove('visible', 'correct', 'incorrect', 'image');
+      feedbackBox.classList.remove('visible', 'correct', 'incorrect', 'partial', 'image');
       feedbackText.innerHTML = '';
       vocabBox.classList.remove('visible');
       vocabChips.innerHTML = '';
@@ -2428,7 +2443,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('hint-text').textContent        = '';
       document.getElementById('sentence-input').value         = '';
       document.getElementById('sentence-input').style.height  = '';
-      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'image');
+      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'partial', 'image');
       document.getElementById('feedback-text').textContent    = '';
       document.getElementById('no-count-notice').textContent  = '';
       document.getElementById('scroll-spacer').style.display  = 'none';
@@ -2520,7 +2535,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('related-chips').innerHTML = '';
       document.getElementById('image-vocab-box').classList.remove('visible');
       document.getElementById('image-vocab-chips').innerHTML = '';
-      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'image');
+      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'partial', 'image');
       document.getElementById('feedback-text').innerHTML = '';
       document.getElementById('sentence-input').value = '';
       lastSubmittedSentence = '';
@@ -2828,6 +2843,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           const reviewCls  = (practiceMode === 'spaced' && !isNewWord(w)) ? ' chip-review' : '';
           const esc = w.replace(/'/g, "\\'");
           return `<button class="word-chip${reviewCls}" onclick="chipHint('${esc}')">
+            <span class="chip-edit" title="Modifier" onclick="event.stopPropagation(); editWordOnCard('${esc}')">✏️</span>
             <span class="chip-del" title="Supprimer" onclick="event.stopPropagation(); deleteCardWord('${esc}')">✕</span>
             <span class="chip-word">${lc(w)}</span>
             <span class="chip-stars ${starsInfo.cls}">${starsInfo.str}</span>
@@ -2838,14 +2854,15 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       updateStickyBar();
     }
 
-    function getStarsInfo(word) {
-      const prog = progressMap[word.toLowerCase()];
-      if (!prog) return { str: '☆☆☆', cls: 's0' };
-      const net = prog.correct - prog.incorrect;
+    function starsFromNet(net) {
       if (net >= 3) return { str: '★★★', cls: 's3' };
       if (net >= 2) return { str: '★★☆', cls: 's2' };
       if (net >= 1) return { str: '★☆☆', cls: 's1' };
       return { str: '☆☆☆', cls: 's0' };
+    }
+    function getStarsInfo(word) {
+      const prog = progressMap[word.toLowerCase()];
+      return starsFromNet(prog ? (prog.correct - prog.incorrect) : 0);
     }
 
     function updateStars(word) {
@@ -3151,7 +3168,7 @@ Respond entirely in ${langName}.`;
       const feedbackLabel = document.getElementById('feedback-label');
       const feedbackText  = document.getElementById('feedback-text');
       const noCountNotice = document.getElementById('no-count-notice');
-      feedbackBox.classList.remove('visible', 'correct', 'incorrect');
+      feedbackBox.classList.remove('visible', 'correct', 'incorrect', 'partial');
       feedbackLabel.textContent = '';
       noCountNotice.textContent = '';
       document.getElementById('qcm-offer').classList.remove('visible');
@@ -3394,12 +3411,23 @@ Respond entirely in ${feedbackLang}.`;
         // Rafraîchit les étoiles des chips multi-mots (single géré dans saveProgress)
         if (!isSingle) refreshChipStars();
 
-        // Point 19 : montre la prochaine date de révision sur la carte (mot seul)
-        if (practiceMode === 'spaced' && isSingle) {
-          const p = progressMap[currentWords[0].toLowerCase()];
-          if (p && p.nextReview) {
-            const lab = reviewLabel(p.nextReview, todayStrLocal());
-            document.getElementById('word-count-label').textContent = '📅 ' + lab.txt;
+        // Point 19/6 : prochaine date de révision affichée DANS la boîte (visible),
+        // pour le mot seul comme pour le multi-mots.
+        if (practiceMode === 'spaced') {
+          const today = todayStrLocal();
+          const parts = [];
+          for (const w of currentWords) {
+            const p = progressMap[w.toLowerCase()];
+            if (p && p.nextReview) {
+              const lab = reviewLabel(p.nextReview, today);
+              parts.push(isSingle ? lab.txt : `${escapeHtml(lc(w))} → ${lab.txt}`);
+            }
+          }
+          if (parts.length) {
+            const label = isSingle
+              ? `📅 prochaine révision : ${parts[0]}`
+              : `📅 prochaines révisions : ${parts.join(' · ')}`;
+            feedbackText.innerHTML += `<div class="next-review-line">${label}</div>`;
           }
         }
 
@@ -3669,6 +3697,7 @@ Write all scenarios in ${langName}.`;
 
     // ── Écran « Mes mots » ─────────────────────────────────────
     let motsData = [];      // [{ word, lang, created_at }]
+    let motsStars = {};     // 'lang|word' -> net (étoiles dans « Mes mots »)
     let motsFilter = 'all';
 
     const motTs = s => { const d = new Date(String(s || '').replace(' ', 'T')); return isNaN(d) ? 0 : d.getTime(); };
@@ -3685,12 +3714,16 @@ Write all scenarios in ${langName}.`;
       document.getElementById('mots-list').innerHTML =
         '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
       try {
-        const resps = await Promise.all(
-          LANGS.map(l => authFetch(`/api/words?lang=${encodeURIComponent(l.key)}&detail=1`).then(r => r.json()))
-        );
-        motsData = [];
-        LANGS.forEach((l, i) => (resps[i].words || []).forEach(w =>
-          motsData.push({ word: w.word, lang: l.key, created_at: w.created_at })));
+        const [wordsResps, progResps] = await Promise.all([
+          Promise.all(LANGS.map(l => authFetch(`/api/words?lang=${encodeURIComponent(l.key)}&detail=1`).then(r => r.json()))),
+          Promise.all(LANGS.map(l => authFetch(`/api/progress?lang=${encodeURIComponent(l.key)}`).then(r => r.json()))),
+        ]);
+        motsData = []; motsStars = {};
+        LANGS.forEach((l, i) => {
+          (wordsResps[i].words || []).forEach(w => motsData.push({ word: w.word, lang: l.key, created_at: w.created_at }));
+          (progResps[i].progress || []).forEach(p =>
+            motsStars[l.key + '|' + (p.word || '').toLowerCase()] = (p.correct || 0) - (p.incorrect || 0));
+        });
         sortMots();
         renderMotsFilters();
         renderMots();
@@ -3723,9 +3756,11 @@ Write all scenarios in ${langName}.`;
       list.innerHTML = rows.map(m => {
         const info = LANGS.find(x => x.key === m.lang);
         const esc  = m.word.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const si   = starsFromNet(motsStars[m.lang + '|' + m.word.toLowerCase()] || 0);
         return `<div class="mot-row">
           <span class="mot-w">${info?.flag || ''} ${m.word}</span>
           <span class="mot-actions">
+            <span class="stars ${si.cls}" style="font-size:0.8rem">${si.str}</span>
             <span class="mot-date">${fmtMotDate(m.created_at)}</span>
             <button onclick="editMot('${m.lang}','${esc}')" title="Renommer">✏️</button>
             <button onclick="deleteMot('${m.lang}','${esc}')" title="Supprimer">🗑</button>
@@ -3875,10 +3910,11 @@ Write all scenarios in ${langName}.`;
 
     function showRevisions() {
       showScreen('screen-revisions');
+      document.getElementById('revisions-search').value = '';
       revisionsRows = [];
       for (const w of allWords) {
         const p = progressMap[w.toLowerCase()];
-        if (p && p.nextReview) revisionsRows.push({ word: w, next: p.nextReview });
+        if (p && p.nextReview) revisionsRows.push({ word: w, next: p.nextReview, net: (p.correct || 0) - (p.incorrect || 0) });
       }
       renderRevisions();
     }
@@ -3897,7 +3933,12 @@ Write all scenarios in ${langName}.`;
         list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun mot programmé pour l\'instant — pratique des mots pour les voir apparaître ici.</p>';
         return;
       }
-      const rows = [...revisionsRows];
+      const q = (document.getElementById('revisions-search').value || '').trim().toLowerCase();
+      let rows = q ? revisionsRows.filter(r => r.word.toLowerCase().includes(q)) : [...revisionsRows];
+      if (rows.length === 0) {
+        list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun mot trouvé.</p>';
+        return;
+      }
       if (revisionsSort === 'az') {
         rows.sort((a, b) => lc(a.word).localeCompare(lc(b.word)));
       } else if (revisionsSort === 'far') {
@@ -3911,9 +3952,13 @@ Write all scenarios in ${langName}.`;
         : '';
       list.innerHTML = head + rows.map(r => {
         const lab = reviewLabel(r.next, today);
+        const si  = starsFromNet(r.net || 0);
         return `<div class="mot-row">
           <span class="mot-w">${lc(r.word)}</span>
-          <span class="mot-date ${lab.cls}">${lab.txt}</span>
+          <span class="mot-actions">
+            <span class="stars ${si.cls}" style="font-size:0.8rem">${si.str}</span>
+            <span class="mot-date ${lab.cls}">${lab.txt}</span>
+          </span>
         </div>`;
       }).join('');
     }
@@ -4202,56 +4247,8 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
       }
     });
 
-    // ── Menu contextuel : right-click (Mac/iPad trackpad) ─────
-    document.addEventListener('contextmenu', e => {
-      const chip = e.target.closest('.word-chip');
-      const card = e.target.closest('#single-word-card');
-      if (!chip && !card) return;
-      const word = chip
-        ? chip.querySelector('.chip-word')?.textContent?.trim()
-        : currentWords[0];
-      if (!word || !currentWords.includes(word)) return;
-      e.preventDefault();
-      showWordContextMenu(word, e.clientX, e.clientY);
-    });
-
-    // ── Menu contextuel : long press (touch) ─────────────────
-    document.addEventListener('touchstart', e => {
-      // Fermer le menu si touche hors du menu
-      if (document.getElementById('word-ctx-menu').classList.contains('visible')) {
-        if (!e.target.closest('#word-ctx-menu')) closeWordContextMenu();
-        return;
-      }
-      const chip = e.target.closest('.word-chip');
-      const card = e.target.closest('#single-word-card');
-      if (!chip && !card) return;
-      const word = chip
-        ? chip.querySelector('.chip-word')?.textContent?.trim()
-        : currentWords[0];
-      if (!word || !currentWords.includes(word)) return;
-      const touch = e.touches[0];
-      const x = touch.clientX, y = touch.clientY;
-      _ctxLongTimer = setTimeout(() => {
-        _justLongPressed = true;
-        showWordContextMenu(word, x, y);
-      }, 500);
-    }, { passive: true });
-
-    document.addEventListener('touchend', () => {
-      clearTimeout(_ctxLongTimer);
-      _ctxLongTimer = null;
-    }, { passive: true });
-
-    document.addEventListener('touchmove', () => {
-      clearTimeout(_ctxLongTimer);
-      _ctxLongTimer = null;
-    }, { passive: true });
-
-    // Fermer le menu au clic souris hors du menu
-    document.addEventListener('mousedown', e => {
-      if (!document.getElementById('word-ctx-menu').classList.contains('visible')) return;
-      if (!e.target.closest('#word-ctx-menu')) closeWordContextMenu();
-    });
+    // Menu contextuel clic-droit / appui long retiré (point 4) — suppression/édition
+    // se font désormais via les boutons ✕ / ✏️ visibles sur la carte et les chips.
 
     // ── Mots liés ─────────────────────────────────────────────
     async function fetchRelatedWords(words) {
