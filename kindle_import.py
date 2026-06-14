@@ -25,6 +25,12 @@ CACHE_FILE     = SCRIPT_DIR / ".kindle_cache.json"
 
 def load_add_token():
     tok = os.environ.get("ADD_TOKEN", "").strip()
+    # Garde-fou : une clé OpenAI (sk-…) collée par erreur dans $ADD_TOKEN n'est
+    # PAS un jeton perso → on l'ignore et on retombe sur le fichier .token.
+    if tok.startswith("sk-"):
+        print("⚠️  $ADD_TOKEN ressemble à une clé OpenAI (sk-…), pas à un jeton perso.")
+        print("    → ignorée ; lecture de .token. (Fais `unset ADD_TOKEN` pour t'en débarrasser.)")
+        tok = ""
     if tok:
         return tok
     if TOKEN_FILE.exists():
@@ -564,9 +570,13 @@ def check_token():
         print(f"⚠️  Impossible de vérifier le token (réseau ?) : {e}")
         return ask("   Continuer quand même ?")
     if "token invalide" in resp.lower():
+        from_env = bool(os.environ.get("ADD_TOKEN"))
         print("❌ Token invalide. Vérifie ton jeton perso (⚙️ de l'app).")
-        print(f"   Source utilisée : {'$ADD_TOKEN' if os.environ.get('ADD_TOKEN') else TOKEN_FILE}")
+        print(f"   Source utilisée : {'$ADD_TOKEN' if from_env else TOKEN_FILE}")
         print("   ⚠️  Rappel : ce n'est PAS ta clé OpenAI.")
+        if from_env:
+            print(f"   👉 La variable $ADD_TOKEN écrase le fichier {TOKEN_FILE}.")
+            print("      Fais  `unset ADD_TOKEN`  puis relance pour utiliser .token.")
         return False
     return True
 
