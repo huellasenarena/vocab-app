@@ -59,6 +59,8 @@
       align-self: flex-start;
       margin-top: 0;
     }
+    /* Écrans-listes ancrés en haut : le titre/recherche/tri ne bougent pas quand la liste change */
+    #screen-revisions, #screen-mots, #screen-history, #screen-stats, #screen-add { align-self: flex-start; }
 
     .token-warning {
       color: #e0a030 !important;
@@ -533,18 +535,12 @@
       transition: opacity 0.15s;
     }
     .card-action-btn:hover { opacity: 1; }
-    .chip-del {
-      position: absolute; top: 0.15rem; right: 0.3rem;
-      background: none; border: none; cursor: pointer; opacity: 0.45;
-      font-size: 0.85rem; line-height: 1; padding: 0.15rem 0.25rem; color: var(--muted);
+    .chip-menu-btn {
+      position: absolute; top: 0.1rem; right: 0.35rem;
+      background: none; border: none; cursor: pointer; opacity: 0.5;
+      font-size: 1.1rem; line-height: 1; padding: 0.1rem 0.3rem; color: var(--muted);
     }
-    .chip-del:hover { opacity: 1; }
-    .chip-edit {
-      position: absolute; top: 0.15rem; left: 0.3rem;
-      background: none; border: none; cursor: pointer; opacity: 0.45;
-      font-size: 0.78rem; line-height: 1; padding: 0.15rem 0.25rem;
-    }
-    .chip-edit:hover { opacity: 1; }
+    .chip-menu-btn:hover { opacity: 1; }
     .word-chip { position: relative; }
     .word-label { font-size: 0.75rem; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
     .word-main  { font-size: 2rem; font-weight: 600; color: var(--accent); line-height: 1.2; }
@@ -1204,8 +1200,7 @@
     <!-- Mot unique -->
     <div id="single-word-card" class="word-card" onclick="singleCardHint()" style="cursor:pointer">
       <div class="card-actions">
-        <button class="card-action-btn" title="Modifier le mot" onclick="event.stopPropagation(); editCurrentCardWord()">✏️</button>
-        <button class="card-action-btn" title="Supprimer le mot" onclick="event.stopPropagation(); deleteCurrentCardWord()">✕</button>
+        <button class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu(currentWords[0], event)">⋯</button>
       </div>
       <span class="word-label">mot du jour</span>
       <span class="word-main" id="current-word">…</span>
@@ -2843,8 +2838,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           const reviewCls  = (practiceMode === 'spaced' && !isNewWord(w)) ? ' chip-review' : '';
           const esc = w.replace(/'/g, "\\'");
           return `<button class="word-chip${reviewCls}" onclick="chipHint('${esc}')">
-            <span class="chip-edit" title="Modifier" onclick="event.stopPropagation(); editWordOnCard('${esc}')">✏️</span>
-            <span class="chip-del" title="Supprimer" onclick="event.stopPropagation(); deleteCardWord('${esc}')">✕</span>
+            <span class="chip-menu-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">⋯</span>
             <span class="chip-word">${lc(w)}</span>
             <span class="chip-stars ${starsInfo.cls}">${starsInfo.str}</span>
           </button>`;
@@ -4647,7 +4641,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     function showWordContextMenu(word, x, y) {
       _ctxWord = word;
       const menu = document.getElementById('word-ctx-menu');
-      document.getElementById('word-ctx-label').textContent = word;
+      document.getElementById('word-ctx-label').textContent = lc(word);
       menu.style.left = '-9999px';
       menu.style.top  = '-9999px';
       menu.classList.add('visible');
@@ -4657,19 +4651,40 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       menu.style.top  = Math.max(8, Math.min(y, window.innerHeight - mH - 8)) + 'px';
     }
 
+    // Ouvre le menu (Modifier / Supprimer) près du bouton ⋯ cliqué
+    function openWordMenu(word, ev) {
+      ev.stopPropagation();
+      const r = ev.currentTarget.getBoundingClientRect();
+      showWordContextMenu(word, r.right - 4, r.bottom + 4);
+    }
+
     function closeWordContextMenu() {
       _ctxWord         = null;
       _justLongPressed = false;
       document.getElementById('word-ctx-menu').classList.remove('visible');
     }
 
+    function ctxMenuEdit() {
+      const word = _ctxWord;
+      closeWordContextMenu();
+      if (word) editWordOnCard(word);
+    }
+
     async function ctxMenuDelete() {
       const word = _ctxWord;
       closeWordContextMenu();
       if (!word) return;
-      if (!confirm(`Supprimer "${word}" de ta liste ?`)) return;
+      if (!confirm(`Supprimer « ${lc(word)} » de ta liste ?`)) return;
       await deleteWordFromSheets(word);
     }
+
+    // Ferme le menu au clic en dehors
+    document.addEventListener('click', e => {
+      const menu = document.getElementById('word-ctx-menu');
+      if (menu.classList.contains('visible') && !e.target.closest('#word-ctx-menu') && !e.target.closest('.word-menu-btn')) {
+        closeWordContextMenu();
+      }
+    });
 
     async function deleteWordFromSheets(word) {
       const wordLow = word.toLowerCase();
@@ -4765,7 +4780,8 @@ Return ONLY a JSON array of exactly 3 items, no other text:
 
   <div id="word-ctx-menu">
     <div class="ctx-word-label" id="word-ctx-label"></div>
-    <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()">Supprimer ce mot</button>
+    <button class="ctx-menu-btn" onclick="ctxMenuEdit()">✏️ Modifier</button>
+    <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()">🗑 Supprimer</button>
     <button class="ctx-menu-btn" onclick="closeWordContextMenu()">Annuler</button>
   </div>
 </body>
