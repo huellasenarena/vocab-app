@@ -1435,10 +1435,11 @@
       <h1 class="app-title">Mes mots</h1>
       <button class="btn-ghost" onclick="showScreen('screen-lang')">← retour</button>
     </div>
-    <input type="text" id="mots-search" placeholder="🔍 chercher un mot…" oninput="renderMots()"
+    <input type="text" id="mots-search" placeholder="🔍 chercher un mot…" oninput="motsPage=0;renderMots()"
       autocapitalize="off" autocomplete="off"
       style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.6rem;">
     <div class="history-filters" id="mots-filters"></div>
+    <div id="mots-controls"></div>
     <div class="history-list" id="mots-list">
       <p style="color:var(--muted);font-style:italic;">Chargement…</p>
     </div>
@@ -3917,6 +3918,10 @@ Write all scenarios in ${langName}.`;
     let motsData = [];      // [{ word, lang, created_at }]
     let motsStars = {};     // 'lang|word' -> net (étoiles dans « Mes mots »)
     let motsFilter = 'all';
+    let motsPage = 0;
+    let motsPageSize = 25;          // 5 / 15 / 25 / 50 / 100
+    const motsSelected = new Set(); // clés 'lang|word' sélectionnées (multi-langues OK)
+    const motKey = m => m.lang + '|' + m.word;
 
     const motTs = s => { const d = new Date(String(s || '').replace(' ', 'T')); return isNaN(d) ? 0 : d.getTime(); };
     function sortMots() { motsData.sort((a, b) => motTs(b.created_at) - motTs(a.created_at) || a.word.localeCompare(b.word)); }
@@ -3929,6 +3934,7 @@ Write all scenarios in ${langName}.`;
     async function showMots() {
       showScreen('screen-mots');
       document.getElementById('mots-search').value = '';
+      motsPage = 0; motsSelected.clear();
       document.getElementById('mots-list').innerHTML =
         '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
       try {
@@ -3960,23 +3966,79 @@ Write all scenarios in ${langName}.`;
       }).join('');
     }
 
-    function setMotsFilter(k) { motsFilter = k; renderMotsFilters(); renderMots(); }
+    function setMotsFilter(k) { motsFilter = k; motsPage = 0; renderMotsFilters(); renderMots(); }
+    function setMotsPageSize(n) { motsPageSize = +n; motsPage = 0; renderMots(); }
+    function motsGoPage(d) { motsPage += d; renderMots(); }
+    const jsEsc = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
-    function renderMots() {
-      const list = document.getElementById('mots-list');
+    function filteredMots() {
       const q = (document.getElementById('mots-search').value || '').trim().toLowerCase();
       let rows = motsFilter === 'all' ? motsData : motsData.filter(m => m.lang === motsFilter);
       if (q) rows = rows.filter(m => m.word.toLowerCase().includes(q));
+      return rows;
+    }
+
+    function toggleMotSel(lang, word, on) {
+      const k = lang + '|' + word;
+      if (on) motsSelected.add(k); else motsSelected.delete(k);
+      renderMots();
+    }
+
+    function toggleSelectAllPage(on) {
+      pageMots().forEach(m => { const k = motKey(m); if (on) motsSelected.add(k); else motsSelected.delete(k); });
+      renderMots();
+    }
+
+    function clearMotsSelection() { motsSelected.clear(); renderMots(); }
+
+    let _pageRowsCache = [];
+    function pageMots() { return _pageRowsCache; }
+
+    function renderMotsControls(total, pageCount) {
+      const sizes = [5, 15, 25, 50, 100];
+      const opts = sizes.map(s => `<option value="${s}" ${s === motsPageSize ? 'selected' : ''}>${s}/page</option>`).join('');
+      const sel = motsSelected.size;
+      document.getElementById('mots-controls').innerHTML = `
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.6rem;font-size:0.85rem;color:var(--muted)">
+          <select onchange="setMotsPageSize(this.value)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.3rem 0.5rem;">${opts}</select>
+          <button class="btn-ghost" ${motsPage <= 0 ? 'disabled' : ''} onclick="motsGoPage(-1)">◀</button>
+          <span>page ${pageCount ? motsPage + 1 : 0}/${pageCount}</span>
+          <button class="btn-ghost" ${motsPage >= pageCount - 1 ? 'disabled' : ''} onclick="motsGoPage(1)">▶</button>
+          <span style="margin-left:auto">${total} mot(s)</span>
+        </div>
+        ${sel ? `<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem;padding:0.4rem 0.6rem;background:var(--surface);border:1px solid var(--accent);border-radius:10px;">
+          <strong>${sel} sélectionné(s)</strong>
+          <button class="btn-ghost" onclick="clearMotsSelection()">annuler</button>
+          <button class="btn-ghost" style="margin-left:auto;color:#e05a5a" onclick="deleteSelectedMots()">🗑 Supprimer</button>
+        </div>` : ''}`;
+    }
+
+    function renderMots() {
+      const list = document.getElementById('mots-list');
+      const rows = filteredMots();
+      const pageCount = Math.max(1, Math.ceil(rows.length / motsPageSize));
+      if (motsPage > pageCount - 1) motsPage = pageCount - 1;
+      if (motsPage < 0) motsPage = 0;
+      _pageRowsCache = rows.slice(motsPage * motsPageSize, motsPage * motsPageSize + motsPageSize);
+      renderMotsControls(rows.length, rows.length ? pageCount : 0);
       if (rows.length === 0) {
         list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun mot.</p>';
         return;
       }
-      list.innerHTML = rows.map(m => {
+      const allPageSel = _pageRowsCache.length && _pageRowsCache.every(m => motsSelected.has(motKey(m)));
+      list.innerHTML = `<label class="mot-row" style="background:transparent;border:none;cursor:pointer">
+          <input type="checkbox" ${allPageSel ? 'checked' : ''} onchange="toggleSelectAllPage(this.checked)" style="margin-right:0.4rem">
+          <span style="color:var(--muted);font-size:0.85rem">tout sélectionner (cette page)</span>
+        </label>` + _pageRowsCache.map(m => {
         const info = LANGS.find(x => x.key === m.lang);
-        const esc  = m.word.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const esc  = jsEsc(m.word);
         const si   = starsFromNet(motsStars[m.lang + '|' + m.word.toLowerCase()] || 0);
-        return `<div class="mot-row">
-          <span class="mot-w">${info?.flag || ''} ${m.word}</span>
+        const checked = motsSelected.has(motKey(m));
+        return `<div class="mot-row" style="${checked ? 'border-color:var(--accent)' : ''}">
+          <span style="display:flex;align-items:center;gap:0.5rem;min-width:0">
+            <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleMotSel('${m.lang}','${esc}',this.checked)">
+            <span class="mot-w">${info?.flag || ''} ${m.word}</span>
+          </span>
           <span class="mot-actions">
             <span class="stars ${si.cls}" style="font-size:0.8rem">${si.str}</span>
             <span class="mot-date">${fmtMotDate(m.created_at)}</span>
@@ -3985,6 +4047,20 @@ Write all scenarios in ${langName}.`;
           </span>
         </div>`;
       }).join('');
+    }
+
+    async function deleteSelectedMots() {
+      if (!motsSelected.size) return;
+      if (!confirm(`Supprimer ${motsSelected.size} mot(s) définitivement ?`)) return;
+      const items = [...motsSelected].map(k => { const i = k.indexOf('|'); return { lang: k.slice(0, i), word: k.slice(i + 1) }; });
+      try {
+        const r = await authFetch('/api/words', { method: 'DELETE', body: JSON.stringify({ items }) });
+        if (!r.ok) throw new Error((await r.json()).error?.message || 'erreur');
+        const del = new Set(motsSelected);
+        motsData = motsData.filter(m => !del.has(motKey(m)));
+        motsSelected.clear();
+        renderMotsFilters(); renderMots();
+      } catch (e) { alert('Erreur : ' + e.message); }
     }
 
     async function editMot(lang, word) {
@@ -4008,6 +4084,7 @@ Write all scenarios in ${langName}.`;
       try {
         await authFetch('/api/words', { method: 'DELETE', body: JSON.stringify({ lang, word }) });
         motsData = motsData.filter(x => !(x.lang === lang && x.word === word));
+        motsSelected.delete(lang + '|' + word);
         renderMotsFilters();
         renderMots();
       } catch (e) { alert('Erreur : ' + e.message); }

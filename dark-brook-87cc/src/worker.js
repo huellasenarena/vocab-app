@@ -124,6 +124,70 @@ async function callScriptLLM(prompt, maxTokens, env) {
   return null;
 }
 
+// Appel LLM raisonnement (gpt-5.4 via Responses API), pour les jugements fins
+// (similarité). `env.OPENAI_API_KEY_SCRIPT` = clé propriétaire OU clé appelant
+// (aiEnv). max_output_tokens compte reasoning + texte → budget large requis.
+async function callScriptReasoning(prompt, maxOutputTokens, env, effort = 'low') {
+  const waits = [0, 2000, 5000];
+  for (let attempt = 0; attempt < waits.length; attempt++) {
+    if (waits[attempt]) await new Promise(r => setTimeout(r, waits[attempt]));
+    try {
+      const res = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.OPENAI_API_KEY_SCRIPT}` },
+        body: JSON.stringify({
+          model: 'gpt-5.4',
+          input: [{ role: 'user', content: prompt }],
+          max_output_tokens: maxOutputTokens,
+          ...(effort !== 'none' && { reasoning: { effort } })
+        })
+      });
+      if (res.status === 429 || res.status >= 500) continue;
+      if (!res.ok) return null;
+      const data = await res.json();
+      let text = data.output_text;
+      if (!text && Array.isArray(data.output)) {
+        text = data.output
+          .flatMap(o => o.content || [])
+          .filter(c => c.type === 'output_text')
+          .map(c => c.text).join('');
+      }
+      return (text || '').trim();
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+// Similarité groupée (1 appel gpt-5.4 pour N mots) — utilisée par l'import Kindle.
+// items = [{ word, candidates: [...] }] ; renvoie un Set de mots à IGNORER (flexions).
+async function judgeSimilarBatch(items, langName, env) {
+  if (!items.length) return {};
+  const lines = items.map((it, i) =>
+    `${i + 1}. nouveau: "${it.word}" | existants: ${it.candidates.map(c => `"${c}"`).join(', ')}`
+  ).join('\n');
+  const prompt = `Language: ${langName}.
+For each numbered line, decide if the NEW word is merely an inflected form / spelling variant of one of the EXISTING words (same lemma: conjugation, plural, gender, diminutive, accent variant). It it adds distinct vocabulary value, keep it.
+Reply ONLY with a JSON array, one object per line:
+[{"i": 1, "skip": true, "match": "<existing word>"}, {"i": 2, "skip": false}, ...]
+"skip": true means it's a duplicate-ish inflection to drop.
+
+${lines}`;
+  const res = await callScriptReasoning(prompt, 8000, env, 'low');
+  const out = {};
+  if (!res) return out;
+  const m = res.match(/\[[\s\S]*\]/);
+  if (!m) return out;
+  try {
+    for (const r of JSON.parse(m[0])) {
+      const it = items[(r.i || 0) - 1];
+      if (it && r.skip) out[it.word] = r.match || '';
+    }
+  } catch {}
+  return out;
+}
+
 // Détection langue + validité en un appel → { valid, reason, lang }
 async function analyzeWordLangSense(word, env) {
   const prompt = `Analyze the expression: "${word}".
@@ -477,6 +541,65 @@ export default {
       }
     }
 
+    // Similarité groupée (token perso, pas de JWT) — import Kindle batch.
+    // Body: { token, lang, words: [...] } ; header X-OpenAI-Key (clé Kindle).
+    // Renvoie { skip: { "<mot>": "<mot existant>" } } pour les flexions à ignorer.
+    if (path === '/judge-similar') {
+      try {
+        const body = await request.json().catch(() => ({}));
+        const token = new URL(request.url).searchParams.get('token') || body.token;
+        if (!token) return json({ error: { message: 'token manquant' } }, 400);
+        const user = await env.DB.prepare('SELECT id FROM users WHERE add_token = ?').bind(token).first();
+        if (!user) return json({ error: { message: 'token invalide' } }, 403);
+
+        const tabMap = {
+          english: 'English', anglais: 'English', en: 'English',
+          spanish: 'Spanish', espagnol: 'Spanish', es: 'Spanish',
+          greek: 'Greek', grec: 'Greek', el: 'Greek',
+          french: 'French', 'français': 'French', fr: 'French'
+        };
+        const lang = (body.lang || '').toLowerCase().trim();
+        const language = tabMap[lang] || (ADD_LANGS.includes(body.lang) ? body.lang : null);
+        if (!language) return json({ error: { message: 'langue inconnue' } }, 400);
+        const words = Array.isArray(body.words) ? body.words.map(w => String(w || '').trim()).filter(Boolean) : [];
+        if (!words.length) return json({ skip: {} });
+
+        const callerKey = sanitizeScriptKey(request.headers.get('X-OpenAI-Key'));
+        const aiEnv = callerKey ? { ...env, OPENAI_API_KEY_SCRIPT: callerKey } : env;
+
+        const { results } = await env.DB.prepare(
+          'SELECT word FROM words WHERE user_id = ? AND language = ?'
+        ).bind(user.id, language).all();
+        const existing = (results || []).map(r => r.word);
+
+        // Pour chaque mot, top candidats similaires (score > 0)
+        const items = [];
+        for (const w of words) {
+          const wNorm = normSim(w);
+          const scored = [];
+          for (const e of existing) {
+            const ex = (e || '').trim();
+            if (ex.length < 2) continue;
+            const s = similarityScore(wNorm, normSim(ex.toLowerCase()));
+            if (s > 0) scored.push({ word: ex, score: s });
+          }
+          scored.sort((a, b) => b.score - a.score);
+          const candidates = scored.slice(0, 3).map(x => x.word);
+          if (candidates.length) items.push({ word: w, candidates });
+        }
+
+        // Découpe en lots de 40 → 1 appel gpt-5.4 chacun
+        const skip = {};
+        for (let i = 0; i < items.length; i += 40) {
+          const chunk = items.slice(i, i + 40);
+          Object.assign(skip, await judgeSimilarBatch(chunk, language, aiEnv));
+        }
+        return json({ skip });
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
     // ---- Données utilisateur (D1, protégées par JWT, filtrées par user_id) ----
 
     if (path === '/api/words') {
@@ -501,12 +624,18 @@ export default {
           return json({ ok: true });
         }
         if (request.method === 'DELETE') {
-          const { lang, word } = await request.json();
-          await env.DB.batch([
-            env.DB.prepare('DELETE FROM words WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, lang, word),
-            env.DB.prepare('DELETE FROM progress WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, lang, word)
-          ]);
-          return json({ ok: true });
+          const body = await request.json();
+          // Suppression groupée : { items: [{lang, word}, ...] } (peut mélanger les langues)
+          // ou unitaire : { lang, word }.
+          const items = Array.isArray(body.items) ? body.items : [{ lang: body.lang, word: body.word }];
+          const stmts = [];
+          for (const it of items) {
+            if (!it || !it.lang || !it.word) continue;
+            stmts.push(env.DB.prepare('DELETE FROM words WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, it.lang, it.word));
+            stmts.push(env.DB.prepare('DELETE FROM progress WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, it.lang, it.word));
+          }
+          if (stmts.length) await env.DB.batch(stmts);
+          return json({ ok: true, deleted: stmts.length / 2 });
         }
         if (request.method === 'PUT') {
           const { lang, oldWord, newWord } = await request.json();
