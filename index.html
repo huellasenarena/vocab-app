@@ -827,6 +827,49 @@
 
     .next-review-line { margin-top:0.7rem; font-family:'DM Mono',monospace; font-size:0.74rem; opacity:0.8; text-align:center; }
 
+    /* ── Modale générique (instructions + choix des langues) ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 10000;
+      display: none; align-items: center; justify-content: center; padding: 1rem;
+      padding-top: calc(var(--safe-top, 0px) + 1rem);
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      max-width: 460px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 1.6rem;
+      position: relative; animation: fadeIn 0.3s ease;
+    }
+    .modal-close {
+      position: absolute; top: 0.6rem; right: 0.8rem; background: none; border: none;
+      color: var(--muted); font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 0.2rem;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-title { font-size: 1.4rem; color: var(--accent); margin: 0 0 1rem; font-weight: 600; }
+    .help-section { margin-bottom: 1.15rem; }
+    .help-section h3 {
+      font-family: 'DM Mono', monospace; font-size: 0.74rem; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--accent); margin: 0 0 0.4rem;
+    }
+    .help-section p, .help-section ul { font-size: 0.9rem; line-height: 1.6; margin: 0; color: var(--text); }
+    .help-section ul { padding-left: 1.1rem; }
+    .help-section li { margin-bottom: 0.25rem; }
+    .help-btn { font-size: 0.85rem; }
+
+    /* Bouton « ajouter une langue » dans la grille */
+    .lang-btn.lang-add-btn { border-style: dashed; opacity: 0.75; }
+    .lang-btn.lang-add-btn:hover { opacity: 1; }
+    /* Lignes du sélecteur de langues */
+    .lang-pick-row {
+      display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0.85rem;
+      border: 1px solid var(--border); border-radius: 10px; margin-bottom: 0.5rem; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .lang-pick-row.on { border-color: var(--accent); background: #222; }
+    .lang-pick-row .lp-flag { font-size: 1.4rem; }
+    .lang-pick-row .lp-name { flex: 1; }
+    .lang-pick-row .lp-check { color: var(--accent); font-weight: 700; opacity: 0; }
+    .lang-pick-row.on .lp-check { opacity: 1; }
+
     .mot-row { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.6rem 0.85rem; margin-bottom:0.5rem; border:1px solid var(--border); border-radius:12px; background:var(--surface); transition:border-color 0.15s; }
     .mot-row:hover { border-color:var(--accent); }
     .mot-row .mot-w { font-family:'Lora', Georgia, serif; font-size:1rem; }
@@ -1061,22 +1104,19 @@
       <div style="text-align:center;color:var(--muted);font-size:0.8rem;margin:0.2rem 0;">— ou —</div>
       <div id="google-signin-btn" style="display:flex;justify-content:center;"></div>
     </div>
+    <button class="btn-ghost help-btn" onclick="openHelp()">❓ Comment ça marche</button>
   </div>
 
   <!-- ── Écran 2 : Sélecteur de langue ── -->
   <div class="screen" id="screen-lang">
     <h1 class="app-title">BYOV</h1>
     <p class="app-subtitle">quelle langue aujourd'hui ?</p>
-    <div class="lang-grid">
-      <button class="lang-btn" data-lang="English" onclick="selectLanguage('English')"><span class="flag">🇬🇧</span><span class="lang-name">English</span><span class="lang-badge"></span></button>
-      <button class="lang-btn" data-lang="Spanish" onclick="selectLanguage('Spanish')"><span class="flag">🇪🇸</span><span class="lang-name">Español</span><span class="lang-badge"></span></button>
-      <button class="lang-btn" data-lang="French" onclick="selectLanguage('French')"><span class="flag">🇫🇷</span><span class="lang-name">Français</span><span class="lang-badge"></span></button>
-      <button class="lang-btn" data-lang="Greek" onclick="selectLanguage('Greek')"><span class="flag">🇬🇷</span><span class="lang-name">Ελληνικά</span><span class="lang-badge"></span></button>
-    </div>
+    <div class="lang-grid" id="lang-grid"></div>
     <button class="btn-ghost" onclick="showStats()">📊 voir mes statistiques</button>
     <button class="btn-ghost" onclick="showHistory()">📋 historique des mots</button>
     <button class="btn-ghost" onclick="showMots()">📝 gérer mes mots</button>
     <button class="btn-ghost" onclick="showAddContent()">➕ ajouter du contenu</button>
+    <button class="btn-ghost help-btn" onclick="openHelp()">❓ comment ça marche</button>
     <button class="btn-ghost" onclick="logout()">🚪 se déconnecter</button>
     <p class="error-msg" id="lang-error-msg"></p>
   </div>
@@ -1480,6 +1520,7 @@
     const KEY_WORD_COUNT       = "vocab_word_count";
     const SESSION_LANG_COLS    = { English: 1, Spanish: 2, French: 3, Greek: 4 }; // index dans la ligne [Date, En, Es, Fr, Gr]
     const KEY_GRAMMAR_COUNT    = "vocab_grammar_count";
+    const KEY_LANGUAGES        = "vocab_languages"; // langues choisies par l'utilisateur (synced)
     const GEMINI_MODEL_IDS = { gemma: 'gemma-4-31b-it', geminiflash: 'gemini-3-flash-preview', geminiflashlite: 'gemini-3.1-flash-lite-preview' };
     const DAILY_LIMITS = { gpt4: 250000, gemma: 1500, geminiflash: 20, geminiflashlite: 500 };
     const BLACKLIST_COLS   = { English: 'A', Spanish: 'B', French: 'C', Greek: 'D' };
@@ -1572,6 +1613,101 @@
     let _ctxLongTimer      = null;  // timer long press
     let _justLongPressed   = false; // bloque le click après un long press
 
+    // ── Langues choisies par l'utilisateur (feature : langues configurables) ──
+    function loadSelectedLangs() {
+      try {
+        const arr = JSON.parse(localStorage.getItem(KEY_LANGUAGES) || 'null');
+        if (Array.isArray(arr)) {
+          const valid = arr.filter(k => LANGS.some(l => l.key === k));
+          if (valid.length) return valid;
+        }
+      } catch {}
+      return LANGS.map(l => l.key); // défaut : les 4 (comptes existants)
+    }
+    let selectedLangs = loadSelectedLangs();
+    function saveSelectedLangs() {
+      localStorage.setItem(KEY_LANGUAGES, JSON.stringify(selectedLangs));
+      saveSettingsToServer();
+    }
+    function renderLangGrid() {
+      const grid = document.getElementById('lang-grid');
+      if (!grid) return;
+      const buttons = selectedLangs.map(key => {
+        const l = LANGS.find(x => x.key === key);
+        if (!l) return '';
+        return `<button class="lang-btn" data-lang="${l.key}" onclick="selectLanguage('${l.key}')">
+          <span class="flag">${l.flag}</span><span class="lang-name">${l.name}</span><span class="lang-badge"></span>
+        </button>`;
+      }).join('');
+      // Tuile « ajouter » uniquement s'il reste des langues à ajouter
+      const addTile = selectedLangs.length < LANGS.length
+        ? `<button class="lang-btn lang-add-btn" onclick="openLangPicker(false)" title="Ajouter une langue">
+            <span class="flag">＋</span><span class="lang-name">ajouter</span>
+          </button>`
+        : '';
+      grid.innerHTML = buttons + addTile;
+      updateLangBadges();
+    }
+
+    // ── Modale instructions ──
+    function openHelp()  { document.getElementById('help-modal').classList.add('visible'); }
+    function closeHelp() { document.getElementById('help-modal').classList.remove('visible'); }
+
+    // ── Modale choix des langues ──
+    let _pickerLangs = [];
+    let _pickerMandatory = false;
+    function openLangPicker(mandatory) {
+      _pickerMandatory = !!mandatory;
+      _pickerLangs = [...selectedLangs];
+      document.getElementById('lang-picker-error').textContent = '';
+      document.getElementById('lang-picker-close').style.display = mandatory ? 'none' : '';
+      renderLangPickerList();
+      document.getElementById('lang-picker-modal').classList.add('visible');
+    }
+    function renderLangPickerList() {
+      document.getElementById('lang-picker-list').innerHTML = LANGS.map(l => {
+        const on = _pickerLangs.includes(l.key);
+        return `<div class="lang-pick-row ${on ? 'on' : ''}" onclick="toggleLangPick('${l.key}')">
+          <span class="lp-flag">${l.flag}</span>
+          <span class="lp-name">${l.name}</span>
+          <span class="lp-check">✓</span>
+        </div>`;
+      }).join('');
+    }
+    function toggleLangPick(key) {
+      const i = _pickerLangs.indexOf(key);
+      if (i >= 0) _pickerLangs.splice(i, 1); else _pickerLangs.push(key);
+      renderLangPickerList();
+    }
+    function confirmLangPicker() {
+      if (_pickerLangs.length === 0) {
+        document.getElementById('lang-picker-error').textContent = 'Choisis au moins une langue.';
+        return;
+      }
+      // garde l'ordre canonique des LANGS
+      selectedLangs = LANGS.map(l => l.key).filter(k => _pickerLangs.includes(k));
+      saveSelectedLangs();
+      renderLangGrid();
+      document.getElementById('lang-picker-modal').classList.remove('visible');
+      if (_pickerMandatory) { _pickerMandatory = false; showScreen('screen-lang'); }
+    }
+    function closeLangPicker() {
+      if (_pickerMandatory) return; // obligatoire : pas de fermeture sans choix
+      document.getElementById('lang-picker-modal').classList.remove('visible');
+    }
+
+    // Après connexion/inscription : 1ère fois (aucune langue enregistrée) → choix obligatoire
+    function afterAuth() {
+      if (!localStorage.getItem(KEY_LANGUAGES)) {
+        showScreen('screen-lang');
+        openLangPicker(true);
+      } else {
+        selectedLangs = loadSelectedLangs();
+        renderLangGrid();
+        showScreen('screen-lang');
+      }
+    }
+
     // ── Au chargement ─────────────────────────────────────────
     window.addEventListener('load', () => {
 
@@ -1585,6 +1721,7 @@
         document.documentElement.style.setProperty('--safe-top', '44px');
       }
 
+      renderLangGrid();
       showScreen(localStorage.getItem(KEY_JWT) ? 'screen-lang' : 'screen-auth');
       if (localStorage.getItem(KEY_JWT)) loadAccountInfo();
       initGoogleSignIn();
@@ -1602,8 +1739,9 @@
     // Point 10 : colore chaque carte de langue — vert si tout est fait aujourd'hui,
     // rouge s'il reste des mots (dûs + nouveaux dans la limite quotidienne).
     async function updateLangBadges() {
+      if (!getJWT()) return; // pas connecté : pas d'appel réseau (éviterait un logout parasite)
       const today = todayStrLocal();
-      await Promise.all(LANGS.map(async (l) => {
+      await Promise.all(LANGS.filter(l => selectedLangs.includes(l.key)).map(async (l) => {
         const btn = document.querySelector(`.lang-btn[data-lang="${l.key}"]`);
         if (!btn) return;
         const badge = btn.querySelector('.lang-badge');
@@ -1691,7 +1829,7 @@
         localStorage.setItem(KEY_JWT, data.token);
         document.getElementById('auth-password').value = '';
         await loadAccountInfo();
-        showScreen('screen-lang');
+        afterAuth();
       } catch (err) {
         errEl.textContent = err.message;
       } finally {
@@ -1732,7 +1870,7 @@
         if (!r.ok) throw new Error(data.error?.message || 'erreur de connexion Google');
         localStorage.setItem(KEY_JWT, data.token);
         await loadAccountInfo();
-        showScreen('screen-lang');
+        afterAuth();
       } catch (err) {
         errEl.textContent = err.message;
       }
@@ -2194,8 +2332,10 @@
       geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';
       gemmaThinkingLevel  = localStorage.getItem(KEY_GEMMA_THINKING) || 'minimal';
       imageTheme          = localStorage.getItem(KEY_IMAGE_THEME) || '';
+      selectedLangs       = loadSelectedLangs();
     }
     function applySettingsUI() {
+      renderLangGrid();
       document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
       document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
       document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
@@ -4777,6 +4917,54 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
   </script>
+
+  <!-- ── Modale : instructions ── -->
+  <div class="modal-overlay" id="help-modal" onclick="if(event.target===this)closeHelp()">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeHelp()">✕</button>
+      <h2 class="modal-title">Comment ça marche</h2>
+      <div class="help-section">
+        <h3>1 · Démarrer</h3>
+        <p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». Puis ouvre <strong>⚙️</strong> et colle ta <strong>clé API</strong> (OpenAI ou Gemini) : l'app s'en sert pour générer les définitions et corriger tes phrases. Ta clé reste à toi (BYOK), elle n'est jamais partagée.</p>
+      </div>
+      <div class="help-section">
+        <h3>2 · Ajouter des mots</h3>
+        <ul>
+          <li><strong>Dans l'app</strong> : « ➕ ajouter du contenu » → un mot ou une forme grammaticale.</li>
+          <li><strong>Depuis l'iPhone</strong> : un raccourci (ton lien perso dans ⚙️) pour ajouter un mot d'un geste, de n'importe où.</li>
+        </ul>
+      </div>
+      <div class="help-section">
+        <h3>3 · Les 4 modes</h3>
+        <ul>
+          <li><strong>📅 Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li>
+          <li><strong>🎯 Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li>
+          <li><strong>🎲 Libre</strong> — tirage aléatoire pondéré.</li>
+          <li><strong>📸 Imagen</strong> — décris une photo en espagnol.</li>
+        </ul>
+      </div>
+      <div class="help-section">
+        <h3>4 · La répétition espacée</h3>
+        <ul>
+          <li>Chaque mot gagne des <strong>étoiles</strong> (☆☆☆ → ★★★) selon tes réussites.</li>
+          <li>Réussir <em>sans aide</em> éloigne la prochaine révision ; échouer ou afficher la définition la ramène à demain.</li>
+          <li>Tu choisis combien de <strong>nouveaux mots par jour</strong> dans ⚙️, et le bouton « 📅 mes révisions à venir » montre ton calendrier.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modale : choix des langues ── -->
+  <div class="modal-overlay" id="lang-picker-modal" onclick="if(event.target===this)closeLangPicker()">
+    <div class="modal-card">
+      <button class="modal-close" id="lang-picker-close" onclick="closeLangPicker()">✕</button>
+      <h2 class="modal-title">Tes langues</h2>
+      <p style="color:var(--muted);font-size:0.85rem;margin:-0.5rem 0 1rem">Choisis les langues que tu veux étudier (au moins une).</p>
+      <div id="lang-picker-list"></div>
+      <button class="btn-primary" style="width:100%;margin-top:1rem" onclick="confirmLangPicker()">Valider</button>
+      <p class="error-msg" id="lang-picker-error"></p>
+    </div>
+  </div>
 
   <div id="word-ctx-menu">
     <div class="ctx-word-label" id="word-ctx-label"></div>
