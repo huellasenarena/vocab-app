@@ -151,6 +151,8 @@
     }
     .textarea-wrap:focus-within { border-color: var(--accent); }
     .textarea-wrap textarea { padding-bottom: 3.2rem; }
+    /* Mode Situation : pleine largeur + espacement vertical des boîtes */
+    .situation-section { width: 100%; display: flex; flex-direction: column; gap: 1rem; }
     .btn-submit-inline {
       position: absolute;
       bottom: 0.6rem;
@@ -1191,7 +1193,7 @@
         <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
       </label>
       <label class="settings-row">
-        <span>Mode situation compte dans la progression<br><span style="font-size:0.7rem;color:var(--muted);">étoiles + révisions (l'historique compte toujours)</span></span>
+        <span>Modes Situation et Libre comptent dans la progression<br><span style="font-size:0.7rem;color:var(--muted);">étoiles + révisions (l'historique compte toujours)</span></span>
         <input type="checkbox" id="toggle-situation-counts" onchange="setSituationCounts(this.checked)">
       </label>
       <div class="settings-row" style="cursor:default;">
@@ -1311,18 +1313,34 @@
 
     <!-- Zone situation (mode situation) -->
     <div class="situation-section" id="situation-section" style="display:none;">
+      <!-- Slider nombre de mots évoqués (1-5, plafonné aux mots maîtrisés) -->
+      <div class="slider-section" id="situation-slider-section" style="display:none;">
+        <div class="slider-header">
+          <span class="slider-label">Nombre de mots</span>
+          <span class="slider-value" id="situation-slider-value">1 mot</span>
+        </div>
+        <input type="range" id="situation-word-slider" min="1" max="5" value="1"
+          oninput="onSituationSliderChange(this.value)" />
+      </div>
+      <!-- Bouton « Commencer » (évite l'appel API automatique à l'entrée du mode) -->
+      <div id="situation-start" style="display:none; padding-top:0.5rem;">
+        <button class="btn-primary" onclick="startSituation()">▶ Commencer</button>
+      </div>
       <!-- Boîte situation générée par Mistral -->
       <div class="hint-box" id="situation-box" style="display:none;">
         <div class="hint-label">🎯 Situation</div>
-        <div id="situation-text"></div>
+        <div id="situation-text" class="hint-body"></div>
       </div>
+      <!-- Boutons d'action ENTRE le texte et le champ (cohérence avec les autres modes).
+           Un seul visible à la fois : « Je ne sais pas » avant de répondre, « Autre situation » après. -->
+      <button class="btn-secondary" id="btn-situation-skip" onclick="revealWord()" style="width:100%; display:none;">Je ne sais pas →</button>
+      <button class="btn-primary" id="btn-situation-next" onclick="nextSituation()" style="display:none;">Autre situation →</button>
       <!-- Champ de réponse -->
       <div class="sentence-section" id="situation-answer-section" style="display:none;">
         <p class="sentence-label" id="situation-prompt-label">Quel est ce mot ?</p>
-        <textarea id="situation-input" rows="2" placeholder="Écris le mot ici…"></textarea>
-        <div class="action-row">
-          <button class="btn-secondary" onclick="revealWord()">Je ne sais pas →</button>
-          <button class="btn-primary" id="btn-situation-submit" onclick="submitSituation()">Vérifier ✓</button>
+        <div class="textarea-wrap">
+          <textarea id="situation-input" rows="2" placeholder="Écris le mot (ou plusieurs, séparés par des virgules)…"></textarea>
+          <button class="btn-submit-inline" id="btn-situation-submit" onclick="submitSituation()" title="Vérifier">↑</button>
         </div>
       </div>
       <!-- Résultat situation -->
@@ -1330,7 +1348,7 @@
         <div class="feedback-label" id="situation-feedback-label"></div>
         <div id="situation-feedback-text"></div>
       </div>
-      <!-- Mot révélé -->
+      <!-- Mot révélé (uniquement après « Je ne sais pas » — sinon le verdict donne déjà le mot) -->
       <div class="hint-box" id="situation-reveal-box" style="display:none;">
         <div class="hint-label">Le mot</div>
         <div id="situation-revealed-word" style="font-size:1.4rem;font-weight:600;color:var(--accent);text-align:center;padding:0.5rem 0;"></div>
@@ -1515,6 +1533,7 @@
     const KEY_MAX_NEW          = "vocab_max_new_per_day";
     const KEY_SHOW_TOKENS      = "vocab_show_tokens";
     const KEY_SITUATION_COUNTS = "vocab_situation_counts"; // mode situation affecte-t-il la progression ?
+    const KEY_SITUATION_WORDS  = "vocab_situation_words";  // nombre de mots en mode situation (1-5)
     const KEY_IMAGE_THEME      = "vocab_image_theme";
     const KEY_MODEL            = "vocab_model";
     const KEY_GPT_EFFORT       = "vocab_gpt_effort";
@@ -1584,6 +1603,8 @@
     let jeNeSaisPasWord     = null; // mot en attente de confirmation "Je ne sais pas"
     let wordsHidden         = false;
     let sessionFirstResult = {}; // { word.toLowerCase(): true/false } — premier résultat de la session
+    let situationMissed    = new Set(); // mots ratés en mode Situation → poids accru jusqu'à réussite
+    let situationWordCount = parseInt(localStorage.getItem(KEY_SITUATION_WORDS)) || 1; // nb de mots évoqués (1-5)
     let todayNewCount      = 0;  // nouveaux mots pratiqués aujourd'hui (chargé depuis Sheets)
     let sessionNewPracticed = new Set(); // nouveaux mots pratiqués dans cette session (pour éviter double-comptage)
     let maxNewPerDay       = parseInt(localStorage.getItem(KEY_MAX_NEW)) || 60;
@@ -1989,13 +2010,9 @@
     }
     _ta.addEventListener('input', autoResizeTextarea);
     // Autoscroll clavier retiré (trop glitchy) : on laisse iOS gérer nativement le
-    // défilement vers le champ focalisé. L'autoscroll du streaming (définition /
-    // vérification) reste géré séparément par startAutoScroll().
-    _ta.addEventListener('focus', () => {
-      if (!window.visualViewport) {
-        setTimeout(() => _ta.scrollIntoView({ block: 'end' }), 300);
-      }
-    });
+    // défilement vers le champ focalisé. L'app ne déclenche AUCUN scroll au focus —
+    // seul l'autoscroll du streaming (définition / vérification) reste actif
+    // (géré séparément par startAutoScroll()).
 
     // ── Proxy Sheets via Cloudflare Worker (service account) ──
     // ── Slider ────────────────────────────────────────────────
@@ -2340,6 +2357,7 @@
       maxNewPerDay        = parseInt(localStorage.getItem(KEY_MAX_NEW)) || 60;
       showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
       situationCounts     = localStorage.getItem(KEY_SITUATION_COUNTS) === 'true';
+      situationWordCount  = parseInt(localStorage.getItem(KEY_SITUATION_WORDS)) || 1;
       currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4';
       gptEffort           = localStorage.getItem(KEY_GPT_EFFORT) || 'low';
       geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';
@@ -2354,6 +2372,8 @@
       document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
       document.getElementById('toggle-tokens').checked = showTokenCounter;
       document.getElementById('toggle-situation-counts').checked = situationCounts;
+      document.getElementById('situation-word-slider').value = situationWordCount;
+      updateSituationSliderLabel();
       document.getElementById('image-theme-select').value = imageTheme;
       document.getElementById('model-select').value = currentModel;
       updateReasoningUI();
@@ -2617,11 +2637,15 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (btnHide) { btnHide.classList.remove('active'); btnHide.textContent = '👁 Cacher'; }
       document.getElementById('sticky-words-bar').classList.remove('visible');
       // Situation
+      document.getElementById('situation-start').style.display         = 'none';
+      document.getElementById('btn-situation-skip').style.display      = 'none';
+      document.getElementById('btn-situation-next').style.display      = 'none';
       document.getElementById('situation-box').style.display           = 'none';
       document.getElementById('situation-answer-section').style.display = 'none';
-      document.getElementById('situation-feedback-box').classList.remove('visible', 'correct', 'incorrect');
+      document.getElementById('situation-feedback-box').classList.remove('visible', 'correct', 'incorrect', 'partial');
       document.getElementById('situation-reveal-box').style.display    = 'none';
       document.getElementById('situation-input').value                 = '';
+      lockSituationAnswer(false);
     }
 
     // ── Lecture mots ──────────────────────────────────────────
@@ -2679,14 +2703,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('confirm-panel').style.display    = isImage ? 'none' : '';
       renderGrammarForms(); // gère visibilité zone + slider selon mode
 
-      // Nettoyer toutes les sections dynamiques à chaque changement de mode
-      document.getElementById('related-box').classList.remove('visible');
-      document.getElementById('related-chips').innerHTML = '';
-      document.getElementById('image-vocab-box').classList.remove('visible');
-      document.getElementById('image-vocab-chips').innerHTML = '';
-      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'partial', 'image');
-      document.getElementById('feedback-text').innerHTML = '';
-      document.getElementById('sentence-input').value = '';
+      // Nettoyage COMPLET de l'UI de pratique à chaque changement de mode.
+      // (Sinon résidus d'un autre mode : définition #hint-box, feedback/boutons de
+      //  Situation, QCM, mots liés… cf. captures « contenu de l'autre mode ».)
+      resetPracticeUI();
       lastSubmittedSentence = '';
 
       if (isImage) {
@@ -2845,13 +2865,6 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
 
     function pickWords() {
-      if (allWords.length === 0) {
-        document.getElementById('current-word').textContent     = '—';
-        document.getElementById('word-count-label').textContent = 'aucun mot trouvé';
-        document.getElementById('due-count').textContent        = '';
-        return;
-      }
-
       setSpacedDone(false); // par défaut on n'est pas en état « terminé »
 
       // Le bouton « mes révisions à venir » est dispo dès qu'on est en espacé
@@ -2860,12 +2873,34 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (rbar) rbar.style.display = (practiceMode === 'spaced') ? '' : 'none';
 
       // Affichage : mode situation cache la carte mot et les boutons hint/next
+      // (appliqué AVANT le cas « aucun mot » pour ne jamais retomber sur la carte espacée)
       const isSituationMode = practiceMode === 'situation';
       document.getElementById('sentence-section').style.display    = isSituationMode ? 'none' : '';
       document.getElementById('situation-section').style.display   = isSituationMode ? '' : 'none';
       document.getElementById('btn-next').style.display            = isSituationMode ? 'none' : '';
+      document.getElementById('btn-hide-words').style.display      = isSituationMode ? 'none' : '';
       document.getElementById('single-word-card').style.display    = isSituationMode ? 'none' : '';
       document.getElementById('multi-word-chips').style.display    = 'none';
+
+      if (allWords.length === 0) {
+        if (isSituationMode) {
+          // En Situation : message dédié (pas de carte « mot du jour »)
+          document.getElementById('due-count').innerHTML =
+            'Aucun mot maîtrisé encore — pratique en mode Espacée pour débloquer ce mode !';
+          document.getElementById('situation-slider-section').style.display = 'none';
+          document.getElementById('situation-start').style.display         = 'none';
+          document.getElementById('situation-box').style.display           = 'none';
+          document.getElementById('situation-answer-section').style.display = 'none';
+          document.getElementById('btn-situation-skip').style.display       = 'none';
+          document.getElementById('btn-situation-next').style.display       = 'none';
+          currentWords = [];
+        } else {
+          document.getElementById('current-word').textContent     = '—';
+          document.getElementById('word-count-label').textContent = 'aucun mot trouvé';
+          document.getElementById('due-count').textContent        = '';
+        }
+        return;
+      }
 
       const n = wordCount();
 
@@ -2925,6 +2960,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         if (mastered.length === 0) {
           document.getElementById('due-count').innerHTML =
             `Aucun mot maîtrisé encore — continue à pratiquer pour débloquer ce mode !`;
+          document.getElementById('situation-slider-section').style.display = 'none';
           document.getElementById('situation-section').style.display = 'none';
           currentWords = [];
           return;
@@ -2933,12 +2969,34 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         document.getElementById('due-count').innerHTML =
           `<span class="highlight">${mastered.length}</span> mot${mastered.length > 1 ? 's' : ''} maîtrisé${mastered.length > 1 ? 's' : ''}`;
 
-        // Choisit un mot aléatoire parmi les maîtrisés
-        const chosen = mastered[Math.floor(Math.random() * mastered.length)];
-        currentWords = [chosen];
+        // Slider nombre de mots (plafonné au nombre de mots maîtrisés, max 5)
+        document.getElementById('situation-slider-section').style.display = '';
+        setSituationSliderMax(mastered.length);
+        const nSit = Math.min(situationWordCount, mastered.length);
 
-        // Lance la génération de la situation
-        generateSituation(chosen);
+        // Tirage pondéré SANS répétition : les mots ratés (situationMissed) pèsent
+        // ×4 tant qu'ils ne sont pas réussis, pour les faire revenir souvent.
+        const MISSED_WEIGHT = 4;
+        const pool = [...mastered];
+        currentWords = [];
+        for (let i = 0; i < nSit && pool.length > 0; i++) {
+          const totalWeight = pool.reduce((s, w) =>
+            s + (situationMissed.has(w.toLowerCase()) ? MISSED_WEIGHT : 1), 0);
+          let r = Math.random() * totalWeight;
+          let idx = pool.length - 1;
+          for (let j = 0; j < pool.length; j++) {
+            r -= (situationMissed.has(pool[j].toLowerCase()) ? MISSED_WEIGHT : 1);
+            if (r < 0) { idx = j; break; }
+          }
+          currentWords.push(pool[idx]);
+          pool.splice(idx, 1);
+        }
+
+        // N'appelle PAS l'API tout de suite : affiche le bouton « ▶ Commencer ».
+        // La situation est générée seulement quand l'utilisateur clique.
+        document.getElementById('situation-box').style.display           = 'none';
+        document.getElementById('situation-answer-section').style.display = 'none';
+        document.getElementById('situation-start').style.display         = '';
 
       } else {
         // Mode libre
@@ -3046,8 +3104,18 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
 
     function nextSituation() {
+      // « Autre situation » = action explicite → on enchaîne directement (pas de
+      // bouton « Commencer » intermédiaire).
       resetPracticeUI();
       pickWords();
+      if (currentWords.length) startSituation();
+    }
+
+    // Lance la génération de la situation pour le mot déjà tiré par pickWords().
+    function startSituation() {
+      if (!currentWords.length) return;
+      document.getElementById('situation-start').style.display = 'none';
+      generateSituation();
     }
 
     // ── Hint via chip ─────────────────────────────────────────
@@ -3511,6 +3579,9 @@ Respond entirely in ${feedbackLang}.`;
         feedbackText.innerHTML = renderFeedbackSections(reply, scoreHtml);
 
         // ── Progression + History (première tentative seulement) ─
+        // Le mode Libre ne touche la progression (étoiles/révisions) que si le toggle
+        // ⚙️ est activé. L'historique est toujours enregistré.
+        const countsProgress = practiceMode !== 'free' || situationCounts;
         const savePromises  = [];
         const historyRows   = [];
         const prevNewCount  = todayNewCount;
@@ -3529,7 +3600,8 @@ Respond entirely in ${feedbackLang}.`;
           sessionFirstResult[k] = historyResult;
           historyRows.push([new Date().toISOString(), w, currentLang, historyResult ? '✓' : '✗']);
 
-          // Progression selon les règles
+          // Progression selon les règles (sautée en mode Libre si le toggle est off)
+          if (!countsProgress) continue;
           if (isNew) {
             if (wResult) {
               savePromises.push(saveProgressNew(w));
@@ -3541,6 +3613,10 @@ Respond entirely in ${feedbackLang}.`;
           } else {
             savePromises.push(hintWasUsed ? saveProgressReviewHint(w) : saveProgress(w, wResult));
           }
+        }
+        if (!countsProgress) {
+          const notice = document.getElementById('no-count-notice');
+          if (notice) notice.textContent = 'Mode Libre : ne compte pas dans la progression (réglable dans ⚙️).';
         }
 
         // Envoi groupé : history en un seul appel, progress en parallèle
@@ -4261,7 +4337,41 @@ Write all scenarios in ${langName}.`;
     }
 
     // ── Mode Situation ────────────────────────────────────────
-    async function generateSituation(word) {
+    function updateSituationSliderLabel() {
+      const el = document.getElementById('situation-slider-value');
+      if (el) el.textContent = situationWordCount + (situationWordCount > 1 ? ' mots' : ' mot');
+    }
+    function onSituationSliderChange(val) {
+      situationWordCount = parseInt(val) || 1;
+      localStorage.setItem(KEY_SITUATION_WORDS, String(situationWordCount));
+      updateSituationSliderLabel();
+      saveSettingsToServer();
+    }
+    // Plafonne le slider au nombre de mots maîtrisés (max 5) et ajuste la valeur.
+    function setSituationSliderMax(maxCount) {
+      const slider = document.getElementById('situation-word-slider');
+      const cap = Math.min(5, Math.max(1, maxCount));
+      slider.max = cap;
+      if (situationWordCount > cap) {
+        situationWordCount = cap;
+        localStorage.setItem(KEY_SITUATION_WORDS, String(cap));
+      }
+      slider.value = situationWordCount;
+      updateSituationSliderLabel();
+    }
+
+    // Verrouille / déverrouille le champ de réponse SANS le masquer (le masquer
+    // ferait remonter la boîte verdict → « saut » visuel signalé par l'utilisateur).
+    function lockSituationAnswer(locked) {
+      const input = document.getElementById('situation-input');
+      const submit = document.getElementById('btn-situation-submit');
+      if (input)  input.disabled  = locked;
+      if (submit) submit.disabled = locked;
+    }
+
+    async function generateSituation() {
+      const words   = currentWords;
+      const isMulti = words.length > 1;
       const sitBox  = document.getElementById('situation-box');
       const sitText = document.getElementById('situation-text');
       sitBox.style.display = 'block';
@@ -4269,9 +4379,14 @@ Write all scenarios in ${langName}.`;
       document.getElementById('situation-answer-section').style.display = 'none';
 
       const langName = getLang().mistralName;
-      const prompt = `You are a language teacher. Create a vivid, concrete situation in ${langName} that clearly evokes the word or expression "${lc(word)}" WITHOUT mentioning the word itself, its direct synonyms, or its translation.
+      const prompt = isMulti
+        ? `You are a language teacher. Create a single, vivid, coherent scene in ${langName} (one unified text on one theme — NOT separate numbered paragraphs) that together evokes ALL of these ${langName} words/expressions:
+${words.map(w => `- ${lc(w)}`).join('\n')}
 
-The situation should be a short paragraph (2-4 sentences) describing a scene, a person, or an event that perfectly illustrates the meaning of "${word}". The reader who knows the word should immediately think of it.
+A reader who knows these words should be able to recall each of them from the scene. Do NOT mention any of the words, their direct synonyms, or their translations. Do NOT give definitions. Weave the cues for every word naturally into the same short text (4-6 sentences). Write ONLY the scene, nothing else, entirely in ${langName}.`
+        : `You are a language teacher. Create a vivid, concrete situation in ${langName} that clearly evokes the word or expression "${lc(words[0])}" WITHOUT mentioning the word itself, its direct synonyms, or its translation.
+
+The situation should be a short paragraph (2-4 sentences) describing a scene, a person, or an event that perfectly illustrates the meaning of "${words[0]}". The reader who knows the word should immediately think of it.
 
 Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing else. Write entirely in ${langName}.`;
 
@@ -4282,19 +4397,31 @@ Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing
           sitText.innerHTML = renderMarkdown(fullText);
         });
         sitBox.style.display = 'block';
-        // Affiche le champ de réponse
+        // Affiche le champ de réponse + adapte label / placeholder selon le nombre de mots
         const langInfo = getLang();
-        document.getElementById('situation-prompt-label').textContent =
-          langInfo.key === 'English' ? 'What is this word?' :
-          langInfo.key === 'Spanish' ? '¿Cuál es esta palabra?' :
-          langInfo.key === 'Greek'   ? 'Ποια είναι αυτή η λέξη;' :
-          'Quel est ce mot ?';
+        const promptLabel = isMulti
+          ? (langInfo.key === 'English' ? `What are these ${words.length} words?` :
+             langInfo.key === 'Spanish' ? `¿Cuáles son estas ${words.length} palabras?` :
+             langInfo.key === 'Greek'   ? `Ποιες είναι αυτές οι ${words.length} λέξεις;` :
+             `Quels sont ces ${words.length} mots ?`)
+          : (langInfo.key === 'English' ? 'What is this word?' :
+             langInfo.key === 'Spanish' ? '¿Cuál es esta palabra?' :
+             langInfo.key === 'Greek'   ? 'Ποια είναι αυτή η λέξη;' :
+             'Quel est ce mot ?');
+        document.getElementById('situation-prompt-label').textContent = promptLabel;
+        document.getElementById('situation-input').placeholder = isMulti
+          ? '1. mot, autre candidat…\n2. mot…\n3. mot…'
+          : 'Écris le mot (ou plusieurs candidats, séparés par des virgules)…';
+        document.getElementById('situation-input').rows = isMulti ? Math.min(6, words.length + 1) : 2;
         document.getElementById('situation-answer-section').style.display = '';
-        document.getElementById('situation-input').focus();
+        document.getElementById('btn-situation-skip').style.display = '';     // dispo avant de répondre
+        document.getElementById('btn-situation-next').style.display = 'none'; // pas encore répondu
+        lockSituationAnswer(false); // nouvelle situation → saisie réactivée
+        // Pas d'auto-focus : évite l'ouverture du clavier + le scroll natif iOS à
+        // chaque situation (l'utilisateur tape lui-même sur le champ quand il est prêt).
       } catch (err) {
-        const ew = word.replace(/'/g, "\\'");
         sitText.innerHTML = `<span>Erreur : ${err.message}</span>
-          <button class="btn-secondary" style="margin-top:0.5rem" onclick="generateSituation('${ew}')">↺ Réessayer</button>`;
+          <button class="btn-secondary" style="margin-top:0.5rem" onclick="startSituation()">↺ Réessayer</button>`;
       }
     }
 
@@ -4306,19 +4433,38 @@ Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span>';
 
-      const word     = currentWords[0];
+      const words    = currentWords;
+      const isMulti  = words.length > 1;
       const langName = getLang().mistralName;
 
-      const prompt = `You are a strict but encouraging and fair ${langName} vocabulary teacher.
+      const prompt = isMulti
+        ? `You are a strict but fair ${langName} vocabulary teacher.
 
-The learner is trying to recall the ${langName} word or expression: "${word}".
+A learner read a scene that evoked these ${langName} target words/expressions:
+${words.map((w, i) => `${i + 1}. ${lc(w)}`).join('\n')}
+
+The learner wrote their guesses below. They may number them and give several comma-separated candidates; ORDER AND NUMBERING DO NOT MATTER — treat the whole answer as one unordered pool of candidate words.
+Learner's answer:
+"${guess}"
+
+For EACH target word, decide independently whether the learner guessed it: VALID if ANY candidate anywhere in their answer matches the target — exact word, same lexical root (any conjugation/gender/number), or a very close synonym showing genuine understanding. Otherwise INVALID.
+
+Output ONLY this, in ${langName}, exactly one line per target word and nothing else:
+- "<target word>": ✓ or ✗ — short reason (one clause)
+
+Use the exact target word inside the quotes, and put ✓ or ✗ explicitly on each line.`
+        : `You are a strict but encouraging and fair ${langName} vocabulary teacher.
+
+The learner is trying to recall the ${langName} word or expression: "${words[0]}".
 Their answer: "${guess}"
+
+The learner may give SEVERAL candidate answers separated by commas (e.g. "word1, word2, word3") when they hesitate between a few words.
 
 Reason through the following steps internally before responding:
 
-STEP 1 — Note what the learner wrote.
+STEP 1 — Note what the learner wrote. If the answer contains commas, treat it as a list of separate candidate answers.
 
-STEP 2 — Is it valid? Accept: the exact word, any form belonging to the same lexical root (infinitive, all conjugations, all tenses, gender/number variants), or a very close synonym that demonstrates genuine understanding of the concept. The target word may itself be a conjugated form; in that case, also accept the infinitive and all other conjugations of the same verb.
+STEP 2 — Is it valid? The answer is VALID if AT LEAST ONE of the candidates matches. Accept as a match: the exact word, any form belonging to the same lexical root (infinitive, all conjugations, all tenses, gender/number variants), or a very close synonym that demonstrates genuine understanding of the concept. The target word may itself be a conjugated form; in that case, also accept the infinitive and all other conjugations of the same verb. Do NOT penalize extra wrong candidates as long as one is correct.
 
 STEP 3 — Form your verdict.
 
@@ -4332,59 +4478,83 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
         fbText.innerHTML = '';
         fb.classList.add('visible');
 
+        // Autoscroll : suit le verdict pendant la génération (comme la vérification des autres modes)
+        const spacer = document.getElementById('scroll-spacer');
+        spacer.style.height = '0'; spacer.style.display = 'none';
+        const scroller = startAutoScroll(fb, spacer);
         const reply     = await callAIStream(prompt, fullText => {
           fbText.innerHTML = renderMarkdown(fullText);
+          scroller.onChunk();
         });
+        scroller.cleanup();
+        spacer.style.height = '0'; spacer.style.display = 'none';
 
-        const isCorrect = reply.startsWith('✓');
-        document.getElementById('situation-feedback-label').textContent = isCorrect ? '✓' : '✗';
-        fb.classList.add(isCorrect ? 'correct' : 'incorrect');
-
-        if (!isCorrect) {
-          // Révèle le mot
-          document.getElementById('situation-revealed-word').textContent = word;
-          document.getElementById('situation-reveal-box').style.display  = 'block';
+        // Résultat par mot
+        const results = {}; // lc(mot) -> bool
+        if (!isMulti) {
+          results[words[0].toLowerCase()] = reply.startsWith('✓');
+        } else {
+          const OK_RE = /[✓✔✅]/, KO_RE = /[✗✘❌]/;
+          const lines = reply.split('\n');
+          for (const w of words) {
+            const esc = lc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re  = new RegExp('(^|[^\\p{L}])' + esc + '([^\\p{L}]|$)', 'u');
+            const line = lines.find(l => re.test(l.toLowerCase())) || '';
+            results[w.toLowerCase()] = OK_RE.test(line) && !KO_RE.test(line);
+          }
         }
 
-        // Sauvegarde : Progress (étoiles + révisions) seulement si activé dans ⚙️ ; History toujours
-        if (situationCounts) await saveProgress(word, isCorrect);
-        saveHistory(word, isCorrect);
+        const correctCount = words.filter(w => results[w.toLowerCase()]).length;
+        const allCorrect   = correctCount === words.length;
+        fb.classList.remove('correct', 'incorrect', 'partial');
+        fb.classList.add(allCorrect ? 'correct' : (correctCount > 0 ? 'partial' : 'incorrect'));
+        document.getElementById('situation-feedback-label').textContent =
+          isMulti ? `${correctCount}/${words.length}` : (allCorrect ? '✓' : '✗');
 
-        // Bouton "Autre situation"
-        document.getElementById('situation-answer-section').style.display = 'none';
-        const nextBtn = document.createElement('button');
-        nextBtn.className   = 'btn-primary';
-        nextBtn.textContent = 'Autre situation →';
-        nextBtn.style.marginTop = '0.5rem';
-        nextBtn.onclick     = nextSituation;
-        document.getElementById('situation-feedback-box').after(nextBtn);
+        // Pas de carte « Le mot » ici : le verdict nomme déjà chaque mot correct.
+
+        // Poids de relance + sauvegarde, par mot
+        for (const w of words) {
+          const ok = results[w.toLowerCase()];
+          if (ok) situationMissed.delete(w.toLowerCase());
+          else    situationMissed.add(w.toLowerCase());
+          if (situationCounts) await saveProgress(w, ok);
+          saveHistory(w, ok);
+        }
+
+        // Verrouille la saisie SANS masquer la section ; remplace « Je ne sais pas »
+        // par « Autre situation » (au même endroit, entre le texte et le champ).
+        lockSituationAnswer(true);
+        btn.innerHTML = '↑';
+        document.getElementById('btn-situation-skip').style.display = 'none';
+        document.getElementById('btn-situation-next').style.display = '';
 
       } catch (err) {
         document.getElementById('situation-feedback-text').textContent = 'Erreur : ' + err.message;
+        btn.disabled = false;
+        btn.innerHTML = '↑';
       }
-
-      btn.disabled = false;
-      btn.innerHTML = '↑';
     }
 
     async function revealWord() {
-      const word = currentWords[0];
-      document.getElementById('situation-revealed-word').textContent = word;
+      const words = currentWords;
+      const lbl = document.querySelector('#situation-reveal-box .hint-label');
+      if (lbl) lbl.textContent = words.length > 1 ? 'Les mots' : 'Le mot';
+      document.getElementById('situation-revealed-word').textContent = words.join(' · ');
       document.getElementById('situation-reveal-box').style.display  = 'block';
-      document.getElementById('situation-answer-section').style.display = 'none';
+      lockSituationAnswer(true); // verrouille sans masquer (pas de saut visuel)
 
-      // Pénalité légère : NextReview = demain (seulement si le mode situation compte) ; History toujours
-      if (situationCounts) await saveProgress(word, false);
-      saveHistory(word, false);
+      // « Je ne sais pas » = tout raté → poids de relance accru jusqu'à réussite
+      for (const word of words) {
+        situationMissed.add(word.toLowerCase());
+        // Pénalité légère : NextReview = demain (seulement si le mode situation compte) ; History toujours
+        if (situationCounts) await saveProgress(word, false);
+        saveHistory(word, false);
+      }
 
-      // Bouton "Autre situation"
-      const nextBtn = document.createElement('button');
-      nextBtn.className   = 'btn-secondary';
-      nextBtn.textContent = 'Autre situation →';
-      nextBtn.style.marginTop = '0.5rem';
-      nextBtn.style.width = '100%';
-      nextBtn.onclick     = nextSituation;
-      document.getElementById('situation-reveal-box').after(nextBtn);
+      // Remplace « Je ne sais pas » par « Autre situation » (même emplacement)
+      document.getElementById('btn-situation-skip').style.display = 'none';
+      document.getElementById('btn-situation-next').style.display = '';
     }
 
     // Cmd+Enter pour soumettre la situation aussi
