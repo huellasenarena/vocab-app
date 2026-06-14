@@ -21,10 +21,11 @@ URL : `https://dark-brook-87cc.georg-dreym.workers.dev` · Code : `~/Desktop/voc
 - `/auth/signup`, `/auth/login` → email/mdp (PBKDF2), retourne `{ token, user }` (JWT HS256, 30 j)
 - `/auth/google` → vérifie l'ID token Google (JWKS RS256, contrôle `iss`/`aud`/`exp`), **lie par email** si compte mdp existant, sinon crée → retourne JWT
 - `/me` (JWT) → `{ user: { id, email, created_at, add_token, openai_key, gemini_key, settings } }` ; génère `add_token` au besoin
-- `/add` (token perso, **pas de JWT**) → ajout de mot externe (raccourci iPhone + écran « ajouter du contenu ») — voir section dédiée
+- `/add` (token perso, **pas de JWT**) → ajout de mot externe (raccourci iPhone + écran « ajouter du contenu ») — voir section dédiée. Accepte `X-OpenAI-Key` (BYOK de l'entonnoir) sinon repli `OPENAI_API_KEY_SCRIPT`.
+- `/judge-similar` (token perso, **pas de JWT**) → similarité **groupée** pour l'import Kindle. Body `{ token, lang, words[] }` + header `X-OpenAI-Key`. Le Worker calcule les candidats (local), n'appelle **GPT-5.4 « low »** (`judgeSimilarBatch`, lots de 40) que pour les mots ayant une ressemblance, et renvoie `{ skip: { mot: mot_existant } }`.
 
 **Données utilisateur (JWT, filtrées par `user_id`)**
-- `/api/words` GET (`?lang=`, `?detail=1` → +`created_at`) · POST · DELETE (mot+progress) · **PUT** (renommer — met à jour `words` + `progress` + `history`)
+- `/api/words` GET (`?lang=`, `?detail=1` → +`created_at`) · POST · DELETE (**unitaire** `{lang,word}` **ou groupé** `{items:[{lang,word}…]}`, mot+progress) · **PUT** (renommer — met à jour `words` + `progress` + `history`)
 - `/api/progress`, `/api/session`, `/api/history`, `/api/blacklist`, `/api/usage`
 - `/api/grammar` GET · **POST** (ajouter une forme) · **DELETE** (supprimer une forme)
 - `/api/keys` POST → stocke `openai_key`/`gemini_key` en D1 (sync multi-appareils)
@@ -36,7 +37,7 @@ URL : `https://dark-brook-87cc.georg-dreym.workers.dev` · Code : `~/Desktop/voc
 - `/unsplash` → photo random (clé propriétaire `UNSPLASH_KEY`, gardée par JWT)
 
 **Externe (gardée par `X-Worker-Secret`)**
-- `/openai-script` → OpenAI Chat Completions (`OPENAI_API_KEY_SCRIPT`). Utilisée par `kindle_import.py` (l'ajout de mots, lui, passe par `/add` qui appelle OpenAI directement).
+- `/openai-script` → OpenAI Chat Completions (`OPENAI_API_KEY_SCRIPT`, ou `X-OpenAI-Key` si fourni). **Route quasi-dormante** : le `call_openai` de `kindle_import.py` qui l'utilisait est mort (`WORKER_SECRET` indéfini dans le script ; pré-filtres IA en repli silencieux). L'import passe par `/add` + `/judge-similar`.
 
 ### Secrets (dashboard Cloudflare)
 `JWT_SECRET`, `OPENAI_API_KEY_SCRIPT`, `UNSPLASH_KEY`, `WORKER_SECRET`. Var publique : `GOOGLE_CLIENT_ID` (dans `wrangler.jsonc`).
@@ -95,7 +96,7 @@ Chaque utilisateur entre sa clé OpenAI et/ou Gemini dans ⚙️ (`KEY_OPENAI_KE
 
 - `checkApiKey()` (dans `checkDailyLimit()`) bloque avant l'appel réseau si la clé du modèle sélectionné manque.
 - **Sync multi-appareils** : `loadAccountInfo()` (au login/chargement/⚙️) récupère les clés depuis D1 (`/me`) ; `setOpenaiKey`/`setGeminiKey` poussent vers le serveur (`saveKeysToServer` → `/api/keys`). La clé saisie sur un appareil suit sur les autres. Stockage D1 = chiffré au repos par Cloudflare, accès protégé par JWT (pas de chiffrement applicatif).
-- La clé de `/add` (`OPENAI_API_KEY_SCRIPT`, propriétaire) est **séparée** de la clé BYOK de la pratique (volontaire).
+- **3 clés OpenAI distinctes** (voir mémoire `api_keys_mapping`) : (1) **vérification des phrases** = BYOK app ⚙️ ; (2) **raccourci iPhone** = `OPENAI_API_KEY_SCRIPT` (propriétaire, repli) ; (3) **Kindle** = clé dédiée locale `~/Desktop/vocab-app/.openai_key`, envoyée par `kindle_import.py` en `X-OpenAI-Key` sur `/add` et `/judge-similar`. Le Worker utilise le header si présent (via `aiEnv = {...env, OPENAI_API_KEY_SCRIPT: callerKey}`), sinon la clé propriétaire.
 - `sanitizeKey()` nettoie la clé (ASCII imprimable seulement) à chaque assignation — un caractère parasite (retour à la ligne, espace insécable) collé dans la clé faisait planter la construction de l'en-tête en Safari (« The string did not match the expected pattern »).
 
 ---
@@ -122,15 +123,23 @@ Chaque utilisateur choisit ses langues parmi les 4 (`selectedLangs`, clé `vocab
 - `Succès (<Langue>) : '<mot>' ajouté.`
 
 Entonnoir (porté de l'ancien Apps Script, lit les mots existants depuis D1) :
-1. **Langue + validité** (`gpt-4.1-mini` via `OPENAI_API_KEY_SCRIPT`) si `lang=auto` (`analyzeWordLangSense`), sinon `identifyLang` + `validateWord`. Codes ISO `es/fr/en/el` acceptés.
+1. **Langue + validité** (`gpt-4.1-mini` via `callScriptLLM`) si `lang=auto` (`analyzeWordLangSense`), sinon `identifyLang` + `validateWord`. Codes ISO `es/fr/en/el` acceptés.
 2. **Doublon exact** bloqué.
-3. **Similarité** : `normSim` + `similarityScore` sur tous les mots existants, top 5 → **juge LLM** (`judgeSimilarity`).
+3. **Similarité** : `normSim` + `similarityScore` sur tous les mots existants, top 5 → **juge LLM** (`judgeSimilarity`, gpt-4.1-mini).
 
 `ignore_sens=true` / `ignore_sim=true` bypassent (1)/(3). Retries 429/5xx (3 tentatives).
 
-**Raccourci iOS** : POST le mot dans le corps, `token`+`lang=auto` dans l'URL ; gère `INVALID:`/`SIMILAR:` par alerte « ajouter quand même ? » → renvoie avec `ignore_*`.
+**Raccourci iOS** : POST le mot dans le corps, `token`+`lang=auto` dans l'URL ; gère `INVALID:`/`SIMILAR:` par alerte « ajouter quand même ? » → renvoie avec `ignore_*`. (Utilise (1)+(3) avec la clé propriétaire.)
 
-**Écran in-app « ➕ ajouter du contenu »** (`screen-add`, depuis l'accueil) : toggle **Mot / Forme grammaticale**. Mot → `/add` avec `myAddToken` + code langue (gère INVALID/SIMILAR + « ajouter quand même »). Forme → `/api/grammar` POST/DELETE (liste + suppression). `kindle_import.py` passe aussi par `/add` (`ADD_TOKEN` en env).
+**Écran in-app « ➕ ajouter du contenu »** (`screen-add`, depuis l'accueil) : toggle **Mot / Forme grammaticale**. Mot → `/add` avec `myAddToken` + code langue (gère INVALID/SIMILAR + « ajouter quand même »). Forme → `/api/grammar` POST/DELETE (liste + suppression).
+
+### Import Kindle — `kindle_import.py` (refonte juin 2026)
+Lit `vocab.db`/`My Clippings` de la Kindle → sélection → import D1. **Config** : `.token` (jeton perso) et `.openai_key` (clé OpenAI dédiée) — **fichiers prioritaires sur `$ADD_TOKEN`/`$OPENAI_KEY_IMPORT`** (sinon une vieille var parasite casse tout). 
+- **Validité IA supprimée** : l'import envoie `ignore_sens=true` (les mots viennent d'un dico → un modèle faible ne faisait que les rejeter à tort). Remplacée par un **filtre charabia local** (`is_gibberish` : longueur/voyelle/chiffres, sans IA).
+- **Mots trop courants** : `is_too_common` via **`wordfreq`** (es/fr/en/el), seuil `COMMON_ZIPF_MIN` (défaut **5.5**, ~250-300 mots). Repli `TOO_COMMON` si `wordfreq` absent (`pip3 install wordfreq`).
+- **Similarité groupée** : `judge_similar_batch` → route `/judge-similar` (GPT-5.4 « low »), `ignore_sim=true` ensuite sur `/add`. **Aucune question** pendant l'import (auto-skip + résumé).
+- **Import reprenable** : cache `.kindle_cache.json` = mots **restants** (retirés au fur et à mesure) ; coupure → relance reprend pile. Mot en erreur dure conservé ; maj Kindle sautée tant qu'il reste des mots. `check_token()` = fail-fast au démarrage.
+- `call_openai`/`/openai-script`, `get_existing_words`, `llm_decide_similar_batch`, `validate_words_ai`, `review_words` = **code mort** (legacy Sheets).
 
 ---
 
@@ -230,7 +239,7 @@ Prompt anglais, réponse espagnol. Sections : `## Precisión`, `## Análisis lin
 `screen-loading`, `screen-auth`, `screen-lang`, `screen-practice`, `screen-stats`, `screen-history`, `screen-mots`, `screen-revisions`, **`screen-add`** (ajouter du contenu). `showScreen(id)` (déclenche `updateLangBadges` sur screen-lang). Écrans-listes ancrés en haut (`align-self:flex-start`) — titre/recherche figés quand la liste change. **Modales** : `#help-modal` (instructions), `#lang-picker-modal` (choix langues), `#word-ctx-menu` (menu ⋯). `screen-lang` : grille langues (badges vert/rouge `updateLangBadges`) + 📊 stats / 📋 historique / 📝 mes mots / ➕ ajouter / ❓ aide / 🚪 logout.
 
 ### Mes mots (`screen-mots`, `showMots`)
-Voir/chercher/renommer/supprimer + **étoiles** (`motsStars`, charge progress des 4 langues). Charge les 4 langues (`/api/words?...&detail=1`), tri **chronologique** (récent d'abord, `created_at`), filtres par langue + compteurs, recherche live. Lignes `.mot-row` : drapeau + mot + étoiles + date + ✏️ (`editMot` → `PUT /api/words`, refuse collision) + 🗑 (`deleteMot` → `DELETE`). `screen-revisions` a aussi étoiles + recherche.
+Voir/chercher/renommer/supprimer + **étoiles** (`motsStars`, charge progress des 4 langues). Charge les 4 langues (`/api/words?...&detail=1`), tri **chronologique** (récent d'abord, `created_at`), filtres par langue + compteurs, recherche live. Lignes `.mot-row` : case à cocher + drapeau + mot + étoiles + date + ✏️ (`editMot` → `PUT /api/words`, refuse collision) + 🗑 (`deleteMot` → `DELETE`). **Pagination** (`motsPageSize` 5/15/25/50/100, défaut 25 ; `motsPage` ; `#mots-controls`) — la recherche/filtre porte sur **tous** les mots, l'affichage est paginé (fluide à ~10000 mots). **Sélection multiple** (`motsSelected` Set `lang|word`, multi-langues) : case par ligne + « tout sélectionner (cette page) » + barre « N sélectionnés → 🗑 » (`deleteSelectedMots` → `DELETE {items:[…]}` groupé, confirmation). `screen-revisions` a aussi étoiles + recherche.
 
 ### Mots cachés (👁) · Chips cliquables
 Toggle header, raccourci `Opt+←` (blur 7px). `Opt+→` = `nextWord()`. À la **vérification**, les mots cachés réapparaissent (`revealHiddenWords`). Mot nouveau → `fetchHint`. Mot à réviser (avant soumission) → `showJeNeSaisPas` → `saveProgress(false)` + `startQCM` (1 seul QCM/mot via `_qcmStartedWords`). Casse : affichage + prompts en **minuscules** (`lc()`), DB en casse d'origine.
@@ -299,10 +308,10 @@ Worker : `wrangler deploy`. Front : push `main` → GitHub Actions → `gh-pages
 
 ## Idées futures
 
-**Faites ✅** : Auth Google + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · **écran « ajouter du contenu » in-app (mots + formes grammaticales)** · Mes mots (+ étoiles) · calendrier des révisions (tri + recherche + étoiles) · **sync de tous les réglages** · **langues configurables par utilisateur** (sous-ensemble des 4) · **page d'instructions (modale)** · **boîte de vérif repliable** · `kindle_import.py` → `/add`/D1 · compteur tokens corrigé · PWA `manifest` corrigé · déploiement prod · **refonte mode Situation** (bouton Commencer, multi-mots 1-5, poids de relance ×4, verdict par mot + score, autoscroll, UI cohérente) · **toggle progression Situation+Libre**.
+**Faites ✅** : Auth Google + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · **écran « ajouter du contenu » in-app (mots + formes grammaticales)** · Mes mots (+ étoiles) · calendrier des révisions (tri + recherche + étoiles) · **sync de tous les réglages** · **langues configurables par utilisateur** (sous-ensemble des 4) · **page d'instructions (modale)** · **boîte de vérif repliable** · `kindle_import.py` → `/add`/D1 · compteur tokens corrigé · PWA `manifest` corrigé · déploiement prod · **refonte mode Situation** (bouton Commencer, multi-mots 1-5, poids de relance ×4, verdict par mot + score, autoscroll, UI cohérente) · **toggle progression Situation+Libre** · **refonte import Kindle** (validité IA off + filtre charabia/`wordfreq`, similarité groupée GPT-5.4 via `/judge-similar`, **clé Kindle dédiée** `.openai_key`, import reprenable) · **« mes mots » paginé + sélection multiple/suppression groupée**.
 
 **À faire / à concevoir** :
-- **BYOK total** (priorité) : l'**ajout de mots** (`/add`) utilise encore `OPENAI_API_KEY_SCRIPT` (clé propriétaire) car le raccourci n'a pas d'UI BYOK. À rendre BYOK.
+- **BYOK total** : le **raccourci iPhone** utilise encore `OPENAI_API_KEY_SCRIPT` (pas d'UI BYOK). La Kindle, elle, est passée BYOK (`.openai_key`).
 - **Plus de 4 langues** : les 4 possibles sont codées en dur dans `LANGS` (mappings, prompts, détection `/add`). Pour une langue hors-liste, il faudrait généraliser `LANGS`.
 - **Rotation `WORKER_SECRET`** + suppression secrets morts (`SA_JSON`, `OPENAI_API_KEY`, `GEMINI_KEY`).
 - **Sécurité/scalabilité** : OK pour des centaines d'utilisateurs ; 1ers plafonds = quotas D1 gratuits (~100K écritures/j) + clé `/add` du propriétaire.
