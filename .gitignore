@@ -9,3 +9,8 @@ dark-brook-87cc/.DS_Store
 # Artefacts Python (kindle_import)
 __pycache__/
 *.pyc
+
+# Jeton perso /add + clé OpenAI dédiée + cache de sélection (kindle_import)
+.token
+.openai_key
+.kindle_cache.json
