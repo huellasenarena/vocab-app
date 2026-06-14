@@ -7,7 +7,7 @@ App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **C
 - Push sur `main` → GitHub Actions déploie sur `gh-pages` (~1 min). **Ne jamais éditer `gh-pages`.** Le `cname: byov.net` est dans `deploy.yml` (sinon le CNAME serait écrasé à chaque déploiement).
 - Le Worker (`dark-brook-87cc/`) est **versionné dans le repo** (peut être commité).
 
-> **Historique** : avant juin 2026, l'app était mono-utilisateur (backend Google Sheets, secret `WORKER_SECRET` en dur dans le HTML). Migrée en multi-utilisateur (D1 + auth + BYOK) et déployée le 2026-06-07. Voir la mémoire `project_generalization` pour le détail des phases.
+> **Historique** : avant juin 2026, l'app était mono-utilisateur (backend Google Sheets, secret `WORKER_SECRET` en dur dans le HTML). Migrée en multi-utilisateur (D1 + auth + BYOK), déployée le 2026-06-07. Grosse vague d'améliorations UX/features les 2026-06-13/14 (voir mémoire `project_changes_june2026`). Voir aussi `project_generalization` pour les phases de migration.
 
 ---
 
@@ -20,13 +20,15 @@ URL : `https://dark-brook-87cc.georg-dreym.workers.dev` · Code : `~/Desktop/voc
 **Publiques (auth)**
 - `/auth/signup`, `/auth/login` → email/mdp (PBKDF2), retourne `{ token, user }` (JWT HS256, 30 j)
 - `/auth/google` → vérifie l'ID token Google (JWKS RS256, contrôle `iss`/`aud`/`exp`), **lie par email** si compte mdp existant, sinon crée → retourne JWT
-- `/me` (JWT) → `{ user: { id, email, created_at, add_token, openai_key, gemini_key } }` ; génère `add_token` au besoin
-- `/add` (token perso, **pas de JWT**) → ajout de mot externe (raccourci iPhone) — voir section dédiée
+- `/me` (JWT) → `{ user: { id, email, created_at, add_token, openai_key, gemini_key, settings } }` ; génère `add_token` au besoin
+- `/add` (token perso, **pas de JWT**) → ajout de mot externe (raccourci iPhone + écran « ajouter du contenu ») — voir section dédiée
 
 **Données utilisateur (JWT, filtrées par `user_id`)**
-- `/api/words` GET (`?lang=`, `?detail=1` → +`created_at`) · POST · DELETE (mot+progress) · **PUT** (renommer)
-- `/api/progress`, `/api/session`, `/api/history`, `/api/blacklist`, `/api/grammar`, `/api/usage`
+- `/api/words` GET (`?lang=`, `?detail=1` → +`created_at`) · POST · DELETE (mot+progress) · **PUT** (renommer — met à jour `words` + `progress` + `history`)
+- `/api/progress`, `/api/session`, `/api/history`, `/api/blacklist`, `/api/usage`
+- `/api/grammar` GET · **POST** (ajouter une forme) · **DELETE** (supprimer une forme)
 - `/api/keys` POST → stocke `openai_key`/`gemini_key` en D1 (sync multi-appareils)
+- `/api/settings` POST → stocke le blob JSON des réglages (`users.settings`) — sync multi-appareils
 
 **IA (JWT + BYOK : clé utilisateur par header)**
 - `/` (défaut) → OpenAI Responses API, clé via header **`X-OpenAI-Key`** (400 si absente)
@@ -64,13 +66,13 @@ Cold start après inactivité : ~100-200ms sur la 1re requête.
 
 ## Cloudflare D1 (base `vocab`)
 
-ID : `87b54745-9878-402b-a4a5-e76720516dea`, binding `DB`. Migrations dans `dark-brook-87cc/migrations/` (`0001_init.sql`, `0002_byok_keys.sql`). Appliquer : `wrangler d1 migrations apply vocab --local|--remote`.
+ID : `87b54745-9878-402b-a4a5-e76720516dea`, binding `DB`. Migrations dans `dark-brook-87cc/migrations/` (`0001_init.sql`, `0002_byok_keys.sql`, `0003_settings.sql` = colonne `users.settings`). Appliquer : `wrangler d1 migrations apply vocab --local|--remote`.
 
 Toutes les tables de données portent `user_id`. Les onglets Sheets d'avant sont devenus des tables relationnelles.
 
 | Table | Colonnes clés |
 |---|---|
-| `users` | id, email, password_hash, google_id, **add_token**, **openai_key**, **gemini_key**, created_at |
+| `users` | id, email, password_hash, google_id, **add_token**, **openai_key**, **gemini_key**, **settings** (JSON), created_at |
 | `words` | user_id, language, word, created_at — `UNIQUE(user_id, language, word)` |
 | `progress` | user_id, language, word, correct, incorrect, last_practiced, hint_used, next_review |
 | `history` | user_id, date, word, language, result (1/0) |
@@ -79,7 +81,7 @@ Toutes les tables de données portent `user_id`. Les onglets Sheets d'avant sont
 | `blacklist` | user_id, language, word |
 | `grammar_forms` | user_id, language, category, form |
 
-`language` ∈ `English` · `Spanish` · `French` · `Greek` (**codé en dur** — voir Idées futures).
+`language` ∈ `English` · `Spanish` · `French` · `Greek` (4 langues possibles **codées en dur** dans `LANGS`). Chaque utilisateur **choisit un sous-ensemble** de ces 4 (voir « Langues configurables »).
 
 **Date** : progression/sessions en heure **locale** (`todayStrLocal()`). Tokens (`usage`) : OpenAI en UTC, Google en PT (reset quotas). Migration one-time : `scripts/migrate_data.mjs <user_id>` (lit l'ancien Sheet → SQL). Pour `--remote`, retirer les `BEGIN TRANSACTION/COMMIT` du SQL (D1 distante les refuse).
 
@@ -94,6 +96,19 @@ Chaque utilisateur entre sa clé OpenAI et/ou Gemini dans ⚙️ (`KEY_OPENAI_KE
 - `checkApiKey()` (dans `checkDailyLimit()`) bloque avant l'appel réseau si la clé du modèle sélectionné manque.
 - **Sync multi-appareils** : `loadAccountInfo()` (au login/chargement/⚙️) récupère les clés depuis D1 (`/me`) ; `setOpenaiKey`/`setGeminiKey` poussent vers le serveur (`saveKeysToServer` → `/api/keys`). La clé saisie sur un appareil suit sur les autres. Stockage D1 = chiffré au repos par Cloudflare, accès protégé par JWT (pas de chiffrement applicatif).
 - La clé de `/add` (`OPENAI_API_KEY_SCRIPT`, propriétaire) est **séparée** de la clé BYOK de la pratique (volontaire).
+- `sanitizeKey()` nettoie la clé (ASCII imprimable seulement) à chaque assignation — un caractère parasite (retour à la ligne, espace insécable) collé dans la clé faisait planter la construction de l'en-tête en Safari (« The string did not match the expected pattern »).
+
+---
+
+## Sync des réglages (`/api/settings`)
+
+Tous les réglages (sliders nombre de mots/formes **par langue**, modèle, niveaux de raisonnement, grammaire on/off, thème image, compteur tokens, **langues choisies**) sont sérialisés en un blob JSON et synchronisés en D1 (`users.settings`).
+- Front : `collectSettings()` (toutes les clés `vocab_*` sauf denylist : jwt, pwd_ok, clés BYOK, `today_new_*`) · `saveSettingsToServer()` (debounce 1,5 s, appelé par chaque setter) · `applyServerSettings()`/`reloadSettingsVars()`/`applySettingsUI()` au login.
+- Chargé via `/me` (`loadAccountInfo`). Les clés BYOK restent synchronisées séparément (`/api/keys`).
+
+## Langues configurables
+
+Chaque utilisateur choisit ses langues parmi les 4 (`selectedLangs`, clé `vocab_languages` synchronisée). `renderLangGrid()` construit la grille d'accueil dynamiquement (#lang-grid) + tuile **« ＋ ajouter »** (masquée si 4/4). Sélecteur modal `#lang-picker-modal` (`openLangPicker(mandatory)`). À l'inscription / 1re connexion (pas de `vocab_languages`) → `afterAuth()` impose le choix (≥1, fermeture cachée). Défaut comptes existants = les 4.
 
 ---
 
@@ -115,6 +130,8 @@ Entonnoir (porté de l'ancien Apps Script, lit les mots existants depuis D1) :
 
 **Raccourci iOS** : POST le mot dans le corps, `token`+`lang=auto` dans l'URL ; gère `INVALID:`/`SIMILAR:` par alerte « ajouter quand même ? » → renvoie avec `ignore_*`.
 
+**Écran in-app « ➕ ajouter du contenu »** (`screen-add`, depuis l'accueil) : toggle **Mot / Forme grammaticale**. Mot → `/add` avec `myAddToken` + code langue (gère INVALID/SIMILAR + « ajouter quand même »). Forme → `/api/grammar` POST/DELETE (liste + suppression). `kindle_import.py` passe aussi par `/add` (`ADD_TOKEN` en env).
+
 ---
 
 ## Modèles IA
@@ -125,7 +142,7 @@ Sélectionnable dans ⚙️, persisté `localStorage` (`vocab_model`). `currentM
 Reasoning model via **Responses API** (route Worker défaut). Pas de `temperature`. Body : `input`, `max_output_tokens`. Vision : `input_text`/`input_image`.
 - `reasoning: { effort: gptEffort }` sauf si `none`.
 - `max_output_tokens` compte **reasoning + texte**. Eval/QCM/définition : budget **16000**.
-- Streaming SSE : `response.output_text.delta`. **Usage dans `response.completed`**. Reasoning tokens dans `usage.output_tokens_details.reasoning_tokens` (séparé). `trackTokens` les ajoute à `todayOutputTokens` ET `_pendingOutput`.
+- Streaming SSE : `response.output_text.delta`. **Usage dans `response.completed`**. ⚠️ `usage.output_tokens` **inclut déjà** les reasoning tokens (`output_tokens_details.reasoning_tokens` n'est qu'un sous-détail) → `trackTokens` ajoute **uniquement `output_tokens`**, jamais reasoning en plus (sinon double comptage vs dashboard OpenAI — ancien bug corrigé).
 - Fonctions : `callMistral`, `callMistralStream`, `callAIVision` (vision GPT) — envoient `X-OpenAI-Key`. Noms `callMistral*` par héritage.
 
 ### Gemma 4 31B — `'gemma'`
@@ -158,15 +175,16 @@ Sous `<h1>Vocab</h1>`, toggle ⚙️ (`KEY_SHOW_TOKENS`). `DAILY_LIMITS = { gpt4
 | 2ème+ tentative dans la session | ignoré | ignoré | ignoré |
 
 **Changement de jour** : heure locale (`todayStrLocal()`).
-**SM-2** (jours) : `net ≤ 1 → 1`, `2 → 6`, `3 → 14`, `4 → 30`, `5 → 60`, `≥ 6 → 120`.
-**Étoiles** : ☆☆☆ (`net ≤ 0`) · ★☆☆ (`1`) · ★★☆ (`2`) · ★★★ (`≥ 3`, maîtrisé).
+**SM-2** (`calcNextReview`, jours, basé sur le net **AVANT** d'ajouter le succès courant) : `net ≤ 1 → 1`, `2 → 4`, `3 → 8`, `4 → 14`, `5 → 20`, `6 → 30`, `7 → 45`, `≥ 8 → 60`. (Nouveau + ✓ via `saveProgressNew` = +1 jour, net **inchangé** → le mot revient ~3 jours de suite au début, voulu.)
+**Étoiles** : ☆☆☆ (`net ≤ 0`) · ★☆☆ (`1`) · ★★☆ (`2`) · ★★★ (`≥ 3`, maîtrisé). `starsFromNet(net)`.
+**Prochaine date** affichée dans la boîte après vérif (`.next-review-line`, single + multi). Slider « nombre de mots » **plafonné** au pool dispo (`setWordSliderMax`). **État terminé** : classe `spaced-done` sur `#screen-practice` → masque slider/carte/boutons, n'affiche que `#spaced-done-card` ✓.
 **Limite quotidienne** : `maxNewPerDay` (défaut 60, par langue, `KEY_MAX_NEW`). Slider ⚙️ : valeurs `MAX_NEW_VALUES` = 1,2,3,4,5 puis pas de 5 jusqu'à 100 (`maxNewToIndex`). `pickWords` : `newRemaining = max(0, maxNewPerDay - todayNewCount)`. `onSliderChange` en mode espacé pioche dans le pool éligible `[...trulyDue, ...newToShow]` (jamais `pickWeightedOne`).
 
 ---
 
 ## Modes de pratique
 
-- 📅 **Espacée** — SM-2, limite nouveaux/jour. Sliders : nombre de mots (1-30) + formes grammaticales (1-10, Español). Bouton bas **« 📅 mes révisions à venir »** → écran `screen-revisions` (mots pratiqués langue courante + prochaine date, triés).
+- 📅 **Espacée** — SM-2, limite nouveaux/jour. Sliders : nombre de mots (plafonné au pool dispo) + formes grammaticales (1-10, Español). Bouton bas **« 📅 mes révisions à venir »** → `screen-revisions` (tous les mots programmés langue courante + prochaine date + étoiles ; tris proche/lointaine/A-Z + recherche). État terminé = carte ✓ seule.
 - 🎯 **Situation** — recall actif, mots ★★★ (`net ≥ 3`). Scène sans mentionner le mot.
 - 🎲 **Libre** — tirage pondéré (`pickWeightedOne`, poids 10/8/5/1).
 - 📸 **Imagen** — photo Unsplash, description espagnol, `callAIVision`. Indépendant de la liste.
@@ -181,7 +199,8 @@ Tous répondent dans `feedbackLang`. `LANGS` = mappings (English, Spanish, Frenc
 Deux **BLOCS indépendants** : (1) **Verdict** ✓/✗ sur le(s) mot(s) cible(s) (un ✗ → verdict ✗ ; mot absent → ✗) ; (2) **Analyse linguistique** (grammaire/registre/ponctuation), indépendante du verdict.
 Règles : period/semicolon/colon entre phrases = TOUJOURS correct · analyser UNIQUEMENT l'écrit · accepter archaïsmes/dialectes · **CRITICAL FILTER** (items incertains/corrects → silently dropped) · version améliorée seulement si ✓ (italique, mot cible exact).
 Format : `## Verdict`, `## Analyse linguistique`, `## Version améliorée`.
-**Parsing verdict (multi-mots)** : pour chaque mot, 1re ligne le contenant puis 1er `✓`/`✗`. `wordResults` (mot→bool) = **source unique de vérité** (couleur boîte, score `N/total`, contours mots, QCM). **Piège accents** : frontières Unicode `(^|[^\p{L}])mot([^\p{L}]|$)` flag `u`, jamais `\b…\b` ASCII (échoue sur accentués, critique pour le grec).
+**Parsing verdict (multi-mots)** : pour chaque mot, 1re ligne le contenant puis 1er `✓`/`✗`. Regex tolérante aux variantes emoji (`OK_RE=[✓✔✅]`, `KO_RE=[✗✘❌]`). `wordResults` (mot→bool) = **source unique de vérité** (couleur boîte, score `N/total`, contours mots, QCM). **Piège accents** : frontières Unicode `(^|[^\p{L}])mot([^\p{L}]|$)` flag `u`, jamais `\b…\b` ASCII (échoue sur accentués, critique pour le grec).
+**Rendu de la boîte** (`renderFeedbackSections`) : après le streaming, re-rendu en **sections repliables** (verdict ouvert, reste = aperçu 2 lignes `-webkit-line-clamp`), bouton « tout déplier/replier », **note `N/total` en bas**. Couleur boîte 3 états : `.correct` vert (tout ✓) / `.partial` orange (quelques ✗) / `.incorrect` rouge (tout ✗) — ⚠️ `.partial` doit être dans **tous** les `classList.remove` (sinon orange bloqué). Bordure neutre pendant le streaming.
 
 ### Définition
 Cache `definitionCache["mot|lang|model"]` 24h. Lock `_hintInFlight`. 4 sections `##` : Définition, Registre, Collocations, Exemple (italique).
@@ -200,16 +219,16 @@ Prompt anglais, réponse espagnol. Sections : `## Precisión`, `## Análisis lin
 ## Comportements UI / iOS
 
 ### Écrans
-`screen-loading`, `screen-auth`, `screen-lang` (sélecteur langue + 📊 stats / 📋 historique / 📝 mes mots / 🚪 logout), `screen-practice`, `screen-stats`, `screen-history`, `screen-mots`, `screen-revisions`. `showScreen(id)`.
+`screen-loading`, `screen-auth`, `screen-lang`, `screen-practice`, `screen-stats`, `screen-history`, `screen-mots`, `screen-revisions`, **`screen-add`** (ajouter du contenu). `showScreen(id)` (déclenche `updateLangBadges` sur screen-lang). Écrans-listes ancrés en haut (`align-self:flex-start`) — titre/recherche figés quand la liste change. **Modales** : `#help-modal` (instructions), `#lang-picker-modal` (choix langues), `#word-ctx-menu` (menu ⋯). `screen-lang` : grille langues (badges vert/rouge `updateLangBadges`) + 📊 stats / 📋 historique / 📝 mes mots / ➕ ajouter / ❓ aide / 🚪 logout.
 
 ### Mes mots (`screen-mots`, `showMots`)
-Voir/chercher/renommer/supprimer. Charge les 4 langues (`/api/words?...&detail=1`), tri **chronologique** (récent d'abord, `created_at`), filtres par langue + compteurs, recherche live. Lignes `.mot-row` : drapeau + mot + date + ✏️ (`editMot` → `PUT /api/words`, refuse collision) + 🗑 (`deleteMot` → `DELETE`).
+Voir/chercher/renommer/supprimer + **étoiles** (`motsStars`, charge progress des 4 langues). Charge les 4 langues (`/api/words?...&detail=1`), tri **chronologique** (récent d'abord, `created_at`), filtres par langue + compteurs, recherche live. Lignes `.mot-row` : drapeau + mot + étoiles + date + ✏️ (`editMot` → `PUT /api/words`, refuse collision) + 🗑 (`deleteMot` → `DELETE`). `screen-revisions` a aussi étoiles + recherche.
 
 ### Mots cachés (👁) · Chips cliquables
-Toggle header, raccourci `Opt+←` (blur 7px). `Opt+→` = `nextWord()`. Mot nouveau → `fetchHint`. Mot à réviser (avant soumission) → `showJeNeSaisPas` → `saveProgress(false)` + `startQCM`.
+Toggle header, raccourci `Opt+←` (blur 7px). `Opt+→` = `nextWord()`. À la **vérification**, les mots cachés réapparaissent (`revealHiddenWords`). Mot nouveau → `fetchHint`. Mot à réviser (avant soumission) → `showJeNeSaisPas` → `saveProgress(false)` + `startQCM` (1 seul QCM/mot via `_qcmStartedWords`). Casse : affichage + prompts en **minuscules** (`lc()`), DB en casse d'origine.
 
-### Suppression de mot (menu contextuel)
-Right-click / long press 500ms sur `.word-chip`/`#single-word-card` → `#word-ctx-menu`. Guard `_justLongPressed`. **`deleteWordFromSheets(word)`** (nom hérité) : `DELETE /api/words` (mot + progress), met à jour `allWords`/`progressMap`/`definitionCache` en mémoire, pioche un remplaçant (même pool que `onSliderChange`).
+### Édition / suppression de mot (bouton ⋯)
+Le clic-droit/appui long est **retiré**. Carte + chips ont un bouton **« ⋯ »** (`openWordMenu`) → `#word-ctx-menu` avec **✏️ Modifier** (`editWordOnCard` → `PUT /api/words`, propage à words+progress+history) et **🗑 Supprimer** (`deleteWordFromSheets`, nom hérité : `DELETE /api/words` mot+progress, maj mémoire, pioche un remplaçant). Ferme au clic dehors.
 
 ### Couleurs / contours des mots
 - Nouveau : doré (`--accent`) · À réviser : blanc (`chip-review`/`card-review`).
@@ -223,9 +242,10 @@ Right-click / long press 500ms sur `.word-chip`/`#single-word-card` → `#word-c
 - Protection double soumission (`lastSubmittedSentence`) + « Autre mot » avec phrase non vérifiée (`confirm()`).
 
 ### iOS
-- `--safe-top` par JS : iPhone 59px, iPad 32/44px, sinon `env(safe-area-inset-top)`. `#status-curtain` (CSS pur, `z-index:9999`). PWA standalone : iOS auto-scrolle au focus input, on se fie au rideau.
+- `--safe-top` par JS **uniquement en PWA standalone** (iPhone 59px, iPad 44px) ; en Safari normal on garde `env()` ≈ 0 (sinon gros rideau noir inutile). `#status-curtain` (CSS pur, `z-index:9999`).
+- **PWA** : `manifest.json` `start_url:"./"` (relatif — `/vocab-app/` faisait un 404 sur byov.net). `apple-mobile-web-app-capable`, `apple-touch-icon` = `icon.svg`.
 - **Sticky bar `#sticky-words-bar` : retirée** (instable en PWA ; `_updateStickyVisibility` = no-op, élément `display:none`).
-- Autoscroll focus textarea (ignore réductions <150px = barre URL). Auto-scroll streaming `startAutoScroll(box, spacer)` : suit le bas, stoppe quand le haut atteint `PAD_TOP`, spacer dynamique, interrompu par `wheel`/`touchmove`.
+- **Autoscroll clavier retiré** (trop glitchy — on laisse iOS gérer le focus). Auto-scroll **streaming** conservé : `startAutoScroll(box, spacer)` suit le bas, stoppe quand le haut atteint `PAD_TOP`, spacer dynamique, interrompu par `wheel`/`touchmove`. Définition : remonte le haut de la boîte en fin de streaming.
 
 ### Historique / stats
 Lus depuis D1 en parallèle (`/api/history` journal + `/api/progress` scores cumulés). Filtre par langue.
@@ -239,9 +259,10 @@ Lus depuis D1 en parallèle (`/api/history` journal + `/api/progress` scores cum
 
 1. **gpt-5.4 hallucinations** : rares. Garde-fous prompts (CRITICAL FILTER) imparfaits.
 2. **Doublon `callAIVision`** : 2 déclarations, la 2e (GPT) écrase le dispatcher → Imagen utilise toujours GPT (pas Gemini vision).
-3. **`WORKER_SECRET` exposé** (repo public + historique git) → rotation à faire (scripts lisent déjà `process.env.WORKER_SECRET`).
-4. **`kindle_import.py`** : import Kindle, écrit encore dans **Google Sheets** (outil pré-D1, orphelin) + utilise `/openai-script`. À refaire vers `/add`/D1 si besoin. User-Agent navigateur requis (sinon 403 Cloudflare 1010).
-5. **Gemma 4 thinking** : `NONE`/`thinkingBudget:0` non supportés (`MINIMAL`/`HIGH` seulement).
+3. **`WORKER_SECRET` exposé** (repo public + historique git) → rotation à faire. Encore utilisé par `/openai-script` (route legacy).
+4. **Gemma 4 thinking** : `NONE`/`thinkingBudget:0` non supportés (`MINIMAL`/`HIGH` seulement).
+5. **Langues à 4/4** : la tuile « ＋ ajouter » disparaît → plus d'entrée UI pour *retirer* une langue (ajouter un « gérer mes langues » si besoin).
+6. **`wrangler dev --remote`** se fait throttler (erreur Cloudflare 1031) après plusieurs heures → relancer le process.
 
 ---
 
@@ -269,15 +290,14 @@ Worker : `wrangler deploy`. Front : push `main` → GitHub Actions → `gh-pages
 
 ## Idées futures
 
-**Faites ✅** : Auth Google OAuth + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · Mes mots · calendrier des révisions · déploiement prod.
+**Faites ✅** : Auth Google + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · **écran « ajouter du contenu » in-app (mots + formes grammaticales)** · Mes mots (+ étoiles) · calendrier des révisions (tri + recherche + étoiles) · **sync de tous les réglages** · **langues configurables par utilisateur** (sous-ensemble des 4) · **page d'instructions (modale)** · **boîte de vérif repliable** · `kindle_import.py` → `/add`/D1 · compteur tokens corrigé · PWA `manifest` corrigé · déploiement prod.
 
 **À faire / à concevoir** :
-- **BYOK total** (priorité, important pour l'utilisateur) : l'**ajout de mots** (`/add`) utilise encore `OPENAI_API_KEY_SCRIPT` (clé propriétaire) car le raccourci n'a pas d'UI BYOK. À rendre BYOK (clé de l'utilisateur côté requête, ou clé D1 réutilisée).
-- **Page d'instructions / onboarding** : l'app n'est pas évidente (login, clé BYOK, raccourci, modes).
-- **Langues configurables par utilisateur** : EN/ES/FR/Greek codés en dur (sélecteur, prompts, détection `/add`) → un utilisateur apprenant une autre langue ne peut pas.
+- **BYOK total** (priorité) : l'**ajout de mots** (`/add`) utilise encore `OPENAI_API_KEY_SCRIPT` (clé propriétaire) car le raccourci n'a pas d'UI BYOK. À rendre BYOK.
+- **Plus de 4 langues** : les 4 possibles sont codées en dur dans `LANGS` (mappings, prompts, détection `/add`). Pour une langue hors-liste, il faudrait généraliser `LANGS`.
 - **Rotation `WORKER_SECRET`** + suppression secrets morts (`SA_JSON`, `OPENAI_API_KEY`, `GEMINI_KEY`).
 - **Sécurité/scalabilité** : OK pour des centaines d'utilisateurs ; 1ers plafonds = quotas D1 gratuits (~100K écritures/j) + clé `/add` du propriétaire.
-- **PWA installable** (manifest + service worker) · **App Store** via Capacitor (nécessite Apple Dev $99/an).
-- `kindle_import.py` → cibler D1/`/add`.
+- **PWA** : service worker (offline) · **App Store** via Capacitor (Apple Dev $99/an).
+- **Gérer mes langues** : pouvoir retirer une langue quand on a les 4.
 
 > Case study portfolio : `~/Desktop/vocab-app/portfolio-case-study.md` (ES+EN).
