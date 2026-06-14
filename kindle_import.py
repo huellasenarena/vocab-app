@@ -802,43 +802,69 @@ def main():
         else:
             final[sheet] = [w for _, w in normal]
 
-    # 7-9. Import + maj Kindle + résumé — sélection mise en cache pour reprise
-    save_cache(final, chosen_titles)
+    # 7-9. Import + maj Kindle + résumé (run_import gère le cache de reprise)
     run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips)
 
 
 def run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips):
-    """Import vers /add + maj Kindle + résumé. La sélection (`final`) est déjà
-    mise en cache : en cas d'échec/annulation on peut reprendre sans tout refaire."""
+    """Import vers /add + maj Kindle + résumé.
+
+    Reprise incrémentale : le cache (.kindle_cache.json) contient TOUJOURS les
+    mots qu'il RESTE à traiter. Chaque mot envoyé/décidé est retiré du cache et
+    le fichier est réécrit. Si le script est coupé, la relance reprend pile où
+    il s'était arrêté. Un mot en erreur dure (réseau, etc.) reste dans le cache
+    pour être réessayé. Quand tout est traité → cache effacé."""
     # 7. Import vers la base (D1) via la route /add
     #    /add fait lui-même : détection langue, validité, doublon, similarité (juge LLM).
     sep()
     SHEET_TO_CODE = {"Spanish": "es", "French": "fr", "English": "en", "Greek": "el"}
-    total_words = sum(len(w) for w in final.values())
-    print(f"☁️  Import de {total_words} mot(s) vers la base via /add...\n")
-    if not ask("Lancer l'import maintenant ?"):
-        print("   Import annulé.")
-        print(f"   (sélection conservée — relance le script pour la reprendre)")
-        return
 
-    total_new = total_dup = total_invalid = total_similar = total_err = 0
-
+    # Dédoublonnage local (insensible à la casse) → liste des mots restants = le cache
+    pending = {}
     for sheet, words in final.items():
-        code = SHEET_TO_CODE.get(sheet, "auto")
-        # dédoublonne localement (insensible à la casse) avant d'appeler /add
         uniq, seen = [], set()
         for w in words:
             w = normalize_word(w); wl = w.lower()
             if w and wl not in seen:
                 seen.add(wl); uniq.append(w)
+        if uniq:
+            pending[sheet] = uniq
+    save_cache(pending, chosen_titles)
+
+    total_words = sum(len(w) for w in pending.values())
+    if total_words == 0:
+        print("Rien à importer.")
+        clear_cache()
+        return
+    print(f"☁️  Import de {total_words} mot(s) vers la base via /add...\n")
+    if not ask("Lancer l'import maintenant ?"):
+        print("   Import annulé.")
+        print("   (sélection conservée — relance le script pour la reprendre)")
+        return
+
+    total_new = total_dup = total_invalid = total_similar = total_err = 0
+
+    def done(sheet, w):
+        """Mot traité → on le retire du cache et on réécrit le fichier."""
+        if w in pending.get(sheet, []):
+            pending[sheet].remove(w)
+            if not pending[sheet]:
+                pending.pop(sheet, None)
+        if pending:
+            save_cache(pending, chosen_titles)
+        else:
+            clear_cache()
+
+    for sheet in list(pending.keys()):
+        code = SHEET_TO_CODE.get(sheet, "auto")
         sep()
-        print(f"— {sheet} : {len(uniq)} mot(s) —")
-        for w in uniq:
+        print(f"— {sheet} : {len(pending[sheet])} mot(s) —")
+        for w in list(pending[sheet]):
             txt = add_word(w, code)
             if txt.startswith("Succès"):
-                total_new += 1; print(f"   ✓ {w}")
+                total_new += 1; print(f"   ✓ {w}"); done(sheet, w)
             elif txt.startswith("Doublon"):
-                total_dup += 1; print(f"   = {w} (déjà présent)")
+                total_dup += 1; print(f"   = {w} (déjà présent)"); done(sheet, w)
             elif txt.startswith("INVALID:"):
                 reason = txt[len("INVALID:"):].split("|")[0].strip()
                 print(f"   ⚠️  {w} — {reason}")
@@ -849,6 +875,7 @@ def run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips):
                     else:                          total_err += 1; print(f"      ✗ {t2}")
                 else:
                     total_invalid += 1
+                done(sheet, w)  # décision prise → traité dans tous les cas
             elif txt.startswith("SIMILAR:"):
                 sim = txt[len("SIMILAR:"):].split("|")[0].strip()
                 print(f"   ⚠️  {w} — proche de « {sim} »")
@@ -859,26 +886,35 @@ def run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips):
                     else:                          total_err += 1; print(f"      ✗ {t2}")
                 else:
                     total_similar += 1
+                done(sheet, w)  # décision prise → traité dans tous les cas
             else:
+                # erreur dure → on GARDE le mot dans le cache pour réessayer
                 total_err += 1; print(f"   ✗ {w} — {txt}")
 
-    # Import terminé sans interruption → on peut jeter le cache de sélection
-    clear_cache()
+    remaining = sum(len(w) for w in pending.values())
+    if remaining:
+        save_cache(pending, chosen_titles)
+        print(f"\n⚠️  {remaining} mot(s) non importés (erreurs) — conservés dans le cache.")
+        print("   Relance le script pour réessayer uniquement ceux-là.")
+        print("   (Maj de la Kindle ignorée tant qu'il reste des mots à importer.)")
+    else:
+        clear_cache()
 
-    # 8. Mise à jour de la Kindle
-    sep()
-    print("\n📖  Mise à jour de la Kindle :\n")
-    books_to_reset = chosen_titles
-
-    do_reset = ask("Marquer les mots importés comme maîtrisés dans vocab.db ?")
-    if do_reset and has_db:
-        reset_vocab_db(db_path, books_to_reset)
-        print("   ✅ Mots marqués comme maîtrisés")
-
-    do_reset_clips = ask("Supprimer les surlignements importés de My Clippings.txt ?")
-    if do_reset_clips and has_clips:
-        n = reset_clippings(clip_path, books_to_reset)
-        print(f"   ✅ My Clippings.txt nettoyé ({n} entrées supprimées)")
+    # 8. Mise à jour de la Kindle — seulement si TOUT est importé
+    #    (sinon on marquerait comme maîtrisés des mots pas encore en base)
+    do_reset = do_reset_clips = False
+    if not remaining:
+        sep()
+        print("\n📖  Mise à jour de la Kindle :\n")
+        books_to_reset = chosen_titles
+        do_reset = ask("Marquer les mots importés comme maîtrisés dans vocab.db ?")
+        if do_reset and has_db:
+            reset_vocab_db(db_path, books_to_reset)
+            print("   ✅ Mots marqués comme maîtrisés")
+        do_reset_clips = ask("Supprimer les surlignements importés de My Clippings.txt ?")
+        if do_reset_clips and has_clips:
+            n = reset_clippings(clip_path, books_to_reset)
+            print(f"   ✅ My Clippings.txt nettoyé ({n} entrées supprimées)")
 
     # 9. Résumé final
     sep("═")
@@ -887,7 +923,7 @@ def run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips):
     print(f"   🚫 {total_dup} doublon(s) ignoré(s)")
     if total_invalid: print(f"   ⚠️  {total_invalid} invalide(s) ignoré(s)")
     if total_similar: print(f"   ⚠️  {total_similar} variante(s) ignorée(s)")
-    if total_err:     print(f"   ✗ {total_err} erreur(s)")
+    if total_err:     print(f"   ✗ {total_err} erreur(s) — conservées pour relance")
     if do_reset:   print("   ✅ Mots marqués comme maîtrisés")
     if do_reset_clips: print("   🗑️  My Clippings.txt nettoyé")
     sep("═")
