@@ -26,6 +26,47 @@ WORKER_URL     = "https://dark-brook-87cc.georg-dreym.workers.dev"
 TOKEN_FILE     = SCRIPT_DIR / ".token"
 CACHE_FILE     = SCRIPT_DIR / ".kindle_cache.json"
 
+def print_aide():
+    print("""
+═══════════════════════════════════════════════════════
+  📖  kindle_import.py — importer ton vocabulaire Kindle
+      vers BYOV (https://byov.net)
+═══════════════════════════════════════════════════════
+
+CE QUE FAIT CE SCRIPT
+  Lit les mots que tu as surlignés sur ta Kindle (fichier
+  vocab.db / « My Clippings ») et les ajoute à ton compte BYOV.
+  Tu choisis quels mots importer ; le script filtre le charabia
+  et les mots trop courants, et ignore les doublons/flexions.
+
+PRÉREQUIS
+  • Python 3
+  • pip3 install wordfreq      (filtre les mots trop courants)
+
+CONFIGURATION (une seule fois, dans le dossier du script)
+  • .token        → ton token perso d'ajout.
+                    Dans l'app : ⚙️ → « lien d'ajout », copie la
+                    valeur après « token= ».
+                      echo 'TON_TOKEN' > .token
+  • .openai_key   → ta clé OpenAI (sert au filtrage des doublons).
+                      echo 'sk-...' > .openai_key
+  Ces deux fichiers restent en local (jamais envoyés sur GitHub).
+
+UTILISATION
+  1. Branche ta Kindle en USB.
+  2. python3 kindle_import.py
+  3. Sélectionne les mots à importer.
+  Un import interrompu peut être repris (la sélection est mise en cache).
+
+OPTIONS
+  --aide, -h      affiche cette aide.
+═══════════════════════════════════════════════════════
+""")
+
+if any(a in ("--aide", "-h", "--help", "aide") for a in sys.argv[1:]):
+    print_aide()
+    sys.exit(0)
+
 def load_add_token():
     # Le fichier .token est LA source de vérité (mis en place une fois, persistant).
     # $ADD_TOKEN n'est qu'un secours si le fichier n'existe pas — il ne peut PAS
