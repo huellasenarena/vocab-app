@@ -220,7 +220,7 @@ Format : `## Verdict`, `## Analyse linguistique`, `## Version améliorée`.
 **Rendu de la boîte** (`renderFeedbackSections`) : après le streaming, re-rendu en **sections repliables** (verdict ouvert, reste = aperçu 2 lignes `-webkit-line-clamp`), bouton « tout déplier/replier », **note `N/total` en bas**. Couleur boîte 3 états : `.correct` vert (tout ✓) / `.partial` orange (quelques ✗) / `.incorrect` rouge (tout ✗) — ⚠️ `.partial` doit être dans **tous** les `classList.remove` (sinon orange bloqué). Bordure neutre pendant le streaming.
 
 ### Définition
-Cache `definitionCache["mot|lang|model"]` 24h. Lock `_hintInFlight`. 4 sections `##` : Définition, Registre, Collocations, Exemple (italique).
+Cache `definitionCache["mot|lang|model"]` 24h. Lock `_hintInFlight`. 3 sections `##` : **Sens** (polysémie : liste numérotée, **max 3** sens distincts, **un exemple en italique par sens**), Registre (global, étiquette « (sens N) » si diffère), Collocations. Budget tokens `4000` (relevé pour 3 sens). Le prompt interdit de sur-découper les nuances ; 1 sens → 1 entrée.
 
 ### QCM
 4 scénarios (le mot cible n'apparaît pas), 1 correct + 3 distracteurs, Fisher-Yates JS. JSON via regex.

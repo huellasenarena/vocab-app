@@ -3288,19 +3288,18 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const langName = getLang().mistralName;
       const prompt = `You are a vocabulary teacher. The learner is studying ${langName}.
 
-Give the definition and one rich example sentence for: "${lc(word)}"
+Explain the word or expression: "${lc(word)}"
 
 Rules:
-- Treat it as a word or expression in ${langName}. It may be archaic, obsolete, dialectal, literary, or rare — accept it as such and explain its historical or specialized usage.
-- Do NOT say the word doesn't exist. If it is archaic or obsolete, say so when describing its register.
-- If it has multiple meanings, give the most useful one for a language learner.
-- The example must clearly illustrate the word's meaning in a realistic context.
+- Treat it as a word or expression in ${langName}. It may be archaic, obsolete, dialectal, literary, or rare — accept it as such and explain its usage. Do NOT say the word doesn't exist; if it is archaic/obsolete, note it in the register.
+- Identify its genuinely DISTINCT meanings (different senses), most useful/common first, MAXIMUM 3. Do NOT split fine nuances of the same meaning into separate senses. If it has only one meaning, list just one.
+- Each sense MUST have its own example sentence that clearly illustrates THAT sense in a realistic context.
 
-Structure your response in exactly four sections. Use a ## markdown heading (in ${langName}) before each section, then the content on the next line(s):
-1. The definition of the word
-2. Its register or stylistic level (e.g. formal, neutral, familiar, literary, technical, archaic)
-3. Two or three words or expressions often used together with this word. List each as a bullet on its own line in this exact format: • *word or expression* — one-sentence explanation of the relationship or usage
-4. One example sentence in italics
+Structure your response in exactly three sections. Use a ## markdown heading (in ${langName}) before each section, then the content on the next line(s):
+1. The distinct meanings, as a numbered list — one line per sense, each in EXACTLY this format:
+   1. **short label of the sense** — concise definition. *one example sentence in italics for this sense*
+2. The overall register or stylistic level (e.g. formal, neutral, familiar, literary, technical, archaic). If a particular sense differs, note it, e.g. "(sens 2 : technique)".
+3. Two or three words or expressions often used with this word. List each as a bullet on its own line in this exact format: • *word or expression* — one-sentence explanation (add "(sens 1)" etc. if it ties to a specific meaning)
 
 Respond entirely in ${langName}.`;
 
@@ -3321,7 +3320,7 @@ Respond entirely in ${langName}.`;
           }
           hintTextEl.innerHTML = renderMarkdown(display);
           scroller.onChunk();
-        });
+        }, 4000);  // jusqu'à 3 sens + exemples → budget relevé (reasoning + texte)
         scroller.cleanup();
 
         // Fin du streaming : on remonte le haut de la définition près du haut de l'écran
