@@ -1807,6 +1807,16 @@
       slider.value = val;
       document.getElementById('slider-value').textContent = val === 1 ? '1 mot' : `${val} mots`;
       if (val !== prev) localStorage.setItem(KEY_WORD_COUNT + '_' + currentLang, String(val));
+      // Invariant : la valeur du slider doit toujours = le nombre de cartes affichées.
+      // Si le plafond force la valeur sous le nombre de mots déjà affichés (ex. baisse
+      // de « nouveaux/jour » via setMaxNewPerDay), on tronque + re-render (sinon le
+      // libellé « 1 mot » se désynchronise des cartes). No-op pendant pickWords
+      // (currentWords est [] à ce moment-là, reset avant l'appel).
+      if (currentWords.length > val) {
+        currentWords = currentWords.slice(0, val);
+        renderWordDisplay();
+        renderGrammarForms();
+      }
     }
 
     // État « terminé » : masque slider/carte/boutons/champ et n'affiche que la carte ✓
