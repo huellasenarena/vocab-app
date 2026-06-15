@@ -240,7 +240,12 @@ If YES, reply exactly "YES: <existing_word>". If it has distinct vocabulary valu
 }
 
 function normSim(w) {
-  return w.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '');
+  // Garde latin ET grec (sinon les mots grecs deviennent "" → similarité morte).
+  // NFD + suppression des accents (tonos grec inclus), sigma final ς → σ.
+  return w.normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/ς/g, 'σ')
+    .replace(/[^a-zα-ω]/g, '');
 }
 
 function similarityScore(wNorm, eNorm) {

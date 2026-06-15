@@ -852,9 +852,10 @@
       font-family: 'DM Mono', monospace; font-size: 0.74rem; text-transform: uppercase;
       letter-spacing: 0.08em; color: var(--accent); margin: 0 0 0.4rem;
     }
-    .help-section p, .help-section ul { font-size: 0.9rem; line-height: 1.6; margin: 0; color: var(--text); }
-    .help-section ul { padding-left: 1.1rem; }
+    .help-section p, .help-section ul, .help-section ol { font-size: 0.9rem; line-height: 1.6; margin: 0; color: var(--text); }
+    .help-section ul, .help-section ol { padding-left: 1.1rem; }
     .help-section li { margin-bottom: 0.25rem; }
+    .help-section code { font-family: 'DM Mono', ui-monospace, monospace; font-size: 0.82em; background: var(--surface); padding: 0.08em 0.35em; border-radius: 4px; word-break: break-word; }
     .help-btn { font-size: 0.85rem; }
 
     /* Bouton « ajouter une langue » dans la grille */
@@ -2350,7 +2351,7 @@
     }
     function reloadSettingsVars() {
       grammarFormsEnabled = localStorage.getItem(KEY_GRAMMAR) !== 'false';
-      maxNewPerDay        = parseInt(localStorage.getItem(KEY_MAX_NEW)) || 60;
+      maxNewPerDay        = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + currentLang)) || 60;
       showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
       situationCounts     = localStorage.getItem(KEY_SITUATION_COUNTS) === 'true';
       situationWordCount  = parseInt(localStorage.getItem(KEY_SITUATION_WORDS)) || 1;
@@ -4450,13 +4451,13 @@ Write all scenarios in ${langName}.`;
 
       const langName = getLang().mistralName;
       const prompt = isMulti
-        ? `You are a language teacher. Create a single, vivid, coherent scene in ${langName} (one unified text on one theme — NOT separate numbered paragraphs) that together evokes ALL of these ${langName} words/expressions:
+        ? `You are a language teacher. Create a vivid, coherent text in ${langName} on a single theme (one or several short paragraphs are fine if the text flows better that way — but NEVER one paragraph per target word, and no numbered list) that together evokes ALL of these ${langName} words/expressions:
 ${words.map(w => `- ${lc(w)}`).join('\n')}
 
-A reader who knows these words should be able to recall each of them from the scene. Do NOT mention any of the words, their direct synonyms, or their translations. Do NOT give definitions. Weave the cues for every word naturally into the same short text (4-6 sentences). Write ONLY the scene, nothing else, entirely in ${langName}.`
+A reader who knows these words should be able to recall each of them from the text. Do NOT mention any of the words, their direct synonyms, or their translations. Do NOT give definitions. Weave the cues for every word naturally into the text (a few sentences, up to two or three short paragraphs). Write ONLY the text, nothing else, entirely in ${langName}.`
         : `You are a language teacher. Create a vivid, concrete situation in ${langName} that clearly evokes the word or expression "${lc(words[0])}" WITHOUT mentioning the word itself, its direct synonyms, or its translation.
 
-The situation should be a short paragraph (2-4 sentences) describing a scene, a person, or an event that perfectly illustrates the meaning of "${words[0]}". The reader who knows the word should immediately think of it.
+The situation should be a short, coherent text (a couple of sentences, or one to two short paragraphs if it reads better) describing a scene, a person, or an event that perfectly illustrates the meaning of "${words[0]}". The reader who knows the word should immediately think of it.
 
 Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing else. Write entirely in ${langName}.`;
 
@@ -4629,6 +4630,8 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
       // Remplace « Je ne sais pas » par « Autre situation » (même emplacement)
       document.getElementById('btn-situation-skip').style.display = 'none';
       document.getElementById('btn-situation-next').style.display = '';
+      // Autoscroll : amène le verdict révélé à l'écran (texte statique → scrollIntoView suffit)
+      fb.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     // Cmd+Enter pour soumettre la situation aussi
@@ -5189,8 +5192,28 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         <h3>2 · Ajouter des mots</h3>
         <ul>
           <li><strong>Dans l'app</strong> : « ➕ ajouter du contenu » → un mot ou une forme grammaticale.</li>
-          <li><strong>Depuis l'iPhone</strong> : un raccourci (ton lien perso dans ⚙️) pour ajouter un mot d'un geste, de n'importe où.</li>
+          <li><strong>Depuis l'iPhone</strong> (raccourci) ou <strong>depuis ta Kindle</strong> (script) : voir ci-dessous.</li>
         </ul>
+        <p style="margin-top:0.75rem"><strong>🔑 Ton token perso.</strong> Les deux méthodes ci-dessous ont besoin de ton <em>token d'ajout</em>. Tu le trouves dans <strong>⚙️ → « lien d'ajout »</strong> : c'est la valeur après <code>token=</code> dans l'URL affichée. Il permet seulement d'ajouter des mots à <em>ton</em> compte — garde-le pour toi.</p>
+      </div>
+      <div class="help-section">
+        <h3>📱 Raccourci iPhone</h3>
+        <ol>
+          <li>Installe le raccourci : <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--accent)">ouvrir le raccourci « Vocab »</a>.</li>
+          <li>Dans le raccourci, ouvre l'action <strong>« Texte »</strong> (l'URL) et remplace <code>COLLE_TON_TOKEN_ICI</code> par ton token (copié depuis ⚙️).</li>
+          <li>Ensuite, depuis n'importe quelle app : <strong>Partager → Vocab</strong>, ou lance le raccourci et tape un mot. Si le mot est invalide ou ressemble à un mot existant, il te demande « ajouter quand même ? ».</li>
+        </ol>
+      </div>
+      <div class="help-section">
+        <h3>📖 Import Kindle (ordinateur)</h3>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Importe d'un coup les mots surlignés sur ta Kindle. Nécessite un Mac/PC avec Python 3.</p>
+        <ol>
+          <li>Installe la dépendance : <code>pip3 install wordfreq</code>.</li>
+          <li>Télécharge le script : <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--accent)">kindle_import.py</a>.</li>
+          <li>Dans le même dossier, crée deux fichiers : <code>.token</code> (ton token perso) et <code>.openai_key</code> (ta clé OpenAI). Chaque fichier ne contient que la valeur, rien d'autre.</li>
+          <li>Branche ta Kindle en USB, puis lance : <code>python3 kindle_import.py</code>. Choisis les mots à importer.</li>
+          <li>Besoin d'aide ? <code>python3 kindle_import.py --aide</code>.</li>
+        </ol>
       </div>
       <div class="help-section">
         <h3>3 · Les 4 modes</h3>
