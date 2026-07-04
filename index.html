@@ -1069,6 +1069,31 @@
     .progress-bar-bg   { width: 100%; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
     .progress-bar-fill { height: 100%; background: var(--success); border-radius: 2px; transition: width 0.6s ease; }
 
+    /* ── Menu principal (grille 2×3 sous les langues) ── */
+    .menu-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem;
+      width: 100%; margin-top: 1.4rem;
+    }
+    .menu-tile {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 0.7rem 0.3rem; display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+      color: var(--text); cursor: pointer;
+      font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    }
+    .menu-tile:hover { border-color: var(--accent); }
+    .menu-tile .mt-icon { font-size: 1.15rem; line-height: 1; }
+    .menu-more-panel { display: none; width: 100%; margin-top: 0.6rem; }
+    .menu-more-panel.visible { display: flex; flex-direction: column; gap: 0.3rem; }
+
+    /* ── Sélecteur de langue de l'appli (écran connexion) ── */
+    .app-lang-row { display: flex; gap: 0.4rem; justify-content: center; margin-bottom: 0.9rem; }
+    .app-lang-btn {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      border-radius: 6px; padding: 0.2rem 0.55rem;
+      font-family: 'DM Mono', monospace; font-size: 0.75rem; cursor: pointer;
+    }
+    .app-lang-btn.active { color: var(--accent); border-color: var(--accent); }
+
     /* ── Spinner ── */
     .spinner {
       display: inline-block; width: 14px; height: 14px;
@@ -1090,7 +1115,7 @@
   <!-- ── Écran 0 : Chargement ── -->
   <div class="screen" id="screen-loading">
     <h1 class="app-title">BYOV</h1>
-    <p class="app-subtitle" style="margin-top:0">connexion en cours…</p>
+    <p class="app-subtitle" style="margin-top:0" data-i18n="loading_connecting">connexion en cours…</p>
     <div style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-top:1rem"></div>
   </div>
 
@@ -1098,29 +1123,117 @@
   <div class="screen" id="screen-auth">
     <h1 class="app-title">BYOV</h1>
     <p class="app-tagline"><span class="byov-i">B</span>ring <span class="byov-i">Y</span>our <span class="byov-i">O</span>wn <span class="byov-i">V</span>ocab</p>
+    <!-- Langue de l'interface (visible sans être connecté — défaut : anglais) -->
+    <div class="app-lang-row">
+      <button class="app-lang-btn" data-lang="en" onclick="setAppLang('en')">EN</button>
+      <button class="app-lang-btn" data-lang="fr" onclick="setAppLang('fr')">FR</button>
+      <button class="app-lang-btn" data-lang="es" onclick="setAppLang('es')">ES</button>
+      <button class="app-lang-btn" data-lang="el" onclick="setAppLang('el')">ΕΛ</button>
+    </div>
     <div class="input-group">
       <input type="email" id="auth-email" placeholder="email" autocomplete="email" autofocus />
-      <input type="password" id="auth-password" placeholder="mot de passe" autocomplete="current-password" />
-      <button class="btn-primary" id="auth-submit" onclick="submitAuth()">Se connecter</button>
-      <button class="btn-ghost" id="auth-toggle" onclick="toggleAuthMode()">Pas de compte ? Créer un compte</button>
+      <input type="password" id="auth-password" placeholder="mot de passe" autocomplete="current-password" data-i18n-ph="auth_password_ph" />
+      <button class="btn-primary" id="auth-submit" onclick="submitAuth()" data-i18n="auth_login">Se connecter</button>
+      <button class="btn-ghost" id="auth-toggle" onclick="toggleAuthMode()" data-i18n="auth_no_account">Pas de compte ? Créer un compte</button>
       <p class="error-msg" id="auth-error"></p>
-      <div style="text-align:center;color:var(--muted);font-size:0.8rem;margin:0.2rem 0;">— ou —</div>
+      <div style="text-align:center;color:var(--muted);font-size:0.8rem;margin:0.2rem 0;" data-i18n="auth_or">— ou —</div>
       <div id="google-signin-btn" style="display:flex;justify-content:center;"></div>
     </div>
-    <button class="btn-ghost help-btn" onclick="openHelp()">❓ Comment ça marche</button>
+    <button class="btn-ghost help-btn" onclick="openHelp()" data-i18n="help_btn">❓ Comment ça marche</button>
   </div>
 
   <!-- ── Écran 2 : Sélecteur de langue ── -->
   <div class="screen" id="screen-lang">
     <h1 class="app-title">BYOV</h1>
-    <p class="app-subtitle">quelle langue aujourd'hui ?</p>
+    <p class="app-subtitle" data-i18n="lang_subtitle">quelle langue aujourd'hui ?</p>
     <div class="lang-grid" id="lang-grid"></div>
-    <button class="btn-ghost" onclick="showStats()">📊 voir mes statistiques</button>
-    <button class="btn-ghost" onclick="showHistory()">📋 historique des mots</button>
-    <button class="btn-ghost" onclick="showMots()">📝 gérer mes mots</button>
-    <button class="btn-ghost" onclick="showAddContent()">➕ ajouter du contenu</button>
-    <button class="btn-ghost help-btn" onclick="openHelp()">❓ comment ça marche</button>
-    <button class="btn-ghost" onclick="logout()">🚪 se déconnecter</button>
+
+    <!-- Menu principal : grille d'icônes 2×3 -->
+    <div class="menu-grid">
+      <button class="menu-tile" onclick="showAddContent()"><span class="mt-icon">➕</span><span data-i18n="tile_menu_add">ajouter</span></button>
+      <button class="menu-tile" onclick="showMots()"><span class="mt-icon">📝</span><span data-i18n="tile_menu_mots">mes mots</span></button>
+      <button class="menu-tile" onclick="showStats()"><span class="mt-icon">📊</span><span data-i18n="tile_menu_stats">stats</span></button>
+      <button class="menu-tile" onclick="showHistory()"><span class="mt-icon">📋</span><span data-i18n="tile_menu_history">historique</span></button>
+      <button class="menu-tile" onclick="toggleAccountSettings()"><span class="mt-icon">⚙️</span><span data-i18n="tile_menu_settings">réglages</span></button>
+      <button class="menu-tile" onclick="toggleMoreMenu()"><span class="mt-icon">⋯</span><span data-i18n="tile_menu_more">plus</span></button>
+    </div>
+    <!-- « plus » : aide + déconnexion -->
+    <div class="menu-more-panel" id="menu-more-panel">
+      <button class="btn-ghost help-btn" onclick="openHelp()" data-i18n="help_btn">❓ Comment ça marche</button>
+      <button class="btn-ghost" onclick="logout()" data-i18n="btn_logout">🚪 se déconnecter</button>
+    </div>
+
+    <!-- Réglages du compte (indépendants de la langue pratiquée) -->
+    <div class="settings-panel" id="account-settings-panel">
+      <div class="settings-row" style="cursor:default;">
+        <span data-i18n="set_app_lang">Langue de l'appli</span>
+        <select id="app-lang-select" onchange="setAppLang(this.value)"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="es">Español</option>
+          <option value="el">Ελληνικά</option>
+        </select>
+      </div>
+      <div class="settings-row" style="cursor:default;">
+        <span data-i18n="set_model">Modèle IA</span>
+        <select id="model-select" onchange="setModel(this.value)"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          <option value="gpt4">GPT-5.4</option>
+          <option value="gemma">Gemma 4 31B</option>
+          <option value="geminiflashlite">Gemini 3.1 Flash Lite</option>
+          <option value="geminiflash">Gemini 3 Flash</option>
+        </select>
+      </div>
+      <div class="settings-row" style="cursor:default;">
+        <span id="reasoning-label" data-i18n="set_reasoning">Raisonnement</span>
+        <select id="reasoning-select" onchange="setReasoningLevel(this.value)"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+        </select>
+      </div>
+      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
+        <span data-i18n="set_openai_key">Clé API OpenAI (GPT)</span>
+        <input type="password" id="openai-key-input" placeholder="sk-…" autocomplete="off"
+          onchange="setOpenaiKey(this.value)"
+          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+      </div>
+      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
+        <span data-i18n="set_gemini_key">Clé API Gemini / Gemma</span>
+        <input type="password" id="gemini-key-input" placeholder="AIza…" autocomplete="off"
+          onchange="setGeminiKey(this.value)"
+          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+      </div>
+      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
+        <span data-i18n="set_add_link">Lien d'ajout (raccourci iPhone)</span>
+        <input type="text" id="add-url-input" readonly placeholder="connecte-toi pour générer ton lien" data-i18n-ph="set_add_link_ph"
+          onclick="this.select()"
+          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;">
+        <span style="font-size:0.7rem;color:var(--muted);" data-i18n="set_add_link_note">Remplace <code>WORD</code> par le mot dans ton raccourci. <code>lang=auto</code> détecte la langue.</span>
+      </div>
+      <label class="settings-row">
+        <span data-i18n="set_tokens">Afficher compteur tokens</span>
+        <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
+      </label>
+      <label class="settings-row">
+        <span data-i18n="set_situation_counts">Modes Situation et Libre comptent dans la progression<br><span style="font-size:0.7rem;color:var(--muted);">étoiles + révisions (l'historique compte toujours)</span></span>
+        <input type="checkbox" id="toggle-situation-counts" onchange="setSituationCounts(this.checked)">
+      </label>
+      <div class="settings-row" style="cursor:default;">
+        <span data-i18n="set_image_theme">Thème photos (Imagen)</span>
+        <select id="image-theme-select" onchange="setImageTheme(this.value)"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          <option value="" data-i18n="theme_random">🎲 Aléatoire</option>
+          <option value="people" data-i18n="theme_people">👥 Personnes</option>
+          <option value="city street" data-i18n="theme_city">🏙️ Ville</option>
+          <option value="nature landscape" data-i18n="theme_nature">🌿 Nature</option>
+          <option value="food" data-i18n="theme_food">🍽️ Nourriture</option>
+          <option value="travel" data-i18n="theme_travel">✈️ Voyage</option>
+          <option value="architecture" data-i18n="theme_architecture">🏛️ Architecture</option>
+          <option value="animals" data-i18n="theme_animals">🐾 Animaux</option>
+        </select>
+      </div>
+    </div>
+
     <p class="error-msg" id="lang-error-msg"></p>
   </div>
 
@@ -1134,7 +1247,6 @@
       </div>
       <div class="header-actions">
         <button class="btn-ghost" onclick="toggleSettings()">⚙️</button>
-        <button class="btn-ghost" onclick="showStats()">📊</button>
         <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">← langue</span>
       </div>
     </div>
@@ -1142,83 +1254,26 @@
     <!-- Panneau réglages -->
     <div class="settings-panel" id="settings-panel">
       <label class="settings-row">
-        <span>Formes grammaticales (Español)</span>
+        <span data-i18n="set_grammar">Formes grammaticales (Español)</span>
         <input type="checkbox" id="toggle-grammar" onchange="setGrammarEnabled(this.checked)">
       </label>
       <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
         <div style="display:flex; justify-content:space-between; width:100%;">
-          <span>Nouveaux mots / jour (espacé)</span>
+          <span data-i18n="set_max_new">Nouveaux mots / jour (espacé)</span>
           <span id="max-new-value" style="color: var(--accent); font-weight: 600;"></span>
         </div>
         <input type="range" id="max-new-slider" min="0" max="23" step="1"
           style="width:100%; accent-color: var(--accent);"
           oninput="setMaxNewPerDay(MAX_NEW_VALUES[+this.value])">
       </div>
-      <div class="settings-row" style="cursor:default;">
-        <span>Modèle IA</span>
-        <select id="model-select" onchange="setModel(this.value)"
-          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
-          <option value="gpt4">GPT-5.4</option>
-          <option value="gemma">Gemma 4 31B</option>
-          <option value="geminiflashlite">Gemini 3.1 Flash Lite</option>
-          <option value="geminiflash">Gemini 3 Flash</option>
-        </select>
-      </div>
-      <div class="settings-row" style="cursor:default;">
-        <span id="reasoning-label">Raisonnement</span>
-        <select id="reasoning-select" onchange="setReasoningLevel(this.value)"
-          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
-        </select>
-      </div>
-      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
-        <span>Clé API OpenAI (GPT)</span>
-        <input type="password" id="openai-key-input" placeholder="sk-…" autocomplete="off"
-          onchange="setOpenaiKey(this.value)"
-          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
-      </div>
-      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
-        <span>Clé API Gemini / Gemma</span>
-        <input type="password" id="gemini-key-input" placeholder="AIza…" autocomplete="off"
-          onchange="setGeminiKey(this.value)"
-          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
-      </div>
-      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
-        <span>Lien d'ajout (raccourci iPhone)</span>
-        <input type="text" id="add-url-input" readonly placeholder="connecte-toi pour générer ton lien"
-          onclick="this.select()"
-          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;">
-        <span style="font-size:0.7rem;color:var(--muted);">Remplace <code>WORD</code> par le mot dans ton raccourci. <code>lang=auto</code> détecte la langue.</span>
-      </div>
-      <label class="settings-row">
-        <span>Afficher compteur tokens</span>
-        <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
-      </label>
-      <label class="settings-row">
-        <span>Modes Situation et Libre comptent dans la progression<br><span style="font-size:0.7rem;color:var(--muted);">étoiles + révisions (l'historique compte toujours)</span></span>
-        <input type="checkbox" id="toggle-situation-counts" onchange="setSituationCounts(this.checked)">
-      </label>
-      <div class="settings-row" style="cursor:default;">
-        <span>Thème photos (Imagen)</span>
-        <select id="image-theme-select" onchange="setImageTheme(this.value)"
-          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
-          <option value="">🎲 Aléatoire</option>
-          <option value="people">👥 Personnes</option>
-          <option value="city street">🏙️ Ville</option>
-          <option value="nature landscape">🌿 Nature</option>
-          <option value="food">🍽️ Nourriture</option>
-          <option value="travel">✈️ Voyage</option>
-          <option value="architecture">🏛️ Architecture</option>
-          <option value="animals">🐾 Animaux</option>
-        </select>
-      </div>
     </div>
 
     <!-- Toggle mode espacé / situation / libre -->
     <div class="mode-toggle">
-      <button class="mode-btn active" id="btn-mode-spaced"    onclick="setMode('spaced')">📅<br>Espacée</button>
-      <button class="mode-btn"        id="btn-mode-situation" onclick="setMode('situation')">🎯<br>Situation</button>
-      <button class="mode-btn"        id="btn-mode-free"      onclick="setMode('free')">🎲<br>Libre</button>
-      <button class="mode-btn"        id="btn-mode-image"     onclick="setMode('image')">📸<br>Imagen</button>
+      <button class="mode-btn active" id="btn-mode-spaced"    onclick="setMode('spaced')" data-i18n="mode_spaced">📅<br>Espacée</button>
+      <button class="mode-btn"        id="btn-mode-situation" onclick="setMode('situation')" data-i18n="mode_situation">🎯<br>Situation</button>
+      <button class="mode-btn"        id="btn-mode-free"      onclick="setMode('free')" data-i18n="mode_free">🎲<br>Libre</button>
+      <button class="mode-btn"        id="btn-mode-image"     onclick="setMode('image')" data-i18n="mode_image">📸<br>Imagen</button>
     </div>
     <!-- Section vocab (cachée en mode image) -->
     <div id="vocab-section">
@@ -1227,7 +1282,7 @@
     <!-- Slider nombre de mots -->
     <div class="slider-section">
       <div class="slider-header">
-        <span class="slider-label">Nombre de mots</span>
+        <span class="slider-label" data-i18n="label_word_count">Nombre de mots</span>
         <span class="slider-value" id="slider-value">1 mot</span>
       </div>
       <input type="range" id="word-count-slider" min="1" max="30" value="1"
@@ -1237,7 +1292,7 @@
     <!-- Slider nombre de formes grammaticales (Español uniquement) -->
     <div class="slider-section" id="grammar-slider-section" style="display:none;">
       <div class="slider-header">
-        <span class="slider-label">Nombre de formes</span>
+        <span class="slider-label" data-i18n="label_form_count">Nombre de formes</span>
         <span class="slider-value" id="grammar-slider-value">1 forme</span>
       </div>
       <input type="range" id="grammar-count-slider" min="1" max="10" value="1"
@@ -1249,12 +1304,12 @@
       <div class="card-actions">
         <button class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu(currentWords[0], event)">⋯</button>
       </div>
-      <span class="word-label">mot du jour</span>
+      <span class="word-label" data-i18n="word_label">mot du jour</span>
       <span class="word-main" id="current-word">…</span>
       <div class="word-meta">
         <span class="stars s0" id="word-stars">☆☆☆</span>
         <span class="word-count" id="word-count-label"></span>
-        <span class="hint-used-badge" id="hint-used-badge">💡 aide</span>
+        <span class="hint-used-badge" id="hint-used-badge" data-i18n="hint_badge">💡 aide</span>
       </div>
     </div>
 
@@ -1263,31 +1318,31 @@
 
     <!-- Carte « terminé pour aujourd'hui » (mode espacé) -->
     <div id="spaced-done-card" class="word-card">
-      <span class="word-label">terminé</span>
+      <span class="word-label" data-i18n="done_label">terminé</span>
       <span class="done-check">✓</span>
-      <p class="done-msg">Tout fait pour aujourd'hui — reviens demain !</p>
-      <button class="btn-ghost" onclick="showRevisions()">📅 mes révisions à venir</button>
+      <p class="done-msg" data-i18n="done_msg">Tout fait pour aujourd'hui — reviens demain !</p>
+      <button class="btn-ghost" onclick="showRevisions()" data-i18n="btn_revisions">📅 mes révisions à venir</button>
     </div>
 
     <!-- Confirmation "Je ne sais pas" -->
     <div class="confirm-panel" id="confirm-panel">
       <span class="confirm-panel-text" id="confirm-panel-text">Es-tu sûr ? Ce sera compté comme incorrect.</span>
       <div class="confirm-panel-actions">
-        <button class="btn-primary"    onclick="confirmJeNeSaisPas()">Confirmer</button>
-        <button class="btn-secondary"  onclick="cancelJeNeSaisPas()">Annuler</button>
+        <button class="btn-primary"    onclick="confirmJeNeSaisPas()" data-i18n="btn_confirm2">Confirmer</button>
+        <button class="btn-secondary"  onclick="cancelJeNeSaisPas()" data-i18n="btn_cancel">Annuler</button>
       </div>
     </div>
 
     <!-- Bouton suivant -->
     <div class="action-row">
-      <button id="btn-hide-words" onclick="toggleWordsHidden()">👁 Cacher</button>
-      <button class="btn-primary" id="btn-next" onclick="nextWord()">Autre mot →</button>
+      <button id="btn-hide-words" onclick="toggleWordsHidden()" data-i18n="btn_hide">👁 Cacher</button>
+      <button class="btn-primary" id="btn-next" onclick="nextWord()" data-i18n="btn_next_word">Autre mot →</button>
     </div>
 
     <!-- Boîte définition -->
     <div class="hint-box" id="hint-box">
       <div class="hint-label" id="hint-box-label" onclick="toggleHintCollapse()">
-        <span id="hint-box-label-text">Définition</span>
+        <span id="hint-box-label-text" data-i18n="label_definition">Définition</span>
         <button class="hint-collapse-btn">▲</button>
       </div>
       <div class="hint-body" id="hint-text"></div>
@@ -1307,7 +1362,7 @@
       <p class="sentence-label" id="sentence-label">Utilise ce mot dans une phrase :</p>
       <div class="grammar-forms-zone" id="grammar-forms-zone" style="display:none;"></div>
       <div class="textarea-wrap">
-        <textarea id="sentence-input" rows="1" placeholder="Écris ta phrase ici…"></textarea>
+        <textarea id="sentence-input" rows="1" placeholder="Écris ta phrase ici…" data-i18n-ph="sentence_ph"></textarea>
         <button class="btn-submit-inline" id="btn-submit" onclick="submitSentence()" title="Vérifier">↑</button>
       </div>
     </div>
@@ -1317,7 +1372,7 @@
       <!-- Slider nombre de mots évoqués (1-5, plafonné aux mots maîtrisés) -->
       <div class="slider-section" id="situation-slider-section" style="display:none;">
         <div class="slider-header">
-          <span class="slider-label">Nombre de mots</span>
+          <span class="slider-label" data-i18n="label_word_count">Nombre de mots</span>
           <span class="slider-value" id="situation-slider-value">1 mot</span>
         </div>
         <input type="range" id="situation-word-slider" min="1" max="5" value="1"
@@ -1325,22 +1380,22 @@
       </div>
       <!-- Bouton « Commencer » (évite l'appel API automatique à l'entrée du mode) -->
       <div id="situation-start" style="display:none; padding-top:0.5rem;">
-        <button class="btn-primary" onclick="startSituation()">▶ Commencer</button>
+        <button class="btn-primary" onclick="startSituation()" data-i18n="btn_start">▶ Commencer</button>
       </div>
       <!-- Boîte situation générée par Mistral -->
       <div class="hint-box" id="situation-box" style="display:none;">
-        <div class="hint-label">🎯 Situation</div>
+        <div class="hint-label" data-i18n="situation_label">🎯 Situation</div>
         <div id="situation-text" class="hint-body"></div>
       </div>
       <!-- Boutons d'action ENTRE le texte et le champ (cohérence avec les autres modes).
            Un seul visible à la fois : « Je ne sais pas » avant de répondre, « Autre situation » après. -->
-      <button class="btn-secondary" id="btn-situation-skip" onclick="revealWord()" style="width:100%; display:none;">Je ne sais pas →</button>
-      <button class="btn-primary" id="btn-situation-next" onclick="nextSituation()" style="display:none;">Autre situation →</button>
+      <button class="btn-secondary" id="btn-situation-skip" onclick="revealWord()" style="width:100%; display:none;" data-i18n="btn_dont_know">Je ne sais pas →</button>
+      <button class="btn-primary" id="btn-situation-next" onclick="nextSituation()" style="display:none;" data-i18n="btn_next_situation">Autre situation →</button>
       <!-- Champ de réponse -->
       <div class="sentence-section" id="situation-answer-section" style="display:none;">
         <p class="sentence-label" id="situation-prompt-label">Quel est ce mot ?</p>
         <div class="textarea-wrap">
-          <textarea id="situation-input" rows="2" placeholder="Écris le mot (ou plusieurs, séparés par des virgules)…"></textarea>
+          <textarea id="situation-input" rows="2" placeholder="Écris le mot (ou plusieurs, séparés par des virgules)…" data-i18n-ph="situation_ph"></textarea>
           <button class="btn-submit-inline" id="btn-situation-submit" onclick="submitSituation()" title="Vérifier">↑</button>
         </div>
       </div>
@@ -1360,7 +1415,7 @@
 
     <!-- Bouton "Autre mot" sous le verdict ✓ (évite de scroller remonter) -->
     <div id="btn-next-below" style="display:none; padding-top:0.75rem;">
-      <button class="btn-primary" onclick="nextWord()">Autre mot →</button>
+      <button class="btn-primary" onclick="nextWord()" data-i18n="btn_next_word">Autre mot →</button>
     </div>
 
     <!-- Offre QCM (après ✗) — un bouton par mot raté -->
@@ -1370,7 +1425,7 @@
 
     <!-- Mots liés (après ✓) -->
     <div class="related-box" id="related-box">
-      <div class="related-label">Mots du même univers</div>
+      <div class="related-label" data-i18n="label_related">Mots du même univers</div>
       <div class="related-chips" id="related-chips"></div>
     </div>
 
@@ -1397,7 +1452,7 @@
 
     <!-- Calendrier des révisions (mode espacé) -->
     <div id="revisions-bar" style="display:none; padding-top:1.2rem; text-align:center;">
-      <button class="btn-ghost" onclick="showRevisions()">📅 mes révisions à venir</button>
+      <button class="btn-ghost" onclick="showRevisions()" data-i18n="btn_revisions">📅 mes révisions à venir</button>
     </div>
 
     <!-- Spacer pour permettre le scroll jusqu'au feedback -->
@@ -1408,75 +1463,75 @@
   <!-- ── Écran 5 : Statistiques ── -->
   <div class="screen" id="screen-stats">
     <div class="stats-header">
-      <h1 class="app-title">Stats</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-lang')">← retour</button>
+      <h1 class="app-title" data-i18n="stats_title">Stats</h1>
+      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">← retour</button>
     </div>
     <div class="stats-grid" id="stats-grid">
-      <p style="color:var(--muted);font-style:italic;">Chargement…</p>
+      <p style="color:var(--muted);font-style:italic;" data-i18n="loading">Chargement…</p>
     </div>
   </div>
 
   <!-- ── Écran 6 : Historique ── -->
   <div class="screen" id="screen-history">
     <div class="stats-header">
-      <h1 class="app-title">Historique</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-lang')">← retour</button>
+      <h1 class="app-title" data-i18n="history_title">Historique</h1>
+      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">← retour</button>
     </div>
     <!-- Filtre par langue -->
     <div class="history-filters" id="history-filters"></div>
     <!-- Liste des mots -->
     <div class="history-list" id="history-list">
-      <p style="color:var(--muted);font-style:italic;">Chargement…</p>
+      <p style="color:var(--muted);font-style:italic;" data-i18n="loading">Chargement…</p>
     </div>
   </div>
 
   <!-- ── Écran : Mes mots (voir / chercher / renommer / supprimer) ── -->
   <div class="screen" id="screen-mots">
     <div class="stats-header">
-      <h1 class="app-title">Mes mots</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-lang')">← retour</button>
+      <h1 class="app-title" data-i18n="mots_title">Mes mots</h1>
+      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">← retour</button>
     </div>
-    <input type="text" id="mots-search" placeholder="🔍 chercher un mot…" oninput="motsPage=0;renderMots()"
+    <input type="text" id="mots-search" placeholder="🔍 chercher un mot…" data-i18n-ph="search_ph" oninput="motsPage=0;renderMots()"
       autocapitalize="off" autocomplete="off"
       style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.6rem;">
     <div class="history-filters" id="mots-filters"></div>
     <div id="mots-controls"></div>
     <div class="history-list" id="mots-list">
-      <p style="color:var(--muted);font-style:italic;">Chargement…</p>
+      <p style="color:var(--muted);font-style:italic;" data-i18n="loading">Chargement…</p>
     </div>
   </div>
 
   <!-- ── Écran : Révisions à venir (mode espacé) ── -->
   <div class="screen" id="screen-revisions">
     <div class="stats-header">
-      <h1 class="app-title">Révisions</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-practice')">← retour</button>
+      <h1 class="app-title" data-i18n="revisions_title">Révisions</h1>
+      <button class="btn-ghost" onclick="showScreen('screen-practice')" data-i18n="btn_back">← retour</button>
     </div>
-    <input type="text" id="revisions-search" placeholder="🔍 chercher un mot…" oninput="renderRevisions()"
+    <input type="text" id="revisions-search" placeholder="🔍 chercher un mot…" data-i18n-ph="search_ph" oninput="renderRevisions()"
       autocapitalize="off" autocomplete="off"
       style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.6rem;">
     <div class="history-filters" id="revisions-sort">
-      <button class="filter-btn active" onclick="setRevisionsSort('next')">📅 Plus proche</button>
-      <button class="filter-btn" onclick="setRevisionsSort('far')">📆 Plus lointaine</button>
-      <button class="filter-btn" onclick="setRevisionsSort('az')">🔤 A-Z</button>
+      <button class="filter-btn active" onclick="setRevisionsSort('next')" data-i18n="sort_next">📅 Plus proche</button>
+      <button class="filter-btn" onclick="setRevisionsSort('far')" data-i18n="sort_far">📆 Plus lointaine</button>
+      <button class="filter-btn" onclick="setRevisionsSort('az')" data-i18n="sort_az">🔤 A-Z</button>
     </div>
     <div class="history-list" id="revisions-list">
-      <p style="color:var(--muted);font-style:italic;">Chargement…</p>
+      <p style="color:var(--muted);font-style:italic;" data-i18n="loading">Chargement…</p>
     </div>
   </div>
 
   <!-- ── Écran : Ajouter du contenu ── -->
   <div class="screen" id="screen-add">
     <div class="stats-header">
-      <h1 class="app-title">Ajouter</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-lang')">← retour</button>
+      <h1 class="app-title" data-i18n="add_title">Ajouter</h1>
+      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">← retour</button>
     </div>
     <div class="history-filters" id="add-mode-tabs">
-      <button class="filter-btn active" onclick="setAddMode('word')">📝 Mot</button>
-      <button class="filter-btn" onclick="setAddMode('grammar')">🔤 Forme grammaticale</button>
+      <button class="filter-btn active" onclick="setAddMode('word')" data-i18n="tab_word">📝 Mot</button>
+      <button class="filter-btn" onclick="setAddMode('grammar')" data-i18n="tab_grammar">🔤 Forme grammaticale</button>
     </div>
 
-    <label class="add-field-label">Langue</label>
+    <label class="add-field-label" data-i18n="label_lang">Langue</label>
     <select id="add-lang-select" class="add-input" onchange="onAddLangChange()">
       <option value="English">🇬🇧 English</option>
       <option value="Spanish">🇪🇸 Español</option>
@@ -1486,19 +1541,19 @@
 
     <!-- Panneau : ajouter un mot -->
     <div id="add-word-panel">
-      <label class="add-field-label">Mot ou expression</label>
-      <input type="text" id="add-word-input" class="add-input" autocapitalize="off" autocomplete="off" placeholder="ex. resilience">
-      <button class="btn-primary" style="width:100%;margin-top:0.7rem" onclick="addWordFromApp()">Ajouter le mot</button>
+      <label class="add-field-label" data-i18n="label_words">Mot(s) ou expression(s)</label>
+      <textarea id="add-word-input" class="add-input" rows="3" autocapitalize="off" autocomplete="off" placeholder="ex. resilience&#10;plusieurs mots : un par ligne, ou séparés par des virgules" data-i18n-ph="add_words_ph"></textarea>
+      <button class="btn-primary" style="width:100%;margin-top:0.7rem" onclick="addWordFromApp()" data-i18n="btn_add">Ajouter</button>
       <div id="add-word-result" class="add-result"></div>
     </div>
 
     <!-- Panneau : ajouter une forme grammaticale -->
     <div id="add-grammar-panel" style="display:none">
-      <label class="add-field-label">Catégorie</label>
+      <label class="add-field-label" data-i18n="label_category">Catégorie</label>
       <input type="text" id="add-cat-input" class="add-input" autocapitalize="off" autocomplete="off" placeholder="ex. futuro simple">
-      <label class="add-field-label">Forme</label>
+      <label class="add-field-label" data-i18n="label_form">Forme</label>
       <input type="text" id="add-form-input" class="add-input" autocapitalize="off" autocomplete="off" placeholder="ex. hablaré">
-      <button class="btn-primary" style="width:100%;margin-top:0.7rem" onclick="addGrammarForm()">Ajouter la forme</button>
+      <button class="btn-primary" style="width:100%;margin-top:0.7rem" onclick="addGrammarForm()" data-i18n="btn_add_form">Ajouter la forme</button>
       <div id="add-grammar-result" class="add-result"></div>
       <div class="history-list" id="add-grammar-list" style="margin-top:1rem"></div>
     </div>
@@ -1577,6 +1632,258 @@
         feedbackLang: 'Modern Greek' },
     ];
 
+    // ── i18n de l'interface ────────────────────────────────────
+    // Deux contextes : les pages principales suivent la LANGUE DE L'APPLI (appLang,
+    // défaut anglais, choisie dans ⚙️ ou sur l'écran de connexion) ; l'écran de
+    // pratique + révisions suivent la LANGUE PRATIQUÉE (currentLang). Les réponses
+    // de l'IA ne sont pas concernées (elles suivent feedbackLang comme avant).
+    const KEY_APP_LANG = 'vocab_app_lang';
+    const LANG_CODE = { English: 'en', Spanish: 'es', French: 'fr', Greek: 'el' };
+    let appLang = localStorage.getItem(KEY_APP_LANG) || 'en';
+
+    const I18N = {
+      // — commun —
+      loading:          { en: `Loading…`, fr: `Chargement…`, es: `Cargando…`, el: `Φόρτωση…` },
+      err_prefix:       { en: `Error:`, fr: `Erreur :`, es: `Error:`, el: `Σφάλμα:` },
+      retry:            { en: `↺ Retry`, fr: `↺ Réessayer`, es: `↺ Reintentar`, el: `↺ Ξαναδοκίμασε` },
+      btn_back:         { en: `← back`, fr: `← retour`, es: `← volver`, el: `← πίσω` },
+      btn_cancel:       { en: `Cancel`, fr: `Annuler`, es: `Cancelar`, el: `Άκυρο` },
+      search_ph:        { en: `🔍 search a word…`, fr: `🔍 chercher un mot…`, es: `🔍 buscar una palabra…`, el: `🔍 αναζήτηση λέξης…` },
+      // — écrans connexion / chargement —
+      loading_connecting: { en: `signing in…`, fr: `connexion en cours…`, es: `conectando…`, el: `σύνδεση…` },
+      auth_password_ph: { en: `password`, fr: `mot de passe`, es: `contraseña`, el: `κωδικός` },
+      auth_login:       { en: `Log in`, fr: `Se connecter`, es: `Iniciar sesión`, el: `Σύνδεση` },
+      auth_signup:      { en: `Create account`, fr: `Créer le compte`, es: `Crear cuenta`, el: `Δημιουργία λογαριασμού` },
+      auth_no_account:  { en: `No account? Create one`, fr: `Pas de compte ? Créer un compte`, es: `¿Sin cuenta? Crea una`, el: `Δεν έχεις λογαριασμό; Φτιάξε έναν` },
+      auth_have_account:{ en: `Already have an account? Log in`, fr: `Déjà un compte ? Se connecter`, es: `¿Ya tienes cuenta? Inicia sesión`, el: `Έχεις ήδη λογαριασμό; Συνδέσου` },
+      auth_or:          { en: `— or —`, fr: `— ou —`, es: `— o —`, el: `— ή —` },
+      auth_required:    { en: `email and password required`, fr: `email et mot de passe requis`, es: `email y contraseña requeridos`, el: `απαιτούνται email και κωδικός` },
+      help_btn:         { en: `❓ How it works`, fr: `❓ Comment ça marche`, es: `❓ Cómo funciona`, el: `❓ Πώς λειτουργεί` },
+      // — page principale —
+      lang_subtitle:    { en: `which language today?`, fr: `quelle langue aujourd'hui ?`, es: `¿qué idioma hoy?`, el: `ποια γλώσσα σήμερα;` },
+      btn_settings:     { en: `⚙️ settings`, fr: `⚙️ réglages`, es: `⚙️ ajustes`, el: `⚙️ ρυθμίσεις` },
+      btn_stats:        { en: `📊 my statistics`, fr: `📊 voir mes statistiques`, es: `📊 mis estadísticas`, el: `📊 τα στατιστικά μου` },
+      btn_history:      { en: `📋 word history`, fr: `📋 historique des mots`, es: `📋 historial de palabras`, el: `📋 ιστορικό λέξεων` },
+      btn_mots:         { en: `📝 manage my words`, fr: `📝 gérer mes mots`, es: `📝 gestionar mis palabras`, el: `📝 διαχείριση λέξεων` },
+      btn_add_content:  { en: `➕ add content`, fr: `➕ ajouter du contenu`, es: `➕ añadir contenido`, el: `➕ προσθήκη περιεχομένου` },
+      btn_logout:       { en: `🚪 log out`, fr: `🚪 se déconnecter`, es: `🚪 cerrar sesión`, el: `🚪 αποσύνδεση` },
+      badge_todo:       { en: `{n} to do`, fr: `{n} à faire`, es: `{n} por hacer`, el: `{n} για σήμερα` },
+      badge_done:       { en: `✓ done`, fr: `✓ fait`, es: `✓ hecho`, el: `✓ έγινε` },
+      tile_add:         { en: `＋ add`, fr: `＋ ajouter`, es: `＋ añadir`, el: `＋ προσθήκη` },
+      tile_menu_add:    { en: `add`, fr: `ajouter`, es: `añadir`, el: `προσθήκη` },
+      tile_menu_mots:   { en: `my words`, fr: `mes mots`, es: `mis palabras`, el: `οι λέξεις μου` },
+      tile_menu_stats:  { en: `stats`, fr: `stats`, es: `stats`, el: `στατιστικά` },
+      tile_menu_history:{ en: `history`, fr: `historique`, es: `historial`, el: `ιστορικό` },
+      tile_menu_settings:{ en: `settings`, fr: `réglages`, es: `ajustes`, el: `ρυθμίσεις` },
+      tile_menu_more:   { en: `more`, fr: `plus`, es: `más`, el: `άλλα` },
+      // — réglages compte —
+      set_model:        { en: `AI model`, fr: `Modèle IA`, es: `Modelo de IA`, el: `Μοντέλο ΤΝ` },
+      set_reasoning:    { en: `Reasoning`, fr: `Raisonnement`, es: `Razonamiento`, el: `Συλλογισμός` },
+      set_openai_key:   { en: `OpenAI API key (GPT)`, fr: `Clé API OpenAI (GPT)`, es: `Clave API de OpenAI (GPT)`, el: `Κλειδί API OpenAI (GPT)` },
+      set_gemini_key:   { en: `Gemini / Gemma API key`, fr: `Clé API Gemini / Gemma`, es: `Clave API de Gemini / Gemma`, el: `Κλειδί API Gemini / Gemma` },
+      set_add_link:     { en: `Add link (iPhone shortcut)`, fr: `Lien d'ajout (raccourci iPhone)`, es: `Enlace para añadir (atajo de iPhone)`, el: `Σύνδεσμος προσθήκης (συντόμευση iPhone)` },
+      set_add_link_ph:  { en: `log in to generate your link`, fr: `connecte-toi pour générer ton lien`, es: `inicia sesión para generar tu enlace`, el: `συνδέσου για να δημιουργηθεί ο σύνδεσμός σου` },
+      set_add_link_note:{ en: `Replace <code>WORD</code> with the word in your shortcut. <code>lang=auto</code> detects the language.`,
+                          fr: `Remplace <code>WORD</code> par le mot dans ton raccourci. <code>lang=auto</code> détecte la langue.`,
+                          es: `Sustituye <code>WORD</code> por la palabra en tu atajo. <code>lang=auto</code> detecta el idioma.`,
+                          el: `Αντικατέστησε το <code>WORD</code> με τη λέξη στη συντόμευσή σου. Το <code>lang=auto</code> εντοπίζει τη γλώσσα.` },
+      set_tokens:       { en: `Show token counter`, fr: `Afficher compteur tokens`, es: `Mostrar contador de tokens`, el: `Εμφάνιση μετρητή tokens` },
+      set_situation_counts: {
+        en: `Situation and Free modes count towards progress<br><span style="font-size:0.7rem;color:var(--muted);">stars + reviews (history always counts)</span>`,
+        fr: `Modes Situation et Libre comptent dans la progression<br><span style="font-size:0.7rem;color:var(--muted);">étoiles + révisions (l'historique compte toujours)</span>`,
+        es: `Los modos Situación y Libre cuentan en el progreso<br><span style="font-size:0.7rem;color:var(--muted);">estrellas + repasos (el historial siempre cuenta)</span>`,
+        el: `Οι λειτουργίες Περίσταση και Ελεύθερη μετρούν στην πρόοδο<br><span style="font-size:0.7rem;color:var(--muted);">αστέρια + επαναλήψεις (το ιστορικό μετράει πάντα)</span>` },
+      set_image_theme:  { en: `Photo theme (Imagen)`, fr: `Thème photos (Imagen)`, es: `Tema de fotos (Imagen)`, el: `Θέμα φωτογραφιών (Imagen)` },
+      set_app_lang:     { en: `App language`, fr: `Langue de l'appli`, es: `Idioma de la app`, el: `Γλώσσα εφαρμογής` },
+      theme_random:     { en: `🎲 Random`, fr: `🎲 Aléatoire`, es: `🎲 Aleatorio`, el: `🎲 Τυχαίο` },
+      theme_people:     { en: `👥 People`, fr: `👥 Personnes`, es: `👥 Personas`, el: `👥 Άνθρωποι` },
+      theme_city:       { en: `🏙️ City`, fr: `🏙️ Ville`, es: `🏙️ Ciudad`, el: `🏙️ Πόλη` },
+      theme_nature:     { en: `🌿 Nature`, fr: `🌿 Nature`, es: `🌿 Naturaleza`, el: `🌿 Φύση` },
+      theme_food:       { en: `🍽️ Food`, fr: `🍽️ Nourriture`, es: `🍽️ Comida`, el: `🍽️ Φαγητό` },
+      theme_travel:     { en: `✈️ Travel`, fr: `✈️ Voyage`, es: `✈️ Viajes`, el: `✈️ Ταξίδια` },
+      theme_architecture:{ en: `🏛️ Architecture`, fr: `🏛️ Architecture`, es: `🏛️ Arquitectura`, el: `🏛️ Αρχιτεκτονική` },
+      theme_animals:    { en: `🐾 Animals`, fr: `🐾 Animaux`, es: `🐾 Animales`, el: `🐾 Ζώα` },
+      // — écrans listes —
+      stats_title:      { en: `Stats`, fr: `Stats`, es: `Stats`, el: `Στατιστικά` },
+      history_title:    { en: `History`, fr: `Historique`, es: `Historial`, el: `Ιστορικό` },
+      mots_title:       { en: `My words`, fr: `Mes mots`, es: `Mis palabras`, el: `Οι λέξεις μου` },
+      revisions_title:  { en: `Reviews`, fr: `Révisions`, es: `Repasos`, el: `Επαναλήψεις` },
+      add_title:        { en: `Add`, fr: `Ajouter`, es: `Añadir`, el: `Προσθήκη` },
+      filter_all:       { en: `🌐 All`, fr: `🌐 Tout`, es: `🌐 Todo`, el: `🌐 Όλα` },
+      history_empty:    { en: `Nothing in the history yet.`, fr: `Aucun mot dans l'historique pour l'instant.`, es: `Todavía no hay nada en el historial.`, el: `Δεν υπάρχει τίποτα στο ιστορικό ακόμη.` },
+      stats_total:      { en: `Total words`, fr: `Total de mots`, es: `Total de palabras`, el: `Σύνολο λέξεων` },
+      stats_mastered:   { en: `★★★ Mastered`, fr: `★★★ Maîtrisés`, es: `★★★ Dominadas`, el: `★★★ Κατακτημένες` },
+      stats_learning:   { en: `★☆☆ In progress`, fr: `★☆☆ En cours`, es: `★☆☆ En curso`, el: `★☆☆ Σε εξέλιξη` },
+      stats_notstarted: { en: `☆☆☆ Not started yet`, fr: `☆☆☆ Pas encore commencé`, es: `☆☆☆ Sin empezar`, el: `☆☆☆ Δεν ξεκίνησαν` },
+      mots_empty:       { en: `No words.`, fr: `Aucun mot.`, es: `Ninguna palabra.`, el: `Καμία λέξη.` },
+      select_all_page:  { en: `select all (this page)`, fr: `tout sélectionner (cette page)`, es: `seleccionar todo (esta página)`, el: `επιλογή όλων (αυτή η σελίδα)` },
+      page_label:       { en: `page`, fr: `page`, es: `página`, el: `σελίδα` },
+      words_count:      { en: `{n} word(s)`, fr: `{n} mot(s)`, es: `{n} palabra(s)`, el: `{n} λέξη/εις` },
+      selected_n:       { en: `{n} selected`, fr: `{n} sélectionné(s)`, es: `{n} seleccionada(s)`, el: `{n} επιλεγμένες` },
+      cancel_lc:        { en: `cancel`, fr: `annuler`, es: `cancelar`, el: `άκυρο` },
+      btn_delete:       { en: `🗑 Delete`, fr: `🗑 Supprimer`, es: `🗑 Eliminar`, el: `🗑 Διαγραφή` },
+      confirm_delete_n: { en: `Permanently delete {n} word(s)?`, fr: `Supprimer {n} mot(s) définitivement ?`, es: `¿Eliminar {n} palabra(s) definitivamente?`, el: `Οριστική διαγραφή {n} λέξεων;` },
+      confirm_delete_w: { en: `Delete "{w}"?`, fr: `Supprimer « {w} » ?`, es: `¿Eliminar «{w}»?`, el: `Διαγραφή «{w}»;` },
+      rename_prompt:    { en: `Rename "{w}":`, fr: `Renommer « {w} » :`, es: `Renombrar «{w}»:`, el: `Μετονομασία «{w}»:` },
+      title_rename:     { en: `Rename`, fr: `Renommer`, es: `Renombrar`, el: `Μετονομασία` },
+      title_delete:     { en: `Delete`, fr: `Supprimer`, es: `Eliminar`, el: `Διαγραφή` },
+      // — écran ajouter —
+      tab_word:         { en: `📝 Word`, fr: `📝 Mot`, es: `📝 Palabra`, el: `📝 Λέξη` },
+      tab_grammar:      { en: `🔤 Grammar form`, fr: `🔤 Forme grammaticale`, es: `🔤 Forma gramatical`, el: `🔤 Γραμματικός τύπος` },
+      label_lang:       { en: `Language`, fr: `Langue`, es: `Idioma`, el: `Γλώσσα` },
+      label_words:      { en: `Word(s) or expression(s)`, fr: `Mot(s) ou expression(s)`, es: `Palabra(s) o expresión(es)`, el: `Λέξη/εις ή έκφραση/εις` },
+      add_words_ph:     { en: `e.g. resilience\nseveral words: one per line, or comma-separated`, fr: `ex. resilience\nplusieurs mots : un par ligne, ou séparés par des virgules`, es: `ej. resilience\nvarias palabras: una por línea, o separadas por comas`, el: `π.χ. resilience\nπερισσότερες λέξεις: μία ανά γραμμή, ή χωρισμένες με κόμμα` },
+      btn_add:          { en: `Add`, fr: `Ajouter`, es: `Añadir`, el: `Προσθήκη` },
+      label_category:   { en: `Category`, fr: `Catégorie`, es: `Categoría`, el: `Κατηγορία` },
+      label_form:       { en: `Form`, fr: `Forme`, es: `Forma`, el: `Τύπος` },
+      btn_add_form:     { en: `Add the form`, fr: `Ajouter la forme`, es: `Añadir la forma`, el: `Προσθήκη τύπου` },
+      add_dup:          { en: `already exists`, fr: `existe déjà`, es: `ya existe`, el: `υπάρχει ήδη` },
+      add_variant_of:   { en: `possible variant of`, fr: `variante possible de`, es: `posible variante de`, el: `πιθανή παραλλαγή του` },
+      add_anyway:       { en: `add anyway`, fr: `ajouter quand même`, es: `añadir igualmente`, el: `προσθήκη ούτως ή άλλως` },
+      add_no_token:     { en: `Add token unavailable — reload the page.`, fr: `Token d'ajout indisponible — recharge la page.`, es: `Token no disponible — recarga la página.`, el: `Το token δεν είναι διαθέσιμο — φόρτωσε ξανά τη σελίδα.` },
+      // — modale langues —
+      langpicker_title: { en: `Your languages`, fr: `Tes langues`, es: `Tus idiomas`, el: `Οι γλώσσες σου` },
+      langpicker_note:  { en: `Choose the languages you want to study (at least one).`, fr: `Choisis les langues que tu veux étudier (au moins une).`, es: `Elige los idiomas que quieres estudiar (al menos uno).`, el: `Διάλεξε τις γλώσσες που θέλεις να μελετήσεις (τουλάχιστον μία).` },
+      btn_confirm:      { en: `Confirm`, fr: `Valider`, es: `Confirmar`, el: `Επιβεβαίωση` },
+      // — écran pratique (suit la langue pratiquée) —
+      set_grammar:      { en: `Grammar forms (Español)`, fr: `Formes grammaticales (Español)`, es: `Formas gramaticales (Español)`, el: `Γραμματικοί τύποι (Español)` },
+      set_max_new:      { en: `New words / day (spaced)`, fr: `Nouveaux mots / jour (espacé)`, es: `Palabras nuevas / día (espaciada)`, el: `Νέες λέξεις / ημέρα (κατανεμημένη)` },
+      mode_spaced:      { en: `📅<br>Spaced`, fr: `📅<br>Espacée`, es: `📅<br>Espaciada`, el: `📅<br>Κατανεμημένη` },
+      mode_situation:   { en: `🎯<br>Situation`, fr: `🎯<br>Situation`, es: `🎯<br>Situación`, el: `🎯<br>Περίσταση` },
+      mode_free:        { en: `🎲<br>Free`, fr: `🎲<br>Libre`, es: `🎲<br>Libre`, el: `🎲<br>Ελεύθερη` },
+      mode_image:       { en: `📸<br>Imagen`, fr: `📸<br>Imagen`, es: `📸<br>Imagen`, el: `📸<br>Imagen` },
+      label_word_count: { en: `Number of words`, fr: `Nombre de mots`, es: `Número de palabras`, el: `Αριθμός λέξεων` },
+      label_form_count: { en: `Number of forms`, fr: `Nombre de formes`, es: `Número de formas`, el: `Αριθμός τύπων` },
+      one_word:         { en: `1 word`, fr: `1 mot`, es: `1 palabra`, el: `1 λέξη` },
+      words_suffix:     { en: `words`, fr: `mots`, es: `palabras`, el: `λέξεις` },
+      one_form:         { en: `1 form`, fr: `1 forme`, es: `1 forma`, el: `1 τύπος` },
+      forms_suffix:     { en: `forms`, fr: `formes`, es: `formas`, el: `τύποι` },
+      word_label:       { en: `word of the day`, fr: `mot du jour`, es: `palabra del día`, el: `λέξη της ημέρας` },
+      hint_badge:       { en: `💡 hint`, fr: `💡 aide`, es: `💡 ayuda`, el: `💡 βοήθεια` },
+      done_label:       { en: `done`, fr: `terminé`, es: `hecho`, el: `τέλος` },
+      done_msg:         { en: `All done for today — come back tomorrow!`, fr: `Tout fait pour aujourd'hui — reviens demain !`, es: `¡Todo hecho por hoy — vuelve mañana!`, el: `Όλα έγιναν για σήμερα — έλα ξανά αύριο!` },
+      btn_revisions:    { en: `📅 my upcoming reviews`, fr: `📅 mes révisions à venir`, es: `📅 mis próximos repasos`, el: `📅 οι επόμενες επαναλήψεις μου` },
+      confirm_sure:     { en: `Are you sure? It will count as incorrect.`, fr: `Es-tu sûr ? Ce sera compté comme incorrect.`, es: `¿Seguro? Contará como incorrecto.`, el: `Σίγουρα; Θα μετρήσει ως λάθος.` },
+      confirm_sure_word:{ en: `Are you sure about "{word}"? It will count as incorrect.`, fr: `Es-tu sûr pour "{word}" ? Ce sera compté comme incorrect.`, es: `¿Seguro con "{word}"? Contará como incorrecto.`, el: `Σίγουρα για το "{word}"; Θα μετρήσει ως λάθος.` },
+      btn_confirm2:     { en: `Confirm`, fr: `Confirmer`, es: `Confirmar`, el: `Επιβεβαίωση` },
+      btn_hide:         { en: `👁 Hide`, fr: `👁 Cacher`, es: `👁 Ocultar`, el: `👁 Απόκρυψη` },
+      btn_show:         { en: `👁 Show`, fr: `👁 Montrer`, es: `👁 Mostrar`, el: `👁 Εμφάνιση` },
+      btn_next_word:    { en: `Another word →`, fr: `Autre mot →`, es: `Otra palabra →`, el: `Άλλη λέξη →` },
+      label_definition: { en: `Definition`, fr: `Définition`, es: `Definición`, el: `Ορισμός` },
+      sentence_ph:      { en: `Write your sentence here…`, fr: `Écris ta phrase ici…`, es: `Escribe tu frase aquí…`, el: `Γράψε την πρότασή σου εδώ…` },
+      btn_start:        { en: `▶ Start`, fr: `▶ Commencer`, es: `▶ Empezar`, el: `▶ Ξεκίνα` },
+      situation_label:  { en: `🎯 Situation`, fr: `🎯 Situation`, es: `🎯 Situación`, el: `🎯 Περίσταση` },
+      btn_dont_know:    { en: `I don't know →`, fr: `Je ne sais pas →`, es: `No lo sé →`, el: `Δεν ξέρω →` },
+      btn_next_situation:{ en: `Another situation →`, fr: `Autre situation →`, es: `Otra situación →`, el: `Άλλη περίσταση →` },
+      situation_ph:     { en: `Write the word (or several candidates, comma-separated)…`, fr: `Écris le mot (ou plusieurs candidats, séparés par des virgules)…`, es: `Escribe la palabra (o varias candidatas, separadas por comas)…`, el: `Γράψε τη λέξη (ή περισσότερες υποψήφιες, με κόμμα)…` },
+      situation_ph_multi:{ en: `1. word, other candidate…\n2. word…\n3. word…`, fr: `1. mot, autre candidat…\n2. mot…\n3. mot…`, es: `1. palabra, otra candidata…\n2. palabra…\n3. palabra…`, el: `1. λέξη, άλλη υποψήφια…\n2. λέξη…\n3. λέξη…` },
+      label_related:    { en: `Words from the same universe`, fr: `Mots du même univers`, es: `Palabras del mismo universo`, el: `Λέξεις από τον ίδιο κόσμο` },
+      related_all_known:{ en: `All suggested words are already in your list.`, fr: `Tous les mots suggérés sont déjà dans ta liste.`, es: `Todas las palabras sugeridas ya están en tu lista.`, el: `Όλες οι προτεινόμενες λέξεις είναι ήδη στη λίστα σου.` },
+      qcm_generating:   { en: `Generating the quiz…`, fr: `Génération du QCM…`, es: `Generando el test…`, el: `Δημιουργία του κουίζ…` },
+      qcm_see_def:      { en: `📖 See the definition`, fr: `📖 Voir la définition`, es: `📖 Ver la definición`, el: `📖 Δες τον ορισμό` },
+      qcm_other:        { en: `← Other quizzes`, fr: `← Autres QCMs`, es: `← Otros tests`, el: `← Άλλα κουίζ` },
+      qcm_good:         { en: `Good situation!`, fr: `Bonne situation !`, es: `¡Buena situación!`, el: `Σωστή περίσταση!` },
+      qcm_bad:          { en: `Not quite…`, fr: `Pas tout à fait…`, es: `No exactamente…`, el: `Όχι ακριβώς…` },
+      to_review:        { en: `to review`, fr: `à réviser`, es: `por repasar`, el: `για επανάληψη` },
+      new_remaining:    { en: `new remaining`, fr: `nouveaux restants`, es: `nuevas restantes`, el: `νέες απομένουν` },
+      in_total:         { en: `in total`, fr: `au total`, es: `en total`, el: `συνολικά` },
+      due_all_done:     { en: `✓ All done for today — come back tomorrow!`, fr: `✓ Tout fait pour aujourd'hui — reviens demain !`, es: `✓ ¡Todo hecho por hoy — vuelve mañana!`, el: `✓ Όλα έγιναν για σήμερα — έλα ξανά αύριο!` },
+      no_mastered:      { en: `No mastered words yet — practice in Spaced mode to unlock this mode!`, fr: `Aucun mot maîtrisé encore — pratique en mode Espacée pour débloquer ce mode !`, es: `Aún no hay palabras dominadas — practica en modo Espaciada para desbloquear este modo.`, el: `Καμία κατακτημένη λέξη ακόμη — εξασκήσου στην Κατανεμημένη για να ξεκλειδώσεις αυτή τη λειτουργία!` },
+      mastered_sg:      { en: `mastered word`, fr: `mot maîtrisé`, es: `palabra dominada`, el: `κατακτημένη λέξη` },
+      mastered_pl:      { en: `mastered words`, fr: `mots maîtrisés`, es: `palabras dominadas`, el: `κατακτημένες λέξεις` },
+      practice_sg:      { en: `word to practice`, fr: `mot à pratiquer`, es: `palabra por practicar`, el: `λέξη για εξάσκηση` },
+      practice_pl:      { en: `words to practice`, fr: `mots à pratiquer`, es: `palabras por practicar`, el: `λέξεις για εξάσκηση` },
+      no_words_found:   { en: `no words found`, fr: `aucun mot trouvé`, es: `ninguna palabra encontrada`, el: `δεν βρέθηκαν λέξεις` },
+      word_was:         { en: `The word was`, fr: `Le mot était`, es: `La palabra era`, el: `Η λέξη ήταν` },
+      words_were:       { en: `The words were`, fr: `Les mots étaient`, es: `Las palabras eran`, el: `Οι λέξεις ήταν` },
+      next_review_one:  { en: `📅 next review:`, fr: `📅 prochaine révision :`, es: `📅 próximo repaso:`, el: `📅 επόμενη επανάληψη:` },
+      next_review_many: { en: `📅 next reviews:`, fr: `📅 prochaines révisions :`, es: `📅 próximos repasos:`, el: `📅 επόμενες επαναλήψεις:` },
+      rev_tomorrow:     { en: `tomorrow`, fr: `demain`, es: `mañana`, el: `αύριο` },
+      rev_in_days:      { en: `in {n} d`, fr: `dans {n} j`, es: `en {n} d`, el: `σε {n} ημ.` },
+      revs_due_today:   { en: `{n} word(s) to review today`, fr: `{n} mot(s) à réviser aujourd'hui`, es: `{n} palabra(s) por repasar hoy`, el: `{n} λέξη/εις για επανάληψη σήμερα` },
+      revisions_empty:  { en: `No scheduled words yet — practice some words to see them here.`, fr: `Aucun mot programmé pour l'instant — pratique des mots pour les voir apparaître ici.`, es: `Aún no hay palabras programadas — practica algunas para verlas aquí.`, el: `Καμία προγραμματισμένη λέξη ακόμη — εξασκήσου για να τις δεις εδώ.` },
+      none_found:       { en: `No words found.`, fr: `Aucun mot trouvé.`, es: `Ninguna palabra encontrada.`, el: `Δεν βρέθηκαν λέξεις.` },
+      sort_next:        { en: `📅 Soonest`, fr: `📅 Plus proche`, es: `📅 Más próxima`, el: `📅 Πιο κοντινή` },
+      sort_far:         { en: `📆 Furthest`, fr: `📆 Plus lointaine`, es: `📆 Más lejana`, el: `📆 Πιο μακρινή` },
+      sort_az:          { en: `🔤 A-Z`, fr: `🔤 A-Z`, es: `🔤 A-Z`, el: `🔤 Α-Ω` },
+      fb_expand:        { en: `⌄ Expand all`, fr: `⌄ Tout déplier`, es: `⌄ Desplegar todo`, el: `⌄ Άνοιγμα όλων` },
+      fb_collapse:      { en: `⌃ Collapse all`, fr: `⌃ Tout replier`, es: `⌃ Plegar todo`, el: `⌃ Κλείσιμο όλων` },
+      ctx_edit:         { en: `✏️ Edit`, fr: `✏️ Modifier`, es: `✏️ Editar`, el: `✏️ Επεξεργασία` },
+      ctx_delete:       { en: `🗑 Delete`, fr: `🗑 Supprimer`, es: `🗑 Eliminar`, el: `🗑 Διαγραφή` },
+      // — modale d'aide —
+      help_title:       { en: `How it works`, fr: `Comment ça marche`, es: `Cómo funciona`, el: `Πώς λειτουργεί` },
+      help_s1_t:        { en: `1 · Get started`, fr: `1 · Démarrer`, es: `1 · Empezar`, el: `1 · Ξεκίνημα` },
+      help_s1: {
+        en: `<p>Create an account (email + password) or "Continue with Google". Then open <strong>⚙️</strong> and paste your <strong>API key</strong> (OpenAI or Gemini): the app uses it to generate definitions and correct your sentences. Your key stays yours (BYOK) and is never shared.</p>`,
+        fr: `<p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». Puis ouvre <strong>⚙️</strong> et colle ta <strong>clé API</strong> (OpenAI ou Gemini) : l'app s'en sert pour générer les définitions et corriger tes phrases. Ta clé reste à toi (BYOK), elle n'est jamais partagée.</p>`,
+        es: `<p>Crea una cuenta (email + contraseña) o «Continuar con Google». Luego abre <strong>⚙️</strong> y pega tu <strong>clave API</strong> (OpenAI o Gemini): la app la usa para generar definiciones y corregir tus frases. Tu clave es tuya (BYOK), nunca se comparte.</p>`,
+        el: `<p>Δημιούργησε λογαριασμό (email + κωδικός) ή «Συνέχεια με Google». Μετά άνοιξε το <strong>⚙️</strong> και επικόλλησε το <strong>κλειδί API</strong> σου (OpenAI ή Gemini): η εφαρμογή το χρησιμοποιεί για ορισμούς και διορθώσεις. Το κλειδί μένει δικό σου (BYOK), δεν κοινοποιείται ποτέ.</p>` },
+      help_s2_t:        { en: `2 · Add words`, fr: `2 · Ajouter des mots`, es: `2 · Añadir palabras`, el: `2 · Προσθήκη λέξεων` },
+      help_s2: {
+        en: `<ul><li><strong>In the app</strong>: "➕ add content" → words or a grammar form.</li><li><strong>From your iPhone</strong> (shortcut) or <strong>from your Kindle</strong> (script): see below.</li></ul><p style="margin-top:0.75rem"><strong>🔑 Your personal token.</strong> Both methods below need your <em>add token</em>. You'll find it in <strong>⚙️ → "add link"</strong>: it's the value after <code>token=</code> in the URL. It only allows adding words to <em>your</em> account — keep it to yourself.</p>`,
+        fr: `<ul><li><strong>Dans l'app</strong> : « ➕ ajouter du contenu » → des mots ou une forme grammaticale.</li><li><strong>Depuis l'iPhone</strong> (raccourci) ou <strong>depuis ta Kindle</strong> (script) : voir ci-dessous.</li></ul><p style="margin-top:0.75rem"><strong>🔑 Ton token perso.</strong> Les deux méthodes ci-dessous ont besoin de ton <em>token d'ajout</em>. Tu le trouves dans <strong>⚙️ → « lien d'ajout »</strong> : c'est la valeur après <code>token=</code> dans l'URL affichée. Il permet seulement d'ajouter des mots à <em>ton</em> compte — garde-le pour toi.</p>`,
+        es: `<ul><li><strong>En la app</strong>: «➕ añadir contenido» → palabras o una forma gramatical.</li><li><strong>Desde el iPhone</strong> (atajo) o <strong>desde tu Kindle</strong> (script): ver más abajo.</li></ul><p style="margin-top:0.75rem"><strong>🔑 Tu token personal.</strong> Los dos métodos siguientes necesitan tu <em>token</em>. Lo encuentras en <strong>⚙️ → «enlace para añadir»</strong>: es el valor después de <code>token=</code> en la URL. Solo permite añadir palabras a <em>tu</em> cuenta — guárdalo para ti.</p>`,
+        el: `<ul><li><strong>Μέσα στην εφαρμογή</strong>: «➕ προσθήκη περιεχομένου» → λέξεις ή γραμματικός τύπος.</li><li><strong>Από το iPhone</strong> (συντόμευση) ή <strong>από το Kindle</strong> (script): δες παρακάτω.</li></ul><p style="margin-top:0.75rem"><strong>🔑 Το προσωπικό σου token.</strong> Οι δύο μέθοδοι χρειάζονται το <em>token προσθήκης</em>. Θα το βρεις στο <strong>⚙️ → «σύνδεσμος προσθήκης»</strong>: είναι η τιμή μετά το <code>token=</code> στο URL. Επιτρέπει μόνο προσθήκη λέξεων στον <em>δικό σου</em> λογαριασμό — κράτησέ το για σένα.</p>` },
+      help_iphone_t:    { en: `📱 iPhone shortcut`, fr: `📱 Raccourci iPhone`, es: `📱 Atajo de iPhone`, el: `📱 Συντόμευση iPhone` },
+      help_iphone: {
+        en: `<ol><li>Install the shortcut: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--accent)">open the "Vocab" shortcut</a>.</li><li>In the shortcut, open the <strong>"Text"</strong> action (the URL) and replace <code>COLLE_TON_TOKEN_ICI</code> with your token (copied from ⚙️).</li><li>Then, from any app: <strong>Share → Vocab</strong>, or run the shortcut and type a word. If the word is invalid or looks like an existing one, it asks "add anyway?".</li></ol>`,
+        fr: `<ol><li>Installe le raccourci : <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--accent)">ouvrir le raccourci « Vocab »</a>.</li><li>Dans le raccourci, ouvre l'action <strong>« Texte »</strong> (l'URL) et remplace <code>COLLE_TON_TOKEN_ICI</code> par ton token (copié depuis ⚙️).</li><li>Ensuite, depuis n'importe quelle app : <strong>Partager → Vocab</strong>, ou lance le raccourci et tape un mot. Si le mot est invalide ou ressemble à un mot existant, il te demande « ajouter quand même ? ».</li></ol>`,
+        es: `<ol><li>Instala el atajo: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--accent)">abrir el atajo «Vocab»</a>.</li><li>En el atajo, abre la acción <strong>«Texto»</strong> (la URL) y sustituye <code>COLLE_TON_TOKEN_ICI</code> por tu token (copiado desde ⚙️).</li><li>Después, desde cualquier app: <strong>Compartir → Vocab</strong>, o lanza el atajo y escribe una palabra. Si la palabra es inválida o se parece a una existente, te pregunta «¿añadir igualmente?».</li></ol>`,
+        el: `<ol><li>Εγκατέστησε τη συντόμευση: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--accent)">άνοιξε τη συντόμευση «Vocab»</a>.</li><li>Στη συντόμευση, άνοιξε την ενέργεια <strong>«Κείμενο»</strong> (το URL) και αντικατέστησε το <code>COLLE_TON_TOKEN_ICI</code> με το token σου (από το ⚙️).</li><li>Έπειτα, από οποιαδήποτε εφαρμογή: <strong>Κοινοποίηση → Vocab</strong>, ή τρέξε τη συντόμευση και γράψε μια λέξη. Αν η λέξη είναι άκυρη ή μοιάζει με υπάρχουσα, ρωτά «προσθήκη ούτως ή άλλως;».</li></ol>` },
+      help_kindle_t:    { en: `📖 Kindle import (computer)`, fr: `📖 Import Kindle (ordinateur)`, es: `📖 Importar de Kindle (ordenador)`, el: `📖 Εισαγωγή από Kindle (υπολογιστής)` },
+      help_kindle: {
+        en: `<p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Import all the words you highlighted on your Kindle at once. Requires a Mac/PC with Python 3.</p><ol><li>Install the dependency: <code>pip3 install wordfreq</code>.</li><li>Download the script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--accent)">kindle_import.py</a>.</li><li>In the same folder, create two files: <code>.token</code> (your personal token) and <code>.openai_key</code> (your OpenAI key). Each file contains only the value, nothing else.</li><li>Plug in your Kindle via USB, then run: <code>python3 kindle_import.py</code>. Pick the words to import.</li><li>Need help? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
+        fr: `<p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Importe d'un coup les mots surlignés sur ta Kindle. Nécessite un Mac/PC avec Python 3.</p><ol><li>Installe la dépendance : <code>pip3 install wordfreq</code>.</li><li>Télécharge le script : <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--accent)">kindle_import.py</a>.</li><li>Dans le même dossier, crée deux fichiers : <code>.token</code> (ton token perso) et <code>.openai_key</code> (ta clé OpenAI). Chaque fichier ne contient que la valeur, rien d'autre.</li><li>Branche ta Kindle en USB, puis lance : <code>python3 kindle_import.py</code>. Choisis les mots à importer.</li><li>Besoin d'aide ? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
+        es: `<p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Importa de una vez las palabras subrayadas en tu Kindle. Requiere un Mac/PC con Python 3.</p><ol><li>Instala la dependencia: <code>pip3 install wordfreq</code>.</li><li>Descarga el script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--accent)">kindle_import.py</a>.</li><li>En la misma carpeta, crea dos archivos: <code>.token</code> (tu token personal) y <code>.openai_key</code> (tu clave OpenAI). Cada archivo contiene solo el valor, nada más.</li><li>Conecta tu Kindle por USB y ejecuta: <code>python3 kindle_import.py</code>. Elige las palabras a importar.</li><li>¿Ayuda? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
+        el: `<p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Εισήγαγε μονομιάς τις λέξεις που υπογράμμισες στο Kindle. Απαιτεί Mac/PC με Python 3.</p><ol><li>Εγκατέστησε την εξάρτηση: <code>pip3 install wordfreq</code>.</li><li>Κατέβασε το script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--accent)">kindle_import.py</a>.</li><li>Στον ίδιο φάκελο, δημιούργησε δύο αρχεία: <code>.token</code> (το token σου) και <code>.openai_key</code> (το κλειδί OpenAI σου). Κάθε αρχείο περιέχει μόνο την τιμή.</li><li>Σύνδεσε το Kindle με USB και τρέξε: <code>python3 kindle_import.py</code>. Διάλεξε τις λέξεις.</li><li>Βοήθεια; <code>python3 kindle_import.py --aide</code>.</li></ol>` },
+      help_s3_t:        { en: `3 · The 4 modes`, fr: `3 · Les 4 modes`, es: `3 · Los 4 modos`, el: `3 · Οι 4 λειτουργίες` },
+      help_s3: {
+        en: `<ul><li><strong>📅 Spaced</strong> — review each word at the right time (spaced repetition).</li><li><strong>🎯 Situation</strong> — recall a mastered word from a scene.</li><li><strong>🎲 Free</strong> — weighted random draw.</li><li><strong>📸 Imagen</strong> — describe a photo in Spanish.</li></ul>`,
+        fr: `<ul><li><strong>📅 Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li><li><strong>🎯 Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li><li><strong>🎲 Libre</strong> — tirage aléatoire pondéré.</li><li><strong>📸 Imagen</strong> — décris une photo en espagnol.</li></ul>`,
+        es: `<ul><li><strong>📅 Espaciada</strong> — repasa cada palabra en el momento justo (repetición espaciada).</li><li><strong>🎯 Situación</strong> — recuerda una palabra dominada a partir de una escena.</li><li><strong>🎲 Libre</strong> — sorteo aleatorio ponderado.</li><li><strong>📸 Imagen</strong> — describe una foto en español.</li></ul>`,
+        el: `<ul><li><strong>📅 Κατανεμημένη</strong> — επανάλαβε κάθε λέξη την κατάλληλη στιγμή (spaced repetition).</li><li><strong>🎯 Περίσταση</strong> — θυμήσου μια κατακτημένη λέξη από μια σκηνή.</li><li><strong>🎲 Ελεύθερη</strong> — σταθμισμένη τυχαία επιλογή.</li><li><strong>📸 Imagen</strong> — περίγραψε μια φωτογραφία στα ισπανικά.</li></ul>` },
+      help_s4_t:        { en: `4 · Spaced repetition`, fr: `4 · La répétition espacée`, es: `4 · La repetición espaciada`, el: `4 · Η κατανεμημένη επανάληψη` },
+      help_s4: {
+        en: `<ul><li>Each word earns <strong>stars</strong> (☆☆☆ → ★★★) as you succeed.</li><li>Succeeding <em>without help</em> pushes the next review further away; failing or opening the definition brings it back to tomorrow.</li><li>You choose how many <strong>new words per day</strong> in ⚙️, and "📅 my upcoming reviews" shows your calendar.</li></ul>`,
+        fr: `<ul><li>Chaque mot gagne des <strong>étoiles</strong> (☆☆☆ → ★★★) selon tes réussites.</li><li>Réussir <em>sans aide</em> éloigne la prochaine révision ; échouer ou afficher la définition la ramène à demain.</li><li>Tu choisis combien de <strong>nouveaux mots par jour</strong> dans ⚙️, et le bouton « 📅 mes révisions à venir » montre ton calendrier.</li></ul>`,
+        es: `<ul><li>Cada palabra gana <strong>estrellas</strong> (☆☆☆ → ★★★) según tus aciertos.</li><li>Acertar <em>sin ayuda</em> aleja el próximo repaso; fallar o abrir la definición lo trae de vuelta a mañana.</li><li>Eliges cuántas <strong>palabras nuevas por día</strong> en ⚙️, y «📅 mis próximos repasos» muestra tu calendario.</li></ul>`,
+        el: `<ul><li>Κάθε λέξη κερδίζει <strong>αστέρια</strong> (☆☆☆ → ★★★) με τις επιτυχίες σου.</li><li>Η επιτυχία <em>χωρίς βοήθεια</em> απομακρύνει την επόμενη επανάληψη· η αποτυχία ή ο ορισμός τη φέρνει πίσω στο αύριο.</li><li>Επιλέγεις πόσες <strong>νέες λέξεις την ημέρα</strong> στο ⚙️, και το «📅 οι επόμενες επαναλήψεις μου» δείχνει το ημερολόγιό σου.</li></ul>` },
+    };
+
+    const UI_LOCALE = { en: 'en-GB', fr: 'fr-FR', es: 'es-ES', el: 'el-GR' };
+    function tr(key, code) { const e = I18N[key] || {}; return e[code] ?? e.en ?? key; }
+    function tApp(key)  { return tr(key, appLang); }
+    function pracCode() { return LANG_CODE[currentLang] || appLang; }
+    function tPrac(key) { return tr(key, pracCode()); }
+    // Libellés « N mots » / « N formes » selon le contexte pratique
+    function wordsLabel(n) { return n === 1 ? tPrac('one_word') : `${n} ${tPrac('words_suffix')}`; }
+    function formsLabel(n) { return n === 1 ? tPrac('one_form') : `${n} ${tPrac('forms_suffix')}`; }
+
+    function applyI18n(root, code) {
+      root.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = tr(el.dataset.i18n, code); });
+      root.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = tr(el.dataset.i18nPh, code); });
+    }
+    function setAppLang(code) {
+      appLang = code;
+      localStorage.setItem(KEY_APP_LANG, code);
+      applyAppLangUI();
+      saveSettingsToServer();
+    }
+    function applyAppLangUI() {
+      applyI18n(document, appLang);
+      if (currentLang) applyPracticeLangUI(); // les écrans « langue » repassent dans la langue pratiquée
+      const sel = document.getElementById('app-lang-select');
+      if (sel) sel.value = appLang;
+      document.querySelectorAll('.app-lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === appLang));
+    }
+    function applyPracticeLangUI() {
+      const code = pracCode();
+      ['screen-practice', 'screen-revisions', 'word-ctx-menu'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) applyI18n(el, code);
+      });
+    }
+
     // ── État global ───────────────────────────────────────────
     let allWords           = [];
     let progressMap        = {};
@@ -1590,6 +1897,7 @@
     let sentenceSubmitted      = false;
     let lastSubmittedSentence  = '';
     let qcmWord            = "";
+    let _qcmChoices        = []; // scénarios du QCM en cours ({text, correct, explanation})
     let _qcmWordsOffer     = []; // mots disponibles pour QCM après un verdict ✗ multi-mots
     let _qcmStartedWords   = new Set(); // mots dont le QCM a déjà été lancé ce tour (1 seul QCM/mot)
     // Casse : on affiche et on envoie les mots en minuscules (le modèle gère la majuscule en début de phrase).
@@ -1665,8 +1973,8 @@
       }).join('');
       // Tuile « ajouter » uniquement s'il reste des langues à ajouter
       const addTile = selectedLangs.length < LANGS.length
-        ? `<button class="lang-btn lang-add-btn" onclick="openLangPicker(false)" title="Ajouter une langue">
-            <span class="flag">＋</span><span class="lang-name">ajouter</span>
+        ? `<button class="lang-btn lang-add-btn" onclick="openLangPicker(false)">
+            <span class="flag">＋</span><span class="lang-name">${tApp('tile_add').replace('＋ ', '')}</span>
           </button>`
         : '';
       grid.innerHTML = buttons + addTile;
@@ -1789,12 +2097,22 @@
           const available = due + Math.min(Math.max(0, maxNew - todayNew), neverPrac);
           btn.classList.remove('due', 'done');
           if (words.length === 0) { if (badge) badge.textContent = ''; return; }
-          if (available > 0) { btn.classList.add('due');  if (badge) badge.textContent = `${available} à faire`; }
-          else               { btn.classList.add('done'); if (badge) badge.textContent = '✓ fait'; }
+          if (available > 0) { btn.classList.add('due');  if (badge) badge.textContent = tApp('badge_todo').replace('{n}', available); }
+          else               { btn.classList.add('done'); if (badge) badge.textContent = tApp('badge_done'); }
         } catch (e) { /* hors-ligne / non connecté : pas de badge */ }
       }));
     }
     function wordCount() { return parseInt(document.getElementById('word-count-slider').value); }
+
+    // Fisher-Yates en place — les listes de nouveaux mots doivent être mélangées
+    // avant slice(0, n), sinon ce sont toujours les N premiers (ordre fixe) qui sortent.
+    function shuffleInPlace(a) {
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
 
     // Plafonne le slider « nombre de mots » au nombre réellement disponible aujourd'hui
     // (en espacé : dûs + nouveaux restants). Empêche de glisser au-delà des mots à faire.
@@ -1805,7 +2123,7 @@
       slider.max   = cap;
       const val    = Math.min(prev, cap);
       slider.value = val;
-      document.getElementById('slider-value').textContent = val === 1 ? '1 mot' : `${val} mots`;
+      document.getElementById('slider-value').textContent = wordsLabel(val);
       if (val !== prev) localStorage.setItem(KEY_WORD_COUNT + '_' + currentLang, String(val));
       // Invariant : la valeur du slider doit toujours = le nombre de cartes affichées.
       // Si le plafond force la valeur sous le nombre de mots déjà affichés (ex. baisse
@@ -1827,7 +2145,7 @@
 
     function onGrammarSliderChange(val) {
       const n = parseInt(val);
-      document.getElementById('grammar-slider-value').textContent = n === 1 ? '1 forme' : `${n} formes`;
+      document.getElementById('grammar-slider-value').textContent = formsLabel(n);
       localStorage.setItem(KEY_GRAMMAR_COUNT, n.toString());
       renderGrammarForms();
       saveSettingsToServer();
@@ -1838,8 +2156,8 @@
 
     function toggleAuthMode() {
       authMode = authMode === 'login' ? 'signup' : 'login';
-      document.getElementById('auth-submit').textContent = authMode === 'login' ? 'Se connecter' : 'Créer le compte';
-      document.getElementById('auth-toggle').textContent = authMode === 'login' ? 'Pas de compte ? Créer un compte' : 'Déjà un compte ? Se connecter';
+      document.getElementById('auth-submit').textContent = authMode === 'login' ? tApp('auth_login') : tApp('auth_signup');
+      document.getElementById('auth-toggle').textContent = authMode === 'login' ? tApp('auth_no_account') : tApp('auth_have_account');
       document.getElementById('auth-password').setAttribute('autocomplete', authMode === 'login' ? 'current-password' : 'new-password');
       document.getElementById('auth-error').textContent = '';
     }
@@ -1850,7 +2168,7 @@
       const errEl    = document.getElementById('auth-error');
       const btn      = document.getElementById('auth-submit');
       errEl.textContent = '';
-      if (!email || !password) { errEl.textContent = 'email et mot de passe requis'; return; }
+      if (!email || !password) { errEl.textContent = tApp('auth_required'); return; }
       btn.disabled = true;
       try {
         const res = await fetch(`${API_ENDPOINT}/auth/${authMode}`, {
@@ -2026,7 +2344,7 @@
     function onSliderChange(val) {
       const n        = parseInt(val);
       const langInfo = getLang();
-      document.getElementById('slider-value').textContent = n === 1 ? '1 mot' : `${n} mots`;
+      document.getElementById('slider-value').textContent = wordsLabel(n);
       localStorage.setItem(KEY_WORD_COUNT + '_' + currentLang, n.toString());
       document.getElementById('sentence-label').textContent =
         n === 1 ? langInfo.sentencePromptSingle : langInfo.sentencePrompt;
@@ -2041,7 +2359,7 @@
             const prog = progressMap[w.toLowerCase()];
             return prog && prog.nextReview && isDue(w);
           });
-          const neverPracticed = allWords.filter(w => isNewWord(w));
+          const neverPracticed = shuffleInPlace(allWords.filter(w => isNewWord(w)));
           const newRemaining = Math.max(0, maxNewPerDay - todayNewCount);
           const newToShow = neverPracticed.slice(0, newRemaining);
           eligible = new Set([...trulyDue, ...newToShow]);
@@ -2079,7 +2397,7 @@
       const actual = currentWords.length;
       if (actual >= 1 && actual !== n) {
         document.getElementById('word-count-slider').value = actual;
-        document.getElementById('slider-value').textContent = actual === 1 ? '1 mot' : `${actual} mots`;
+        document.getElementById('slider-value').textContent = wordsLabel(actual);
         localStorage.setItem(KEY_WORD_COUNT + '_' + currentLang, String(actual));
       }
       saveSettingsToServer();
@@ -2090,19 +2408,20 @@
       sessionFirstResult = {};
       currentLang = lang;
       previousWordsPool = [];
+      applyPracticeLangUI(); // tous les libellés de l'écran passent dans la langue pratiquée
       const _langWC = parseInt(localStorage.getItem(KEY_WORD_COUNT + '_' + lang)) || 1;
       document.getElementById('word-count-slider').value = _langWC;
-      document.getElementById('slider-value').textContent = _langWC === 1 ? '1 mot' : `${_langWC} mots`;
+      document.getElementById('slider-value').textContent = wordsLabel(_langWC);
       maxNewPerDay = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + lang)) || 60;
       document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
-      document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
+      document.getElementById('max-new-value').textContent = `${maxNewPerDay} ${tPrac('words_suffix')}`;
       const langInfo = getLang();
       document.getElementById('lang-tag').textContent                  = `← ${langInfo.name}`;
       document.getElementById('qcm-question').textContent              = langInfo.qcmQuestion;
       showScreen('screen-practice');
       resetPracticeUI();
       onSliderChange(wordCount());
-      document.getElementById('word-count-label').textContent = 'chargement...';
+      document.getElementById('word-count-label').textContent = tPrac('loading');
       const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(lang), loadTodayTokens(), loadBlacklist(lang) ];
       if (lang === 'Spanish') loadFns.push(loadGrammarForms());
       else grammarForms = [];
@@ -2360,6 +2679,7 @@
       applySettingsUI();
     }
     function reloadSettingsVars() {
+      appLang             = localStorage.getItem(KEY_APP_LANG) || appLang;
       grammarFormsEnabled = localStorage.getItem(KEY_GRAMMAR) !== 'false';
       maxNewPerDay        = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + currentLang)) || 60;
       showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
@@ -2373,10 +2693,11 @@
       selectedLangs       = loadSelectedLangs();
     }
     function applySettingsUI() {
+      applyAppLangUI(); // langue de l'interface (avant les libellés dynamiques ci-dessous)
       renderLangGrid();
       document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
       document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
-      document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
+      document.getElementById('max-new-value').textContent = `${maxNewPerDay} ${tPrac('words_suffix')}`;
       document.getElementById('toggle-tokens').checked = showTokenCounter;
       document.getElementById('toggle-situation-counts').checked = situationCounts;
       document.getElementById('situation-word-slider').value = situationWordCount;
@@ -2384,12 +2705,17 @@
       document.getElementById('image-theme-select').value = imageTheme;
       document.getElementById('model-select').value = currentModel;
       updateReasoningUI();
-      const _savedWC = parseInt(localStorage.getItem(KEY_WORD_COUNT)) || 1;
+      // Slider « nombre de mots » : clé PAR LANGUE (l'ancienne clé globale, toujours
+      // vide, remettait le slider à « 1 mot » à chaque sync des réglages). Si des
+      // cartes sont affichées, l'invariant slider = cartes prime sur la valeur sauvée.
+      const _cards   = practiceMode !== 'situation' ? currentWords.length : 0;
+      const _savedWC = _cards > 0 ? _cards
+        : (currentLang ? parseInt(localStorage.getItem(KEY_WORD_COUNT + '_' + currentLang)) || 1 : 1);
       document.getElementById('word-count-slider').value = _savedWC;
-      document.getElementById('slider-value').textContent = _savedWC === 1 ? '1 mot' : `${_savedWC} mots`;
+      document.getElementById('slider-value').textContent = wordsLabel(_savedWC);
       const _savedGC = parseInt(localStorage.getItem(KEY_GRAMMAR_COUNT)) || 1;
       document.getElementById('grammar-count-slider').value = _savedGC;
-      document.getElementById('grammar-slider-value').textContent = _savedGC === 1 ? '1 forme' : `${_savedGC} formes`;
+      document.getElementById('grammar-slider-value').textContent = formsLabel(_savedGC);
     }
 
     function setGptEffort(val) {
@@ -2497,8 +2823,12 @@
       const feedbackText = document.getElementById('feedback-text');
       const vocabBox     = document.getElementById('image-vocab-box');
       const vocabChips   = document.getElementById('image-vocab-chips');
-      feedbackBox.classList.remove('visible', 'correct', 'incorrect', 'partial', 'image');
-      feedbackText.innerHTML = '';
+      feedbackBox.classList.remove('correct', 'incorrect', 'partial');
+      // La réponse vision n'est pas streamée → boîte visible tout de suite avec un
+      // spinner pendant l'attente (sinon rien ne se passe à l'écran)
+      feedbackBox.classList.add('visible', 'image');
+      feedbackText.innerHTML = '<span class="spinner"></span>';
+      requestAnimationFrame(() => feedbackBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
       vocabBox.classList.remove('visible');
       vocabChips.innerHTML = '';
 
@@ -2595,11 +2925,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     function updateDueCountDisplay(nDue, newRemaining, totalNew) {
       const el = document.getElementById('due-count');
       if (nDue === 0 && newRemaining === 0) {
-        el.innerHTML = `✓ Tout fait pour aujourd'hui — reviens demain !`;
+        el.innerHTML = tPrac('due_all_done');
       } else {
         const parts = [];
-        if (nDue > 0) parts.push(`<span class="highlight">${nDue}</span> à réviser`);
-        if (newRemaining > 0) parts.push(`<span class="highlight">${newRemaining}</span> nouveaux restants (${totalNew} au total)`);
+        if (nDue > 0) parts.push(`<span class="highlight">${nDue}</span> ${tPrac('to_review')}`);
+        if (newRemaining > 0) parts.push(`<span class="highlight">${newRemaining}</span> ${tPrac('new_remaining')} (${totalNew} ${tPrac('in_total')})`);
         el.innerHTML = parts.join(' · ');
       }
     }
@@ -2630,6 +2960,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('qcm-section').classList.remove('visible');
       document.getElementById('qcm-result').textContent       = '';
       _qcmWordsOffer = [];
+      _qcmChoices = [];
       _qcmStartedWords = new Set();
       document.getElementById('related-box').classList.remove('visible');
       document.getElementById('related-chips').innerHTML      = '';
@@ -2641,7 +2972,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       wordsHidden = false;
       document.body.classList.remove('words-hidden');
       const btnHide = document.getElementById('btn-hide-words');
-      if (btnHide) { btnHide.classList.remove('active'); btnHide.textContent = '👁 Cacher'; }
+      if (btnHide) { btnHide.classList.remove('active'); btnHide.textContent = tPrac('btn_hide'); }
       document.getElementById('sticky-words-bar').classList.remove('visible');
       // Situation
       document.getElementById('situation-start').style.display         = 'none';
@@ -2825,18 +3156,34 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       zone.style.display = '';
     }
 
+    // Réglages « pratique » (dans la langue) : grammaire + nouveaux mots/jour
     function toggleSettings() {
       const panel = document.getElementById('settings-panel');
       panel.classList.toggle('visible');
       if (panel.classList.contains('visible')) {
         document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
         document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
-        document.getElementById('max-new-value').textContent = maxNewPerDay + ' mots';
+        document.getElementById('max-new-value').textContent = `${maxNewPerDay} ${tPrac('words_suffix')}`;
+      }
+    }
+
+    // Menu « ⋯ plus » de la page principale (aide + déconnexion)
+    function toggleMoreMenu() {
+      document.getElementById('menu-more-panel').classList.toggle('visible');
+    }
+
+    // Réglages « compte » (page principale) : clés, modèle, compteur, thème, modes
+    function toggleAccountSettings() {
+      const panel = document.getElementById('account-settings-panel');
+      panel.classList.toggle('visible');
+      if (panel.classList.contains('visible')) {
         document.getElementById('toggle-tokens').checked = showTokenCounter;
+        document.getElementById('toggle-situation-counts').checked = situationCounts;
         document.getElementById('image-theme-select').value = imageTheme;
         document.getElementById('model-select').value = currentModel;
         document.getElementById('openai-key-input').value = openaiKey;
         document.getElementById('gemini-key-input').value = geminiKey;
+        updateReasoningUI();
         loadAccountInfo();
       }
     }
@@ -2852,7 +3199,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       maxNewPerDay = val;
       localStorage.setItem(KEY_MAX_NEW + '_' + currentLang, val);
       saveSettingsToServer();
-      document.getElementById('max-new-value').textContent = val + ' mots';
+      document.getElementById('max-new-value').textContent = `${val} ${tPrac('words_suffix')}`;
       document.getElementById('max-new-slider').value = maxNewToIndex(val);
       if (practiceMode === 'spaced' && allWords.length > 0) {
         const trulyDue     = allWords.filter(w => { const p = progressMap[w.toLowerCase()]; return p && p.nextReview && isDue(w); });
@@ -2891,8 +3238,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (allWords.length === 0) {
         if (isSituationMode) {
           // En Situation : message dédié (pas de carte « mot du jour »)
-          document.getElementById('due-count').innerHTML =
-            'Aucun mot maîtrisé encore — pratique en mode Espacée pour débloquer ce mode !';
+          document.getElementById('due-count').innerHTML = tPrac('no_mastered');
           document.getElementById('situation-slider-section').style.display = 'none';
           document.getElementById('situation-start').style.display         = 'none';
           document.getElementById('situation-box').style.display           = 'none';
@@ -2902,7 +3248,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           currentWords = [];
         } else {
           document.getElementById('current-word').textContent     = '—';
-          document.getElementById('word-count-label').textContent = 'aucun mot trouvé';
+          document.getElementById('word-count-label').textContent = tPrac('no_words_found');
           document.getElementById('due-count').textContent        = '';
         }
         return;
@@ -2916,7 +3262,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           const prog = progressMap[w.toLowerCase()];
           return prog && prog.nextReview && isDue(w);
         });
-        const neverPracticed = allWords.filter(w => isNewWord(w));
+        const neverPracticed = shuffleInPlace(allWords.filter(w => isNewWord(w)));
 
         // Nouveaux restants aujourd'hui
         const newRemaining = Math.max(0, maxNewPerDay - todayNewCount);
@@ -2964,8 +3310,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         });
 
         if (mastered.length === 0) {
-          document.getElementById('due-count').innerHTML =
-            `Aucun mot maîtrisé encore — continue à pratiquer pour débloquer ce mode !`;
+          document.getElementById('due-count').innerHTML = tPrac('no_mastered');
           document.getElementById('situation-slider-section').style.display = 'none';
           document.getElementById('situation-section').style.display = 'none';
           currentWords = [];
@@ -2973,7 +3318,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         }
 
         document.getElementById('due-count').innerHTML =
-          `<span class="highlight">${mastered.length}</span> mot${mastered.length > 1 ? 's' : ''} maîtrisé${mastered.length > 1 ? 's' : ''}`;
+          `<span class="highlight">${mastered.length}</span> ${tPrac(mastered.length > 1 ? 'mastered_pl' : 'mastered_sg')}`;
 
         // Slider nombre de mots (plafonné au nombre de mots maîtrisés, max 5)
         document.getElementById('situation-slider-section').style.display = '';
@@ -3008,7 +3353,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         // Mode libre
         const remaining = allWords.filter(w => getWeight(w) > 1).length;
         document.getElementById('due-count').innerHTML =
-          `<span class="highlight">${remaining}</span> mot${remaining > 1 ? 's' : ''} à pratiquer <span style="color:var(--muted);font-size:0.85em">(${allWords.length} au total)</span>`;
+          `<span class="highlight">${remaining}</span> ${tPrac(remaining > 1 ? 'practice_pl' : 'practice_sg')} <span style="color:var(--muted);font-size:0.85em">(${allWords.length} ${tPrac('in_total')})</span>`;
         document.getElementById('word-count-label').textContent = '';
         setWordSliderMax(allWords.length); // pas plus de mots que la liste n'en contient
         const nFree = wordCount();
@@ -3143,8 +3488,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       jeNeSaisPasWord = word;
       const n = currentWords.length;
       const text = n > 1
-        ? `Es-tu sûr pour "${word}" ? Ce sera compté comme incorrect.`
-        : `Es-tu sûr ? Ce sera compté comme incorrect.`;
+        ? tPrac('confirm_sure_word').replace('{word}', word)
+        : tPrac('confirm_sure');
       document.getElementById('confirm-panel-text').textContent = text;
       document.getElementById('confirm-panel').classList.add('visible');
       document.getElementById('sentence-input').disabled = true;
@@ -3158,12 +3503,25 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       _updateStickyVisibility();
     }
 
+    // Safari laisse un halo sombre autour des mots après le retrait de filter:blur
+    // (couche de compositing pas repeinte) → on force un reflow/repaint des éléments.
+    function forceBlurRepaint() {
+      document.querySelectorAll('.word-main, .chip-word, .qcm-word, .qcm-offer-word, .hint-word-in-label')
+        .forEach(el => {
+          const d = el.style.display;
+          el.style.display = 'none';
+          void el.offsetHeight; // force le reflow avant de restaurer
+          el.style.display = d;
+        });
+    }
+
     function toggleWordsHidden() {
       wordsHidden = !wordsHidden;
       document.body.classList.toggle('words-hidden', wordsHidden);
       const btn = document.getElementById('btn-hide-words');
       btn.classList.toggle('active', wordsHidden);
-      btn.textContent = wordsHidden ? '👁 Montrer' : '👁 Cacher';
+      btn.textContent = wordsHidden ? tPrac('btn_show') : tPrac('btn_hide');
+      if (!wordsHidden) forceBlurRepaint();
       updateStickyBar();
     }
 
@@ -3173,7 +3531,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       wordsHidden = false;
       document.body.classList.remove('words-hidden');
       const btn = document.getElementById('btn-hide-words');
-      if (btn) { btn.classList.remove('active'); btn.textContent = '👁 Cacher'; }
+      if (btn) { btn.classList.remove('active'); btn.textContent = tPrac('btn_hide'); }
+      forceBlurRepaint();
       updateStickyBar();
     }
 
@@ -3279,7 +3638,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const cacheKey   = `${word.toLowerCase()}|${currentLang}|${currentModel}`;
 
       // Met à jour le label et s'assure que la boîte est dépliée
-      document.getElementById('hint-box-label-text').innerHTML = `Définition — <span class="hint-word-in-label">${lc(word).replace(/</g,'&lt;')}</span>`;
+      document.getElementById('hint-box-label-text').innerHTML = `${tPrac('label_definition')} — <span class="hint-word-in-label">${lc(word).replace(/</g,'&lt;')}</span>`;
       hintBox.classList.remove('collapsed');
 
       // ── Cache hit : affichage instantané (valide 24h, pas de lock) ────
@@ -3315,7 +3674,9 @@ Structure your response in exactly three sections. Use a ## markdown heading (in
 Respond entirely in ${langName}.`;
 
       try {
-        hintTextEl.innerHTML = '';
+        // Spinner tant que le premier heading n'est pas arrivé (l'attente du 1er
+        // token peut être longue avec un modèle de raisonnement)
+        hintTextEl.innerHTML = '<span class="spinner"></span>';
         hintBox.classList.add('visible');
 
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -3356,8 +3717,8 @@ Respond entirely in ${langName}.`;
         if (!sentenceSubmitted) await saveHint(word);
       } catch (err) {
         const ew = word.replace(/'/g, "\\'");
-        hintTextEl.innerHTML = `<span>Erreur : ${err.message}</span>
-          <button class="btn-secondary" style="margin-top:0.5rem" onclick="fetchHint('${ew}')">↺ Réessayer</button>`;
+        hintTextEl.innerHTML = `<span>${tPrac('err_prefix')} ${err.message}</span>
+          <button class="btn-secondary" style="margin-top:0.5rem" onclick="fetchHint('${ew}')">${tPrac('retry')}</button>`;
         hintBox.classList.add('visible');
       } finally {
         _hintInFlight = false;
@@ -3474,7 +3835,7 @@ Respond entirely in ${feedbackLang}.`;
       };
 
       try {
-        feedbackText.innerHTML = '';
+        feedbackText.innerHTML = '<span class="spinner"></span>'; // visible jusqu'au 1er chunk
         feedbackBox.classList.add('visible');
         spacer.style.height  = '0';
         spacer.style.display = 'none';
@@ -3494,7 +3855,10 @@ Respond entirely in ${feedbackLang}.`;
         const evalMaxTokens = isGemini() ? 2000 + currentWords.length * 400 : 16000;
         const scroller = startAutoScroll(feedbackBox, spacer);
         const reply = await callAIStream(prompt, fullText => {
-          feedbackText.innerHTML = renderMarkdown(stripVerdictLines(fullText));
+          // Sections repliables dès le streaming : les sections finies se replient
+          // au fur et à mesure, seule celle en cours reste ouverte.
+          const html = renderFeedbackSectionsStreaming(fullText);
+          if (html) feedbackText.innerHTML = html; // garde le spinner tant que rien à afficher
           scroller.onChunk();
         }, evalMaxTokens);
         scroller.cleanup();
@@ -3654,8 +4018,8 @@ Respond entirely in ${feedbackLang}.`;
           }
           if (parts.length) {
             const label = isSingle
-              ? `📅 prochaine révision : ${parts[0]}`
-              : `📅 prochaines révisions : ${parts.join(' · ')}`;
+              ? `${tPrac('next_review_one')} ${parts[0]}`
+              : `${tPrac('next_review_many')} ${parts.join(' · ')}`;
             feedbackText.innerHTML += `<div class="next-review-line">${label}</div>`;
           }
         }
@@ -3679,15 +4043,15 @@ Respond entirely in ${feedbackLang}.`;
           _qcmWordsOffer = wordsForQCM;
           document.getElementById('qcm-question').textContent = langInfo.qcmQuestion;
           document.getElementById('qcm-offer-buttons').innerHTML = wordsForQCM
-            .map(w => `<button class="btn-qcm" onclick="startQCM('${w.replace(/'/g, "\\'")}')">🎯 QCM — <span class="qcm-offer-word">${w}</span></button>`)
+            .map(w => `<button class="btn-qcm" onclick="startQCM('${w.replace(/'/g, "\\'")}')">🎯 QCM — <span class="qcm-offer-word">${lc(w)}</span></button>`)
             .join('');
           document.getElementById('qcm-offer').classList.add('visible');
         }
 
       } catch (err) {
         lastSubmittedSentence = null; // permet de réessayer la même phrase après une erreur
-        feedbackText.innerHTML = `<span>Erreur : ${err.message}</span>
-          <button class="btn-secondary" style="margin-top:0.5rem" onclick="submitSentence()">↺ Réessayer</button>`;
+        feedbackText.innerHTML = `<span>${tPrac('err_prefix')} ${err.message}</span>
+          <button class="btn-secondary" style="margin-top:0.5rem" onclick="submitSentence()">${tPrac('retry')}</button>`;
         feedbackBox.classList.add('visible', 'incorrect');
         cleanupSpacer();
       }
@@ -3709,7 +4073,7 @@ Respond entirely in ${feedbackLang}.`;
       section.classList.remove('collapsed');
       document.getElementById('qcm-word').textContent = lc(qcmWord);
       resultEl.textContent = '';
-      choicesEl.innerHTML  = '<div style="color:var(--muted);font-style:italic;padding:0.5rem"><span class="spinner"></span> Génération du QCM…</div>';
+      choicesEl.innerHTML  = `<div style="color:var(--muted);font-style:italic;padding:0.5rem;text-align:center"><span class="spinner"></span> ${tPrac('qcm_generating')}</div>`;
 
       // Scroll immédiat vers la section QCM pour que le spinner soit visible
       requestAnimationFrame(() => {
@@ -3733,13 +4097,15 @@ CRITICAL: Do NOT include the word "${lc(qcmWord)}" (or any of its inflected form
 
 Return ONLY a JSON array of 4 objects, no other text, no markdown:
 [
-  {"text": "...", "correct": true},
-  {"text": "...", "correct": false},
-  {"text": "...", "correct": false},
-  {"text": "...", "correct": false}
+  {"text": "...", "correct": true, "explanation": "..."},
+  {"text": "...", "correct": false, "explanation": "..."},
+  {"text": "...", "correct": false, "explanation": "..."},
+  {"text": "...", "correct": false, "explanation": "..."}
 ]
 
-Write all scenarios in ${langName}.`;
+"explanation" = ONE short sentence in ${langName} explaining WHY "${lc(qcmWord)}" fits that scenario (for the correct one) or why it would be wrong/unnatural there (for the distractors). The explanation MAY mention the word and what the natural word would be instead.
+
+Write all scenarios and explanations in ${langName}.`;
 
       try {
         // GPT-5.4 : 2000 min (reasoning ~1024 + texte) ; Gemini : 1500 (4 scénarios longs)
@@ -3752,13 +4118,11 @@ Write all scenarios in ${langName}.`;
         const choices = JSON.parse(stripped.slice(jsonStart, jsonEnd + 1));
 
         // Shuffle so the correct answer isn't always first
-        for (let i = choices.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [choices[i], choices[j]] = [choices[j], choices[i]];
-        }
+        shuffleInPlace(choices);
+        _qcmChoices = choices;
 
         choicesEl.innerHTML = choices.map((c, i) =>
-          `<button class="qcm-choice" onclick="checkQCM(this, ${c.correct}, ${i})">${c.text}</button>`
+          `<button class="qcm-choice" onclick="checkQCM(this, ${i})">${c.text}</button>`
         ).join('');
 
         // Scroll vers la section QCM
@@ -3771,40 +4135,61 @@ Write all scenarios in ${langName}.`;
         });
       } catch (err) {
         const w = qcmWord.replace(/'/g, "\\'");
-        choicesEl.innerHTML = `<p style="color:var(--error)">Erreur : ${err.message}</p>
-          <button class="btn-secondary" style="margin-top:0.5rem" onclick="startQCM('${w}')">↺ Réessayer</button>`;
+        choicesEl.innerHTML = `<p style="color:var(--error)">${tPrac('err_prefix')} ${err.message}</p>
+          <button class="btn-secondary" style="margin-top:0.5rem" onclick="startQCM('${w}')">${tPrac('retry')}</button>`;
       }
     }
 
-    async function checkQCM(btn, isCorrect, idx) {
-      // Désactive tous les boutons
-      document.querySelectorAll('.qcm-choice').forEach(b => b.disabled = true);
+    async function checkQCM(btn, idx) {
+      const chosen    = _qcmChoices[idx] || {};
+      const isCorrect = !!chosen.correct;
 
-      // Colorie la réponse
-      btn.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
+      // Désactive tous les boutons + icône ✓/✗ sur la réponse choisie (et la bonne)
+      document.querySelectorAll('.qcm-choice').forEach((b, i) => {
+        b.disabled = true;
+        const c = _qcmChoices[i];
+        if (b === btn) {
+          b.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
+          b.textContent = (isCorrect ? '✓ ' : '✗ ') + (c ? c.text : b.textContent);
+        } else if (c && c.correct && !isCorrect) {
+          b.classList.add('correct-answer'); // révèle la bonne réponse
+          b.textContent = '✓ ' + c.text;
+        }
+      });
 
       const resultEl = document.getElementById('qcm-result');
-      // Si faux, montre la bonne réponse
+      const correct  = _qcmChoices.find(c => c.correct);
       if (!isCorrect) {
-        document.querySelectorAll('.qcm-choice').forEach(b => {
-          if (b.onclick.toString().includes('true')) b.classList.add('correct-answer');
-        });
         // Compte comme ✗ supplémentaire
         await saveProgress(qcmWord, false);
-        resultEl.textContent = '✗ Pas tout à fait…';
-        resultEl.className   = 'qcm-result incorrect';
+        // Le « pourquoi » : pourquoi le scénario choisi ne colle pas + pourquoi la bonne réponse colle
+        let html = `✗ ${chosen.explanation || tPrac('qcm_bad')}`;
+        if (correct && correct.explanation) html += `<br>✓ ${correct.explanation}`;
+        resultEl.innerHTML = html;
+        resultEl.className = 'qcm-result incorrect';
+        // Après un échec : accès direct à la définition dans la boîte du haut
+        const defBtn = document.createElement('button');
+        defBtn.className = 'btn-secondary';
+        defBtn.style.cssText = 'display:block;margin-top:0.75rem';
+        defBtn.textContent = tPrac('qcm_see_def');
+        defBtn.onclick = () => {
+          fetchHint(qcmWord);
+          const hb = document.getElementById('hint-box');
+          requestAnimationFrame(() => hb.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        };
+        resultEl.appendChild(defBtn);
       } else {
         // Résultat neutre — ni ✓ ni ✗ dans la progression
-        resultEl.textContent = '✓ Bonne situation !';
-        resultEl.className   = 'qcm-result correct';
+        resultEl.innerHTML = `✓ ${chosen.explanation || tPrac('qcm_good')}`;
+        resultEl.className = 'qcm-result correct';
       }
       if (_qcmWordsOffer.length > 1) {
-        const btn = document.createElement('button');
-        btn.className = 'btn-secondary';
-        btn.style.cssText = 'display:block;margin-top:0.75rem';
-        btn.textContent = '← Autres QCMs';
-        btn.onclick = showQCMOffer;
-        resultEl.appendChild(btn);
+        const backBtn = document.createElement('button');
+        backBtn.className = 'btn-secondary';
+        backBtn.style.cssText = 'display:block;margin-top:0.75rem';
+        backBtn.textContent = tPrac('qcm_other');
+        backBtn.onclick = showQCMOffer;
+        resultEl.appendChild(backBtn);
       }
     }
 
@@ -3938,7 +4323,7 @@ Write all scenarios in ${langName}.`;
     function fmtMotDate(s) {
       const t = motTs(s);
       if (!t) return '';
-      return new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      return new Date(t).toLocaleDateString(UI_LOCALE[appLang], { day: 'numeric', month: 'short' });
     }
 
     async function showMots() {
@@ -3946,7 +4331,7 @@ Write all scenarios in ${langName}.`;
       document.getElementById('mots-search').value = '';
       motsPage = 0; motsSelected.clear();
       document.getElementById('mots-list').innerHTML =
-        '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
+        `<p style="color:var(--muted);font-style:italic;">${tApp('loading')}</p>`;
       try {
         const [wordsResps, progResps] = await Promise.all([
           Promise.all(LANGS.map(l => authFetch(`/api/words?lang=${encodeURIComponent(l.key)}&detail=1`).then(r => r.json()))),
@@ -4012,14 +4397,14 @@ Write all scenarios in ${langName}.`;
         <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.6rem;font-size:0.85rem;color:var(--muted)">
           <select onchange="setMotsPageSize(this.value)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.3rem 0.5rem;">${opts}</select>
           <button class="btn-ghost" ${motsPage <= 0 ? 'disabled' : ''} onclick="motsGoPage(-1)">◀</button>
-          <span>page ${pageCount ? motsPage + 1 : 0}/${pageCount}</span>
+          <span>${tApp('page_label')} ${pageCount ? motsPage + 1 : 0}/${pageCount}</span>
           <button class="btn-ghost" ${motsPage >= pageCount - 1 ? 'disabled' : ''} onclick="motsGoPage(1)">▶</button>
-          <span style="margin-left:auto">${total} mot(s)</span>
+          <span style="margin-left:auto">${tApp('words_count').replace('{n}', total)}</span>
         </div>
         ${sel ? `<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem;padding:0.4rem 0.6rem;background:var(--surface);border:1px solid var(--accent);border-radius:10px;">
-          <strong>${sel} sélectionné(s)</strong>
-          <button class="btn-ghost" onclick="clearMotsSelection()">annuler</button>
-          <button class="btn-ghost" style="margin-left:auto;color:#e05a5a" onclick="deleteSelectedMots()">🗑 Supprimer</button>
+          <strong>${tApp('selected_n').replace('{n}', sel)}</strong>
+          <button class="btn-ghost" onclick="clearMotsSelection()">${tApp('cancel_lc')}</button>
+          <button class="btn-ghost" style="margin-left:auto;color:#e05a5a" onclick="deleteSelectedMots()">${tApp('btn_delete')}</button>
         </div>` : ''}`;
     }
 
@@ -4032,13 +4417,13 @@ Write all scenarios in ${langName}.`;
       _pageRowsCache = rows.slice(motsPage * motsPageSize, motsPage * motsPageSize + motsPageSize);
       renderMotsControls(rows.length, rows.length ? pageCount : 0);
       if (rows.length === 0) {
-        list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun mot.</p>';
+        list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tApp('mots_empty')}</p>`;
         return;
       }
       const allPageSel = _pageRowsCache.length && _pageRowsCache.every(m => motsSelected.has(motKey(m)));
       list.innerHTML = `<label class="mot-row" style="background:transparent;border:none;cursor:pointer">
           <input type="checkbox" ${allPageSel ? 'checked' : ''} onchange="toggleSelectAllPage(this.checked)" style="margin-right:0.4rem">
-          <span style="color:var(--muted);font-size:0.85rem">tout sélectionner (cette page)</span>
+          <span style="color:var(--muted);font-size:0.85rem">${tApp('select_all_page')}</span>
         </label>` + _pageRowsCache.map(m => {
         const info = LANGS.find(x => x.key === m.lang);
         const esc  = jsEsc(m.word);
@@ -4052,8 +4437,8 @@ Write all scenarios in ${langName}.`;
           <span class="mot-actions">
             <span class="stars ${si.cls}" style="font-size:0.8rem">${si.str}</span>
             <span class="mot-date">${fmtMotDate(m.created_at)}</span>
-            <button onclick="editMot('${m.lang}','${esc}')" title="Renommer">✏️</button>
-            <button onclick="deleteMot('${m.lang}','${esc}')" title="Supprimer">🗑</button>
+            <button onclick="editMot('${m.lang}','${esc}')" title="${tApp('title_rename')}">✏️</button>
+            <button onclick="deleteMot('${m.lang}','${esc}')" title="${tApp('title_delete')}">🗑</button>
           </span>
         </div>`;
       }).join('');
@@ -4061,7 +4446,7 @@ Write all scenarios in ${langName}.`;
 
     async function deleteSelectedMots() {
       if (!motsSelected.size) return;
-      if (!confirm(`Supprimer ${motsSelected.size} mot(s) définitivement ?`)) return;
+      if (!confirm(tApp('confirm_delete_n').replace('{n}', motsSelected.size))) return;
       const items = [...motsSelected].map(k => { const i = k.indexOf('|'); return { lang: k.slice(0, i), word: k.slice(i + 1) }; });
       try {
         const r = await authFetch('/api/words', { method: 'DELETE', body: JSON.stringify({ items }) });
@@ -4074,7 +4459,7 @@ Write all scenarios in ${langName}.`;
     }
 
     async function editMot(lang, word) {
-      const nw = prompt(`Renommer « ${word} » :`, word);
+      const nw = prompt(tApp('rename_prompt').replace('{w}', word), word);
       if (nw === null) return;
       const newWord = nw.trim();
       if (!newWord || newWord === word) return;
@@ -4090,7 +4475,7 @@ Write all scenarios in ${langName}.`;
     }
 
     async function deleteMot(lang, word) {
-      if (!confirm(`Supprimer « ${word} » ?`)) return;
+      if (!confirm(tApp('confirm_delete_w').replace('{w}', word))) return;
       try {
         await authFetch('/api/words', { method: 'DELETE', body: JSON.stringify({ lang, word }) });
         motsData = motsData.filter(x => !(x.lang === lang && x.word === word));
@@ -4102,12 +4487,12 @@ Write all scenarios in ${langName}.`;
 
     // ── Écran « Révisions à venir » (mode espacé, langue courante) ──
     function reviewLabel(dateStr, today) {
-      if (dateStr <= today) return { txt: 'à réviser', cls: 'rev-due' };
+      if (dateStr <= today) return { txt: tPrac('to_review'), cls: 'rev-due' };
       const d1 = new Date(today + 'T00:00:00'), d2 = new Date(dateStr + 'T00:00:00');
       const days = Math.round((d2 - d1) / 86400000);
-      if (days === 1) return { txt: 'demain', cls: '' };
-      if (days <= 7)  return { txt: `dans ${days} j`, cls: '' };
-      return { txt: d2.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), cls: '' };
+      if (days === 1) return { txt: tPrac('rev_tomorrow'), cls: '' };
+      if (days <= 7)  return { txt: tPrac('rev_in_days').replace('{n}', days), cls: '' };
+      return { txt: d2.toLocaleDateString(UI_LOCALE[pracCode()], { day: 'numeric', month: 'short' }), cls: '' };
     }
 
     let revisionsRows = [];          // [{ word, next }]
@@ -4137,37 +4522,76 @@ Write all scenarios in ${langName}.`;
 
     function onAddLangChange() { if (addMode === 'grammar') loadAddGrammarList(); }
 
-    async function addWordFromApp(ignore) {
-      const word = document.getElementById('add-word-input').value.trim();
-      const res  = document.getElementById('add-word-result');
-      if (!word) return;
-      if (!myAddToken) { res.className = 'add-result err'; res.textContent = "Token d'ajout indisponible — recharge la page."; return; }
-      const lang = document.getElementById('add-lang-select').value;
-      res.className = 'add-result'; res.innerHTML = '<span class="spinner"></span> Ajout…';
-      const params = new URLSearchParams({ token: myAddToken, word, lang: _addLangCode[lang] || 'auto' });
-      if (ignore === 'sens') params.set('ignore_sens', 'true');
-      if (ignore === 'sim')  params.set('ignore_sim', 'true');
-      try {
-        const r   = await fetch(`${API_ENDPOINT}/add?${params.toString()}`);
-        const txt = (await r.text()).trim();
-        if (txt.startsWith('Succès')) {
-          res.className = 'add-result ok'; res.textContent = '✓ ' + txt;
-          document.getElementById('add-word-input').value = '';
-          if (lang === currentLang) await loadWords(currentLang); // rafraîchit le pool si même langue
-        } else if (txt.startsWith('Doublon')) {
-          res.className = 'add-result warn'; res.textContent = txt;
-        } else if (txt.startsWith('INVALID:')) {
-          res.className = 'add-result warn';
-          res.innerHTML = `⚠️ ${escapeHtml(txt.slice(8))}<br><button class="btn-secondary" style="margin-top:0.5rem" onclick="addWordFromApp('sens')">Ajouter quand même</button>`;
-        } else if (txt.startsWith('SIMILAR:')) {
-          res.className = 'add-result warn';
-          res.innerHTML = `⚠️ Variante possible de : ${escapeHtml(txt.slice(8))}<br><button class="btn-secondary" style="margin-top:0.5rem" onclick="addWordFromApp('sim')">Ajouter quand même</button>`;
-        } else {
-          res.className = 'add-result err'; res.textContent = txt;
-        }
-      } catch (e) {
-        res.className = 'add-result err'; res.textContent = 'Erreur : ' + e.message;
+    let _addBatch = []; // mots du dernier ajout ([{word, lang}]) — pour « ajouter quand même » par ligne
+
+    async function _sendAddWord(word, langValue, flags) {
+      const params = new URLSearchParams({ token: myAddToken, word, lang: _addLangCode[langValue] || 'auto' });
+      if (flags === 'sens' || flags === 'both') params.set('ignore_sens', 'true');
+      if (flags === 'sim'  || flags === 'both') params.set('ignore_sim', 'true');
+      const r = await fetch(`${API_ENDPOINT}/add?${params.toString()}`);
+      return (await r.text()).trim();
+    }
+
+    // HTML d'une ligne de résultat selon la réponse texte de /add
+    function _renderAddRowResult(txt, i, word) {
+      const w = escapeHtml(word);
+      if (txt.startsWith('Succès'))  return `<span style="color:var(--success)">✓ ${w}</span>`;
+      if (txt.startsWith('Doublon')) return `<span style="color:#e0a85a">◦ ${w} — ${tApp('add_dup')}</span>`;
+      let warn, flags;
+      if      (txt.startsWith('INVALID:')) { warn = escapeHtml(txt.slice(8).split('|')[0].trim()); flags = 'sens'; }
+      else if (txt.startsWith('SIMILAR:')) { warn = tApp('add_variant_of') + ' ' + escapeHtml(txt.slice(8).split('|')[0].trim()); flags = 'sim'; }
+      else if (txt.startsWith('NOKEY:'))   { warn = escapeHtml(txt.slice(6).split('|')[0].trim()); flags = 'both'; }
+      else return `<span style="color:var(--error)">✗ ${w} — ${escapeHtml(txt)}</span>`;
+      return `<span style="color:#e0a85a">⚠️ ${w} — ${warn}</span>
+        <button class="btn-secondary" style="margin-left:0.4rem;padding:0.15rem 0.5rem;font-size:0.78rem" onclick="retryAddRow(${i}, '${flags}')">${tApp('add_anyway')}</button>`;
+    }
+
+    // Ajout d'un ou plusieurs mots (un par ligne, ou séparés par des virgules) —
+    // traités séquentiellement, une ligne de résultat par mot.
+    async function addWordFromApp() {
+      const input = document.getElementById('add-word-input');
+      const res   = document.getElementById('add-word-result');
+      const lang  = document.getElementById('add-lang-select').value;
+      const seen  = new Set();
+      const words = input.value.split(/[\n,;]+/).map(s => s.trim()).filter(w => {
+        const k = w.toLowerCase();
+        if (!w || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+      if (!words.length) return;
+      if (!myAddToken) { res.className = 'add-result err'; res.textContent = tApp('add_no_token'); return; }
+
+      _addBatch = words.map(w => ({ word: w, lang }));
+      res.className = 'add-result';
+      res.innerHTML = words.map((w, i) =>
+        `<div id="add-row-${i}"><span style="color:var(--muted)">◌ ${escapeHtml(w)}</span></div>`).join('');
+
+      let okCount = 0;
+      for (let i = 0; i < words.length; i++) {
+        const row = document.getElementById(`add-row-${i}`);
+        row.innerHTML = `<span class="spinner"></span> ${escapeHtml(words[i])}…`;
+        let txt;
+        try { txt = await _sendAddWord(words[i], lang, null); }
+        catch (e) { txt = 'Erreur : ' + e.message; }
+        row.innerHTML = _renderAddRowResult(txt, i, words[i]);
+        if (txt.startsWith('Succès')) okCount++;
       }
+      if (okCount === words.length) input.value = ''; // tout est passé → champ vidé
+      if (okCount > 0 && lang === currentLang) await loadWords(currentLang); // rafraîchit le pool
+    }
+
+    // « Ajouter quand même » sur une ligne (INVALID/SIMILAR/NOKEY) — renvoie avec les flags ignore_*
+    async function retryAddRow(i, flags) {
+      const item = _addBatch[i];
+      const row  = document.getElementById(`add-row-${i}`);
+      if (!item || !row) return;
+      row.innerHTML = `<span class="spinner"></span> ${escapeHtml(item.word)}…`;
+      let txt;
+      try { txt = await _sendAddWord(item.word, item.lang, flags); }
+      catch (e) { txt = 'Erreur : ' + e.message; }
+      row.innerHTML = _renderAddRowResult(txt, i, item.word);
+      if (txt.startsWith('Succès') && item.lang === currentLang) await loadWords(currentLang);
     }
 
     async function addGrammarForm() {
@@ -4235,13 +4659,13 @@ Write all scenarios in ${langName}.`;
       const list  = document.getElementById('revisions-list');
       const today = todayStrLocal();
       if (revisionsRows.length === 0) {
-        list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun mot programmé pour l\'instant — pratique des mots pour les voir apparaître ici.</p>';
+        list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tPrac('revisions_empty')}</p>`;
         return;
       }
       const q = (document.getElementById('revisions-search').value || '').trim().toLowerCase();
       let rows = q ? revisionsRows.filter(r => r.word.toLowerCase().includes(q)) : [...revisionsRows];
       if (rows.length === 0) {
-        list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun mot trouvé.</p>';
+        list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tPrac('none_found')}</p>`;
         return;
       }
       if (revisionsSort === 'az') {
@@ -4253,7 +4677,7 @@ Write all scenarios in ${langName}.`;
       }
       const dueCount = rows.filter(r => r.next <= today).length;
       const head = dueCount > 0
-        ? `<p style="color:var(--accent);font-weight:600;margin-bottom:0.5rem;">${dueCount} mot${dueCount > 1 ? 's' : ''} à réviser aujourd'hui</p>`
+        ? `<p style="color:var(--accent);font-weight:600;margin-bottom:0.5rem;">${tPrac('revs_due_today').replace('{n}', dueCount)}</p>`
         : '';
       list.innerHTML = head + rows.map(r => {
         const lab = reviewLabel(r.next, today);
@@ -4306,7 +4730,7 @@ Write all scenarios in ${langName}.`;
         const langs = ['all', ...new Set(historyData.map(e => e.lang))];
         document.getElementById('history-filters').innerHTML = langs.map(l => {
           const info  = LANGS.find(x => x.key === l);
-          const label = l === 'all' ? '🌐 Tout' : `${info?.flag || ''} ${info?.name || l}`;
+          const label = l === 'all' ? tApp('filter_all') : `${info?.flag || ''} ${info?.name || l}`;
           return `<button class="filter-btn ${l === historyFilter ? 'active' : ''}"
             onclick="setHistoryFilter('${l}')">${label}</button>`;
         }).join('');
@@ -4335,7 +4759,7 @@ Write all scenarios in ${langName}.`;
         : historyData.filter(e => e.lang === historyFilter);
 
       if (filtered.length === 0) {
-        list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun mot dans l\'historique pour l\'instant.</p>';
+        list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tApp('history_empty')}</p>`;
         return;
       }
 
@@ -4351,8 +4775,9 @@ Write all scenarios in ${langName}.`;
         let dateStr = '';
         if (e.date) {
           const d = new Date(e.date);
-          dateStr = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-            + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          const loc = UI_LOCALE[appLang];
+          dateStr = d.toLocaleDateString(loc, { day: 'numeric', month: 'short' })
+            + ' ' + d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
         }
 
         const info      = LANGS.find(x => x.key === e.lang);
@@ -4378,7 +4803,7 @@ Write all scenarios in ${langName}.`;
     async function showStats() {
       showScreen('screen-stats');
       const grid  = document.getElementById('stats-grid');
-      grid.innerHTML = '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
+      grid.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tApp('loading')}</p>`;
       try {
         const [progResp, ...wordResps] = await Promise.all([
           authFetch('/api/progress').then(r => r.json()),
@@ -4406,10 +4831,10 @@ Write all scenarios in ${langName}.`;
           return `<div class="stats-lang-block">
             <div class="stats-lang-title"><span class="flag">${l.flag}</span><span>${l.name}</span></div>
             <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
-            <div class="stats-row"><span class="label">Total de mots</span><span class="value">${s.total}</span></div>
-            <div class="stats-row"><span class="label">★★★ Maîtrisés</span><span class="value green">${s.mastered}</span></div>
-            <div class="stats-row"><span class="label">★☆☆ En cours</span><span class="value yellow">${s.learning}</span></div>
-            <div class="stats-row"><span class="label">☆☆☆ Pas encore commencé</span><span class="value muted">${notStarted}</span></div>
+            <div class="stats-row"><span class="label">${tApp('stats_total')}</span><span class="value">${s.total}</span></div>
+            <div class="stats-row"><span class="label">${tApp('stats_mastered')}</span><span class="value green">${s.mastered}</span></div>
+            <div class="stats-row"><span class="label">${tApp('stats_learning')}</span><span class="value yellow">${s.learning}</span></div>
+            <div class="stats-row"><span class="label">${tApp('stats_notstarted')}</span><span class="value muted">${notStarted}</span></div>
           </div>`;
         }).join('');
       } catch (err) {
@@ -4420,12 +4845,15 @@ Write all scenarios in ${langName}.`;
     // ── Mode Situation ────────────────────────────────────────
     function updateSituationSliderLabel() {
       const el = document.getElementById('situation-slider-value');
-      if (el) el.textContent = situationWordCount + (situationWordCount > 1 ? ' mots' : ' mot');
+      if (el) el.textContent = wordsLabel(situationWordCount);
     }
     function onSituationSliderChange(val) {
       situationWordCount = parseInt(val) || 1;
       localStorage.setItem(KEY_SITUATION_WORDS, String(situationWordCount));
       updateSituationSliderLabel();
+      // Le nombre de mots a changé → on re-tire tout de suite. Sinon « Commencer »
+      // génère avec l'ancien tirage (slider à 1 mais 2 mots dans la situation).
+      if (practiceMode === 'situation') pickWords();
       saveSettingsToServer();
     }
     // Plafonne le slider au nombre de mots maîtrisés (max 5) et ajuste la valeur.
@@ -4459,6 +4887,9 @@ Write all scenarios in ${langName}.`;
       sitText.innerHTML = '<span class="spinner"></span>';
       document.getElementById('situation-answer-section').style.display = 'none';
 
+      // Amène le spinner à l'écran pendant l'attente de l'API
+      requestAnimationFrame(() => sitBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+
       const langName = getLang().mistralName;
       const prompt = isMulti
         ? `You are a language teacher. Create a vivid, coherent text in ${langName} on a single theme (one or several short paragraphs are fine if the text flows better that way — but NEVER one paragraph per target word, and no numbered list) that together evokes ALL of these ${langName} words/expressions:
@@ -4472,11 +4903,17 @@ The situation should be a short, coherent text (a couple of sentences, or one to
 Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing else. Write entirely in ${langName}.`;
 
       try {
-        sitText.innerHTML = '';
-
+        // Le spinner reste affiché jusqu'au premier chunk (qui remplace innerHTML) ;
+        // autoscroll pendant la génération, comme la vérification des autres modes.
+        const spacer = document.getElementById('scroll-spacer');
+        spacer.style.height = '0'; spacer.style.display = 'none';
+        const scroller = startAutoScroll(sitBox, spacer);
         await callAIStream(prompt, fullText => {
           sitText.innerHTML = renderMarkdown(fullText);
+          scroller.onChunk();
         });
+        scroller.cleanup();
+        spacer.style.height = '0'; spacer.style.display = 'none';
         sitBox.style.display = 'block';
         // Affiche le champ de réponse + adapte label / placeholder selon le nombre de mots
         const langInfo = getLang();
@@ -4491,8 +4928,8 @@ Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing
              'Quel est ce mot ?');
         document.getElementById('situation-prompt-label').textContent = promptLabel;
         document.getElementById('situation-input').placeholder = isMulti
-          ? '1. mot, autre candidat…\n2. mot…\n3. mot…'
-          : 'Écris le mot (ou plusieurs candidats, séparés par des virgules)…';
+          ? tPrac('situation_ph_multi')
+          : tPrac('situation_ph');
         document.getElementById('situation-input').rows = isMulti ? Math.min(6, words.length + 1) : 2;
         document.getElementById('situation-answer-section').style.display = '';
         document.getElementById('btn-situation-skip').style.display = '';     // dispo avant de répondre
@@ -4501,8 +4938,8 @@ Do NOT give a definition. Do NOT use the word. Write ONLY the situation, nothing
         // Pas d'auto-focus : évite l'ouverture du clavier + le scroll natif iOS à
         // chaque situation (l'utilisateur tape lui-même sur le champ quand il est prêt).
       } catch (err) {
-        sitText.innerHTML = `<span>Erreur : ${err.message}</span>
-          <button class="btn-secondary" style="margin-top:0.5rem" onclick="startSituation()">↺ Réessayer</button>`;
+        sitText.innerHTML = `<span>${tPrac('err_prefix')} ${err.message}</span>
+          <button class="btn-secondary" style="margin-top:0.5rem" onclick="startSituation()">${tPrac('retry')}</button>`;
       }
     }
 
@@ -4528,12 +4965,15 @@ The learner wrote their guesses below. They may number them and give several com
 Learner's answer:
 "${guess}"
 
-For EACH target word, decide independently whether the learner guessed it: VALID if ANY candidate anywhere in their answer matches the target — exact word, same lexical root (any conjugation/gender/number), or a very close synonym showing genuine understanding. Otherwise INVALID.
+For EACH target word, decide independently, considering ALL candidates anywhere in their answer:
+- ✓ (exact) if a candidate matches the target word itself or the same lexical root (any conjugation, tense, gender/number variant)
+- ≈ (close) if no candidate matches the target word, but one is a very close synonym showing genuine understanding — in the reason, name the expected target word
+- ✗ (wrong) otherwise
 
 Output ONLY this, in ${langName}, exactly one line per target word and nothing else:
-- "<target word>": ✓ or ✗ — short reason (one clause)
+- "<target word>": ✓ or ≈ or ✗ — short reason (one clause)
 
-Use the exact target word inside the quotes, and put ✓ or ✗ explicitly on each line.`
+Use the exact target word inside the quotes, and put ✓, ≈ or ✗ explicitly on each line.`
         : `You are a strict but encouraging and fair ${langName} vocabulary teacher.
 
 The learner is trying to recall the ${langName} word or expression: "${words[0]}".
@@ -4545,18 +4985,22 @@ Reason through the following steps internally before responding:
 
 STEP 1 — Note what the learner wrote. If the answer contains commas, treat it as a list of separate candidate answers.
 
-STEP 2 — Is it valid? The answer is VALID if AT LEAST ONE of the candidates matches. Accept as a match: the exact word, any form belonging to the same lexical root (infinitive, all conjugations, all tenses, gender/number variants), or a very close synonym that demonstrates genuine understanding of the concept. The target word may itself be a conjugated form; in that case, also accept the infinitive and all other conjugations of the same verb. Do NOT penalize extra wrong candidates as long as one is correct.
+STEP 2 — Classify the best candidate:
+- EXACT: a candidate is the exact word or any form of the same lexical root (infinitive, all conjugations, all tenses, gender/number variants). The target word may itself be a conjugated form; in that case, also accept the infinitive and all other conjugations of the same verb. Do NOT penalize extra wrong candidates as long as one is exact.
+- CLOSE: no candidate is the target word, but at least one is a very close synonym that demonstrates genuine understanding of the concept.
+- WRONG: everything else.
 
 STEP 3 — Form your verdict.
 
 Do NOT display the steps or your internal reasoning. Show the learner only:
-- ✓ on the first line if valid, then one short sentence of explanation in ${langName}
-- ✗ on the first line if invalid, then one short sentence explaining the correct answer in ${langName}`;
+- ✓ on the first line if EXACT, then one short sentence of explanation in ${langName}
+- ≈ on the first line if CLOSE, then one short sentence in ${langName} naming the exact target word that was expected
+- ✗ on the first line if WRONG, then one short sentence explaining the correct answer in ${langName}`;
 
       try {
         const fb      = document.getElementById('situation-feedback-box');
         const fbText  = document.getElementById('situation-feedback-text');
-        fbText.innerHTML = '';
+        fbText.innerHTML = '<span class="spinner"></span>'; // visible jusqu'au 1er chunk
         fb.classList.add('visible');
 
         // Autoscroll : suit le verdict pendant la génération (comme la vérification des autres modes)
@@ -4570,37 +5014,44 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
         scroller.cleanup();
         spacer.style.height = '0'; spacer.style.display = 'none';
 
-        // Résultat par mot
-        const results = {}; // lc(mot) -> bool
+        // Résultat par mot : 'ok' (exact) | 'syn' (mot proche = demi-réussite) | 'ko'
+        const results = {};
+        const OK_RE = /[✓✔✅]/, KO_RE = /[✗✘❌]/, SYN_RE = /[≈~]/;
         if (!isMulti) {
-          results[words[0].toLowerCase()] = reply.startsWith('✓');
+          const head = reply.trim().slice(0, 2);
+          results[words[0].toLowerCase()] = SYN_RE.test(head) ? 'syn' : (OK_RE.test(head) ? 'ok' : 'ko');
         } else {
-          const OK_RE = /[✓✔✅]/, KO_RE = /[✗✘❌]/;
           const lines = reply.split('\n');
           for (const w of words) {
             const esc = lc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const re  = new RegExp('(^|[^\\p{L}])' + esc + '([^\\p{L}]|$)', 'u');
             const line = lines.find(l => re.test(l.toLowerCase())) || '';
-            results[w.toLowerCase()] = OK_RE.test(line) && !KO_RE.test(line);
+            results[w.toLowerCase()] = SYN_RE.test(line) ? 'syn'
+              : (OK_RE.test(line) && !KO_RE.test(line)) ? 'ok' : 'ko';
           }
         }
 
-        const correctCount = words.filter(w => results[w.toLowerCase()]).length;
-        const allCorrect   = correctCount === words.length;
+        const exactCount = words.filter(w => results[w.toLowerCase()] === 'ok').length;
+        const synCount   = words.filter(w => results[w.toLowerCase()] === 'syn').length;
+        const allCorrect = exactCount === words.length;
         fb.classList.remove('correct', 'incorrect', 'partial');
-        fb.classList.add(allCorrect ? 'correct' : (correctCount > 0 ? 'partial' : 'incorrect'));
-        document.getElementById('situation-feedback-label').textContent =
-          isMulti ? `${correctCount}/${words.length}` : (allCorrect ? '✓' : '✗');
+        fb.classList.add(allCorrect ? 'correct' : (exactCount + synCount > 0 ? 'partial' : 'incorrect'));
+        document.getElementById('situation-feedback-label').textContent = isMulti
+          ? `${exactCount}${synCount ? `+${synCount}≈` : ''}/${words.length}`
+          : (allCorrect ? '✓' : (synCount ? '≈' : '✗'));
 
         // Pas de carte « Le mot » ici : le verdict nomme déjà chaque mot correct.
 
-        // Poids de relance + sauvegarde, par mot
+        // Poids de relance + sauvegarde, par mot. Un mot proche (≈) = demi-réussite :
+        // ni ✓ ni ✗ dans la progression/l'historique, mais le mot garde son poids ×4
+        // de relance jusqu'à un rappel exact.
         for (const w of words) {
-          const ok = results[w.toLowerCase()];
-          if (ok) situationMissed.delete(w.toLowerCase());
-          else    situationMissed.add(w.toLowerCase());
-          if (situationCounts) await saveProgress(w, ok);
-          saveHistory(w, ok);
+          const r = results[w.toLowerCase()];
+          if (r === 'ok') situationMissed.delete(w.toLowerCase());
+          else            situationMissed.add(w.toLowerCase());
+          if (r === 'syn') continue;
+          if (situationCounts) await saveProgress(w, r === 'ok');
+          saveHistory(w, r === 'ok');
         }
 
         // Verrouille la saisie SANS masquer la section ; remplace « Je ne sais pas »
@@ -4625,7 +5076,7 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
       fb.classList.remove('correct', 'partial');
       fb.classList.add('visible', 'incorrect'); // abandon = compté raté
       document.getElementById('situation-feedback-label').textContent = '✗';
-      const lead = words.length > 1 ? 'Les mots étaient' : 'Le mot était';
+      const lead = words.length > 1 ? tPrac('words_were') : tPrac('word_was');
       fbText.innerHTML = `${lead} : <strong>${words.map(w => lc(w)).join(', ')}</strong>`;
       lockSituationAnswer(true); // verrouille sans masquer (pas de saut visuel)
 
@@ -4661,7 +5112,7 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
       const box    = document.getElementById('related-box');
       const chips  = document.getElementById('related-chips');
       box.classList.add('visible');
-      chips.innerHTML = '<span style="color:var(--muted);font-style:italic;font-size:0.85rem"><span class="spinner"></span> Chargement…</span>';
+      chips.innerHTML = `<span style="color:var(--muted);font-style:italic;font-size:0.85rem"><span class="spinner"></span> ${tPrac('loading')}</span>`;
 
       const langName = getLang().mistralName;
       const prompt = wordList.length === 1
@@ -4702,7 +5153,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         _relatedWordsShown = newRelated.map(r => r.word);
         _relatedWordsAdded = new Set();
         if (!newRelated.length) {
-          chips.innerHTML = '<span style="color:var(--muted);font-style:italic;font-size:0.85rem">Tous les mots suggérés sont déjà dans ta liste.</span>';
+          chips.innerHTML = `<span style="color:var(--muted);font-style:italic;font-size:0.85rem">${tPrac('related_all_known')}</span>`;
         } else {
           chips.innerHTML = newRelated.map((r, i) =>
             `<div class="related-chip">
@@ -4714,8 +5165,8 @@ Return ONLY a JSON array of exactly 3 items, no other text:
           ).join('');
         }
       } catch (err) {
-        chips.innerHTML = `<span style="color:var(--error);font-size:0.85rem">Erreur : ${err.message}</span>
-          <br><button class="btn-secondary" style="margin-top:0.5rem" onclick="fetchRelatedWords(currentWords)">↺ Réessayer</button>`;
+        chips.innerHTML = `<span style="color:var(--error);font-size:0.85rem">${tPrac('err_prefix')} ${err.message}</span>
+          <br><button class="btn-secondary" style="margin-top:0.5rem" onclick="fetchRelatedWords(currentWords)">${tPrac('retry')}</button>`;
       }
     }
 
@@ -4780,9 +5231,28 @@ Return ONLY a JSON array of exactly 3 items, no other text:
 
     // Rend la boîte : verdict (1ère section) ouvert, le reste replié (aperçu 2 lignes).
     // scoreHtml (note N/total) ajouté EN BAS.
+    // Rendu PENDANT le streaming : chaque section déjà terminée se replie dès que
+    // la suivante commence — seule la section en cours d'écriture reste ouverte.
+    // (Le rendu final ré-ouvre le verdict et ajoute le bouton « tout déplier » + la note.)
+    function renderFeedbackSectionsStreaming(partial) {
+      const sections = parseFeedbackSections(partial).filter(s => s.title || s.body);
+      if (!sections.length) return '';
+      return sections.map((s, i) => {
+        const isLast = i === sections.length - 1;
+        const title  = escapeHtml(s.title || 'Verdict');
+        return `<div class="fb-section ${isLast ? '' : 'collapsed'}">
+          <div class="fb-head" onclick="toggleFbSection(this)">
+            <span class="fb-title">${title}</span>
+            <span class="fb-chevron">▾</span>
+          </div>
+          <div class="fb-body">${renderMarkdown(s.body)}</div>
+        </div>`;
+      }).join('');
+    }
+
     function renderFeedbackSections(reply, scoreHtml) {
       const sections = parseFeedbackSections(reply).filter(s => s.title || s.body);
-      let html = '<div class="fb-controls"><button class="fb-toggle-all" onclick="toggleAllFb(this)">⌄ Tout déplier</button></div>';
+      let html = `<div class="fb-controls"><button class="fb-toggle-all" onclick="toggleAllFb(this)">${tPrac('fb_expand')}</button></div>`;
       sections.forEach((s, i) => {
         const collapsed = i === 0 ? '' : 'collapsed'; // verdict ouvert, reste replié
         const title = escapeHtml(s.title || 'Verdict');
@@ -4804,7 +5274,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       const secs = document.querySelectorAll('#feedback-text .fb-section');
       const anyCollapsed = [...secs].some(s => s.classList.contains('collapsed'));
       secs.forEach(s => s.classList.toggle('collapsed', !anyCollapsed));
-      btn.textContent = anyCollapsed ? '⌃ Tout replier' : '⌄ Tout déplier';
+      btn.textContent = anyCollapsed ? tPrac('fb_collapse') : tPrac('fb_expand');
     }
 
     // ── Rendu Markdown simple ─────────────────────────────────
@@ -5193,54 +5663,54 @@ Return ONLY a JSON array of exactly 3 items, no other text:
   <div class="modal-overlay" id="help-modal" onclick="if(event.target===this)closeHelp()">
     <div class="modal-card">
       <button class="modal-close" onclick="closeHelp()">✕</button>
-      <h2 class="modal-title">Comment ça marche</h2>
+      <h2 class="modal-title" data-i18n="help_title">Comment ça marche</h2>
       <div class="help-section">
-        <h3>1 · Démarrer</h3>
-        <p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». Puis ouvre <strong>⚙️</strong> et colle ta <strong>clé API</strong> (OpenAI ou Gemini) : l'app s'en sert pour générer les définitions et corriger tes phrases. Ta clé reste à toi (BYOK), elle n'est jamais partagée.</p>
+        <h3 data-i18n="help_s1_t">1 · Démarrer</h3>
+        <div data-i18n="help_s1"><p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». Puis ouvre <strong>⚙️</strong> et colle ta <strong>clé API</strong> (OpenAI ou Gemini) : l'app s'en sert pour générer les définitions et corriger tes phrases. Ta clé reste à toi (BYOK), elle n'est jamais partagée.</p></div>
       </div>
       <div class="help-section">
-        <h3>2 · Ajouter des mots</h3>
-        <ul>
-          <li><strong>Dans l'app</strong> : « ➕ ajouter du contenu » → un mot ou une forme grammaticale.</li>
+        <h3 data-i18n="help_s2_t">2 · Ajouter des mots</h3>
+        <div data-i18n="help_s2"><ul>
+          <li><strong>Dans l'app</strong> : « ➕ ajouter du contenu » → des mots ou une forme grammaticale.</li>
           <li><strong>Depuis l'iPhone</strong> (raccourci) ou <strong>depuis ta Kindle</strong> (script) : voir ci-dessous.</li>
         </ul>
-        <p style="margin-top:0.75rem"><strong>🔑 Ton token perso.</strong> Les deux méthodes ci-dessous ont besoin de ton <em>token d'ajout</em>. Tu le trouves dans <strong>⚙️ → « lien d'ajout »</strong> : c'est la valeur après <code>token=</code> dans l'URL affichée. Il permet seulement d'ajouter des mots à <em>ton</em> compte — garde-le pour toi.</p>
+        <p style="margin-top:0.75rem"><strong>🔑 Ton token perso.</strong> Les deux méthodes ci-dessous ont besoin de ton <em>token d'ajout</em>. Tu le trouves dans <strong>⚙️ → « lien d'ajout »</strong> : c'est la valeur après <code>token=</code> dans l'URL affichée. Il permet seulement d'ajouter des mots à <em>ton</em> compte — garde-le pour toi.</p></div>
       </div>
       <div class="help-section">
-        <h3>📱 Raccourci iPhone</h3>
-        <ol>
+        <h3 data-i18n="help_iphone_t">📱 Raccourci iPhone</h3>
+        <div data-i18n="help_iphone"><ol>
           <li>Installe le raccourci : <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--accent)">ouvrir le raccourci « Vocab »</a>.</li>
           <li>Dans le raccourci, ouvre l'action <strong>« Texte »</strong> (l'URL) et remplace <code>COLLE_TON_TOKEN_ICI</code> par ton token (copié depuis ⚙️).</li>
           <li>Ensuite, depuis n'importe quelle app : <strong>Partager → Vocab</strong>, ou lance le raccourci et tape un mot. Si le mot est invalide ou ressemble à un mot existant, il te demande « ajouter quand même ? ».</li>
-        </ol>
+        </ol></div>
       </div>
       <div class="help-section">
-        <h3>📖 Import Kindle (ordinateur)</h3>
-        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Importe d'un coup les mots surlignés sur ta Kindle. Nécessite un Mac/PC avec Python 3.</p>
+        <h3 data-i18n="help_kindle_t">📖 Import Kindle (ordinateur)</h3>
+        <div data-i18n="help_kindle"><p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Importe d'un coup les mots surlignés sur ta Kindle. Nécessite un Mac/PC avec Python 3.</p>
         <ol>
           <li>Installe la dépendance : <code>pip3 install wordfreq</code>.</li>
           <li>Télécharge le script : <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--accent)">kindle_import.py</a>.</li>
           <li>Dans le même dossier, crée deux fichiers : <code>.token</code> (ton token perso) et <code>.openai_key</code> (ta clé OpenAI). Chaque fichier ne contient que la valeur, rien d'autre.</li>
           <li>Branche ta Kindle en USB, puis lance : <code>python3 kindle_import.py</code>. Choisis les mots à importer.</li>
           <li>Besoin d'aide ? <code>python3 kindle_import.py --aide</code>.</li>
-        </ol>
+        </ol></div>
       </div>
       <div class="help-section">
-        <h3>3 · Les 4 modes</h3>
-        <ul>
+        <h3 data-i18n="help_s3_t">3 · Les 4 modes</h3>
+        <div data-i18n="help_s3"><ul>
           <li><strong>📅 Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li>
           <li><strong>🎯 Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li>
           <li><strong>🎲 Libre</strong> — tirage aléatoire pondéré.</li>
           <li><strong>📸 Imagen</strong> — décris une photo en espagnol.</li>
-        </ul>
+        </ul></div>
       </div>
       <div class="help-section">
-        <h3>4 · La répétition espacée</h3>
-        <ul>
+        <h3 data-i18n="help_s4_t">4 · La répétition espacée</h3>
+        <div data-i18n="help_s4"><ul>
           <li>Chaque mot gagne des <strong>étoiles</strong> (☆☆☆ → ★★★) selon tes réussites.</li>
           <li>Réussir <em>sans aide</em> éloigne la prochaine révision ; échouer ou afficher la définition la ramène à demain.</li>
           <li>Tu choisis combien de <strong>nouveaux mots par jour</strong> dans ⚙️, et le bouton « 📅 mes révisions à venir » montre ton calendrier.</li>
-        </ul>
+        </ul></div>
       </div>
     </div>
   </div>
@@ -5249,19 +5719,19 @@ Return ONLY a JSON array of exactly 3 items, no other text:
   <div class="modal-overlay" id="lang-picker-modal" onclick="if(event.target===this)closeLangPicker()">
     <div class="modal-card">
       <button class="modal-close" id="lang-picker-close" onclick="closeLangPicker()">✕</button>
-      <h2 class="modal-title">Tes langues</h2>
-      <p style="color:var(--muted);font-size:0.85rem;margin:-0.5rem 0 1rem">Choisis les langues que tu veux étudier (au moins une).</p>
+      <h2 class="modal-title" data-i18n="langpicker_title">Tes langues</h2>
+      <p style="color:var(--muted);font-size:0.85rem;margin:-0.5rem 0 1rem" data-i18n="langpicker_note">Choisis les langues que tu veux étudier (au moins une).</p>
       <div id="lang-picker-list"></div>
-      <button class="btn-primary" style="width:100%;margin-top:1rem" onclick="confirmLangPicker()">Valider</button>
+      <button class="btn-primary" style="width:100%;margin-top:1rem" onclick="confirmLangPicker()" data-i18n="btn_confirm">Valider</button>
       <p class="error-msg" id="lang-picker-error"></p>
     </div>
   </div>
 
   <div id="word-ctx-menu">
     <div class="ctx-word-label" id="word-ctx-label"></div>
-    <button class="ctx-menu-btn" onclick="ctxMenuEdit()">✏️ Modifier</button>
-    <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()">🗑 Supprimer</button>
-    <button class="ctx-menu-btn" onclick="closeWordContextMenu()">Annuler</button>
+    <button class="ctx-menu-btn" onclick="ctxMenuEdit()" data-i18n="ctx_edit">✏️ Modifier</button>
+    <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()" data-i18n="ctx_delete">🗑 Supprimer</button>
+    <button class="ctx-menu-btn" onclick="closeWordContextMenu()" data-i18n="btn_cancel">Annuler</button>
   </div>
 </body>
 </html>

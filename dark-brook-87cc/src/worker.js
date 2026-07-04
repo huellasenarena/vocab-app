@@ -189,15 +189,17 @@ ${lines}`;
 }
 
 // Détection langue + validité en un appel → { valid, reason, lang }
+// GPT-5.4 « low » : gpt-4.1-mini rejetait à tort des mots rares/littéraires
+// (mêmes faux INVALID qui ont fait retirer la validation IA de l'import Kindle).
 async function analyzeWordLangSense(word, env) {
   const prompt = `Analyze the expression: "${word}".
 1. Identify its language (must be one of: French, English, Spanish, Greek).
-2. Check if it is a valid word or expression in that language (allow real words, conjugated forms, phrases, slang).
+2. Check if it is a valid word or expression in that language (allow real words, conjugated forms, phrases, slang, and rare/archaic/literary/dialectal terms).
 Answer NO only for gibberish, typos producing no real word, or text clearly in a different language.
 Reply STRICTLY in one of these two formats:
 VALID | <LanguageName>
 INVALID: <brief reason> | <LanguageName>`;
-  const res = await callScriptLLM(prompt, 60, env);
+  const res = await callScriptReasoning(prompt, 2000, env, 'low');
   if (!res) return { valid: false, reason: 'Erreur API OpenAI', lang: null };
   const parts = res.split('|');
   const statusPart = (parts[0] || '').trim();
@@ -210,7 +212,7 @@ INVALID: <brief reason> | <LanguageName>`;
 async function identifyLang(word, env) {
   const prompt = `Which language is "${word}" from? Options: French, English, Spanish, Greek.
 Reply with ONLY the language name, nothing else.`;
-  const res = await callScriptLLM(prompt, 10, env);
+  const res = await callScriptReasoning(prompt, 1500, env, 'low');
   if (!res) return null;
   return ADD_LANGS.find(l => res.toLowerCase().includes(l.toLowerCase())) || null;
 }
@@ -218,10 +220,10 @@ Reply with ONLY the language name, nothing else.`;
 async function validateWord(word, lang, env) {
   const langName = LANG_FULL[lang] || lang;
   const prompt = `Is "${word}" a valid ${langName} word or expression?
-Answer YES for: real words, conjugated forms, multi-word expressions, phrases, slang, archaic terms.
+Answer YES for: real words, conjugated forms, multi-word expressions, phrases, slang, archaic, literary, dialectal or rare terms.
 Answer NO only for: gibberish, typos producing no real word, or text clearly in a different language.
 Reply with YES or NO: <brief reason if NO>.`;
-  const res = await callScriptLLM(prompt, 60, env);
+  const res = await callScriptReasoning(prompt, 2000, env, 'low');
   if (res === null) return { valid: false, reason: 'Erreur API OpenAI' };
   if (/^NO\b/i.test(res)) return { valid: false, reason: res.replace(/^NO[:\s]*/i, '').trim() };
   return { valid: true };
@@ -234,7 +236,7 @@ I want to add "${word}" to my vocabulary list.
 Existing words: ${candidates.join(', ')}.
 Is "${word}" merely an inflected form of an existing word (same lemma: conjugation, plural, gender, diminutive)?
 If YES, reply exactly "YES: <existing_word>". If it has distinct vocabulary value, reply "NO".`;
-  const res = await callScriptLLM(prompt, 30, env);
+  const res = await callScriptReasoning(prompt, 1500, env, 'low');
   if (res && /^YES:/i.test(res)) return res.replace(/^YES:\s*/i, '').trim();
   return null;
 }
@@ -470,17 +472,17 @@ export default {
           if (!ignoreSim) ignoreSim = body.ignore_sim === 'true';
         }
         if (!token) return textOut('Erreur : token manquant.');
-        const user = await env.DB.prepare('SELECT id FROM users WHERE add_token = ?').bind(token).first();
+        const user = await env.DB.prepare('SELECT id, openai_key FROM users WHERE add_token = ?').bind(token).first();
         if (!user) return textOut('Erreur : token invalide.');
 
         const word = normalizeWord(rawWord);
         if (!word) return textOut('Erreur : le mot est vide.');
 
-        // BYOK de l'entonnoir : si l'appelant fournit sa propre clé OpenAI
-        // (kindle_import.py via X-OpenAI-Key), on l'utilise pour les appels LLM ;
-        // sinon repli sur OPENAI_API_KEY_SCRIPT (raccourci iPhone). Voir api_keys_mapping.
-        const callerKey = sanitizeScriptKey(request.headers.get('X-OpenAI-Key'));
-        const aiEnv = callerKey ? { ...env, OPENAI_API_KEY_SCRIPT: callerKey } : env;
+        // BYOK intégral : clé de l'appelant (kindle_import.py via X-OpenAI-Key),
+        // sinon la clé OpenAI que l'utilisateur a enregistrée dans ⚙️ (D1).
+        // Plus de repli sur la clé propriétaire : sans clé → NOKEY (voir plus bas).
+        const callerKey = sanitizeScriptKey(request.headers.get('X-OpenAI-Key')) || sanitizeScriptKey(user.openai_key);
+        const aiEnv = { ...env, OPENAI_API_KEY_SCRIPT: callerKey };
 
         const tabMap = {
           english: 'English', anglais: 'English', en: 'English',
@@ -489,6 +491,15 @@ export default {
           french: 'French', 'français': 'French', fr: 'French'
         };
         let language = (lang && lang !== 'auto' && tabMap[lang]) ? tabMap[lang] : null;
+
+        // Sans clé, aucune vérification IA n'est possible :
+        // - langue inconnue → impossible d'ajouter (on ne sait pas où)
+        // - langue connue → avertissement NOKEY ; l'appelant confirme en renvoyant
+        //   ignore_sens=true & ignore_sim=true (« ajouter quand même »)
+        if (!callerKey) {
+          if (!language) return textOut("NOKEY:Aucune clé OpenAI enregistrée — impossible de détecter la langue. Précise la langue ou ajoute ta clé dans les réglages. | ?");
+          if (!(ignoreSens && ignoreSim)) return textOut('NOKEY:Aucune clé OpenAI enregistrée — le mot ne sera pas vérifié. | ' + language);
+        }
 
         // 1 & 2 — détection langue + validité
         if (!language && !ignoreSens) {
