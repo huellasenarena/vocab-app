@@ -999,6 +999,9 @@
     }
     .filter-btn:hover  { border-color: var(--accent); color: var(--text); }
     .filter-btn.active { border-color: var(--accent); color: var(--accent); }
+    /* Onglets de la page « ajouter » : deux boîtes de largeur égale */
+    #add-mode-tabs { flex-wrap: nowrap; }
+    #add-mode-tabs .filter-btn { flex: 1 1 0; text-align: center; }
 
     .history-list {
       width: 100%;
@@ -1082,8 +1085,16 @@
     }
     .menu-tile:hover { border-color: var(--accent); }
     .menu-tile .mt-icon { font-size: 1.15rem; line-height: 1; }
-    .menu-more-panel { display: none; width: 100%; margin-top: 0.6rem; }
-    .menu-more-panel.visible { display: flex; flex-direction: column; gap: 0.3rem; }
+    .menu-hero {
+      width: 100%; margin-top: 1.4rem;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 0.9rem 0.3rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      color: var(--accent); cursor: pointer;
+      font-family: 'DM Mono', monospace; font-size: 0.9rem;
+    }
+    .menu-hero:hover { border-color: var(--accent); }
+    .menu-hero .mt-icon { font-size: 1.25rem; line-height: 1; }
+    .menu-grid + .menu-hero, .menu-hero + .menu-grid { margin-top: 0.6rem; }
 
     /* ── Sélecteur de langue de l'appli (écran connexion) ── */
     .app-lang-row { display: flex; gap: 0.4rem; justify-content: center; margin-bottom: 0.9rem; }
@@ -1148,19 +1159,17 @@
     <p class="app-subtitle" data-i18n="lang_subtitle">quelle langue aujourd'hui ?</p>
     <div class="lang-grid" id="lang-grid"></div>
 
-    <!-- Menu principal : grille d'icônes 2×3 -->
+    <!-- Action principale : ajouter (pleine largeur) -->
+    <button class="menu-hero" onclick="showAddContent()"><span class="mt-icon">➕</span><span data-i18n="tile_menu_add">ajouter</span></button>
+
+    <!-- Menu principal : grille d'icônes 3×2 -->
     <div class="menu-grid">
-      <button class="menu-tile" onclick="showAddContent()"><span class="mt-icon">➕</span><span data-i18n="tile_menu_add">ajouter</span></button>
       <button class="menu-tile" onclick="showMots()"><span class="mt-icon">📝</span><span data-i18n="tile_menu_mots">mes mots</span></button>
       <button class="menu-tile" onclick="showStats()"><span class="mt-icon">📊</span><span data-i18n="tile_menu_stats">stats</span></button>
       <button class="menu-tile" onclick="showHistory()"><span class="mt-icon">📋</span><span data-i18n="tile_menu_history">historique</span></button>
       <button class="menu-tile" onclick="toggleAccountSettings()"><span class="mt-icon">⚙️</span><span data-i18n="tile_menu_settings">réglages</span></button>
-      <button class="menu-tile" onclick="toggleMoreMenu()"><span class="mt-icon">⋯</span><span data-i18n="tile_menu_more">plus</span></button>
-    </div>
-    <!-- « plus » : aide + déconnexion -->
-    <div class="menu-more-panel" id="menu-more-panel">
-      <button class="btn-ghost help-btn" onclick="openHelp()" data-i18n="help_btn">❓ Comment ça marche</button>
-      <button class="btn-ghost" onclick="logout()" data-i18n="btn_logout">🚪 se déconnecter</button>
+      <button class="menu-tile" onclick="openHelp()"><span class="mt-icon">❓</span><span data-i18n="tile_menu_help">aide</span></button>
+      <button class="menu-tile" onclick="logout()"><span class="mt-icon">🚪</span><span data-i18n="tile_menu_logout">déconnexion</span></button>
     </div>
 
     <!-- Réglages du compte (indépendants de la langue pratiquée) -->
@@ -1675,7 +1684,8 @@
       tile_menu_stats:  { en: `stats`, fr: `stats`, es: `stats`, el: `στατιστικά` },
       tile_menu_history:{ en: `history`, fr: `historique`, es: `historial`, el: `ιστορικό` },
       tile_menu_settings:{ en: `settings`, fr: `réglages`, es: `ajustes`, el: `ρυθμίσεις` },
-      tile_menu_more:   { en: `more`, fr: `plus`, es: `más`, el: `άλλα` },
+      tile_menu_help:   { en: `help`, fr: `aide`, es: `ayuda`, el: `βοήθεια` },
+      tile_menu_logout: { en: `log out`, fr: `déconnexion`, es: `salir`, el: `αποσύνδεση` },
       // — réglages compte —
       set_model:        { en: `AI model`, fr: `Modèle IA`, es: `Modelo de IA`, el: `Μοντέλο ΤΝ` },
       set_reasoning:    { en: `Reasoning`, fr: `Raisonnement`, es: `Razonamiento`, el: `Συλλογισμός` },
@@ -3167,10 +3177,6 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       }
     }
 
-    // Menu « ⋯ plus » de la page principale (aide + déconnexion)
-    function toggleMoreMenu() {
-      document.getElementById('menu-more-panel').classList.toggle('visible');
-    }
 
     // Réglages « compte » (page principale) : clés, modèle, compteur, thème, modes
     function toggleAccountSettings() {
