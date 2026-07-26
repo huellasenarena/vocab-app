@@ -885,6 +885,18 @@
     .free-pick-row.on .fp-order { opacity: 1; }
     #free-search-empty { color: var(--muted); font-size: 0.88rem; text-align: center; padding: 1rem 0; }
 
+    /* Réinitialisation de la progression */
+    .reset-mode-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .reset-mode-tab {
+      flex: 1; padding: 0.5rem; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); color: var(--muted); cursor: pointer; font-size: 0.85rem;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .reset-mode-tab.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    .reset-danger { background: #e05a5a; border-color: #e05a5a; }
+    .reset-danger:hover:not(:disabled) { background: #c94848; }
+    .reset-danger:disabled { opacity: 0.5; cursor: default; }
+
     .mot-row { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.6rem 0.85rem; margin-bottom:0.5rem; border:1px solid var(--border); border-radius:12px; background:var(--surface); transition:border-color 0.15s; }
     .mot-row:hover { border-color:var(--accent); }
     .mot-row .mot-w { font-family:'Lora', Georgia, serif; font-size:1rem; }
@@ -1252,6 +1264,10 @@
           <option value="architecture" data-i18n="theme_architecture">🏛️ Architecture</option>
           <option value="animals" data-i18n="theme_animals">🐾 Animaux</option>
         </select>
+      </div>
+      <div class="settings-row" style="cursor:default;">
+        <span>Réinitialiser la progression<br><span style="font-size:0.7rem;color:var(--muted);">remet des mots à « nouveaux » (l'historique est conservé)</span></span>
+        <button class="btn-ghost" onclick="openResetProgress()" style="flex-shrink:0;">🔄 Réinitialiser</button>
       </div>
     </div>
 
@@ -1937,10 +1953,17 @@
     let wordsHidden         = false;
     let sessionFirstResult = {}; // { word.toLowerCase(): true/false } — premier résultat de la session
     let situationMissed    = new Set(); // mots ratés en mode Situation → poids accru jusqu'à réussite
-    let freeQueue          = [];    // mode libre : mots choisis à pratiquer, dans l'ordre (file d'attente)
-    let freeQueueActive    = false; // true tant qu'on parcourt une file choisie manuellement
+    let freeSelection      = [];    // mode libre : mots choisis via la recherche (ordre)
+    let freeCursor         = 0;     // index de début du batch courant dans freeSelection
+    let freeQueueActive    = false; // true tant qu'on parcourt une sélection manuelle
     let _freePickOrder     = [];    // mots cochés dans le sélecteur de recherche (ordre de sélection)
     let _freeFiltered      = [];    // liste affichée dans le sélecteur (après filtre texte)
+    // Réinitialisation de la progression (⚙️ réglages globaux)
+    let _resetMode         = 'langs';     // 'langs' (langues entières) | 'words' (mots précis)
+    let _resetLangsSel     = new Set();   // langues entières cochées
+    let _resetWordsSel     = new Set();   // mots cochés, clé 'Langue|mot' (multi-langues)
+    let _resetWordCache    = {};          // { Langue: [mots] } — évite de recharger
+    let _resetBrowseWords  = [];          // liste affichée (après filtre) dans la vue « mots précis »
     let situationWordCount = parseInt(localStorage.getItem(KEY_SITUATION_WORDS)) || 1; // nb de mots évoqués (1-5)
     let todayNewCount      = 0;  // nouveaux mots pratiqués aujourd'hui (chargé depuis Sheets)
     let sessionNewPracticed = new Set(); // nouveaux mots pratiqués dans cette session (pour éviter double-comptage)
@@ -2374,7 +2397,6 @@
     // ── Proxy Sheets via Cloudflare Worker (service account) ──
     // ── Slider ────────────────────────────────────────────────
     function onSliderChange(val) {
-      if (freeQueueActive) return; // file libre : 1 mot à la fois, slider masqué
       const n        = parseInt(val);
       const langInfo = getLang();
       document.getElementById('slider-value').textContent = wordsLabel(n);
@@ -2383,6 +2405,19 @@
         n === 1 ? langInfo.sentencePromptSingle : langInfo.sentencePrompt;
 
       if (allWords.length === 0) return;
+
+      // Sélection manuelle (recherche) : le slider = combien de mots choisis on voit
+      // à la fois ; le reste passe en file.
+      if (freeQueueActive) {
+        const remaining = freeSelection.length - freeCursor;
+        const batch = Math.min(n, remaining);
+        currentWords = freeSelection.slice(freeCursor, freeCursor + batch);
+        renderWordDisplay();
+        renderGrammarForms();
+        document.getElementById('due-count').innerHTML = freeCountLabel(batch, remaining - batch);
+        saveSettingsToServer();
+        return;
+      }
 
       if (n > currentWords.length) {
         // En mode espacé : pool éligible = mêmes règles que pickWords (révisions + nouveaux dans la limite)
@@ -2441,8 +2476,9 @@
       sessionFirstResult = {};
       currentLang = lang;
       previousWordsPool = [];
-      // Une file manuelle (mode libre) référence les mots d'une langue → on la vide au changement.
-      freeQueue = [];
+      // Une sélection manuelle (mode libre) référence les mots d'une langue → on la vide au changement.
+      freeSelection = [];
+      freeCursor = 0;
       freeQueueActive = false;
       applyPracticeLangUI(); // tous les libellés de l'écran passent dans la langue pratiquée
       const _langWC = parseInt(localStorage.getItem(KEY_WORD_COUNT + '_' + lang)) || 1;
@@ -3055,8 +3091,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // ── Mode de pratique ─────────────────────────────────────
     function setMode(mode) {
       practiceMode = mode;
-      // La file manuelle du mode libre ne survit pas à un changement de mode.
-      freeQueue = [];
+      // La sélection manuelle du mode libre ne survit pas à un changement de mode.
+      freeSelection = [];
+      freeCursor = 0;
       freeQueueActive = false;
       document.getElementById('btn-mode-spaced').classList.toggle('active',    mode === 'spaced');
       document.getElementById('btn-mode-free').classList.toggle('active',      mode === 'free');
@@ -3144,7 +3181,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
 
     // ── Recherche d'un mot à pratiquer (mode libre) ───────────
-    // Ouvre le sélecteur : on coche 1..N mots → file d'attente `freeQueue`.
+    // Ouvre le sélecteur : on coche 1..N mots → sélection `freeSelection`.
     function openFreeSearch() {
       _freePickOrder = [];
       document.getElementById('free-search-input').value = '';
@@ -3191,22 +3228,28 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
     function startFreeQueue() {
       if (_freePickOrder.length === 0) return;
-      freeQueue       = [..._freePickOrder];
+      freeSelection   = [..._freePickOrder];
+      freeCursor      = 0;
       freeQueueActive = true;
       closeFreeSearch();
       resetPracticeUI();
-      pickWords();          // consomme le 1er mot de la file
+      // Par défaut on affiche TOUS les mots choisis (slider = N, plafonné à 30).
+      setWordSliderMax(freeSelection.length);
+      document.getElementById('word-count-slider').value = Math.min(freeSelection.length, 30);
+      pickWords();
       updateFreeSearchBar();
     }
-    // Quitte la file manuelle → retour au tirage pondéré normal.
+    // Quitte la sélection manuelle → retour au tirage pondéré normal.
     function exitFreeQueue() {
-      freeQueue = [];
+      freeSelection = [];
+      freeCursor = 0;
       freeQueueActive = false;
       resetPracticeUI();
       pickWords();
       updateFreeSearchBar();
     }
-    // Affiche/masque la barre de recherche + le slider selon l'état de la file.
+    // Affiche/masque la barre de recherche selon l'état de la sélection.
+    // Le slider reste visible : il contrôle combien de mots choisis on voit à la fois.
     function updateFreeSearchBar() {
       const bar = document.getElementById('free-search-bar');
       if (!bar) return;
@@ -3214,9 +3257,161 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       bar.style.display = inFree ? '' : 'none';
       document.getElementById('free-search-open').style.display = (inFree && !freeQueueActive) ? '' : 'none';
       document.getElementById('free-queue-exit').style.display  = (inFree &&  freeQueueActive) ? '' : 'none';
-      // En file, le nombre de mots est fixé (1 à la fois) → on masque le slider « nombre de mots ».
-      const sliderSec = document.querySelector('.slider-section');
-      if (sliderSec && inFree) sliderSec.style.display = freeQueueActive ? 'none' : '';
+    }
+    // Sélection manuelle (mode libre) : construit le batch courant depuis
+    // freeSelection[freeCursor…] ; taille = valeur du slider, le reste = file en attente.
+    function freeCountLabel(shown, left) {
+      return left > 0
+        ? `🔍 <span class="highlight">${shown}</span> affiché(s) · <span class="highlight">${left}</span> en file`
+        : `🔍 <span class="highlight">${shown}</span> ${tPrac(shown > 1 ? 'practice_pl' : 'practice_sg')}`;
+    }
+    function renderFreeBatch() {
+      const remaining = freeSelection.length - freeCursor;
+      setWordSliderMax(remaining);               // plafonne le slider au nb de mots restants
+      const batch = Math.min(wordCount(), remaining);
+      currentWords = freeSelection.slice(freeCursor, freeCursor + batch);
+      const sentLbl = document.getElementById('sentence-label');
+      if (sentLbl) sentLbl.textContent = batch === 1
+        ? (getLang().sentencePromptSingle || 'Utilise ce mot dans une phrase :')
+        : getLang().sentencePrompt;
+      document.getElementById('due-count').innerHTML = freeCountLabel(batch, remaining - batch);
+      document.getElementById('word-count-label').textContent = '';
+      previousWordsPool = [...currentWords];
+      renderWordDisplay();
+    }
+
+    // ── Réinitialiser la progression (⚙️ réglages globaux) ────
+    function openResetProgress() {
+      _resetMode      = 'langs';
+      _resetLangsSel  = new Set();
+      _resetWordsSel  = new Set();
+      _resetWordCache = {};
+      document.getElementById('reset-error').textContent = '';
+      const sel = document.getElementById('reset-browse-lang');
+      sel.innerHTML = selectedLangs.map(k => {
+        const l = LANGS.find(x => x.key === k);
+        return `<option value="${k}">${l.flag} ${l.name}</option>`;
+      }).join('');
+      renderResetLangs();
+      document.getElementById('reset-words-list').innerHTML = '';
+      document.getElementById('reset-words-search').value   = '';
+      setResetMode('langs');
+      document.getElementById('reset-progress-modal').classList.add('visible');
+    }
+    function closeResetProgress() {
+      document.getElementById('reset-progress-modal').classList.remove('visible');
+    }
+    function setResetMode(mode) {
+      _resetMode = mode;
+      document.getElementById('reset-tab-langs').classList.toggle('on', mode === 'langs');
+      document.getElementById('reset-tab-words').classList.toggle('on', mode === 'words');
+      document.getElementById('reset-view-langs').style.display = mode === 'langs' ? '' : 'none';
+      document.getElementById('reset-view-words').style.display = mode === 'words' ? '' : 'none';
+      if (mode === 'words') {
+        const lang = document.getElementById('reset-browse-lang').value;
+        if (lang && !_resetWordCache[lang]) onResetBrowseLangChange(lang);
+        else renderResetWords(document.getElementById('reset-words-search').value);
+      }
+      updateResetBtn();
+    }
+    function renderResetLangs() {
+      document.getElementById('reset-langs-list').innerHTML = selectedLangs.map(k => {
+        const l  = LANGS.find(x => x.key === k);
+        const on = _resetLangsSel.has(k);
+        return `<div class="lang-pick-row ${on ? 'on' : ''}" onclick="toggleResetLang('${k}')">
+          <span class="lp-flag">${l.flag}</span>
+          <span class="lp-name">${l.name}</span>
+          <span class="lp-check">✓</span>
+        </div>`;
+      }).join('');
+    }
+    function toggleResetLang(key) {
+      if (_resetLangsSel.has(key)) _resetLangsSel.delete(key); else _resetLangsSel.add(key);
+      renderResetLangs();
+      updateResetBtn();
+    }
+    async function onResetBrowseLangChange(lang) {
+      document.getElementById('reset-words-search').value = '';
+      if (!_resetWordCache[lang]) {
+        document.getElementById('reset-words-list').innerHTML = '<div id="free-search-empty">Chargement…</div>';
+        try {
+          const res  = await authFetch(`/api/words?lang=${encodeURIComponent(lang)}`);
+          const data = await res.json();
+          _resetWordCache[lang] = (data.words || []).filter(w => w && w.trim());
+        } catch (e) { _resetWordCache[lang] = []; }
+      }
+      renderResetWords('');
+    }
+    function renderResetWords(filter) {
+      const lang = document.getElementById('reset-browse-lang').value;
+      const q    = (filter || '').trim().toLowerCase();
+      _resetBrowseWords = (_resetWordCache[lang] || [])
+        .filter(w => !q || w.toLowerCase().includes(q))
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      const list = document.getElementById('reset-words-list');
+      if (_resetBrowseWords.length === 0) {
+        list.innerHTML = '<div id="free-search-empty">Aucun mot.</div>';
+        return;
+      }
+      list.innerHTML = _resetBrowseWords.map((w, i) => {
+        const on = _resetWordsSel.has(lang + '|' + w);
+        return `<div class="free-pick-row ${on ? 'on' : ''}" onclick="toggleResetWord(${i})">
+          <span class="fp-word">${lc(w)}</span>
+          <span class="fp-order">✓</span>
+        </div>`;
+      }).join('');
+    }
+    function toggleResetWord(idx) {
+      const lang = document.getElementById('reset-browse-lang').value;
+      const w    = _resetBrowseWords[idx];
+      if (w == null) return;
+      const key = lang + '|' + w;
+      if (_resetWordsSel.has(key)) _resetWordsSel.delete(key); else _resetWordsSel.add(key);
+      renderResetWords(document.getElementById('reset-words-search').value);
+      updateResetBtn();
+    }
+    function updateResetBtn() {
+      const btn = document.getElementById('reset-confirm-btn');
+      const n = _resetMode === 'langs' ? _resetLangsSel.size : _resetWordsSel.size;
+      btn.disabled = n === 0;
+      btn.textContent = n > 0 ? `Réinitialiser (${n})` : 'Réinitialiser';
+    }
+    async function doResetProgress() {
+      let body, summary, count;
+      if (_resetMode === 'langs') {
+        const langs = selectedLangs.filter(k => _resetLangsSel.has(k));
+        if (langs.length === 0) return;
+        body = { langs };
+        count = langs.length;
+        const names = langs.map(k => LANGS.find(x => x.key === k).name).join(', ');
+        summary = `Réinitialiser TOUTE la progression de : ${names} ?\n\nCes mots redeviennent « nouveaux » (étoiles remises à zéro). Action irréversible — l'historique est conservé.`;
+      } else {
+        const items = [..._resetWordsSel].map(k => { const i = k.indexOf('|'); return { lang: k.slice(0, i), word: k.slice(i + 1) }; });
+        if (items.length === 0) return;
+        body = { items };
+        count = items.length;
+        summary = `Réinitialiser ${items.length} mot(s) ?\n\nIls redeviennent « nouveaux » (étoiles remises à zéro). Action irréversible — l'historique est conservé.`;
+      }
+      if (!confirm(summary)) return;
+      const btn = document.getElementById('reset-confirm-btn');
+      btn.disabled = true; btn.textContent = 'Réinitialisation…';
+      const affectsCurrent = _resetMode === 'langs'
+        ? _resetLangsSel.has(currentLang)
+        : [..._resetWordsSel].some(k => k.slice(0, k.indexOf('|')) === currentLang);
+      try {
+        await authFetch('/api/progress', { method: 'DELETE', body: JSON.stringify(body) });
+        closeResetProgress();
+        updateLangBadges(); // rafraîchit les pastilles de l'écran langues
+        if (currentLang && affectsCurrent) {
+          await loadProgress(currentLang);
+          pickWords();
+          updateFreeSearchBar();
+        }
+        alert(`✓ Réinitialisé (${count}).`);
+      } catch (e) {
+        document.getElementById('reset-error').textContent = 'Erreur : ' + (e.message || e);
+        btn.disabled = false; updateResetBtn();
+      }
     }
 
     // ── Formes grammaticales ──────────────────────────────────
@@ -3464,20 +3659,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
       } else {
         // Mode libre
-        // File manuelle (recherche) : on présente les mots choisis un par un.
+        if (freeQueueActive && freeCursor >= freeSelection.length) freeQueueActive = false; // sélection épuisée
         if (freeQueueActive) {
-          if (freeQueue.length > 0) currentWords = [freeQueue.shift()];
-          else                      freeQueueActive = false; // file épuisée → tirage normal
-        }
-        if (freeQueueActive) {
-          const left = freeQueue.length;
-          document.getElementById('due-count').innerHTML =
-            `🔍 file : <span class="highlight">${left}</span> ${tPrac(left > 1 ? 'practice_pl' : 'practice_sg')}`;
-          document.getElementById('word-count-label').textContent = '';
-          document.getElementById('sentence-label').textContent =
-            getLang().sentencePromptSingle || 'Utilise ce mot dans une phrase :';
-          previousWordsPool = [...currentWords];
-          renderWordDisplay();
+          renderFreeBatch(); // affiche le batch courant de la sélection (taille = slider)
         } else {
           const remaining = allWords.filter(w => getWeight(w) > 1).length;
           document.getElementById('due-count').innerHTML =
@@ -3577,6 +3761,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (toBlacklist.length) saveToBlacklist(toBlacklist, currentLang); // fire-and-forget
       _relatedWordsShown = [];
       _relatedWordsAdded = new Set();
+      if (freeQueueActive) freeCursor += currentWords.length; // avance d'un batch dans la sélection
       sessionFirstResult  = {};
       previousWordsPool   = [];
       resetPracticeUI();
@@ -5869,6 +6054,41 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       <div id="free-search-list" style="max-height:48vh; overflow-y:auto;"></div>
       <button class="btn-primary" id="free-search-start" style="width:100%; margin-top:1rem;"
         onclick="startFreeQueue()" disabled>Commencer</button>
+    </div>
+  </div>
+
+  <!-- Réinitialiser la progression -->
+  <div class="modal-overlay" id="reset-progress-modal" onclick="if(event.target===this)closeResetProgress()">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeResetProgress()">✕</button>
+      <h2 class="modal-title">Réinitialiser la progression</h2>
+      <p style="color:var(--muted);font-size:0.85rem;margin:-0.5rem 0 1rem">Les mots choisis redeviennent « nouveaux » (étoiles remises à zéro, sortis des révisions). <strong>L'historique est conservé.</strong></p>
+      <div class="reset-mode-tabs">
+        <button class="reset-mode-tab on" id="reset-tab-langs" onclick="setResetMode('langs')">Langues entières</button>
+        <button class="reset-mode-tab"    id="reset-tab-words" onclick="setResetMode('words')">Mots précis</button>
+      </div>
+
+      <!-- Vue « langues entières » -->
+      <div id="reset-view-langs">
+        <div id="reset-langs-list"></div>
+      </div>
+
+      <!-- Vue « mots précis » -->
+      <div id="reset-view-words" style="display:none;">
+        <div class="settings-row" style="cursor:default; padding:0 0 0.6rem;">
+          <span>Langue</span>
+          <select id="reset-browse-lang" onchange="onResetBrowseLangChange(this.value)"
+            style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;"></select>
+        </div>
+        <input type="text" id="reset-words-search" placeholder="🔍 filtrer…" autocomplete="off" autocapitalize="off"
+          oninput="renderResetWords(this.value)"
+          style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.7rem;">
+        <div id="reset-words-list" style="max-height:42vh; overflow-y:auto;"></div>
+      </div>
+
+      <button class="btn-primary reset-danger" id="reset-confirm-btn" style="width:100%; margin-top:1rem;"
+        onclick="doResetProgress()" disabled>Réinitialiser</button>
+      <p class="error-msg" id="reset-error"></p>
     </div>
   </div>
 
