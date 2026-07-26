@@ -873,6 +873,18 @@
     .lang-pick-row .lp-check { color: var(--accent); font-weight: 700; opacity: 0; }
     .lang-pick-row.on .lp-check { opacity: 1; }
 
+    /* Lignes du sélecteur de mots (recherche mode libre) */
+    .free-pick-row {
+      display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0.8rem;
+      border: 1px solid var(--border); border-radius: 10px; margin-bottom: 0.4rem; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .free-pick-row.on { border-color: var(--accent); background: #222; }
+    .free-pick-row .fp-word { flex: 1; font-family: 'Lora', Georgia, serif; }
+    .free-pick-row .fp-order { color: var(--accent); font-weight: 700; font-size: 0.85rem; min-width: 1.2rem; text-align: right; opacity: 0; }
+    .free-pick-row.on .fp-order { opacity: 1; }
+    #free-search-empty { color: var(--muted); font-size: 0.88rem; text-align: center; padding: 1rem 0; }
+
     .mot-row { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.6rem 0.85rem; margin-bottom:0.5rem; border:1px solid var(--border); border-radius:12px; background:var(--surface); transition:border-color 0.15s; }
     .mot-row:hover { border-color:var(--accent); }
     .mot-row .mot-w { font-family:'Lora', Georgia, serif; font-size:1rem; }
@@ -1296,6 +1308,12 @@
       </div>
       <input type="range" id="word-count-slider" min="1" max="30" value="1"
         oninput="onSliderChange(this.value)" />
+    </div>
+
+    <!-- Recherche d'un mot précis (mode libre uniquement) -->
+    <div id="free-search-bar" style="display:none; text-align:center; margin-bottom:0.6rem;">
+      <button class="btn-ghost" id="free-search-open" onclick="openFreeSearch()">🔍 chercher un mot</button>
+      <button class="btn-ghost" id="free-queue-exit" style="display:none;" onclick="exitFreeQueue()">✕ quitter la file</button>
     </div>
 
     <!-- Slider nombre de formes grammaticales (Español uniquement) -->
@@ -1919,6 +1937,10 @@
     let wordsHidden         = false;
     let sessionFirstResult = {}; // { word.toLowerCase(): true/false } — premier résultat de la session
     let situationMissed    = new Set(); // mots ratés en mode Situation → poids accru jusqu'à réussite
+    let freeQueue          = [];    // mode libre : mots choisis à pratiquer, dans l'ordre (file d'attente)
+    let freeQueueActive    = false; // true tant qu'on parcourt une file choisie manuellement
+    let _freePickOrder     = [];    // mots cochés dans le sélecteur de recherche (ordre de sélection)
+    let _freeFiltered      = [];    // liste affichée dans le sélecteur (après filtre texte)
     let situationWordCount = parseInt(localStorage.getItem(KEY_SITUATION_WORDS)) || 1; // nb de mots évoqués (1-5)
     let todayNewCount      = 0;  // nouveaux mots pratiqués aujourd'hui (chargé depuis Sheets)
     let sessionNewPracticed = new Set(); // nouveaux mots pratiqués dans cette session (pour éviter double-comptage)
@@ -2352,6 +2374,7 @@
     // ── Proxy Sheets via Cloudflare Worker (service account) ──
     // ── Slider ────────────────────────────────────────────────
     function onSliderChange(val) {
+      if (freeQueueActive) return; // file libre : 1 mot à la fois, slider masqué
       const n        = parseInt(val);
       const langInfo = getLang();
       document.getElementById('slider-value').textContent = wordsLabel(n);
@@ -2418,6 +2441,9 @@
       sessionFirstResult = {};
       currentLang = lang;
       previousWordsPool = [];
+      // Une file manuelle (mode libre) référence les mots d'une langue → on la vide au changement.
+      freeQueue = [];
+      freeQueueActive = false;
       applyPracticeLangUI(); // tous les libellés de l'écran passent dans la langue pratiquée
       const _langWC = parseInt(localStorage.getItem(KEY_WORD_COUNT + '_' + lang)) || 1;
       document.getElementById('word-count-slider').value = _langWC;
@@ -2437,6 +2463,7 @@
       else grammarForms = [];
       await Promise.all(loadFns);
       pickWords();
+      updateFreeSearchBar();
     }
 
     // ── Session : compteur journalier dans Sheets ─────────────
@@ -3028,6 +3055,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // ── Mode de pratique ─────────────────────────────────────
     function setMode(mode) {
       practiceMode = mode;
+      // La file manuelle du mode libre ne survit pas à un changement de mode.
+      freeQueue = [];
+      freeQueueActive = false;
       document.getElementById('btn-mode-spaced').classList.toggle('active',    mode === 'spaced');
       document.getElementById('btn-mode-free').classList.toggle('active',      mode === 'free');
       document.getElementById('btn-mode-situation').classList.toggle('active', mode === 'situation');
@@ -3061,6 +3091,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       } else {
         pickWords();
       }
+      updateFreeSearchBar();
     }
 
     // ── SM-2 : calcule la prochaine date de révision ──────────
@@ -3110,6 +3141,82 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         if (rand <= 0) return source[i];
       }
       return source[source.length - 1];
+    }
+
+    // ── Recherche d'un mot à pratiquer (mode libre) ───────────
+    // Ouvre le sélecteur : on coche 1..N mots → file d'attente `freeQueue`.
+    function openFreeSearch() {
+      _freePickOrder = [];
+      document.getElementById('free-search-input').value = '';
+      renderFreeSearchList('');
+      updateFreeStartBtn();
+      document.getElementById('free-search-modal').classList.add('visible');
+      setTimeout(() => document.getElementById('free-search-input').focus(), 50);
+    }
+    function closeFreeSearch() {
+      document.getElementById('free-search-modal').classList.remove('visible');
+    }
+    function renderFreeSearchList(filter) {
+      const q = (filter || '').trim().toLowerCase();
+      _freeFiltered = allWords
+        .filter(w => !q || w.toLowerCase().includes(q))
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      const list = document.getElementById('free-search-list');
+      if (_freeFiltered.length === 0) {
+        list.innerHTML = '<div id="free-search-empty">Aucun mot.</div>';
+        return;
+      }
+      list.innerHTML = _freeFiltered.map((w, i) => {
+        const pos = _freePickOrder.indexOf(w);
+        const on  = pos >= 0;
+        return `<div class="free-pick-row ${on ? 'on' : ''}" onclick="toggleFreePick(${i})">
+          <span class="fp-word">${lc(w)}</span>
+          <span class="fp-order">${on ? (pos + 1) : ''}</span>
+        </div>`;
+      }).join('');
+    }
+    function toggleFreePick(idx) {
+      const w = _freeFiltered[idx];
+      if (w == null) return;
+      const i = _freePickOrder.indexOf(w);
+      if (i >= 0) _freePickOrder.splice(i, 1); else _freePickOrder.push(w);
+      renderFreeSearchList(document.getElementById('free-search-input').value);
+      updateFreeStartBtn();
+    }
+    function updateFreeStartBtn() {
+      const btn = document.getElementById('free-search-start');
+      const n = _freePickOrder.length;
+      btn.disabled = n === 0;
+      btn.textContent = n > 1 ? `Commencer (${n})` : 'Commencer';
+    }
+    function startFreeQueue() {
+      if (_freePickOrder.length === 0) return;
+      freeQueue       = [..._freePickOrder];
+      freeQueueActive = true;
+      closeFreeSearch();
+      resetPracticeUI();
+      pickWords();          // consomme le 1er mot de la file
+      updateFreeSearchBar();
+    }
+    // Quitte la file manuelle → retour au tirage pondéré normal.
+    function exitFreeQueue() {
+      freeQueue = [];
+      freeQueueActive = false;
+      resetPracticeUI();
+      pickWords();
+      updateFreeSearchBar();
+    }
+    // Affiche/masque la barre de recherche + le slider selon l'état de la file.
+    function updateFreeSearchBar() {
+      const bar = document.getElementById('free-search-bar');
+      if (!bar) return;
+      const inFree = practiceMode === 'free';
+      bar.style.display = inFree ? '' : 'none';
+      document.getElementById('free-search-open').style.display = (inFree && !freeQueueActive) ? '' : 'none';
+      document.getElementById('free-queue-exit').style.display  = (inFree &&  freeQueueActive) ? '' : 'none';
+      // En file, le nombre de mots est fixé (1 à la fois) → on masque le slider « nombre de mots ».
+      const sliderSec = document.querySelector('.slider-section');
+      if (sliderSec && inFree) sliderSec.style.display = freeQueueActive ? 'none' : '';
     }
 
     // ── Formes grammaticales ──────────────────────────────────
@@ -3357,16 +3464,33 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
       } else {
         // Mode libre
-        const remaining = allWords.filter(w => getWeight(w) > 1).length;
-        document.getElementById('due-count').innerHTML =
-          `<span class="highlight">${remaining}</span> ${tPrac(remaining > 1 ? 'practice_pl' : 'practice_sg')} <span style="color:var(--muted);font-size:0.85em">(${allWords.length} ${tPrac('in_total')})</span>`;
-        document.getElementById('word-count-label').textContent = '';
-        setWordSliderMax(allWords.length); // pas plus de mots que la liste n'en contient
-        const nFree = wordCount();
-        currentWords = [];
-        for (let i = 0; i < nFree; i++) currentWords.push(pickWeightedOne(currentWords));
-        previousWordsPool = [...currentWords]; // initialise le pool slider
-        renderWordDisplay();
+        // File manuelle (recherche) : on présente les mots choisis un par un.
+        if (freeQueueActive) {
+          if (freeQueue.length > 0) currentWords = [freeQueue.shift()];
+          else                      freeQueueActive = false; // file épuisée → tirage normal
+        }
+        if (freeQueueActive) {
+          const left = freeQueue.length;
+          document.getElementById('due-count').innerHTML =
+            `🔍 file : <span class="highlight">${left}</span> ${tPrac(left > 1 ? 'practice_pl' : 'practice_sg')}`;
+          document.getElementById('word-count-label').textContent = '';
+          document.getElementById('sentence-label').textContent =
+            getLang().sentencePromptSingle || 'Utilise ce mot dans une phrase :';
+          previousWordsPool = [...currentWords];
+          renderWordDisplay();
+        } else {
+          const remaining = allWords.filter(w => getWeight(w) > 1).length;
+          document.getElementById('due-count').innerHTML =
+            `<span class="highlight">${remaining}</span> ${tPrac(remaining > 1 ? 'practice_pl' : 'practice_sg')} <span style="color:var(--muted);font-size:0.85em">(${allWords.length} ${tPrac('in_total')})</span>`;
+          document.getElementById('word-count-label').textContent = '';
+          setWordSliderMax(allWords.length); // pas plus de mots que la liste n'en contient
+          const nFree = wordCount();
+          currentWords = [];
+          for (let i = 0; i < nFree; i++) currentWords.push(pickWeightedOne(currentWords));
+          previousWordsPool = [...currentWords]; // initialise le pool slider
+          renderWordDisplay();
+        }
+        updateFreeSearchBar();
       }
 
       if (practiceMode !== 'situation' && practiceMode !== 'free') renderWordDisplay();
@@ -5730,6 +5854,21 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       <div id="lang-picker-list"></div>
       <button class="btn-primary" style="width:100%;margin-top:1rem" onclick="confirmLangPicker()" data-i18n="btn_confirm">Valider</button>
       <p class="error-msg" id="lang-picker-error"></p>
+    </div>
+  </div>
+
+  <!-- Recherche d'un mot à pratiquer (mode libre) -->
+  <div class="modal-overlay" id="free-search-modal" onclick="if(event.target===this)closeFreeSearch()">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeFreeSearch()">✕</button>
+      <h2 class="modal-title">Chercher un mot</h2>
+      <p style="color:var(--muted);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs mots à pratiquer (dans l'ordre choisi), puis « commencer ».</p>
+      <input type="text" id="free-search-input" placeholder="🔍 filtrer…" autocomplete="off" autocapitalize="off"
+        oninput="renderFreeSearchList(this.value)"
+        style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.9rem;">
+      <div id="free-search-list" style="max-height:48vh; overflow-y:auto;"></div>
+      <button class="btn-primary" id="free-search-start" style="width:100%; margin-top:1rem;"
+        onclick="startFreeQueue()" disabled>Commencer</button>
     </div>
   </div>
 
