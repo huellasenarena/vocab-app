@@ -700,6 +700,27 @@ export default {
           ).bind(auth.uid, lang, word, correct || 0, incorrect || 0, new Date().toISOString(), hintUsed || 0, nextReview || null).run();
           return json({ ok: true });
         }
+        if (request.method === 'DELETE') {
+          // Réinitialise la progression (le mot redevient « nouveau »). L'historique n'est pas touché.
+          // Corps : { items: [{lang, word}, ...] } (mots précis, multi-langues)
+          //      ou { langs: ['Spanish', ...] } / { lang: 'Spanish' } (langue(s) entière(s)).
+          const body = await request.json();
+          const stmts = [];
+          if (Array.isArray(body.items)) {
+            for (const it of body.items) {
+              if (!it || !it.lang || !it.word) continue;
+              stmts.push(env.DB.prepare('DELETE FROM progress WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, it.lang, it.word));
+            }
+          } else {
+            const langs = Array.isArray(body.langs) ? body.langs : (body.lang ? [body.lang] : []);
+            for (const lg of langs) {
+              if (!lg) continue;
+              stmts.push(env.DB.prepare('DELETE FROM progress WHERE user_id = ? AND language = ?').bind(auth.uid, lg));
+            }
+          }
+          if (stmts.length) await env.DB.batch(stmts);
+          return json({ ok: true, reset: stmts.length });
+        }
         return json({ error: { message: 'méthode non supportée' } }, 405);
       } catch (err) {
         return json({ error: { message: err.message } }, 500);
