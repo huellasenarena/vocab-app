@@ -7,7 +7,7 @@ App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **C
 - Push sur `main` → GitHub Actions déploie sur `gh-pages` (~1 min). **Ne jamais éditer `gh-pages`.** Le `cname: byov.net` est dans `deploy.yml` (sinon le CNAME serait écrasé à chaque déploiement).
 - Le Worker (`dark-brook-87cc/`) est **versionné dans le repo** (peut être commité).
 
-> **Historique** : avant juin 2026, l'app était mono-utilisateur (backend Google Sheets, secret `WORKER_SECRET` en dur dans le HTML). Migrée en multi-utilisateur (D1 + auth + BYOK), déployée le 2026-06-07. Grosse vague d'améliorations UX/features les 2026-06-13/14 (voir mémoire `project_changes_june2026`). Voir aussi `project_generalization` pour les phases de migration.
+> **Historique** : avant juin 2026, l'app était mono-utilisateur (backend Google Sheets, secret `WORKER_SECRET` en dur dans le HTML). Migrée en multi-utilisateur (D1 + auth + BYOK), déployée le 2026-06-07. Grosse vague d'améliorations UX/features les 2026-06-13/14 (voir mémoire `project_changes_june2026`). Voir aussi `project_generalization` pour les phases de migration. **2026-08-18** : notes entre parenthèses (expressions), + réparation des 28 entrées dont la note avait été rognée.
 
 ---
 
@@ -74,7 +74,7 @@ Toutes les tables de données portent `user_id`. Les onglets Sheets d'avant sont
 | Table | Colonnes clés |
 |---|---|
 | `users` | id, email, password_hash, google_id, **add_token**, **openai_key**, **gemini_key**, **settings** (JSON), created_at |
-| `words` | user_id, language, word, created_at — `UNIQUE(user_id, language, word)` |
+| `words` | user_id, language, word, created_at — `UNIQUE(user_id, language, word)` · `word` peut être `base (note)`, voir « Entrées annotées » |
 | `progress` | user_id, language, word, correct, incorrect, last_practiced, hint_used, next_review |
 | `history` | user_id, date, word, language, result (1/0) |
 | `sessions` | user_id, date (YYYY-MM-DD), language, new_count |
@@ -129,9 +129,23 @@ Entonnoir (porté de l'ancien Apps Script, lit les mots existants depuis D1) :
 
 `ignore_sens=true` / `ignore_sim=true` bypassent (1)/(3). Retries 429/5xx (3 tentatives).
 
+**Normalisation** (`normalizeWord`) : minuscules, apostrophes unifiées, points isolés retirés, liste blanche de caractères. Les **parenthèses** y sont admises → voir « Entrées annotées » (une parenthèse mal formée renvoie `Erreur : <raison>`, sans bouton « ajouter quand même » : l'utilisateur doit corriger).
+
 **Raccourci iOS** : POST le mot dans le corps, `token`+`lang=auto` dans l'URL ; gère `INVALID:`/`SIMILAR:` par alerte « ajouter quand même ? » → renvoie avec `ignore_*`. (Utilise (1)+(3) avec la clé propriétaire.)
 
 **Écran in-app « ➕ ajouter du contenu »** (`screen-add`, depuis l'accueil) : toggle **Mot / Forme grammaticale**. Mot → `/add` avec `myAddToken` + code langue (gère INVALID/SIMILAR + « ajouter quand même »). Forme → `/api/grammar` POST/DELETE (liste + suppression).
+
+### Entrées annotées — note entre parenthèses (août 2026)
+
+Une entrée peut porter une **note en fin de chaîne** : `hacer el oso (expresión colombiana)`. La note est du **contexte** (variété régionale, registre, désambiguïsation d'homonyme), **jamais du vocabulaire à réviser**. Stockée dans `words.word` (pas de colonne dédiée, pas de migration) ; la clé de progression/history reste le **texte complet**.
+
+- **Séparation** : `splitEntry(w) → { base, note }` (Worker **et** front). Une parenthèse **collée** au mot en fait partie (`asomar(se)` reste intact) ; seule une parenthèse **détachée par un espace** est une note.
+- **Validation** (`assertParens`, Worker) : une seule paire, équilibrée, non vide, en fin d'entrée → sinon **throw** avec un message explicite (`Erreur : parenthèse non fermée…`). ⚠️ Ne jamais revenir à une suppression silencieuse : c'est elle (liste blanche de `normalizeWord`) qui avait fait perdre la note de 28 expressions ajoutées le 2026-08-16 (réparées en D1 le 2026-08-18). Mêmes règles au renommage (`PUT /api/words`).
+- **Note** : texte libre (lettres, chiffres, `,;:.!?/'-+`), minuscules, **120 caractères max** (`NOTE_MAX`).
+- **`/add`** : doublon exact sur le **texte complet** (`berraco (…enojo)` et `berraco (…inteligencia)` sont deux entrées légitimes) ; validité IA et similarité sur la **base** seule, note passée en contexte au juge LLM (`entryContext`, Worker). Idem `/judge-similar`.
+- **Front** : `wordBase`/`wordNote`/`hasNote` · `entryContext(words)` = bloc injecté dans les 6 prompts · `promptLabel(w, all)` = base, **sauf** si deux entrées de la session partagent la même base (alors base + note, sinon ni le modèle ni le parsing ne peuvent les distinguer).
+- **Affichage** : base en principal, note en gris (`.word-note`, `.chip-note`, `.mot-note`) sur la carte, les chips, « mes mots » et les révisions ; floutée avec 👁 ; **jamais affichée en mode Situation** avant la réponse. Les chips portent `data-word` = entrée complète — clé de progression et de verdict, que le texte affiché ne porte plus (⚠️ ne pas relire la clé depuis `.chip-word.textContent`).
+- **Saisie multi-mots** : `splitAddInput()` ne coupe pas sur `,`/`;` **à l'intérieur** des parenthèses.
 
 ### Import Kindle — `kindle_import.py` (refonte juin 2026)
 Lit `vocab.db`/`My Clippings` de la Kindle → sélection → import D1. **Config** : `.token` (jeton perso) et `.openai_key` (clé OpenAI dédiée) — **fichiers prioritaires sur `$ADD_TOKEN`/`$OPENAI_KEY_IMPORT`** (sinon une vieille var parasite casse tout). 
@@ -212,11 +226,13 @@ Sous `<h1>Vocab</h1>`, toggle ⚙️ (`KEY_SHOW_TOKENS`). `DAILY_LIMITS = { gpt4
 
 Tous répondent dans `feedbackLang`. `LANGS` = mappings (English, Spanish, French, Modern Greek).
 
+**Mot cible = la `base`**, jamais l'entrée complète (voir « Entrées annotées »). Les 6 prompts (évaluation, définition, QCM, Situation génération + verdict, mots liés) reçoivent en plus `entryContext(words)` : « expression figée, ne pas lire mot à mot » — déclenché par toute entrée **multi-mots**, même **sans note** — et la note quand elle existe. En Situation, le prompt interdit explicitement de citer ou paraphraser la note (elle donnerait la réponse).
+
 ### Évaluation
 Deux **BLOCS indépendants** : (1) **Verdict** ✓/✗ sur le(s) mot(s) cible(s) (un ✗ → verdict ✗ ; mot absent → ✗) ; (2) **Analyse linguistique** (grammaire/registre/ponctuation), indépendante du verdict.
 Règles : period/semicolon/colon entre phrases = TOUJOURS correct · analyser UNIQUEMENT l'écrit · accepter archaïsmes/dialectes · **CRITICAL FILTER** (items incertains/corrects → silently dropped) · version améliorée seulement si ✓ (italique, mot cible exact).
 Format : `## Verdict`, `## Analyse linguistique`, `## Version améliorée`.
-**Parsing verdict (multi-mots)** : pour chaque mot, 1re ligne le contenant puis 1er `✓`/`✗`. Regex tolérante aux variantes emoji (`OK_RE=[✓✔✅]`, `KO_RE=[✗✘❌]`). `wordResults` (mot→bool) = **source unique de vérité** (couleur boîte, score `N/total`, contours mots, QCM). **Piège accents** : frontières Unicode `(^|[^\p{L}])mot([^\p{L}]|$)` flag `u`, jamais `\b…\b` ASCII (échoue sur accentués, critique pour le grec).
+**Parsing verdict (multi-mots)** : pour chaque mot, 1re ligne contenant **`promptLabel(w, currentWords)`** — le libellé réellement envoyé au modèle, pas l'entrée complète (sinon aucun match → tous les mots comptés ✗) — puis 1er `✓`/`✗`. Regex tolérante aux variantes emoji (`OK_RE=[✓✔✅]`, `KO_RE=[✗✘❌]`). `wordResults` (mot→bool) = **source unique de vérité** (couleur boîte, score `N/total`, contours mots, QCM). **Piège accents** : frontières Unicode `(^|[^\p{L}])mot([^\p{L}]|$)` flag `u`, jamais `\b…\b` ASCII (échoue sur accentués, critique pour le grec).
 **Rendu de la boîte** (`renderFeedbackSections`) : après le streaming, re-rendu en **sections repliables** (verdict ouvert, reste = aperçu 2 lignes `-webkit-line-clamp`), bouton « tout déplier/replier », **note `N/total` en bas**. Couleur boîte 3 états : `.correct` vert (tout ✓) / `.partial` orange (quelques ✗) / `.incorrect` rouge (tout ✗) — ⚠️ `.partial` doit être dans **tous** les `classList.remove` (sinon orange bloqué). Bordure neutre pendant le streaming.
 
 ### Définition
@@ -308,7 +324,7 @@ Worker : `wrangler deploy`. Front : push `main` → GitHub Actions → `gh-pages
 
 ## Idées futures
 
-**Faites ✅** : Auth Google + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · **écran « ajouter du contenu » in-app (mots + formes grammaticales)** · Mes mots (+ étoiles) · calendrier des révisions (tri + recherche + étoiles) · **sync de tous les réglages** · **langues configurables par utilisateur** (sous-ensemble des 4) · **page d'instructions (modale)** · **boîte de vérif repliable** · `kindle_import.py` → `/add`/D1 · compteur tokens corrigé · PWA `manifest` corrigé · déploiement prod · **refonte mode Situation** (bouton Commencer, multi-mots 1-5, poids de relance ×4, verdict par mot + score, autoscroll, UI cohérente) · **toggle progression Situation+Libre** · **refonte import Kindle** (validité IA off + filtre charabia/`wordfreq`, similarité groupée GPT-5.4 via `/judge-similar`, **clé Kindle dédiée** `.openai_key`, import reprenable) · **« mes mots » paginé + sélection multiple/suppression groupée**.
+**Faites ✅** : Auth Google + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · **écran « ajouter du contenu » in-app (mots + formes grammaticales)** · Mes mots (+ étoiles) · calendrier des révisions (tri + recherche + étoiles) · **sync de tous les réglages** · **langues configurables par utilisateur** (sous-ensemble des 4) · **page d'instructions (modale)** · **boîte de vérif repliable** · `kindle_import.py` → `/add`/D1 · compteur tokens corrigé · PWA `manifest` corrigé · déploiement prod · **refonte mode Situation** (bouton Commencer, multi-mots 1-5, poids de relance ×4, verdict par mot + score, autoscroll, UI cohérente) · **toggle progression Situation+Libre** · **refonte import Kindle** (validité IA off + filtre charabia/`wordfreq`, similarité groupée GPT-5.4 via `/judge-similar`, **clé Kindle dédiée** `.openai_key`, import reprenable) · **« mes mots » paginé + sélection multiple/suppression groupée** · **notes entre parenthèses** (`hacer el oso (expresión colombiana)`) + traitement « expression figée » automatique pour toute entrée multi-mots.
 
 **À faire / à concevoir** :
 - **BYOK total** : le **raccourci iPhone** utilise encore `OPENAI_API_KEY_SCRIPT` (pas d'UI BYOK). La Kindle, elle, est passée BYOK (`.openai_key`).
