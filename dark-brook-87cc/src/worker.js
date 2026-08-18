@@ -191,8 +191,18 @@ ${lines}`;
 // Détection langue + validité en un appel → { valid, reason, lang }
 // GPT-5.4 « low » : gpt-4.1-mini rejetait à tort des mots rares/littéraires
 // (mêmes faux INVALID qui ont fait retirer la validation IA de l'import Kindle).
-async function analyzeWordLangSense(word, env) {
-  const prompt = `Analyze the expression: "${word}".
+// Contexte commun aux prompts d'ajout : une entrée multi-mots est une expression
+// figée (jamais à lire mot à mot) et la note de l'utilisateur précise la variété
+// régionale / le registre / le sens visé.
+function entryContext(base, note) {
+  const parts = [];
+  if (/\s/.test(String(base).trim())) parts.push('This entry is a multi-word expression: treat it as a fixed idiomatic unit, never literally word by word.');
+  if (note) parts.push(`The learner added this note about it: "${note}". Take it into account (regional variety, register, intended sense). The note is a comment, NOT part of the expression itself.`);
+  return parts.length ? '\n' + parts.join('\n') : '';
+}
+
+async function analyzeWordLangSense(word, note, env) {
+  const prompt = `Analyze the expression: "${word}".${entryContext(word, note)}
 1. Identify its language (must be one of: French, English, Spanish, Greek).
 2. Check if it is a valid word or expression in that language (allow real words, conjugated forms, phrases, slang, and rare/archaic/literary/dialectal terms).
 Answer NO only for gibberish, typos producing no real word, or text clearly in a different language.
@@ -217,9 +227,9 @@ Reply with ONLY the language name, nothing else.`;
   return ADD_LANGS.find(l => res.toLowerCase().includes(l.toLowerCase())) || null;
 }
 
-async function validateWord(word, lang, env) {
+async function validateWord(word, note, lang, env) {
   const langName = LANG_FULL[lang] || lang;
-  const prompt = `Is "${word}" a valid ${langName} word or expression?
+  const prompt = `Is "${word}" a valid ${langName} word or expression?${entryContext(word, note)}
 Answer YES for: real words, conjugated forms, multi-word expressions, phrases, slang, archaic, literary, dialectal or rare terms.
 Answer NO only for: gibberish, typos producing no real word, or text clearly in a different language.
 Reply with YES or NO: <brief reason if NO>.`;
@@ -229,12 +239,13 @@ Reply with YES or NO: <brief reason if NO>.`;
   return { valid: true };
 }
 
-async function judgeSimilarity(word, candidates, lang, env) {
+async function judgeSimilarity(word, note, candidates, lang, env) {
   const langName = LANG_FULL[lang] || lang;
   const prompt = `Language: ${langName}.
-I want to add "${word}" to my vocabulary list.
+I want to add "${word}" to my vocabulary list.${entryContext(word, note)}
 Existing words: ${candidates.join(', ')}.
-Is "${word}" merely an inflected form of an existing word (same lemma: conjugation, plural, gender, diminutive)?
+Is "${word}" merely an inflected form of an existing word (same lemma: conjugation, plural, gender, diminutive)?${note ? `
+IMPORTANT: the note means this entry is a deliberately distinct sense. If an existing entry has the same base word but a different (or no) note, they are NOT duplicates — reply "NO".` : ''}
 If YES, reply exactly "YES: <existing_word>". If it has distinct vocabulary value, reply "NO".`;
   const res = await callScriptReasoning(prompt, 1500, env, 'low');
   if (res && /^YES:/i.test(res)) return res.replace(/^YES:\s*/i, '').trim();
@@ -264,17 +275,85 @@ function similarityScore(wNorm, eNorm) {
   return score;
 }
 
+// Une entrée peut porter une note entre parenthèses en fin de chaîne :
+// « hacer el oso (expresión colombiana) ». La note est du CONTEXTE (variété
+// régionale, registre, désambiguïsation d'homonyme), jamais du vocabulaire à
+// réviser : on la sépare partout de la base avant de la donner aux prompts,
+// de l'afficher ou de la comparer.
+// Une parenthèse COLLÉE au mot fait partie du mot (« asomar(se) ») ; seule une
+// parenthèse détachée par un espace est une note.
+function splitEntry(raw) {
+  const s = String(raw || '').trim();
+  const m = s.match(/^(.*\S)\s+\(([^()]*)\)$/);
+  if (!m) return { base: s, note: '' };
+  return { base: m[1].trim(), note: m[2].trim() };
+}
+
+// Le mot lui-même : jeu de caractères étroit (lettres, espaces, apostrophes…).
+function cleanBase(s) {
+  return s
+    .replace(/(?<!\.)\.(?!\.)/g, '')
+    .replace(/[^\p{L}\p{M} '¿?\.\-\+()]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+// La note est du texte libre : on garde chiffres et ponctuation courante
+// (« expresión colombiana, informal », « sens 2 »).
+function cleanNote(s) {
+  return s
+    .replace(/[^\p{L}\p{M}\p{N} '¿?¡!,;:\.\-\+\/]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+const NOTE_MAX = 120;
+
+// Une seule paire de parenthèses, équilibrée. Si elle est détachée du mot par un
+// espace, c'est une NOTE : elle doit alors clore l'entrée et ne pas être vide.
+// Collée au mot (« asomar(se) »), elle fait partie du mot et passe telle quelle.
+// Throw sinon — aussi utilisée au renommage (PUT /api/words), qui ne normalise
+// pas la casse.
+function assertParens(s) {
+  const opens  = (s.match(/\(/g) || []).length;
+  const closes = (s.match(/\)/g) || []).length;
+  if (!opens && !closes) return;
+  if (opens !== closes) throw new Error("parenthèse non fermée — écris par exemple « hacer el oso (expresión colombiana) ».");
+  if (opens > 1)        throw new Error("une seule parenthèse est acceptée par entrée.");
+  if (/^\s*\([^()]*\)\s*$/.test(s)) throw new Error("il manque le mot avant la parenthèse.");
+  if (/\s\([^()]*\)/.test(s)) { // c'est une note
+    if (!/\s\([^()]*\)$/.test(s)) throw new Error("la parenthèse doit être à la fin de l'entrée.");
+    if (/\(\s*\)$/.test(s))       throw new Error("la parenthèse est vide.");
+  }
+}
+
 // Normalisation du mot (port de l'Apps Script)
+// Parenthèses mal formées → throw : l'appelant renvoie l'erreur à l'utilisateur
+// au lieu de les supprimer en silence. C'est cette suppression silencieuse qui
+// avait fait perdre la note des expressions ajoutées avant août 2026.
 function normalizeWord(raw) {
-  return (raw || '')
+  const pre = (raw || '')
     .replace(/[\r\n]+/g, ' ')
     .replace(/[‘’`ʼ]/g, "'")
     .replace(/…/g, '...')
-    .replace(/(?<!\.)\.(?!\.)/g, '')
     .replace(/\s+/g, ' ')
-    .replace(/[^\p{L}\p{M} '¿?\.\-\+]/gu, '')
-    .trim()
-    .toLowerCase();
+    .trim();
+
+  assertParens(pre);
+
+  // Note = parenthèse finale détachée. Un espace manquant est toléré à la
+  // saisie (« vaina(cosa) ») uniquement si le contenu ressemble à une note :
+  // plusieurs mots. Sinon c'est une flexion collée (« asomar(se) »).
+  const m = pre.match(/^(.*\S)\s+\(([^()]*)\)$/) || pre.match(/^(.*\S)\(([^()]*\s[^()]*)\)$/);
+  if (!m) return cleanBase(pre);
+
+  const base = cleanBase(m[1]);
+  const note = cleanNote(m[2]);
+  if (!base)                 throw new Error("il manque le mot avant la parenthèse.");
+  if (note.length > NOTE_MAX) throw new Error(`la note entre parenthèses est trop longue (max ${NOTE_MAX} caractères).`);
+  return note ? `${base} (${note})` : base;
 }
 
 // ---- Vérification ID token Google (OAuth, JWKS RS256) ----
@@ -475,8 +554,15 @@ export default {
         const user = await env.DB.prepare('SELECT id, openai_key FROM users WHERE add_token = ?').bind(token).first();
         if (!user) return textOut('Erreur : token invalide.');
 
-        const word = normalizeWord(rawWord);
+        // Parenthèses mal formées → message d'erreur explicite (throw attrapé ici)
+        let word;
+        try { word = normalizeWord(rawWord); }
+        catch (e) { return textOut('Erreur : ' + e.message); }
         if (!word) return textOut('Erreur : le mot est vide.');
+        // `word` = texte complet stocké (« base (note) ») ; `base`/`note` servent
+        // à la validation IA et à la similarité, qui ne doivent jamais porter sur
+        // le commentaire de l'utilisateur.
+        const { base, note } = splitEntry(word);
 
         // BYOK intégral : clé de l'appelant (kindle_import.py via X-OpenAI-Key),
         // sinon la clé OpenAI que l'utilisateur a enregistrée dans ⚙️ (D1).
@@ -503,17 +589,17 @@ export default {
 
         // 1 & 2 — détection langue + validité
         if (!language && !ignoreSens) {
-          const analysis = await analyzeWordLangSense(word, aiEnv);
+          const analysis = await analyzeWordLangSense(base, note, aiEnv);
           if (!analysis.lang) return textOut('Erreur : langue non détectée. Réessaie ou précise la langue.');
           language = analysis.lang;
           if (!analysis.valid) return textOut('INVALID:' + analysis.reason + ' | ' + language);
         } else {
           if (!language) {
-            language = await identifyLang(word, aiEnv);
+            language = await identifyLang(base, aiEnv);
             if (!language) return textOut('Erreur : langue non détectée. Réessaie ou précise la langue.');
           }
           if (!ignoreSens) {
-            const v = await validateWord(word, language, aiEnv);
+            const v = await validateWord(base, note, language, aiEnv);
             if (!v.valid) return textOut('INVALID:' + v.reason + ' | ' + language);
           }
         }
@@ -524,25 +610,28 @@ export default {
         ).bind(user.id, language).all();
         const existing = results.map(r => r.word);
 
-        // 3 — doublon exact
+        // 3 — doublon exact (sur le texte complet : « berraco (enojo) » et
+        // « berraco (inteligencia) » sont deux entrées légitimes)
         if (existing.some(e => (e || '').trim().toLowerCase() === word)) {
           return textOut("Doublon : '" + word + "' existe déjà dans " + language + ".");
         }
 
-        // similarité (top 5 candidats → juge LLM)
+        // similarité (top 5 candidats → juge LLM) — score calculé sur les BASES,
+        // sinon deux notes identiques suffisent à faire passer deux mots sans
+        // rapport pour des variantes l'un de l'autre.
         if (!ignoreSim) {
-          const wNorm = normSim(word);
+          const wNorm = normSim(base);
           const scored = [];
           for (const e of existing) {
             const ex = (e || '').trim();
             if (ex.length < 2) continue;
-            const s = similarityScore(wNorm, normSim(ex.toLowerCase()));
+            const s = similarityScore(wNorm, normSim(splitEntry(ex).base.toLowerCase()));
             if (s > 0) scored.push({ word: ex, score: s });
           }
           scored.sort((a, b) => b.score - a.score);
           const candidates = scored.slice(0, 5).map(x => x.word);
           if (candidates.length > 0) {
-            const sim = await judgeSimilarity(word, candidates, language, aiEnv);
+            const sim = await judgeSimilarity(base, note, candidates, language, aiEnv);
             if (sim) return textOut('SIMILAR:' + sim + ' | ' + language);
           }
         }
@@ -591,12 +680,13 @@ export default {
         // Pour chaque mot, top candidats similaires (score > 0)
         const items = [];
         for (const w of words) {
-          const wNorm = normSim(w);
+          const wNorm = normSim(splitEntry(w).base);
           const scored = [];
           for (const e of existing) {
             const ex = (e || '').trim();
             if (ex.length < 2) continue;
-            const s = similarityScore(wNorm, normSim(ex.toLowerCase()));
+            // score sur la base : la note entre parenthèses n'est pas du vocabulaire
+            const s = similarityScore(wNorm, normSim(splitEntry(ex).base.toLowerCase()));
             if (s > 0) scored.push({ word: ex, score: s });
           }
           scored.sort((a, b) => b.score - a.score);
@@ -655,8 +745,12 @@ export default {
         }
         if (request.method === 'PUT') {
           const { lang, oldWord, newWord } = await request.json();
-          const nw = (newWord || '').trim();
+          const nw = (newWord || '').trim().replace(/\s+/g, ' ');
           if (!lang || !oldWord || !nw) return json({ error: { message: 'lang, oldWord, newWord requis' } }, 400);
+          // Même règle qu'à l'ajout, sans normaliser la casse (renommage manuel)
+          try { assertParens(nw); }
+          catch (e) { return json({ error: { message: e.message } }, 400); }
+          if (splitEntry(nw).note.length > NOTE_MAX) return json({ error: { message: `la note entre parenthèses est trop longue (max ${NOTE_MAX} caractères).` } }, 400);
           const exists = await env.DB.prepare('SELECT 1 FROM words WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, lang, nw).first();
           if (exists) return json({ error: { message: 'ce mot existe déjà' } }, 409);
           await env.DB.batch([
