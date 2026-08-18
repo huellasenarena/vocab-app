@@ -7,7 +7,7 @@ App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **C
 - Push sur `main` → GitHub Actions déploie sur `gh-pages` (~1 min). **Ne jamais éditer `gh-pages`.** Le `cname: byov.net` est dans `deploy.yml` (sinon le CNAME serait écrasé à chaque déploiement).
 - Le Worker (`dark-brook-87cc/`) est **versionné dans le repo** (peut être commité).
 
-> **Historique** : avant juin 2026, l'app était mono-utilisateur (backend Google Sheets, secret `WORKER_SECRET` en dur dans le HTML). Migrée en multi-utilisateur (D1 + auth + BYOK), déployée le 2026-06-07. Grosse vague d'améliorations UX/features les 2026-06-13/14 (voir mémoire `project_changes_june2026`). Voir aussi `project_generalization` pour les phases de migration. **2026-08-18** : notes entre parenthèses (expressions), + réparation des 28 entrées dont la note avait été rognée.
+> **Historique** : avant juin 2026, l'app était mono-utilisateur (backend Google Sheets, secret `WORKER_SECRET` en dur dans le HTML). Migrée en multi-utilisateur (D1 + auth + BYOK), déployée le 2026-06-07. Grosse vague d'améliorations UX/features les 2026-06-13/14 (voir mémoire `project_changes_june2026`). Voir aussi `project_generalization` pour les phases de migration. **2026-08-18** : notes entre parenthèses (expressions) + réparation des 28 entrées dont la note avait été rognée ; grammaire ouverte aux 4 langues ; transfert d'un mot d'une langue à l'autre.
 
 ---
 
@@ -25,7 +25,7 @@ URL : `https://dark-brook-87cc.georg-dreym.workers.dev` · Code : `~/Desktop/voc
 - `/judge-similar` (token perso, **pas de JWT**) → similarité **groupée** pour l'import Kindle. Body `{ token, lang, words[] }` + header `X-OpenAI-Key`. Le Worker calcule les candidats (local), n'appelle **GPT-5.4 « low »** (`judgeSimilarBatch`, lots de 40) que pour les mots ayant une ressemblance, et renvoie `{ skip: { mot: mot_existant } }`.
 
 **Données utilisateur (JWT, filtrées par `user_id`)**
-- `/api/words` GET (`?lang=`, `?detail=1` → +`created_at`) · POST · DELETE (**unitaire** `{lang,word}` **ou groupé** `{items:[{lang,word}…]}`, mot+progress) · **PUT** (renommer — met à jour `words` + `progress` + `history`)
+- `/api/words` GET (`?lang=`, `?detail=1` → +`created_at`) · POST · DELETE (**unitaire** `{lang,word}` **ou groupé** `{items:[{lang,word}…]}`, mot+progress) · **PUT** `{lang, oldWord, newWord?, newLang?}` (**renommer et/ou changer de langue** — met à jour `words` + `progress` + `history` ; 409 si le mot existe déjà dans la langue cible)
 - `/api/progress`, `/api/session`, `/api/history`, `/api/blacklist`, `/api/usage`
 - `/api/grammar` GET · **POST** (ajouter une forme) · **DELETE** (supprimer une forme)
 - `/api/keys` POST → stocke `openai_key`/`gemini_key` en D1 (sync multi-appareils)
@@ -86,7 +86,7 @@ Toutes les tables de données portent `user_id`. Les onglets Sheets d'avant sont
 
 **Date** : progression/sessions en heure **locale** (`todayStrLocal()`). Tokens (`usage`) : OpenAI en UTC, Google en PT (reset quotas). Migration one-time : `scripts/migrate_data.mjs <user_id>` (lit l'ancien Sheet → SQL). Pour `--remote`, retirer les `BEGIN TRANSACTION/COMMIT` du SQL (D1 distante les refuse).
 
-**Grammaire** : `grammar_forms` par utilisateur ; aplati côté JS en `"${category} ${form}"` (ex: `"futuro simple"`).
+**Grammaire** : `grammar_forms` par utilisateur **et par langue** ; aplati côté JS en `"${category} ${form}"` (ex: `"futuro simple"`). Voir « Formes grammaticales » plus bas.
 
 ---
 
@@ -103,13 +103,23 @@ Chaque utilisateur entre sa clé OpenAI et/ou Gemini dans ⚙️ (`KEY_OPENAI_KE
 
 ## Sync des réglages (`/api/settings`)
 
-Tous les réglages (sliders nombre de mots/formes **par langue**, **nombre de mots Situation** (`vocab_situation_words`, 1-5), modèle, niveaux de raisonnement, grammaire on/off, thème image, compteur tokens, **langues choisies**, **toggle progression Situation+Libre** `vocab_situation_counts`) sont sérialisés en un blob JSON et synchronisés en D1 (`users.settings`).
+Tous les réglages (sliders nombre de mots/formes **par langue**, **nombre de mots Situation** (`vocab_situation_words`, 1-5), modèle, niveaux de raisonnement, **grammaire on/off + nombre de formes, par langue**, thème image, compteur tokens, **langues choisies**, **toggle progression Situation+Libre** `vocab_situation_counts`) sont sérialisés en un blob JSON et synchronisés en D1 (`users.settings`).
 - Front : `collectSettings()` (toutes les clés `vocab_*` sauf denylist : jwt, pwd_ok, clés BYOK, `today_new_*`) · `saveSettingsToServer()` (debounce 1,5 s, appelé par chaque setter) · `applyServerSettings()`/`reloadSettingsVars()`/`applySettingsUI()` au login.
 - Chargé via `/me` (`loadAccountInfo`). Les clés BYOK restent synchronisées séparément (`/api/keys`).
 
 ## Langues configurables
 
 Chaque utilisateur choisit ses langues parmi les 4 (`selectedLangs`, clé `vocab_languages` synchronisée). `renderLangGrid()` construit la grille d'accueil dynamiquement (#lang-grid) + tuile **« ＋ ajouter »** (masquée si 4/4). Sélecteur modal `#lang-picker-modal` (`openLangPicker(mandatory)`). À l'inscription / 1re connexion (pas de `vocab_languages`) → `afterAuth()` impose le choix (≥1, fermeture cachée). Défaut comptes existants = les 4.
+
+**Libellés dépendant de la langue pratiquée** : `applyI18n` substitue le jeton **`{lang}`** par le nom de la langue courante (ex. `set_grammar` → « Formes grammaticales (Français) »). Hors d'une langue (accueil), le motif ` ({lang})` disparaît entièrement — ne pas coder un nom de langue en dur dans une traduction.
+
+## Formes grammaticales (les 4 langues)
+
+`grammar_forms` a toujours été par langue en D1 ; jusqu'en août 2026 seul le **front** verrouillait sur l'espagnol. Désormais : `loadGrammarForms()` est appelé pour **toute** langue ouverte, et `renderGrammarForms()` affiche la zone + le slider dès que la langue courante a des formes.
+- **Réglages par langue** : `vocab_grammar_enabled_<Langue>` et `vocab_grammar_count_<Langue>`, lus par `grammarEnabledFor(lang)` / `grammarCountFor(lang)` — **repli sur l'ancienne clé globale**, qui portait le réglage espagnol d'avant la généralisation (ne pas la supprimer).
+- Appliqués dans `selectLanguage()` (toggle + slider recalés sur la langue qu'on ouvre) et `applySettingsUI()`.
+- La ligne de réglage `#grammar-toggle-row` est **masquée** si la langue courante n'a aucune forme (interrupteur sans effet sinon).
+- Les formes sont un rappel visuel (pilules) : elles n'entrent dans aucun prompt.
 
 ---
 
@@ -209,7 +219,7 @@ Sous `<h1>Vocab</h1>`, toggle ⚙️ (`KEY_SHOW_TOKENS`). `DAILY_LIMITS = { gpt4
 
 ## Modes de pratique
 
-- 📅 **Espacée** — SM-2, limite nouveaux/jour. Sliders : nombre de mots (plafonné au pool dispo) + formes grammaticales (1-10, Español). Bouton bas **« 📅 mes révisions à venir »** → `screen-revisions` (tous les mots programmés langue courante + prochaine date + étoiles ; tris proche/lointaine/A-Z + recherche). État terminé = carte ✓ seule.
+- 📅 **Espacée** — SM-2, limite nouveaux/jour. Sliders : nombre de mots (plafonné au pool dispo) + formes grammaticales (1-10, toute langue ayant des formes). Bouton bas **« 📅 mes révisions à venir »** → `screen-revisions` (tous les mots programmés langue courante + prochaine date + étoiles ; tris proche/lointaine/A-Z + recherche). État terminé = carte ✓ seule.
 - 🎯 **Situation** — recall actif, mots ★★★ (`net ≥ 3`). Refonte juin 2026 :
   - **Bouton ▶ Commencer** (`startSituation`) à l'entrée du mode → **aucun appel API auto** (`pickWords` tire les mots mais ne génère pas). « Autre situation → » (`nextSituation`) enchaîne directement.
   - **Multi-mots 1-5** : slider dédié `#situation-word-slider` (`situationWordCount`, clé `vocab_situation_words`, défaut 1, plafonné aux mots maîtrisés via `setSituationSliderMax`). Tirage pondéré **sans répétition** de N mots.
@@ -255,13 +265,21 @@ Prompt anglais, réponse espagnol. Sections : `## Precisión`, `## Análisis lin
 `screen-loading`, `screen-auth`, `screen-lang`, `screen-practice`, `screen-stats`, `screen-history`, `screen-mots`, `screen-revisions`, **`screen-add`** (ajouter du contenu). `showScreen(id)` (déclenche `updateLangBadges` sur screen-lang). Écrans-listes ancrés en haut (`align-self:flex-start`) — titre/recherche figés quand la liste change. **Modales** : `#help-modal` (instructions), `#lang-picker-modal` (choix langues), `#word-ctx-menu` (menu ⋯). `screen-lang` : grille langues (badges vert/rouge `updateLangBadges`) + 📊 stats / 📋 historique / 📝 mes mots / ➕ ajouter / ❓ aide / 🚪 logout.
 
 ### Mes mots (`screen-mots`, `showMots`)
-Voir/chercher/renommer/supprimer + **étoiles** (`motsStars`, charge progress des 4 langues). Charge les 4 langues (`/api/words?...&detail=1`), tri **chronologique** (récent d'abord, `created_at`), filtres par langue + compteurs, recherche live. Lignes `.mot-row` : case à cocher + drapeau + mot + étoiles + date + ✏️ (`editMot` → `PUT /api/words`, refuse collision) + 🗑 (`deleteMot` → `DELETE`). **Pagination** (`motsPageSize` 5/15/25/50/100, défaut 25 ; `motsPage` ; `#mots-controls`) — la recherche/filtre porte sur **tous** les mots, l'affichage est paginé (fluide à ~10000 mots). **Sélection multiple** (`motsSelected` Set `lang|word`, multi-langues) : case par ligne + « tout sélectionner (cette page) » + barre « N sélectionnés → 🗑 » (`deleteSelectedMots` → `DELETE {items:[…]}` groupé, confirmation). `screen-revisions` a aussi étoiles + recherche.
+Voir/chercher/renommer/supprimer + **étoiles** (`motsStars`, charge progress des 4 langues). Charge les 4 langues (`/api/words?...&detail=1`), tri **chronologique** (récent d'abord, `created_at`), filtres par langue + compteurs, recherche live. Lignes `.mot-row` : case à cocher + drapeau + mot + étoiles + date + ✏️ (`editMot` → `PUT /api/words`, refuse collision) + 🔀 (`moveMot` → transfert de langue) + 🗑 (`deleteMot` → `DELETE`). **Pagination** (`motsPageSize` 5/15/25/50/100, défaut 25 ; `motsPage` ; `#mots-controls`) — la recherche/filtre porte sur **tous** les mots, l'affichage est paginé (fluide à ~10000 mots). **Sélection multiple** (`motsSelected` Set `lang|word`, multi-langues) : case par ligne + « tout sélectionner (cette page) » + barre « N sélectionnés → 🔀 / 🗑 » (`moveSelectedMots` ; `deleteSelectedMots` → `DELETE {items:[…]}` groupé, confirmation). `screen-revisions` a aussi étoiles + recherche.
 
 ### Mots cachés (👁) · Chips cliquables
 Toggle header, raccourci `Opt+←` (blur 7px). `Opt+→` = `nextWord()`. À la **vérification**, les mots cachés réapparaissent (`revealHiddenWords`). Mot nouveau → `fetchHint`. Mot à réviser (avant soumission) → `showJeNeSaisPas` → `saveProgress(false)` + `startQCM` (1 seul QCM/mot via `_qcmStartedWords`). Casse : affichage + prompts en **minuscules** (`lc()`), DB en casse d'origine.
 
 ### Édition / suppression de mot (bouton ⋯)
-Le clic-droit/appui long est **retiré**. Carte + chips ont un bouton **« ⋯ »** (`openWordMenu`) → `#word-ctx-menu` avec **✏️ Modifier** (`editWordOnCard` → `PUT /api/words`, propage à words+progress+history) et **🗑 Supprimer** (`deleteWordFromSheets`, nom hérité : `DELETE /api/words` mot+progress, maj mémoire, pioche un remplaçant). Ferme au clic dehors.
+Le clic-droit/appui long est **retiré**. Carte + chips ont un bouton **« ⋯ »** (`openWordMenu`) → `#word-ctx-menu` avec **✏️ Modifier** (`editWordOnCard` → `PUT /api/words`, propage à words+progress+history), **🔀 Changer de langue** (`ctxMenuMove` → sous-menu `#ctx-langs` dans le même popup) et **🗑 Supprimer** (`deleteWordFromSheets`, nom hérité : `DELETE /api/words` mot+progress). Ferme au clic dehors ; `closeWordContextMenu` repasse toujours au 1er niveau (`ctxMenuBack`).
+
+Suppression et transfert partagent **`removeWordFromSession(word)`** : retrait de `allWords`/`currentWords`/`previousWordsPool`/`progressMap`/`definitionCache` + pioche d'un remplaçant (ou `nextWord()` si plus rien).
+
+### Transfert de langue (mot mal classé)
+`PUT /api/words` avec **`newLang`** déplace `words` + `progress` + `history` → étoiles et `next_review` suivent le mot. Refus 409 si le mot existe déjà dans la langue cible (jamais d'écrasement). Un `DELETE` préalable retire une éventuelle ligne `progress` **orpheline** côté cible (PK `user_id+language+word`).
+- **Carte / chips** : menu ⋯ → 🔀 → langue → `moveWordToLang()` puis `removeWordFromSession()`.
+- **Mes mots** : 🔀 par ligne (`moveMot`) + **action groupée** sur la sélection (`moveSelectedMots`, multi-langues : chaque mot part de SA langue, les échecs sont listés à la fin).
+- **`openLangMenu(ev, label, excludeLang, onPick)`** réutilise `#word-ctx-menu` comme popup de choix de langue (positionné au clic, `stopPropagation` sinon le listener global le referme aussitôt).
 
 ### Couleurs / contours des mots
 - Nouveau : doré (`--accent`) · À réviser : blanc (`chip-review`/`card-review`).
@@ -273,6 +291,7 @@ Le clic-droit/appui long est **retiré**. Carte + chips ont un bouton **« ⋯ �
 - `#btn-next-below` « Autre mot → » après ✓ (autoscroll sauf `scroller.stoppedAtTop`).
 - Bouton Réessayer injecté après échec API.
 - Protection double soumission (`lastSubmittedSentence`) + « Autre mot » avec phrase non vérifiée (`confirm()`).
+- **Attente d'une boîte** : `SPINNER_BOX` (`<div class="spinner-wrap">`, flex centré) pour verdict / définition / situation / verdict Situation — écrasé avec l'`innerHTML` au 1er chunk, donc **rien à nettoyer** (pas de classe posée sur le conteneur, pas de résidu possible). Les spinners **dans un bouton** ou suivis d'un libellé restent des `<span class="spinner">` inline.
 
 ### iOS
 - `--safe-top` par JS **uniquement en PWA standalone** (iPhone 59px, iPad 44px) ; en Safari normal on garde `env()` ≈ 0 (sinon gros rideau noir inutile). `#status-curtain` (CSS pur, `z-index:9999`).
@@ -324,7 +343,7 @@ Worker : `wrangler deploy`. Front : push `main` → GitHub Actions → `gh-pages
 
 ## Idées futures
 
-**Faites ✅** : Auth Google + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · **écran « ajouter du contenu » in-app (mots + formes grammaticales)** · Mes mots (+ étoiles) · calendrier des révisions (tri + recherche + étoiles) · **sync de tous les réglages** · **langues configurables par utilisateur** (sous-ensemble des 4) · **page d'instructions (modale)** · **boîte de vérif repliable** · `kindle_import.py` → `/add`/D1 · compteur tokens corrigé · PWA `manifest` corrigé · déploiement prod · **refonte mode Situation** (bouton Commencer, multi-mots 1-5, poids de relance ×4, verdict par mot + score, autoscroll, UI cohérente) · **toggle progression Situation+Libre** · **refonte import Kindle** (validité IA off + filtre charabia/`wordfreq`, similarité groupée GPT-5.4 via `/judge-similar`, **clé Kindle dédiée** `.openai_key`, import reprenable) · **« mes mots » paginé + sélection multiple/suppression groupée** · **notes entre parenthèses** (`hacer el oso (expresión colombiana)`) + traitement « expression figée » automatique pour toute entrée multi-mots.
+**Faites ✅** : Auth Google + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · **écran « ajouter du contenu » in-app (mots + formes grammaticales)** · Mes mots (+ étoiles) · calendrier des révisions (tri + recherche + étoiles) · **sync de tous les réglages** · **langues configurables par utilisateur** (sous-ensemble des 4) · **page d'instructions (modale)** · **boîte de vérif repliable** · `kindle_import.py` → `/add`/D1 · compteur tokens corrigé · PWA `manifest` corrigé · déploiement prod · **refonte mode Situation** (bouton Commencer, multi-mots 1-5, poids de relance ×4, verdict par mot + score, autoscroll, UI cohérente) · **toggle progression Situation+Libre** · **refonte import Kindle** (validité IA off + filtre charabia/`wordfreq`, similarité groupée GPT-5.4 via `/judge-similar`, **clé Kindle dédiée** `.openai_key`, import reprenable) · **« mes mots » paginé + sélection multiple/suppression groupée** · **notes entre parenthèses** (`hacer el oso (expresión colombiana)`) + traitement « expression figée » automatique pour toute entrée multi-mots · **formes grammaticales dans les 4 langues** (réglages par langue, libellé `{lang}`) · **transfert d'un mot d'une langue à l'autre** (menu ⋯, mes mots, action groupée) · spinners centrés.
 
 **À faire / à concevoir** :
 - **BYOK total** : le **raccourci iPhone** utilise encore `OPENAI_API_KEY_SCRIPT` (pas d'UI BYOK). La Kindle, elle, est passée BYOK (`.openai_key`).
