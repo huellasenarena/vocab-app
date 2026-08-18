@@ -924,7 +924,8 @@
     .mot-row .mot-actions { display:flex; align-items:center; gap:0.2rem; flex-shrink:0; }
     .mot-row .mot-date { font-size:0.72rem; color:var(--muted); margin-right:0.35rem; white-space:nowrap; }
     .mot-row .mot-date.rev-due { color:var(--accent); font-weight:600; }
-    .mot-row .mot-actions button { background:none; border:none; cursor:pointer; font-size:1rem; padding:0.2rem 0.45rem; opacity:0.65; }
+    /* padding resserré : 3 actions par ligne (✏️ 🔀 🗑) sur écran étroit */
+    .mot-row .mot-actions button { background:none; border:none; cursor:pointer; font-size:1rem; padding:0.2rem 0.32rem; opacity:0.65; }
     .mot-row .mot-actions button:hover { opacity:1; }
 
     /* ── Bouton hint "révision" dans le dropdown ── */
@@ -1156,6 +1157,14 @@
       border-radius: 50%; animation: spin 0.7s linear infinite;
       margin-right: 6px; vertical-align: middle;
     }
+    /* Attente d'une boîte (verdict, définition, situation) : le spinner est seul,
+       on le centre. Le conteneur disparaît avec l'innerHTML au 1er chunk — rien
+       à nettoyer, donc aucun résidu possible. */
+    .spinner-wrap {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 48px;
+    }
+    .spinner-wrap .spinner { margin-right: 0; }
     @keyframes spin    { to { transform: rotate(360deg); } }
     @keyframes fadeIn  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   </style>
@@ -1310,8 +1319,9 @@
 
     <!-- Panneau réglages -->
     <div class="settings-panel" id="settings-panel">
-      <label class="settings-row">
-        <span data-i18n="set_grammar">Formes grammaticales (Español)</span>
+      <!-- Masqué si la langue courante n'a aucune forme (voir renderGrammarForms) -->
+      <label class="settings-row" id="grammar-toggle-row">
+        <span data-i18n="set_grammar">Formes grammaticales</span>
         <input type="checkbox" id="toggle-grammar" onchange="setGrammarEnabled(this.checked)">
       </label>
       <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
@@ -1352,7 +1362,7 @@
       <button class="btn-ghost" id="free-queue-exit" style="display:none;" onclick="exitFreeQueue()">✕ quitter la file</button>
     </div>
 
-    <!-- Slider nombre de formes grammaticales (Español uniquement) -->
+    <!-- Slider nombre de formes grammaticales (langue courante, si elle en a) -->
     <div class="slider-section" id="grammar-slider-section" style="display:none;">
       <div class="slider-header">
         <span class="slider-label" data-i18n="label_form_count">Nombre de formes</span>
@@ -1811,7 +1821,7 @@
       langpicker_note:  { en: `Choose the languages you want to study (at least one).`, fr: `Choisis les langues que tu veux étudier (au moins une).`, es: `Elige los idiomas que quieres estudiar (al menos uno).`, el: `Διάλεξε τις γλώσσες που θέλεις να μελετήσεις (τουλάχιστον μία).` },
       btn_confirm:      { en: `Confirm`, fr: `Valider`, es: `Confirmar`, el: `Επιβεβαίωση` },
       // — écran pratique (suit la langue pratiquée) —
-      set_grammar:      { en: `Grammar forms (Español)`, fr: `Formes grammaticales (Español)`, es: `Formas gramaticales (Español)`, el: `Γραμματικοί τύποι (Español)` },
+      set_grammar:      { en: `Grammar forms ({lang})`, fr: `Formes grammaticales ({lang})`, es: `Formas gramaticales ({lang})`, el: `Γραμματικοί τύποι ({lang})` },
       set_max_new:      { en: `New words / day (spaced)`, fr: `Nouveaux mots / jour (espacé)`, es: `Palabras nuevas / día (espaciada)`, el: `Νέες λέξεις / ημέρα (κατανεμημένη)` },
       mode_spaced:      { en: `📅<br>Spaced`, fr: `📅<br>Espacée`, es: `📅<br>Espaciada`, el: `📅<br>Κατανεμημένη` },
       mode_situation:   { en: `🎯<br>Situation`, fr: `🎯<br>Situation`, es: `🎯<br>Situación`, el: `🎯<br>Περίσταση` },
@@ -1875,6 +1885,9 @@
       fb_collapse:      { en: `⌃ Collapse all`, fr: `⌃ Tout replier`, es: `⌃ Plegar todo`, el: `⌃ Κλείσιμο όλων` },
       ctx_edit:         { en: `✏️ Edit`, fr: `✏️ Modifier`, es: `✏️ Editar`, el: `✏️ Επεξεργασία` },
       ctx_delete:       { en: `🗑 Delete`, fr: `🗑 Supprimer`, es: `🗑 Eliminar`, el: `🗑 Διαγραφή` },
+      ctx_move:         { en: `🔀 Change language`, fr: `🔀 Changer de langue`, es: `🔀 Cambiar de idioma`, el: `🔀 Αλλαγή γλώσσας` },
+      move_to:          { en: `Move to…`, fr: `Déplacer vers…`, es: `Mover a…`, el: `Μετακίνηση σε…` },
+      move_done:        { en: `✓ {n} word(s) moved`, fr: `✓ {n} mot(s) déplacé(s)`, es: `✓ {n} palabra(s) movida(s)`, el: `✓ {n} λέξη/-εις μετακινήθηκαν` },
       // — modale d'aide —
       help_title:       { en: `How it works`, fr: `Comment ça marche`, es: `Cómo funciona`, el: `Πώς λειτουργεί` },
       help_s1_t:        { en: `1 · Get started`, fr: `1 · Démarrer`, es: `1 · Empezar`, el: `1 · Ξεκίνημα` },
@@ -1925,8 +1938,14 @@
     function formsLabel(n) { return n === 1 ? tPrac('one_form') : `${n} ${tPrac('forms_suffix')}`; }
 
     function applyI18n(root, code) {
-      root.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = tr(el.dataset.i18n, code); });
-      root.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = tr(el.dataset.i18nPh, code); });
+      // `{lang}` = nom de la langue pratiquée (« Formes grammaticales (Français) »).
+      // Hors d'une langue (accueil), la parenthèse entière disparaît.
+      const langName = (LANGS.find(l => l.key === currentLang) || {}).name || '';
+      const sub = s => String(s)
+        .replace(/\s*\(\{lang\}\)/g, langName ? ` (${langName})` : '')
+        .replace(/\{lang\}/g, langName);
+      root.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = sub(tr(el.dataset.i18n, code)); });
+      root.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = sub(tr(el.dataset.i18nPh, code)); });
     }
     function setAppLang(code) {
       appLang = code;
@@ -1965,6 +1984,9 @@
     let _qcmChoices        = []; // scénarios du QCM en cours ({text, correct, explanation})
     let _qcmWordsOffer     = []; // mots disponibles pour QCM après un verdict ✗ multi-mots
     let _qcmStartedWords   = new Set(); // mots dont le QCM a déjà été lancé ce tour (1 seul QCM/mot)
+    // Spinner d'attente d'une boîte (verdict, définition, situation) : centré,
+    // remplacé par le texte dès le 1er chunk.
+    const SPINNER_BOX = '<div class="spinner-wrap"><span class="spinner"></span></div>';
     // Casse : on affiche et on envoie les mots en minuscules (le modèle gère la majuscule en début de phrase).
     const lc = s => (s == null ? '' : String(s).toLocaleLowerCase());
 
@@ -2019,8 +2041,17 @@
       return lines.length ? '\n\n' + lines.join('\n') : '';
     }
     let practiceMode       = 'spaced';
-    let grammarForms        = [];   // liste aplatie des formes grammaticales espagnoles
-    let grammarFormsEnabled = localStorage.getItem(KEY_GRAMMAR) !== 'false'; // true par défaut
+    let grammarForms        = [];   // liste aplatie des formes grammaticales de la langue courante
+    // Grammaire : réglages PAR LANGUE (clés suffixées `_<Langue>`). Repli sur
+    // l'ancienne clé globale, qui portait les réglages espagnols d'avant la
+    // généralisation multi-langue (août 2026).
+    const grammarEnabledFor = lang =>
+      (localStorage.getItem(KEY_GRAMMAR + '_' + lang) ?? localStorage.getItem(KEY_GRAMMAR)) !== 'false';
+    const grammarCountFor = lang =>
+      parseInt(localStorage.getItem(KEY_GRAMMAR_COUNT + '_' + lang))
+      || parseInt(localStorage.getItem(KEY_GRAMMAR_COUNT)) || 1;
+    // Valeur réelle fixée par `enterLang` (la langue n'est pas connue au chargement)
+    let grammarFormsEnabled = true;
     let jeNeSaisPasWord     = null; // mot en attente de confirmation "Je ne sais pas"
     let wordsHidden         = false;
     let sessionFirstResult = {}; // { word.toLowerCase(): true/false } — premier résultat de la session
@@ -2273,7 +2304,7 @@
     function onGrammarSliderChange(val) {
       const n = parseInt(val);
       document.getElementById('grammar-slider-value').textContent = formsLabel(n);
-      localStorage.setItem(KEY_GRAMMAR_COUNT, n.toString());
+      localStorage.setItem(KEY_GRAMMAR_COUNT + '_' + currentLang, n.toString());
       renderGrammarForms();
       saveSettingsToServer();
     }
@@ -2559,6 +2590,12 @@
       maxNewPerDay = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + lang)) || 60;
       document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
       document.getElementById('max-new-value').textContent = `${maxNewPerDay} ${tPrac('words_suffix')}`;
+      // Grammaire : réglages propres à la langue qu'on ouvre
+      grammarFormsEnabled = grammarEnabledFor(lang);
+      document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
+      const _langGC = grammarCountFor(lang);
+      document.getElementById('grammar-count-slider').value = _langGC;
+      document.getElementById('grammar-slider-value').textContent = formsLabel(_langGC);
       const langInfo = getLang();
       document.getElementById('lang-tag').textContent                  = `← ${langInfo.name}`;
       document.getElementById('qcm-question').textContent              = langInfo.qcmQuestion;
@@ -2566,9 +2603,9 @@
       resetPracticeUI();
       onSliderChange(wordCount());
       document.getElementById('word-count-label').textContent = tPrac('loading');
-      const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(lang), loadTodayTokens(), loadBlacklist(lang) ];
-      if (lang === 'Spanish') loadFns.push(loadGrammarForms());
-      else grammarForms = [];
+      // Les formes grammaticales existent pour n'importe laquelle des 4 langues
+      // (table `grammar_forms` par langue) — la section s'affiche s'il y en a.
+      const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(lang), loadTodayTokens(), loadBlacklist(lang), loadGrammarForms() ];
       await Promise.all(loadFns);
       pickWords();
       updateFreeSearchBar();
@@ -2825,7 +2862,7 @@
     }
     function reloadSettingsVars() {
       appLang             = localStorage.getItem(KEY_APP_LANG) || appLang;
-      grammarFormsEnabled = localStorage.getItem(KEY_GRAMMAR) !== 'false';
+      grammarFormsEnabled = grammarEnabledFor(currentLang);
       maxNewPerDay        = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + currentLang)) || 60;
       showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
       situationCounts     = localStorage.getItem(KEY_SITUATION_COUNTS) === 'true';
@@ -2858,7 +2895,7 @@
         : (currentLang ? parseInt(localStorage.getItem(KEY_WORD_COUNT + '_' + currentLang)) || 1 : 1);
       document.getElementById('word-count-slider').value = _savedWC;
       document.getElementById('slider-value').textContent = wordsLabel(_savedWC);
-      const _savedGC = parseInt(localStorage.getItem(KEY_GRAMMAR_COUNT)) || 1;
+      const _savedGC = grammarCountFor(currentLang);
       document.getElementById('grammar-count-slider').value = _savedGC;
       document.getElementById('grammar-slider-value').textContent = formsLabel(_savedGC);
     }
@@ -2972,7 +3009,7 @@
       // La réponse vision n'est pas streamée → boîte visible tout de suite avec un
       // spinner pendant l'attente (sinon rien ne se passe à l'écran)
       feedbackBox.classList.add('visible', 'image');
-      feedbackText.innerHTML = '<span class="spinner"></span>';
+      feedbackText.innerHTML = SPINNER_BOX;
       requestAnimationFrame(() => feedbackBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
       vocabBox.classList.remove('visible');
       vocabChips.innerHTML = '';
@@ -3524,7 +3561,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const zone = document.getElementById('grammar-forms-zone');
       const sliderSec = document.getElementById('grammar-slider-section');
       if (!zone) return;
-      const baseShow = grammarFormsEnabled && currentLang === 'Spanish' && grammarForms.length > 0
+      // Le réglage n'a de sens que si la langue courante a des formes
+      const toggleRow = document.getElementById('grammar-toggle-row');
+      if (toggleRow) toggleRow.style.display = grammarForms.length > 0 ? '' : 'none';
+      const baseShow = grammarFormsEnabled && grammarForms.length > 0
                     && practiceMode !== 'situation' && practiceMode !== 'image';
       if (sliderSec) sliderSec.style.display = baseShow ? '' : 'none';
       const show = baseShow && currentWords.length > 0;
@@ -3570,7 +3610,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
     function setGrammarEnabled(val) {
       grammarFormsEnabled = val;
-      localStorage.setItem(KEY_GRAMMAR, val ? 'true' : 'false');
+      localStorage.setItem(KEY_GRAMMAR + '_' + currentLang, val ? 'true' : 'false');
       renderGrammarForms();
       saveSettingsToServer();
     }
@@ -4073,7 +4113,7 @@ Respond entirely in ${langName}.`;
       try {
         // Spinner tant que le premier heading n'est pas arrivé (l'attente du 1er
         // token peut être longue avec un modèle de raisonnement)
-        hintTextEl.innerHTML = '<span class="spinner"></span>';
+        hintTextEl.innerHTML = SPINNER_BOX;
         hintBox.classList.add('visible');
 
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -4234,7 +4274,7 @@ Respond entirely in ${feedbackLang}.`;
       };
 
       try {
-        feedbackText.innerHTML = '<span class="spinner"></span>'; // visible jusqu'au 1er chunk
+        feedbackText.innerHTML = SPINNER_BOX; // visible jusqu'au 1er chunk
         feedbackBox.classList.add('visible');
         spacer.style.height  = '0';
         spacer.style.display = 'none';
@@ -4807,7 +4847,8 @@ Write all scenarios and explanations in ${langName}.`;
         ${sel ? `<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem;padding:0.4rem 0.6rem;background:var(--surface);border:1px solid var(--accent);border-radius:10px;">
           <strong>${tApp('selected_n').replace('{n}', sel)}</strong>
           <button class="btn-ghost" onclick="clearMotsSelection()">${tApp('cancel_lc')}</button>
-          <button class="btn-ghost" style="margin-left:auto;color:#e05a5a" onclick="deleteSelectedMots()">${tApp('btn_delete')}</button>
+          <button class="btn-ghost" style="margin-left:auto" onclick="moveSelectedMots(event)">🔀</button>
+          <button class="btn-ghost" style="color:#e05a5a" onclick="deleteSelectedMots()">${tApp('btn_delete')}</button>
         </div>` : ''}`;
     }
 
@@ -4841,6 +4882,7 @@ Write all scenarios and explanations in ${langName}.`;
             <span class="stars ${si.cls}" style="font-size:0.8rem">${si.str}</span>
             <span class="mot-date">${fmtMotDate(m.created_at)}</span>
             <button onclick="editMot('${m.lang}','${esc}')" title="${tApp('title_rename')}">✏️</button>
+            <button onclick="moveMot('${m.lang}','${esc}', event)" title="${tApp('ctx_move')}">🔀</button>
             <button onclick="deleteMot('${m.lang}','${esc}')" title="${tApp('title_delete')}">🗑</button>
           </span>
         </div>`;
@@ -4875,6 +4917,54 @@ Write all scenarios and explanations in ${langName}.`;
         sortMots();
         renderMots();
       } catch (e) { alert('Erreur : ' + e.message); }
+    }
+
+    // Transfert d'un mot vers une autre langue (mes mots) : popup de choix,
+    // puis mise à jour locale — le mot change de langue, pas de ligne perdue.
+    function moveMot(lang, word, ev) {
+      openLangMenu(ev, lc(word), lang, async target => {
+        if (!await moveWordToLang(word, lang, target)) return;
+        const m = motsData.find(x => x.lang === lang && x.word === word);
+        if (m) m.lang = target;
+        const oldKey = lang + '|' + word;
+        if (motsSelected.delete(oldKey)) motsSelected.add(target + '|' + word);
+        const st = motsStars[lang + '|' + word.toLowerCase()];
+        if (st !== undefined) { motsStars[target + '|' + word.toLowerCase()] = st; delete motsStars[lang + '|' + word.toLowerCase()]; }
+        renderMotsFilters();
+        renderMots();
+        // Pas besoin de toucher au pool de pratique : on ne revient en pratique
+        // que par la grille des langues, qui repasse par selectLanguage().
+      });
+    }
+
+    // Transfert groupé : la sélection peut mélanger les langues ; chaque mot est
+    // déplacé depuis SA langue d'origine. Les échecs (collision) sont comptés.
+    function moveSelectedMots(ev) {
+      if (!motsSelected.size) return;
+      openLangMenu(ev, tApp('move_to'), null, async target => {
+        const items = [...motsSelected].map(k => { const i = k.indexOf('|'); return { lang: k.slice(0, i), word: k.slice(i + 1) }; });
+        let ok = 0, failed = [];
+        for (const it of items) {
+          if (it.lang === target) continue; // déjà dans la langue cible
+          const r = await authFetch('/api/words', {
+            method: 'PUT',
+            body: JSON.stringify({ lang: it.lang, oldWord: it.word, newWord: it.word, newLang: target })
+          }).then(res => res.json().then(d => ({ ok: res.ok, d }))).catch(e => ({ ok: false, d: { error: { message: e.message } } }));
+          if (r.ok) {
+            ok++;
+            const m = motsData.find(x => x.lang === it.lang && x.word === it.word);
+            if (m) m.lang = target;
+            const st = motsStars[it.lang + '|' + it.word.toLowerCase()];
+            if (st !== undefined) { motsStars[target + '|' + it.word.toLowerCase()] = st; delete motsStars[it.lang + '|' + it.word.toLowerCase()]; }
+          } else {
+            failed.push(`${it.word} — ${r.d.error?.message || 'erreur'}`);
+          }
+        }
+        motsSelected.clear();
+        renderMotsFilters();
+        renderMots();
+        if (failed.length) alert(tApp('move_done').replace('{n}', ok) + '\n\n' + failed.join('\n'));
+      });
     }
 
     async function deleteMot(lang, word) {
@@ -5304,7 +5394,7 @@ Write all scenarios and explanations in ${langName}.`;
       const sitBox  = document.getElementById('situation-box');
       const sitText = document.getElementById('situation-text');
       sitBox.style.display = 'block';
-      sitText.innerHTML = '<span class="spinner"></span>';
+      sitText.innerHTML = SPINNER_BOX;
       document.getElementById('situation-answer-section').style.display = 'none';
 
       // Amène le spinner à l'écran pendant l'attente de l'API
@@ -5420,7 +5510,7 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
       try {
         const fb      = document.getElementById('situation-feedback-box');
         const fbText  = document.getElementById('situation-feedback-text');
-        fbText.innerHTML = '<span class="spinner"></span>'; // visible jusqu'au 1er chunk
+        fbText.innerHTML = SPINNER_BOX; // visible jusqu'au 1er chunk
         fb.classList.add('visible');
 
         // Autoscroll : suit le verdict pendant la génération (comme la vérification des autres modes)
@@ -5942,10 +6032,9 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     }
 
     // ── Menu contextuel mot (right-click / long press) ────────
-    function showWordContextMenu(word, x, y) {
-      _ctxWord = word;
+    // Affiche le menu (déjà rempli) en le gardant dans la fenêtre
+    function positionCtxMenu(x, y) {
       const menu = document.getElementById('word-ctx-menu');
-      document.getElementById('word-ctx-label').textContent = lc(word);
       menu.style.left = '-9999px';
       menu.style.top  = '-9999px';
       menu.classList.add('visible');
@@ -5953,6 +6042,13 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       const mH = menu.offsetHeight;
       menu.style.left = Math.max(8, Math.min(x, window.innerWidth  - mW - 8)) + 'px';
       menu.style.top  = Math.max(8, Math.min(y, window.innerHeight - mH - 8)) + 'px';
+    }
+
+    function showWordContextMenu(word, x, y) {
+      _ctxWord = word;
+      document.getElementById('word-ctx-label').textContent = lc(word);
+      ctxMenuBack(); // toujours au premier niveau
+      positionCtxMenu(x, y);
     }
 
     // Ouvre le menu (Modifier / Supprimer) près du bouton ⋯ cliqué
@@ -5965,7 +6061,81 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     function closeWordContextMenu() {
       _ctxWord         = null;
       _justLongPressed = false;
+      _langMenuPick    = null;
       document.getElementById('word-ctx-menu').classList.remove('visible');
+      ctxMenuBack(); // le menu se rouvre toujours sur le premier niveau
+    }
+
+    // ── Popup « choisir une langue » (réutilise #word-ctx-menu) ──
+    // Utilisé par « mes mots » (bouton 🔀 d'une ligne, action groupée) ;
+    // la carte de pratique passe par ctxMenuMove, son menu étant déjà ouvert.
+    let _langMenuPick = null;
+    function openLangMenu(ev, label, excludeLang, onPick) {
+      ev.stopPropagation(); // sinon le listener global referme aussitôt
+      _ctxWord      = null;
+      _langMenuPick = onPick;
+      document.getElementById('word-ctx-label').textContent = label;
+      document.getElementById('ctx-langs').innerHTML =
+        selectedLangs.filter(k => k !== excludeLang).map(k => {
+          const info = LANGS.find(l => l.key === k);
+          return `<button class="ctx-menu-btn" onclick="pickLangMenu('${k}')">${info.flag} ${info.name}</button>`;
+        }).join('') + `<button class="ctx-menu-btn" onclick="closeWordContextMenu()">${tApp('btn_cancel')}</button>`;
+      document.getElementById('ctx-main').style.display  = 'none';
+      document.getElementById('ctx-langs').style.display = '';
+      const r = ev.currentTarget.getBoundingClientRect();
+      positionCtxMenu(r.right - 4, r.bottom + 4);
+    }
+
+    function pickLangMenu(lang) {
+      const cb = _langMenuPick;
+      closeWordContextMenu();
+      if (cb) cb(lang);
+    }
+
+    // Sous-menu « changer de langue » : les langues choisies, sauf la courante
+    function ctxMenuMove() {
+      const box = document.getElementById('ctx-langs');
+      const others = selectedLangs.filter(k => k !== currentLang);
+      box.innerHTML = others.map(k => {
+        const info = LANGS.find(l => l.key === k);
+        return `<button class="ctx-menu-btn" onclick="ctxMoveTo('${k}')">${info.flag} ${info.name}</button>`;
+      }).join('') + `<button class="ctx-menu-btn" onclick="ctxMenuBack()">${tPrac('btn_cancel')}</button>`;
+      document.getElementById('ctx-main').style.display = 'none';
+      box.style.display = '';
+    }
+
+    function ctxMenuBack() {
+      const main = document.getElementById('ctx-main');
+      const box  = document.getElementById('ctx-langs');
+      if (main) main.style.display = '';
+      if (box)  { box.style.display = 'none'; box.innerHTML = ''; }
+    }
+
+    async function ctxMoveTo(lang) {
+      const word = _ctxWord;
+      closeWordContextMenu();
+      if (!word) return;
+      if (await moveWordToLang(word, currentLang, lang)) {
+        // Le mot n'appartient plus à la langue pratiquée → il quitte la session
+        await removeWordFromSession(word);
+      }
+    }
+
+    // Transfert d'un mot vers une autre langue (progression + historique suivent).
+    // Renvoie true si le serveur a accepté.
+    async function moveWordToLang(word, fromLang, toLang) {
+      try {
+        const r = await authFetch('/api/words', {
+          method: 'PUT',
+          body: JSON.stringify({ lang: fromLang, oldWord: word, newWord: word, newLang: toLang })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error?.message || 'erreur');
+        return true;
+      } catch (e) {
+        alert('Erreur : ' + e.message);
+        return false;
+      }
     }
 
     function ctxMenuEdit() {
@@ -5991,55 +6161,60 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     });
 
     async function deleteWordFromSheets(word) {
-      const wordLow = word.toLowerCase();
       try {
         // Supprime le mot (et sa progression) côté D1
         await authFetch('/api/words', { method: 'DELETE', body: JSON.stringify({ lang: currentLang, word }) });
-
-        // Mettre à jour l'état en mémoire
-        allWords          = allWords.filter(w => w.toLowerCase() !== wordLow);
-        delete progressMap[wordLow];
-        Object.keys(definitionCache).forEach(k => { if (k.startsWith(wordLow + '|')) delete definitionCache[k]; });
-        currentWords      = currentWords.filter(w => w.toLowerCase() !== wordLow);
-        previousWordsPool = previousWordsPool.filter(w => w.toLowerCase() !== wordLow);
-
-        // Piocher un remplaçant pour maintenir le nombre de mots (même logique que onSliderChange)
-        if (allWords.length > 0 && currentWords.length > 0) {
-          let eligible = null;
-          if (practiceMode === 'spaced') {
-            const trulyDue = allWords.filter(w => {
-              const prog = progressMap[w.toLowerCase()];
-              return prog && prog.nextReview && isDue(w);
-            });
-            const neverPracticed = allWords.filter(w => isNewWord(w));
-            const newToShow = neverPracticed.slice(0, Math.max(0, maxNewPerDay - todayNewCount));
-            eligible = new Set([...trulyDue, ...newToShow]);
-          }
-          const nextFromPool = previousWordsPool.find(w =>
-            !currentWords.includes(w) && (!eligible || eligible.has(w))
-          );
-          if (nextFromPool) {
-            currentWords.push(nextFromPool);
-          } else if (eligible) {
-            const candidates = [...eligible].filter(w => !currentWords.includes(w));
-            if (candidates.length > 0) {
-              const newWord = candidates[Math.floor(Math.random() * candidates.length)];
-              currentWords.push(newWord);
-              previousWordsPool.push(newWord);
-            }
-          } else {
-            const newWord = pickWeightedOne(currentWords);
-            if (newWord) { currentWords.push(newWord); previousWordsPool.push(newWord); }
-          }
-        }
-
-        if (currentWords.length === 0) {
-          await nextWord();
-        } else {
-          renderWordDisplay();
-        }
+        await removeWordFromSession(word);
       } catch (e) {
         alert(`Erreur suppression : ${e.message}`);
+      }
+    }
+
+    // Le mot quitte la langue courante (supprimé ou transféré ailleurs) : on le
+    // retire de l'état en mémoire et on pioche un remplaçant pour garder le
+    // nombre de cartes demandé par le slider.
+    async function removeWordFromSession(word) {
+      const wordLow = word.toLowerCase();
+      allWords          = allWords.filter(w => w.toLowerCase() !== wordLow);
+      delete progressMap[wordLow];
+      Object.keys(definitionCache).forEach(k => { if (k.startsWith(wordLow + '|')) delete definitionCache[k]; });
+      currentWords      = currentWords.filter(w => w.toLowerCase() !== wordLow);
+      previousWordsPool = previousWordsPool.filter(w => w.toLowerCase() !== wordLow);
+
+      // Piocher un remplaçant pour maintenir le nombre de mots (même logique que onSliderChange)
+      if (allWords.length > 0 && currentWords.length > 0) {
+        let eligible = null;
+        if (practiceMode === 'spaced') {
+          const trulyDue = allWords.filter(w => {
+            const prog = progressMap[w.toLowerCase()];
+            return prog && prog.nextReview && isDue(w);
+          });
+          const neverPracticed = allWords.filter(w => isNewWord(w));
+          const newToShow = neverPracticed.slice(0, Math.max(0, maxNewPerDay - todayNewCount));
+          eligible = new Set([...trulyDue, ...newToShow]);
+        }
+        const nextFromPool = previousWordsPool.find(w =>
+          !currentWords.includes(w) && (!eligible || eligible.has(w))
+        );
+        if (nextFromPool) {
+          currentWords.push(nextFromPool);
+        } else if (eligible) {
+          const candidates = [...eligible].filter(w => !currentWords.includes(w));
+          if (candidates.length > 0) {
+            const newWord = candidates[Math.floor(Math.random() * candidates.length)];
+            currentWords.push(newWord);
+            previousWordsPool.push(newWord);
+          }
+        } else {
+          const newWord = pickWeightedOne(currentWords);
+          if (newWord) { currentWords.push(newWord); previousWordsPool.push(newWord); }
+        }
+      }
+
+      if (currentWords.length === 0) {
+        await nextWord();
+      } else {
+        renderWordDisplay();
       }
     }
 
@@ -6202,9 +6377,14 @@ Return ONLY a JSON array of exactly 3 items, no other text:
 
   <div id="word-ctx-menu">
     <div class="ctx-word-label" id="word-ctx-label"></div>
-    <button class="ctx-menu-btn" onclick="ctxMenuEdit()" data-i18n="ctx_edit">✏️ Modifier</button>
-    <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()" data-i18n="ctx_delete">🗑 Supprimer</button>
-    <button class="ctx-menu-btn" onclick="closeWordContextMenu()" data-i18n="btn_cancel">Annuler</button>
+    <div id="ctx-main">
+      <button class="ctx-menu-btn" onclick="ctxMenuEdit()" data-i18n="ctx_edit">✏️ Modifier</button>
+      <button class="ctx-menu-btn" onclick="ctxMenuMove()" data-i18n="ctx_move">🔀 Changer de langue</button>
+      <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()" data-i18n="ctx_delete">🗑 Supprimer</button>
+      <button class="ctx-menu-btn" onclick="closeWordContextMenu()" data-i18n="btn_cancel">Annuler</button>
+    </div>
+    <!-- Sous-menu « changer de langue » (rempli par ctxMenuMove) -->
+    <div id="ctx-langs" style="display:none"></div>
   </div>
 </body>
 </html>
