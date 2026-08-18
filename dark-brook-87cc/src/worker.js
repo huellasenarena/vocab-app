@@ -744,19 +744,28 @@ export default {
           return json({ ok: true, deleted: stmts.length / 2 });
         }
         if (request.method === 'PUT') {
-          const { lang, oldWord, newWord } = await request.json();
-          const nw = (newWord || '').trim().replace(/\s+/g, ' ');
+          // Renommage (`newWord`) et/ou transfert de langue (`newLang`) — la
+          // progression, l'historique et les étoiles suivent le mot.
+          const { lang, oldWord, newWord, newLang } = await request.json();
+          const nw = (newWord || oldWord || '').trim().replace(/\s+/g, ' ');
+          const nl = (newLang || lang || '').trim();
           if (!lang || !oldWord || !nw) return json({ error: { message: 'lang, oldWord, newWord requis' } }, 400);
+          if (newLang && !ADD_LANGS.includes(nl)) return json({ error: { message: 'langue cible inconnue' } }, 400);
+          if (nw === oldWord && nl === lang) return json({ ok: true, unchanged: true });
           // Même règle qu'à l'ajout, sans normaliser la casse (renommage manuel)
           try { assertParens(nw); }
           catch (e) { return json({ error: { message: e.message } }, 400); }
           if (splitEntry(nw).note.length > NOTE_MAX) return json({ error: { message: `la note entre parenthèses est trop longue (max ${NOTE_MAX} caractères).` } }, 400);
-          const exists = await env.DB.prepare('SELECT 1 FROM words WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, lang, nw).first();
-          if (exists) return json({ error: { message: 'ce mot existe déjà' } }, 409);
+          const exists = await env.DB.prepare('SELECT 1 FROM words WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, nl, nw).first();
+          if (exists) return json({ error: { message: nl === lang ? 'ce mot existe déjà' : `ce mot existe déjà en ${nl}` } }, 409);
           await env.DB.batch([
-            env.DB.prepare('UPDATE words SET word = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, auth.uid, lang, oldWord),
-            env.DB.prepare('UPDATE progress SET word = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, auth.uid, lang, oldWord),
-            env.DB.prepare('UPDATE history SET word = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, auth.uid, lang, oldWord)
+            // `progress` a la PK (user_id, language, word) : une ligne cible ne peut
+            // être qu'orpheline ici (le mot n'existe pas dans `words`, vérifié
+            // ci-dessus) — on la retire pour ne pas violer la contrainte.
+            env.DB.prepare('DELETE FROM progress WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, nl, nw),
+            env.DB.prepare('UPDATE words SET word = ?, language = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, nl, auth.uid, lang, oldWord),
+            env.DB.prepare('UPDATE progress SET word = ?, language = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, nl, auth.uid, lang, oldWord),
+            env.DB.prepare('UPDATE history SET word = ?, language = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, nl, auth.uid, lang, oldWord)
           ]);
           return json({ ok: true });
         }
