@@ -124,7 +124,7 @@ async function callScriptLLM(prompt, maxTokens, env) {
   return null;
 }
 
-// Appel LLM raisonnement (gpt-5.4 via Responses API), pour les jugements fins
+// Appel LLM raisonnement (gpt-5.6-terra via Responses API), pour les jugements fins
 // (similarité). `env.OPENAI_API_KEY_SCRIPT` = clé propriétaire OU clé appelant
 // (aiEnv). max_output_tokens compte reasoning + texte → budget large requis.
 async function callScriptReasoning(prompt, maxOutputTokens, env, effort = 'low') {
@@ -136,7 +136,7 @@ async function callScriptReasoning(prompt, maxOutputTokens, env, effort = 'low')
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.OPENAI_API_KEY_SCRIPT}` },
         body: JSON.stringify({
-          model: 'gpt-5.4',
+          model: 'gpt-5.6-terra',
           input: [{ role: 'user', content: prompt }],
           max_output_tokens: maxOutputTokens,
           ...(effort !== 'none' && { reasoning: { effort } })
@@ -160,7 +160,7 @@ async function callScriptReasoning(prompt, maxOutputTokens, env, effort = 'low')
   return null;
 }
 
-// Similarité groupée (1 appel gpt-5.4 pour N mots) — utilisée par l'import Kindle.
+// Similarité groupée (1 appel gpt-5.6-terra pour N mots) — utilisée par l'import Kindle.
 // items = [{ word, candidates: [...] }] ; renvoie un Set de mots à IGNORER (flexions).
 async function judgeSimilarBatch(items, langName, env) {
   if (!items.length) return {};
@@ -694,7 +694,7 @@ export default {
           if (candidates.length) items.push({ word: w, candidates });
         }
 
-        // Découpe en lots de 40 → 1 appel gpt-5.4 chacun
+        // Découpe en lots de 40 → 1 appel gpt-5.6-terra chacun
         const skip = {};
         for (let i = 0; i < items.length; i += 40) {
           const chunk = items.slice(i, i + 40);

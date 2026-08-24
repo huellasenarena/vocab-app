@@ -338,18 +338,41 @@
       flex-wrap: wrap;
       gap: 0.5rem;
     }
+    /* Carte (et non pilule) : la note peut être longue — `min-width:0` + wrap
+       garantissent qu'elle passe à la ligne au lieu de pousser la carte hors
+       de la boîte (le ＋ finissait sur le bord de l'écran). */
     .related-chip {
       display: flex;
-      align-items: center;
-      gap: 0.4rem;
+      flex-direction: column;
+      gap: 0.25rem;
+      flex: 1 1 240px;
+      min-width: 0;
+      max-width: 100%;
       background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 0.3rem 0.75rem;
+      border-radius: 12px;
+      padding: 0.5rem 0.75rem;
       font-size: 0.88rem;
       color: var(--text);
+      overflow-wrap: anywhere;
+    }
+    .related-chip .rel-head {
+      display: flex;
+      align-items: baseline;
+      gap: 0.4rem;
+      min-width: 0;
+    }
+    .related-chip .rel-word { min-width: 0; }
+    .related-chip .rel-from {
+      color: var(--accent); font-size: 0.72rem;
+      font-family: 'DM Mono', monospace; opacity: 0.75;
+    }
+    .related-chip .rel-note {
+      color: var(--muted); font-size: 0.78rem; font-style: italic; min-width: 0;
     }
     .related-chip .chip-add {
+      margin-left: auto;
+      align-self: baseline;
       background: transparent;
       border: none;
       color: var(--accent);
@@ -1241,10 +1264,10 @@
         <span data-i18n="set_model">Modèle IA</span>
         <select id="model-select" onchange="setModel(this.value)"
           style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
-          <option value="gpt4">GPT-5.4</option>
+          <option value="gpt4">GPT-5.6 Terra</option>
           <option value="gemma">Gemma 4 31B</option>
-          <option value="geminiflashlite">Gemini 3.1 Flash Lite</option>
-          <option value="geminiflash">Gemini 3 Flash</option>
+          <option value="geminiflashlite">Gemini 3.5 Flash Lite</option>
+          <option value="geminiflash">Gemini 3.7 Flash</option>
         </select>
       </div>
       <div class="settings-row" style="cursor:default;">
@@ -1353,7 +1376,7 @@
         <span class="slider-value" id="slider-value">1 mot</span>
       </div>
       <input type="range" id="word-count-slider" min="1" max="30" value="1"
-        oninput="onSliderChange(this.value)" />
+        oninput="onSliderPreview(this.value)" onchange="onSliderChange(this.value)" />
     </div>
 
     <!-- Recherche d'un mot précis (mode libre uniquement) -->
@@ -1639,7 +1662,7 @@
     const API_ENDPOINT  = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
       ? 'http://localhost:8787'
       : 'https://dark-brook-87cc.georg-dreym.workers.dev';
-    const MISTRAL_MODEL = "gpt-5.4";
+    const MISTRAL_MODEL = "gpt-5.6-terra";
     // Client ID OAuth Google (public, pas un secret) — ⚠️ remplace par ton Client ID
     const GOOGLE_CLIENT_ID = "742808037031-fvn2quk75f541mtn5b9vlv9merkhie41.apps.googleusercontent.com";
 
@@ -1671,8 +1694,8 @@
     const SESSION_LANG_COLS    = { English: 1, Spanish: 2, French: 3, Greek: 4 }; // index dans la ligne [Date, En, Es, Fr, Gr]
     const KEY_GRAMMAR_COUNT    = "vocab_grammar_count";
     const KEY_LANGUAGES        = "vocab_languages"; // langues choisies par l'utilisateur (synced)
-    const GEMINI_MODEL_IDS = { gemma: 'gemma-4-31b-it', geminiflash: 'gemini-3-flash-preview', geminiflashlite: 'gemini-3.1-flash-lite-preview' };
-    const DAILY_LIMITS = { gpt4: 250000, gemma: 1500, geminiflash: 20, geminiflashlite: 500 };
+    const GEMINI_MODEL_IDS = { gemma: 'gemma-4-31b-it', geminiflash: 'gemini-3.7-flash', geminiflashlite: 'gemini-3.5-flash-lite' };
+    const DAILY_LIMITS = { gpt4: 250000, gemma: 14400, geminiflash: 20, geminiflashlite: 500 };
     const BLACKLIST_COLS   = { English: 'A', Spanish: 'B', French: 'C', Greek: 'D' };
 
     const LANGS = [
@@ -2499,6 +2522,13 @@
 
     // ── Proxy Sheets via Cloudflare Worker (service account) ──
     // ── Slider ────────────────────────────────────────────────
+    // Retour visuel pendant le geste : rien d'autre que le libellé. `onSliderChange`
+    // (tirage pondéré + re-render) tourne sur `change`, c.-à-d. au relâchement —
+    // sinon, sur une grande liste, iOS sature et le curseur ne suit plus le doigt.
+    function onSliderPreview(val) {
+      document.getElementById('slider-value').textContent = wordsLabel(parseInt(val));
+    }
+
     function onSliderChange(val) {
       const n        = parseInt(val);
       const langInfo = getLang();
@@ -2931,8 +2961,8 @@
       const sel = document.getElementById('reasoning-select');
       if (!lbl || !sel) return;
       if (currentModel === 'gpt4') {
-        lbl.textContent = 'GPT-5.4 — raisonnement';
-        sel.innerHTML = '<option value="none">none</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option>';
+        lbl.textContent = 'GPT-5.6 — raisonnement';
+        sel.innerHTML = '<option value="none">none</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option><option value="xhigh">xhigh</option><option value="max">max</option>';
         sel.value = gptEffort;
       } else if (currentModel === 'gemma') {
         lbl.textContent = 'Gemma 4 — thinking';
@@ -3032,7 +3062,7 @@ Numbered list of confirmed errors only (grammar, vocabulary, register, naturalne
 
 ## Vocabulario sugerido
 A JSON array of 3–5 Spanish words or expressions directly useful for describing this type of image (no other text on this line or after):
-[{"word": "...", "note": "breve explicación en español"}]`;
+[{"word": "...", "note": "una sola cláusula en español, 12 palabras como máximo"}]`;
 
       try {
         const result = await callAIVision(currentPhotoUrl, prompt, isGemini() ? 1200 : 16000);
@@ -3056,9 +3086,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
               vocabBox.classList.add('visible');
               vocabChips.innerHTML = newVocab.map((v, i) =>
                 `<div class="related-chip">
-                  <span>${v.word}</span>
-                  <span style="color:var(--muted);font-size:0.78rem;font-style:italic"> — ${v.note}</span>
-                  <button class="chip-add" id="img-chip-add-${i}" onclick="addImageVocabWord('${v.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">＋</button>
+                  <div class="rel-head">
+                    <span class="rel-word">${v.word}</span>
+                    <button class="chip-add" id="img-chip-add-${i}" onclick="addImageVocabWord('${v.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">＋</button>
+                  </div>
+                  <span class="rel-note">${v.note}</span>
                 </div>`
               ).join('');
             }
@@ -3276,17 +3308,23 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       return 5;
     }
 
+    // Échantillonnage pondéré par réservoir : un seul passage, aucune allocation.
+    // (Avant : filter + map + reduce sur toute la liste à chaque appel — avec
+    //  quelques milliers de mots, le mode libre bloquait le thread principal.)
     function pickWeightedOne(exclude = [], pool = null) {
-      const source = (pool || allWords).filter(w => !exclude.includes(w));
-      if (source.length === 0) return (pool || allWords)[Math.floor(Math.random() * (pool || allWords).length)];
-      const weights = source.map(w => getWeight(w));
-      const total   = weights.reduce((a, b) => a + b, 0);
-      let rand      = Math.random() * total;
+      const source = pool || allWords;
+      const skip   = exclude.length ? new Set(exclude) : null;
+      let total = 0, chosen = null;
       for (let i = 0; i < source.length; i++) {
-        rand -= weights[i];
-        if (rand <= 0) return source[i];
+        const w = source[i];
+        if (skip && skip.has(w)) continue;
+        const weight = getWeight(w);
+        total += weight;
+        // P(garder w) = weight / total courant → à la fin, P(w) = weight / total
+        if (Math.random() * total < weight) chosen = w;
       }
-      return source[source.length - 1];
+      // Tout est exclu : on retombe sur un mot quelconque du pool
+      return chosen !== null ? chosen : source[Math.floor(Math.random() * source.length)];
     }
 
     // ── Recherche d'un mot à pratiquer (mode libre) ───────────
@@ -4244,6 +4282,8 @@ CRITICAL FILTER RULE: If your own explanation contains phrases like "es correcto
 
 B2-STEP 3 — For each confirmed error from Step 2, explain what is wrong and what would be correct.
 
+CRITICAL: If the learner used a wrong inflection of a target entry (e.g. "da a luz" where the syntax requires "dieran a luz"), this IS a confirmed grammar error — report it here. It must NEVER change the verdict: BLOC 1 judges meaning and usage only.
+
 B2-STEP 4 — Write a rich, natural, exam-level version of the learner's text.
 
 ════════════════════════════════
@@ -4259,7 +4299,17 @@ ${currentWords.map(w => `- "${lc(promptLabel(w, currentWords))}": ✓ or ✗ —
 
 Then a blank line, then a section with a ## markdown heading in ${langName} for the linguistic analysis (e.g. "## Analyse linguistique" in French, "## Análisis lingüístico" in Spanish, "## Γλωσσική ανάλυση" in Greek, "## Linguistic analysis" in English), followed by a numbered list of confirmed errors from B2-STEP 2 only. Each item must cover exactly one error. The bold label must name that specific error — never a preliminary observation that is then contradicted. If none, write the equivalent of "No errors detected" in ${langName}.
 
-If and only if the global verdict is ✓: then a blank line, then a section with a ## markdown heading in ${langName} for an improved version (e.g. "## Version enrichie" in French, "## Versión mejorada" in Spanish), followed by the improved sentence. The improved version MUST use the exact target word(s) as given in the vocabulary list — never replace archaic, literary, or dialectal forms with modern equivalents (e.g. if the target word is "e'en", the improved version must contain "e'en", not "even"). The improved version must be a genuinely enriched, exam-level rewrite: improve the vocabulary, structure, register, and style. Do not merely fix mechanical errors — transform the sentence into something a proficient, educated speaker would naturally write. Write the improved sentence in italics (surrounded by * on each side). If the global verdict is ✗, do not output an improved version section at all.
+If and only if the global verdict is ✓: then a blank line, then a section with a ## markdown heading in ${langName} for an improved version (e.g. "## Version enrichie" in French, "## Versión mejorada" in Spanish), followed by the improved text in italics (surrounded by * on each side). If the global verdict is ✗, do not output an improved version section at all.
+
+The improved version must be a genuinely enriched, exam-level rewrite: improve the vocabulary, structure, register and style. Do not merely fix mechanical errors — transform the text into something a proficient, educated speaker would naturally write.
+
+RULES ON THE TARGET ENTRIES — these apply to EVERY target entry, whether there is one or several:
+1. COMPLETENESS — every target entry must appear in the improved version. Never drop one.
+2. LEXICAL IDENTITY IS FIXED — never replace an entry with a synonym, a paraphrase or a modern equivalent. Archaic, literary, dialectal and regional forms are kept as such: if the entry is "e'en", write "e'en", not "even".
+3. GRAMMAR IS FREE — you MUST inflect the entry so that it fits the sentence: conjugation, tense, mood, person, number, gender, agreement, clitic pronouns, contractions, and the determiner the syntax calls for. E.g. entry "dar a luz" → "para que dieran a luz"; entry "hacer el oso" → "hizo el oso".
+4. ONLY THE LEXICAL CORE IS MANDATORY — an entry may carry grammatical words the learner wrote around the expression (an article, a possessive, a support noun). Drop or replace them when the syntax requires it. Never produce a sequence that no native speaker would write, such as "como cualquier un candidato".
+5. GRAMMATICALITY WINS — never paste an entry as a raw block. If it cannot fit as written, restructure the sentence around it. An improved version that is ungrammatical is a failure, even if every target entry is present verbatim.
+6. NOTES ARE NOT TEXT — never write a learner's note (the parenthesis) inside the sentence.
 
 Respond entirely in ${feedbackLang}.`;
 
@@ -5633,7 +5683,7 @@ Suggest 3 semantically related words or expressions in ${langName} that belong t
 
 Return ONLY a JSON array, no other text:
 [
-  {"word": "...", "note": "brief explanation of the relationship in ${langName}"},
+  {"word": "...", "note": "the relationship, in ${langName}, one clause, 12 words maximum"},
   {"word": "...", "note": "..."},
   {"word": "...", "note": "..."}
 ]`
@@ -5643,7 +5693,7 @@ Find the 3 most useful and commonly encountered related words or expressions in 
 
 Return ONLY a JSON array of exactly 3 items, no other text:
 [
-  {"word": "...", "note": "brief explanation in ${langName}", "relatedTo": "the practiced word this is linked to"},
+  {"word": "...", "note": "one clause in ${langName}, 12 words maximum", "relatedTo": "the practiced word this is linked to"},
   {"word": "...", "note": "...", "relatedTo": "..."},
   {"word": "...", "note": "...", "relatedTo": "..."}
 ]`;
@@ -5670,10 +5720,12 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         } else {
           chips.innerHTML = newRelated.map((r, i) =>
             `<div class="related-chip">
-              <span>${r.word}</span>
-              ${r.relatedTo ? `<span style="color:var(--accent);font-size:0.72rem;font-family:'DM Mono',monospace;opacity:0.75;margin-left:0.25rem">↖ ${r.relatedTo}</span>` : ''}
-              <span style="color:var(--muted);font-size:0.78rem;font-style:italic"> — ${r.note}</span>
-              <button class="chip-add" id="chip-add-${i}" onclick="addRelatedWord('${r.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">＋</button>
+              <div class="rel-head">
+                <span class="rel-word">${r.word}</span>
+                ${r.relatedTo ? `<span class="rel-from">↖ ${r.relatedTo}</span>` : ''}
+                <button class="chip-add" id="chip-add-${i}" onclick="addRelatedWord('${r.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">＋</button>
+              </div>
+              <span class="rel-note">${r.note}</span>
             </div>`
           ).join('');
         }
@@ -5916,6 +5968,10 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       return fullText.trim();
     }
 
+    // `max_output_tokens` couvre raisonnement + texte. Aux niveaux xhigh/max le
+    // raisonnement peut avaler tout le budget et renvoyer un texte vide → on double.
+    function gptMaxTokens(n) { return (gptEffort === 'xhigh' || gptEffort === 'max') ? n * 2 : n; }
+
     // ── Appel Mistral (non-streaming, pour QCM et situations) ─
     async function callMistral(prompt, maxTokens = 2000) {
       const controller = new AbortController();
@@ -5924,7 +5980,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         const res = await fetch(`${API_ENDPOINT}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-OpenAI-Key': openaiKey },
-          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } }) }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: gptMaxTokens(maxTokens), ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } }) }),
           signal: controller.signal
         });
         const data = await res.json();
@@ -5956,7 +6012,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
               { type: 'input_text', text: prompt },
               { type: 'input_image', image_url: imageUrl }
             ]}],
-            max_output_tokens: maxTokens,
+            max_output_tokens: gptMaxTokens(maxTokens),
             ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } })
           }),
           signal: controller.signal
@@ -5987,7 +6043,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         res = await fetch(`${API_ENDPOINT}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-OpenAI-Key': openaiKey },
-          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } }), stream: true }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: gptMaxTokens(maxTokens), ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } }), stream: true }),
           signal: controller.signal
         });
       } catch (err) {
