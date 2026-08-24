@@ -7,7 +7,7 @@ App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **C
 - Push sur `main` → GitHub Actions déploie sur `gh-pages` (~1 min). **Ne jamais éditer `gh-pages`.** Le `cname: byov.net` est dans `deploy.yml` (sinon le CNAME serait écrasé à chaque déploiement).
 - Le Worker (`dark-brook-87cc/`) est **versionné dans le repo** (peut être commité).
 
-> **Historique** : avant juin 2026, l'app était mono-utilisateur (backend Google Sheets, secret `WORKER_SECRET` en dur dans le HTML). Migrée en multi-utilisateur (D1 + auth + BYOK), déployée le 2026-06-07. Grosse vague d'améliorations UX/features les 2026-06-13/14 (voir mémoire `project_changes_june2026`). Voir aussi `project_generalization` pour les phases de migration. **2026-08-18** : notes entre parenthèses (expressions) + réparation des 28 entrées dont la note avait été rognée ; grammaire ouverte aux 4 langues ; transfert d'un mot d'une langue à l'autre.
+> **Historique** : avant juin 2026, l'app était mono-utilisateur (backend Google Sheets, secret `WORKER_SECRET` en dur dans le HTML). Migrée en multi-utilisateur (D1 + auth + BYOK), déployée le 2026-06-07. Grosse vague d'améliorations UX/features les 2026-06-13/14 (voir mémoire `project_changes_june2026`). Voir aussi `project_generalization` pour les phases de migration. **2026-08-18** : notes entre parenthèses (expressions) + réparation des 28 entrées dont la note avait été rognée ; grammaire ouverte aux 4 langues ; transfert d'un mot d'une langue à l'autre. **2026-08-23** : modèles à jour (GPT-5.6 Terra, Gemini 3.7 Flash / 3.5 Flash Lite, efforts `xhigh`/`max`) ; prompt « version améliorée » refondu ; cartes « mots du même univers » qui ne débordent plus ; slider du mode Libre débloqué (perf).
 
 ---
 
@@ -22,7 +22,7 @@ URL : `https://dark-brook-87cc.georg-dreym.workers.dev` · Code : `~/Desktop/voc
 - `/auth/google` → vérifie l'ID token Google (JWKS RS256, contrôle `iss`/`aud`/`exp`), **lie par email** si compte mdp existant, sinon crée → retourne JWT
 - `/me` (JWT) → `{ user: { id, email, created_at, add_token, openai_key, gemini_key, settings } }` ; génère `add_token` au besoin
 - `/add` (token perso, **pas de JWT**) → ajout de mot externe (raccourci iPhone + écran « ajouter du contenu ») — voir section dédiée. Accepte `X-OpenAI-Key` (BYOK de l'entonnoir) sinon repli `OPENAI_API_KEY_SCRIPT`.
-- `/judge-similar` (token perso, **pas de JWT**) → similarité **groupée** pour l'import Kindle. Body `{ token, lang, words[] }` + header `X-OpenAI-Key`. Le Worker calcule les candidats (local), n'appelle **GPT-5.4 « low »** (`judgeSimilarBatch`, lots de 40) que pour les mots ayant une ressemblance, et renvoie `{ skip: { mot: mot_existant } }`.
+- `/judge-similar` (token perso, **pas de JWT**) → similarité **groupée** pour l'import Kindle. Body `{ token, lang, words[] }` + header `X-OpenAI-Key`. Le Worker calcule les candidats (local), n'appelle **GPT-5.6 Terra « low »** (`judgeSimilarBatch`, lots de 40) que pour les mots ayant une ressemblance, et renvoie `{ skip: { mot: mot_existant } }`.
 
 **Données utilisateur (JWT, filtrées par `user_id`)**
 - `/api/words` GET (`?lang=`, `?detail=1` → +`created_at`) · POST · DELETE (**unitaire** `{lang,word}` **ou groupé** `{items:[{lang,word}…]}`, mot+progress) · **PUT** `{lang, oldWord, newWord?, newLang?}` (**renommer et/ou changer de langue** — met à jour `words` + `progress` + `history` ; 409 si le mot existe déjà dans la langue cible)
@@ -161,7 +161,7 @@ Une entrée peut porter une **note en fin de chaîne** : `hacer el oso (expresi�
 Lit `vocab.db`/`My Clippings` de la Kindle → sélection → import D1. **Config** : `.token` (jeton perso) et `.openai_key` (clé OpenAI dédiée) — **fichiers prioritaires sur `$ADD_TOKEN`/`$OPENAI_KEY_IMPORT`** (sinon une vieille var parasite casse tout). 
 - **Validité IA supprimée** : l'import envoie `ignore_sens=true` (les mots viennent d'un dico → un modèle faible ne faisait que les rejeter à tort). Remplacée par un **filtre charabia local** (`is_gibberish` : longueur/voyelle/chiffres, sans IA).
 - **Mots trop courants** : `is_too_common` via **`wordfreq`** (es/fr/en/el), seuil `COMMON_ZIPF_MIN` (défaut **5.5**, ~250-300 mots). Repli `TOO_COMMON` si `wordfreq` absent (`pip3 install wordfreq`).
-- **Similarité groupée** : `judge_similar_batch` → route `/judge-similar` (GPT-5.4 « low »), `ignore_sim=true` ensuite sur `/add`. **Aucune question** pendant l'import (auto-skip + résumé).
+- **Similarité groupée** : `judge_similar_batch` → route `/judge-similar` (GPT-5.6 Terra « low »), `ignore_sim=true` ensuite sur `/add`. **Aucune question** pendant l'import (auto-skip + résumé).
 - **Import reprenable** : cache `.kindle_cache.json` = mots **restants** (retirés au fur et à mesure) ; coupure → relance reprend pile. Mot en erreur dure conservé ; maj Kindle sautée tant qu'il reste des mots. `check_token()` = fail-fast au démarrage.
 - `call_openai`/`/openai-script`, `get_existing_words`, `llm_decide_similar_batch`, `validate_words_ai`, `review_words` = **code mort** (legacy Sheets).
 
@@ -171,28 +171,28 @@ Lit `vocab.db`/`My Clippings` de la Kindle → sélection → import D1. **Confi
 
 Sélectionnable dans ⚙️, persisté `localStorage` (`vocab_model`). `currentModel` ∈ `'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'`. Toutes les requêtes IA passent par `${API_ENDPOINT}` avec `Authorization: Bearer <JWT>` + la clé BYOK en header.
 
-### GPT-5.4 (OpenAI) — `'gpt4'`
+### GPT-5.6 Terra (OpenAI) — `'gpt4'`  ·  `gpt-5.6-terra`
 Reasoning model via **Responses API** (route Worker défaut). Pas de `temperature`. Body : `input`, `max_output_tokens`. Vision : `input_text`/`input_image`.
 - `reasoning: { effort: gptEffort }` sauf si `none`.
-- `max_output_tokens` compte **reasoning + texte**. Eval/QCM/définition : budget **16000**.
+- `max_output_tokens` compte **reasoning + texte**. Eval/QCM/définition : budget **16000**, **doublé** (32000) par `gptMaxTokens()` aux efforts `xhigh`/`max` — sinon le raisonnement consomme tout le budget et la boîte revient vide.
 - Streaming SSE : `response.output_text.delta`. **Usage dans `response.completed`**. ⚠️ `usage.output_tokens` **inclut déjà** les reasoning tokens (`output_tokens_details.reasoning_tokens` n'est qu'un sous-détail) → `trackTokens` ajoute **uniquement `output_tokens`**, jamais reasoning en plus (sinon double comptage vs dashboard OpenAI — ancien bug corrigé).
 - Fonctions : `callMistral`, `callMistralStream`, `callAIVision` (vision GPT) — envoient `X-OpenAI-Key`. Noms `callMistral*` par héritage.
 
 ### Gemma 4 31B — `'gemma'`
 Route `/gemini`, `gemma-4-31b-it`. `thinkingLevel` ∈ `minimal`(défaut)|`high` (`NONE`/`thinkingBudget:0` non supportés). Worker filtre les chunks `thought:true`.
 
-### Gemini 3 Flash / 3.1 Flash Lite — `'geminiflash'`/`'geminiflashlite'`
-`gemini-3-flash-preview` / `gemini-3.1-flash-lite-preview`. `thinkingLevel` ∈ `none`(défaut)|`minimal`|`low`|`medium`|`high`. Sans thinking : `temperature: 0.2`.
+### Gemini 3.7 Flash / 3.5 Flash Lite — `'geminiflash'`/`'geminiflashlite'`
+`gemini-3.7-flash` / `gemini-3.5-flash-lite`. `thinkingLevel` ∈ `none`(défaut)|`minimal`|`low`|`medium`|`high`. Sans thinking : `temperature: 0.2`.
 
 ### Niveau de raisonnement — ⚙️
-Un `<select>` dynamique (`updateReasoningUI()`) : GPT→`gptEffort` (défaut low) · Gemini→`geminiThinkingLevel` (défaut none) · Gemma→`gemmaThinkingLevel` (défaut minimal).
+Un `<select>` dynamique (`updateReasoningUI()`) : GPT→`gptEffort` ∈ `none|low|medium|high|xhigh|max` (défaut low) · Gemini→`geminiThinkingLevel` (défaut none) · Gemma→`gemmaThinkingLevel` (défaut minimal).
 
 ### Wrappers
 `callAI` / `callAIStream` / `callAIVision` → `checkDailyLimit()` (qui appelle `checkApiKey()`) puis dispatch selon `currentModel`. `isGemini()` = gemma|geminiflash|geminiflashlite.
 > Doublon connu : 2 déclarations `callAIVision` (la 2e, GPT, écrase le dispatcher → l'Imagen utilise toujours GPT).
 
 ### Compteurs tokens / requêtes
-Sous `<h1>Vocab</h1>`, toggle ⚙️ (`KEY_SHOW_TOKENS`). `DAILY_LIMITS = { gpt4: 250000, gemma: 1500, geminiflash: 20, geminiflashlite: 500 }`. ≥80% orange, ≥100% rouge + `checkDailyLimit()` throw. `trackTokens`/`trackGeminiRequest` → `saveTodayTokensDebounced()` (2s). Persistés en **D1** (`/api/usage`) : `saveTodayTokens()` lit la valeur D1 puis ajoute les `_pending*` (multi-appareils).
+Sous `<h1>Vocab</h1>`, toggle ⚙️ (`KEY_SHOW_TOKENS`). `DAILY_LIMITS = { gpt4: 250000, gemma: 14400, geminiflash: 20, geminiflashlite: 500 }` (RPD réels du palier gratuit AI Studio). ≥80% orange, ≥100% rouge + `checkDailyLimit()` throw. `trackTokens`/`trackGeminiRequest` → `saveTodayTokensDebounced()` (2s). Persistés en **D1** (`/api/usage`) : `saveTodayTokens()` lit la valeur D1 puis ajoute les `_pending*` (multi-appareils).
 
 ---
 
@@ -211,6 +211,7 @@ Sous `<h1>Vocab</h1>`, toggle ⚙️ (`KEY_SHOW_TOKENS`). `DAILY_LIMITS = { gpt4
 **SM-2** (`calcNextReview`, jours, basé sur le net **AVANT** d'ajouter le succès courant) : `net ≤ 1 → 1`, `2 → 4`, `3 → 8`, `4 → 14`, `5 → 20`, `6 → 30`, `7 → 45`, `≥ 8 → 60`. (Nouveau + ✓ via `saveProgressNew` = +1 jour, net **inchangé** → le mot revient ~3 jours de suite au début, voulu.)
 **Étoiles** : ☆☆☆ (`net ≤ 0`) · ★☆☆ (`1`) · ★★☆ (`2`) · ★★★ (`≥ 3`, maîtrisé). `starsFromNet(net)`.
 **Prochaine date** affichée dans la boîte après vérif (`.next-review-line`, single + multi). Slider « nombre de mots » **plafonné** au pool dispo (`setWordSliderMax`). **État terminé** : classe `spaced-done` sur `#screen-practice` → masque slider/carte/boutons, n'affiche que `#spaced-done-card` ✓.
+**Slider « nombre de mots » — perf** : `oninput` → `onSliderPreview()` (libellé seul) et `onchange` → `onSliderChange()` (tirage + re-render, au relâchement). ⚠️ Ne pas remettre le travail lourd sur `oninput` : avec ~6600 mots, le mode Libre saturait le thread iOS et le curseur devenait injouable. Même raison pour `pickWeightedOne()` = **réservoir pondéré en un passage** (aucun `filter`/`map`/`reduce` intermédiaire).
 **Limite quotidienne** : `maxNewPerDay` (défaut 60, par langue, `KEY_MAX_NEW`). Slider ⚙️ : valeurs `MAX_NEW_VALUES` = 1,2,3,4,5 puis pas de 5 jusqu'à 100 (`maxNewToIndex`). `pickWords` : `newRemaining = max(0, maxNewPerDay - todayNewCount)`. `onSliderChange` en mode espacé pioche dans le pool éligible `[...trulyDue, ...newToShow]` (jamais `pickWeightedOne`).
 
 **Modes Situation + Libre dans la progression** : un **seul toggle** ⚙️ (`situationCounts`, clé `vocab_situation_counts`, **défaut OFF**) gouverne **à la fois** Situation et Libre. OFF → ni étoiles ni SM-2 ni consommation du quota nouveaux/jour (l'**historique** est toujours écrit). En Libre, gardé par `countsProgress = practiceMode !== 'free' || situationCounts` dans `submitSentence` ; en Situation, par `if (situationCounts)` autour de `saveProgress`.
@@ -240,6 +241,7 @@ Tous répondent dans `feedbackLang`. `LANGS` = mappings (English, Spanish, Frenc
 
 ### Évaluation
 Deux **BLOCS indépendants** : (1) **Verdict** ✓/✗ sur le(s) mot(s) cible(s) (un ✗ → verdict ✗ ; mot absent → ✗) ; (2) **Analyse linguistique** (grammaire/registre/ponctuation), indépendante du verdict.
+**Version améliorée — lexique figé / grammaire libre** (6 règles) : chaque entrée cible doit apparaître, jamais remplacée par un synonyme ou un équivalent moderne (règles 1-2) ; **mais** elle DOIT être fléchie pour entrer dans la phrase (conjugaison, accord, clitiques, déterminant — règle 3), les mots grammaticaux que l'apprenant a mis autour de l'expression peuvent sauter (règle 4 : plus de « como cualquier **un candidato** de corte y pinta »), la **grammaticalité prime** sur le collage littéral (règle 5), et la note entre parenthèses n'entre jamais dans la phrase (règle 6). Vaut pour 1 mot comme pour N. ⚠️ Ne jamais revenir à « MUST use the exact target word(s) as given » : c'est cette formule qui produisait *« a que **da a luz** »* au lieu de *dieran a luz*. Une flexion fautive du mot cible est signalée en **Analyse linguistique**, jamais dans le verdict.
 Règles : period/semicolon/colon entre phrases = TOUJOURS correct · analyser UNIQUEMENT l'écrit · accepter archaïsmes/dialectes · **CRITICAL FILTER** (items incertains/corrects → silently dropped) · version améliorée seulement si ✓ (italique, mot cible exact).
 Format : `## Verdict`, `## Analyse linguistique`, `## Version améliorée`.
 **Parsing verdict (multi-mots)** : pour chaque mot, 1re ligne contenant **`promptLabel(w, currentWords)`** — le libellé réellement envoyé au modèle, pas l'entrée complète (sinon aucun match → tous les mots comptés ✗) — puis 1er `✓`/`✗`. Regex tolérante aux variantes emoji (`OK_RE=[✓✔✅]`, `KO_RE=[✗✘❌]`). `wordResults` (mot→bool) = **source unique de vérité** (couleur boîte, score `N/total`, contours mots, QCM). **Piège accents** : frontières Unicode `(^|[^\p{L}])mot([^\p{L}]|$)` flag `u`, jamais `\b…\b` ASCII (échoue sur accentués, critique pour le grec).
@@ -252,7 +254,7 @@ Cache `definitionCache["mot|lang|model"]` 24h. Lock `_hintInFlight`. 3 sections 
 4 scénarios (le mot cible n'apparaît pas), 1 correct + 3 distracteurs, Fisher-Yates JS. JSON via regex.
 
 ### Mots du même univers (`fetchRelatedWords`)
-1 mot → 3 du même champ ; N mots → 3 liés (`relatedTo`). Affiché après ✓, filtre `allWords` + `blacklistWords`, `＋` pour ajouter. **Blacklist** : au `nextWord()`, les mots non ajoutés → `/api/blacklist` (fire-and-forget), plus jamais suggérés.
+1 mot → 3 du même champ ; N mots → 3 liés (`relatedTo`). **Rendu = carte, pas pilule** : `.related-chip` en colonne (`.rel-head` = mot + `↖ relatedTo` + `＋` · `.rel-note` dessous), `min-width:0` + `overflow-wrap` — une note longue passe à la ligne au lieu de pousser la carte hors de la boîte. Note cadrée à **12 mots max** dans le prompt (idem « Vocabulario sugerido » du mode Imagen, même CSS). Affiché après ✓, filtre `allWords` + `blacklistWords`, `＋` pour ajouter. **Blacklist** : au `nextWord()`, les mots non ajoutés → `/api/blacklist` (fire-and-forget), plus jamais suggérés.
 
 ### Mode Imagen (vision)
 Prompt anglais, réponse espagnol. Sections : `## Precisión`, `## Análisis lingüístico` (CRITICAL FILTER), `## Vocabulario sugerido` (JSON `[{word,note}]`). Convention `(?)` pour mot inconnu. JSON extrait, retiré du rendu, chips avec `＋`.
@@ -310,7 +312,7 @@ Lus depuis D1 en parallèle (`/api/history` journal + `/api/progress` scores cum
 
 ## Problèmes connus
 
-1. **gpt-5.4 hallucinations** : rares. Garde-fous prompts (CRITICAL FILTER) imparfaits.
+1. **gpt-5.6 hallucinations** : rares. Garde-fous prompts (CRITICAL FILTER) imparfaits.
 2. **Doublon `callAIVision`** : 2 déclarations, la 2e (GPT) écrase le dispatcher → Imagen utilise toujours GPT (pas Gemini vision).
 3. **`WORKER_SECRET` exposé** (repo public + historique git) → rotation à faire. Encore utilisé par `/openai-script` (route legacy).
 4. **Gemma 4 thinking** : `NONE`/`thinkingBudget:0` non supportés (`MINIMAL`/`HIGH` seulement).
@@ -343,7 +345,7 @@ Worker : `wrangler deploy`. Front : push `main` → GitHub Actions → `gh-pages
 
 ## Idées futures
 
-**Faites ✅** : Auth Google + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · **écran « ajouter du contenu » in-app (mots + formes grammaticales)** · Mes mots (+ étoiles) · calendrier des révisions (tri + recherche + étoiles) · **sync de tous les réglages** · **langues configurables par utilisateur** (sous-ensemble des 4) · **page d'instructions (modale)** · **boîte de vérif repliable** · `kindle_import.py` → `/add`/D1 · compteur tokens corrigé · PWA `manifest` corrigé · déploiement prod · **refonte mode Situation** (bouton Commencer, multi-mots 1-5, poids de relance ×4, verdict par mot + score, autoscroll, UI cohérente) · **toggle progression Situation+Libre** · **refonte import Kindle** (validité IA off + filtre charabia/`wordfreq`, similarité groupée GPT-5.4 via `/judge-similar`, **clé Kindle dédiée** `.openai_key`, import reprenable) · **« mes mots » paginé + sélection multiple/suppression groupée** · **notes entre parenthèses** (`hacer el oso (expresión colombiana)`) + traitement « expression figée » automatique pour toute entrée multi-mots · **formes grammaticales dans les 4 langues** (réglages par langue, libellé `{lang}`) · **transfert d'un mot d'une langue à l'autre** (menu ⋯, mes mots, action groupée) · spinners centrés.
+**Faites ✅** : Auth Google + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · **écran « ajouter du contenu » in-app (mots + formes grammaticales)** · Mes mots (+ étoiles) · calendrier des révisions (tri + recherche + étoiles) · **sync de tous les réglages** · **langues configurables par utilisateur** (sous-ensemble des 4) · **page d'instructions (modale)** · **boîte de vérif repliable** · `kindle_import.py` → `/add`/D1 · compteur tokens corrigé · PWA `manifest` corrigé · déploiement prod · **refonte mode Situation** (bouton Commencer, multi-mots 1-5, poids de relance ×4, verdict par mot + score, autoscroll, UI cohérente) · **toggle progression Situation+Libre** · **refonte import Kindle** (validité IA off + filtre charabia/`wordfreq`, similarité groupée GPT-5.6 Terra via `/judge-similar`, **clé Kindle dédiée** `.openai_key`, import reprenable) · **« mes mots » paginé + sélection multiple/suppression groupée** · **notes entre parenthèses** (`hacer el oso (expresión colombiana)`) + traitement « expression figée » automatique pour toute entrée multi-mots · **formes grammaticales dans les 4 langues** (réglages par langue, libellé `{lang}`) · **transfert d'un mot d'une langue à l'autre** (menu ⋯, mes mots, action groupée) · spinners centrés · **modèles 2026-08** (GPT-5.6 Terra, Gemini 3.7 Flash / 3.5 Flash Lite, efforts `xhigh`/`max` + budget doublé) · **version améliorée : flexion autorisée, lexique figé** · **cartes « même univers » sans débordement** · **slider Libre débloqué**.
 
 **À faire / à concevoir** :
 - **BYOK total** : le **raccourci iPhone** utilise encore `OPENAI_API_KEY_SCRIPT` (pas d'UI BYOK). La Kindle, elle, est passée BYOK (`.openai_key`).
