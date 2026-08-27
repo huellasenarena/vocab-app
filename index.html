@@ -947,8 +947,8 @@
     .mot-row .mot-actions { display:flex; align-items:center; gap:0.2rem; flex-shrink:0; }
     .mot-row .mot-date { font-size:0.72rem; color:var(--muted); margin-right:0.35rem; white-space:nowrap; }
     .mot-row .mot-date.rev-due { color:var(--accent); font-weight:600; }
-    /* padding resserré : 3 actions par ligne (✏️ 🔀 🗑) sur écran étroit */
-    .mot-row .mot-actions button { background:none; border:none; cursor:pointer; font-size:1rem; padding:0.2rem 0.32rem; opacity:0.65; }
+    /* padding resserré : 4 actions par ligne (🔍 ✏️ 🔀 🗑) sur écran étroit */
+    .mot-row .mot-actions button { background:none; border:none; cursor:pointer; font-size:0.95rem; padding:0.2rem 0.24rem; opacity:0.65; }
     .mot-row .mot-actions button:hover { opacity:1; }
 
     /* ── Bouton hint "révision" dans le dropdown ── */
@@ -986,6 +986,21 @@
       -webkit-user-select: none;
     }
     #word-ctx-menu.visible { display: block; }
+    /* En mode « vérification » le popup porte une phrase, pas des libellés courts */
+    #word-ctx-menu.verify { max-width: min(300px, calc(100vw - 16px)); }
+    #word-ctx-menu.verify .ctx-word-label { white-space: normal; max-width: none; }
+    .ctx-verify-body {
+      padding: 0.55rem 1rem; font-size: 0.85rem; line-height: 1.45;
+      white-space: normal; color: var(--text);
+    }
+    .ctx-verify-body.ok  { color: var(--success); }
+    .ctx-verify-body.ko  { color: #e05a5a; }
+    .ctx-verify-body.err { color: var(--error); }
+    .ctx-verify-sug {
+      padding: 0 1rem 0.5rem; font-size: 0.85rem; line-height: 1.4;
+      white-space: normal; color: var(--muted);
+    }
+    .ctx-verify-sug strong { color: var(--accent); font-family: 'Lora', serif; }
     .ctx-word-label {
       padding: 0.5rem 1rem 0.4rem;
       font-size: 0.78rem;
@@ -1070,6 +1085,16 @@
     /* Onglets de la page « ajouter » : deux boîtes de largeur égale */
     #add-mode-tabs { flex-wrap: nowrap; }
     #add-mode-tabs .filter-btn { flex: 1 1 0; text-align: center; }
+    /* Pilules de langue : elles se partagent la ligne et passent à la ligne quand
+       elles ne tiennent plus (leur nombre suit les langues choisies : 1 à 4). */
+    #add-lang-pills .filter-btn {
+      flex: 1 1 auto; text-align: center; font-size: 0.9rem; padding: 0.6rem 0.9rem;
+      border-radius: 12px;
+    }
+    /* Sans largeur, un div enfant d'un flex `align-items:center` se rétrécit à son
+       contenu — et le `width:100%` du textarea valait alors 100 % d'un panneau déjà
+       rétréci (boîte de saisie plus étroite que le reste de l'écran). */
+    #add-word-panel, #add-grammar-panel { width: 100%; }
 
     .history-list {
       width: 100%;
@@ -1376,7 +1401,7 @@
         <span class="slider-value" id="slider-value">1 mot</span>
       </div>
       <input type="range" id="word-count-slider" min="1" max="30" value="1"
-        oninput="onSliderPreview(this.value)" onchange="onSliderChange(this.value)" />
+        oninput="onSliderPreview(this.value)" onchange="onSliderChange(this.value, true)" />
     </div>
 
     <!-- Recherche d'un mot précis (mode libre uniquement) -->
@@ -1628,18 +1653,13 @@
       <button class="filter-btn" onclick="setAddMode('grammar')" data-i18n="tab_grammar">🔤 Forme grammaticale</button>
     </div>
 
-    <label class="add-field-label" data-i18n="label_lang">Langue</label>
-    <select id="add-lang-select" class="add-input" onchange="onAddLangChange()">
-      <option value="English">🇬🇧 English</option>
-      <option value="Spanish">🇪🇸 Español</option>
-      <option value="French">🇫🇷 Français</option>
-      <option value="Greek">🇬🇷 Ελληνικά</option>
-    </select>
+    <label class="add-field-label" id="add-lang-label" data-i18n="label_lang">Langue</label>
+    <div class="history-filters" id="add-lang-pills"></div>
 
     <!-- Panneau : ajouter un mot -->
     <div id="add-word-panel">
       <label class="add-field-label" data-i18n="label_words">Mot(s) ou expression(s)</label>
-      <textarea id="add-word-input" class="add-input" rows="3" autocapitalize="off" autocomplete="off" placeholder="ex. resilience&#10;plusieurs mots : un par ligne, ou séparés par des virgules&#10;expression : hacer el oso (expresión colombiana)" data-i18n-ph="add_words_ph"></textarea>
+      <textarea id="add-word-input" class="add-input" rows="4" autocapitalize="off" autocomplete="off" placeholder="ex. resilience&#10;plusieurs mots : un par ligne, ou séparés par des virgules&#10;expression : hacer el oso (expresión colombiana)" data-i18n-ph="add_words_ph"></textarea>
       <button class="btn-primary" style="width:100%;margin-top:0.7rem" onclick="addWordFromApp()" data-i18n="btn_add">Ajouter</button>
       <div id="add-word-result" class="add-result"></div>
     </div>
@@ -1909,6 +1929,12 @@
       ctx_edit:         { en: `✏️ Edit`, fr: `✏️ Modifier`, es: `✏️ Editar`, el: `✏️ Επεξεργασία` },
       ctx_delete:       { en: `🗑 Delete`, fr: `🗑 Supprimer`, es: `🗑 Eliminar`, el: `🗑 Διαγραφή` },
       ctx_move:         { en: `🔀 Change language`, fr: `🔀 Changer de langue`, es: `🔀 Cambiar de idioma`, el: `🔀 Αλλαγή γλώσσας` },
+      ctx_verify:       { en: `🔍 Check this word`, fr: `🔍 Vérifier le mot`, es: `🔍 Comprobar la palabra`, el: `🔍 Έλεγχος της λέξης` },
+      verify_checking:  { en: `Checking…`, fr: `Vérification…`, es: `Comprobando…`, el: `Έλεγχος…` },
+      verify_suggestion:{ en: `Suggested spelling:`, fr: `Correction proposée :`, es: `Corrección propuesta:`, el: `Προτεινόμενη διόρθωση:` },
+      verify_fix:       { en: `✏️ Fix`, fr: `✏️ Corriger`, es: `✏️ Corregir`, el: `✏️ Διόρθωση` },
+      verify_close:     { en: `Close`, fr: `Fermer`, es: `Cerrar`, el: `Κλείσιμο` },
+      title_verify:     { en: `Check this word`, fr: `Vérifier le mot`, es: `Comprobar la palabra`, el: `Έλεγχος της λέξης` },
       move_to:          { en: `Move to…`, fr: `Déplacer vers…`, es: `Mover a…`, el: `Μετακίνηση σε…` },
       move_done:        { en: `✓ {n} word(s) moved`, fr: `✓ {n} mot(s) déplacé(s)`, es: `✓ {n} palabra(s) movida(s)`, el: `✓ {n} λέξη/-εις μετακινήθηκαν` },
       // — modale d'aide —
@@ -2285,6 +2311,25 @@
     }
     function wordCount() { return parseInt(document.getElementById('word-count-slider').value); }
 
+    // Clé du « nombre de mots » : une par langue ET par mode. Le mode libre a son
+    // propre compteur (suffixe `_free`) ; l'espacé garde la clé historique (aucune
+    // migration). Situation a son slider dédié, Imagen n'en a pas.
+    function wcKey(lang, mode) {
+      const l = lang || currentLang;
+      const m = mode || practiceMode;
+      return KEY_WORD_COUNT + '_' + l + (m === 'free' ? '_free' : '');
+    }
+    // Valeur SOUHAITÉE (dernier geste de l'utilisateur sur le slider), distincte de
+    // la valeur affichée qui, elle, est plafonnée au pool du jour. Sans cette
+    // distinction, une journée où un seul mot est dû écrasait le réglage pour de bon.
+    function desiredWordCount(lang, mode) {
+      const v = localStorage.getItem(wcKey(lang, mode));
+      // Clé du mode libre encore absente → repli (lecture seule) sur la clé
+      // historique commune, pour ne pas retomber à « 1 mot » au premier passage.
+      return parseInt(v ?? localStorage.getItem(KEY_WORD_COUNT + '_' + (lang || currentLang))) || 1;
+    }
+    function setDesiredWordCount(n)       { localStorage.setItem(wcKey(), String(n)); }
+
     // Fisher-Yates en place — les listes de nouveaux mots doivent être mélangées
     // avant slice(0, n), sinon ce sont toujours les N premiers (ordre fixe) qui sortent.
     function shuffleInPlace(a) {
@@ -2300,12 +2345,13 @@
     function setWordSliderMax(maxCount) {
       const slider = document.getElementById('word-count-slider');
       const cap    = Math.max(1, Math.min(30, maxCount || 1));
-      const prev   = parseInt(slider.value) || 1; // lire AVANT de changer max (sinon le navigateur l'a déjà rogné)
       slider.max   = cap;
-      const val    = Math.min(prev, cap);
+      // Affiché = souhait de l'utilisateur plafonné au pool du jour. On ne persiste
+      // RIEN ici : le plafond est une contrainte du moment, pas un choix. (Sinon une
+      // journée à 1 seul mot dû écrasait le réglage et le slider ne remontait plus.)
+      const val    = Math.min(desiredWordCount(), cap);
       slider.value = val;
       document.getElementById('slider-value').textContent = wordsLabel(val);
-      if (val !== prev) localStorage.setItem(KEY_WORD_COUNT + '_' + currentLang, String(val));
       // Invariant : la valeur du slider doit toujours = le nombre de cartes affichées.
       // Si le plafond force la valeur sous le nombre de mots déjà affichés (ex. baisse
       // de « nouveaux/jour » via setMaxNewPerDay), on tronque + re-render (sinon le
@@ -2529,11 +2575,14 @@
       document.getElementById('slider-value').textContent = wordsLabel(parseInt(val));
     }
 
-    function onSliderChange(val) {
+    // `fromUser` = le geste sur le slider (onchange du DOM). Seul ce cas persiste le
+    // souhait ; les appels internes (changement de mot, de mode, de langue) se
+    // contentent de re-tirer les mots.
+    function onSliderChange(val, fromUser) {
       const n        = parseInt(val);
       const langInfo = getLang();
       document.getElementById('slider-value').textContent = wordsLabel(n);
-      localStorage.setItem(KEY_WORD_COUNT + '_' + currentLang, n.toString());
+      if (fromUser) setDesiredWordCount(n);
       document.getElementById('sentence-label').textContent =
         n === 1 ? langInfo.sentencePromptSingle : langInfo.sentencePrompt;
 
@@ -2599,7 +2648,6 @@
       if (actual >= 1 && actual !== n) {
         document.getElementById('word-count-slider').value = actual;
         document.getElementById('slider-value').textContent = wordsLabel(actual);
-        localStorage.setItem(KEY_WORD_COUNT + '_' + currentLang, String(actual));
       }
       saveSettingsToServer();
     }
@@ -2614,7 +2662,7 @@
       freeCursor = 0;
       freeQueueActive = false;
       applyPracticeLangUI(); // tous les libellés de l'écran passent dans la langue pratiquée
-      const _langWC = parseInt(localStorage.getItem(KEY_WORD_COUNT + '_' + lang)) || 1;
+      const _langWC = desiredWordCount(lang, practiceMode);
       document.getElementById('word-count-slider').value = _langWC;
       document.getElementById('slider-value').textContent = wordsLabel(_langWC);
       maxNewPerDay = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + lang)) || 60;
@@ -2922,7 +2970,7 @@
       // cartes sont affichées, l'invariant slider = cartes prime sur la valeur sauvée.
       const _cards   = practiceMode !== 'situation' ? currentWords.length : 0;
       const _savedWC = _cards > 0 ? _cards
-        : (currentLang ? parseInt(localStorage.getItem(KEY_WORD_COUNT + '_' + currentLang)) || 1 : 1);
+        : (currentLang ? desiredWordCount() : 1);
       document.getElementById('word-count-slider').value = _savedWC;
       document.getElementById('slider-value').textContent = wordsLabel(_savedWC);
       const _savedGC = grammarCountFor(currentLang);
@@ -3257,6 +3305,17 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         : (getLang().sentencePromptSingle || 'Utilise ce mot dans une phrase :');
       document.getElementById('confirm-panel').style.display    = isImage ? 'none' : '';
       renderGrammarForms(); // gère visibilité zone + slider selon mode
+
+      // Chaque mode garde SON nombre de mots (clé localStorage distincte) : on recale
+      // le slider sur le réglage du mode qu'on ouvre. Le plafond réel est recalculé
+      // juste après par pickWords() → setWordSliderMax().
+      if (currentLang) {
+        const _wc = desiredWordCount();
+        const _sl = document.getElementById('word-count-slider');
+        _sl.max = 30; // sinon le plafond de l'ancien mode rognerait la valeur
+        _sl.value = _wc;
+        document.getElementById('slider-value').textContent = wordsLabel(_wc);
+      }
 
       // Nettoyage COMPLET de l'UI de pratique à chaque changement de mode.
       // (Sinon résidus d'un autre mode : définition #hint-box, feedback/boutons de
@@ -4931,6 +4990,7 @@ Write all scenarios and explanations in ${langName}.`;
           <span class="mot-actions">
             <span class="stars ${si.cls}" style="font-size:0.8rem">${si.str}</span>
             <span class="mot-date">${fmtMotDate(m.created_at)}</span>
+            <button onclick="verifyMot('${m.lang}','${esc}', event)" title="${tApp('title_verify')}">🔍</button>
             <button onclick="editMot('${m.lang}','${esc}')" title="${tApp('title_rename')}">✏️</button>
             <button onclick="moveMot('${m.lang}','${esc}', event)" title="${tApp('ctx_move')}">🔀</button>
             <button onclick="deleteMot('${m.lang}','${esc}')" title="${tApp('title_delete')}">🗑</button>
@@ -4953,8 +5013,8 @@ Write all scenarios and explanations in ${langName}.`;
       } catch (e) { alert('Erreur : ' + e.message); }
     }
 
-    async function editMot(lang, word) {
-      const nw = prompt(tApp('rename_prompt').replace('{w}', word), word);
+    async function editMot(lang, word, prefill) {
+      const nw = prompt(tApp('rename_prompt').replace('{w}', word), prefill || word);
       if (nw === null) return;
       const newWord = nw.trim();
       if (!newWord || newWord === word) return;
@@ -5043,12 +5103,37 @@ Write all scenarios and explanations in ${langName}.`;
 
     // ── Écran « Ajouter du contenu » (point 15) ───────────────
     let addMode = 'word';
+    let addLang = 'English'; // langue ciblée par l'écran « ajouter » (pilules ci-dessous)
     const _addLangCode = { English: 'en', Spanish: 'es', French: 'fr', Greek: 'el' };
     const escapeJs = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+    // Pilules de langue : uniquement les langues CHOISIES par l'utilisateur (leur
+    // nombre change quand il en ajoute/retire). Une seule langue → rien à choisir,
+    // on masque le label et les pilules.
+    function renderAddLangPills() {
+      const box   = document.getElementById('add-lang-pills');
+      const label = document.getElementById('add-lang-label');
+      const langs = selectedLangs.length ? selectedLangs : LANGS.map(l => l.key);
+      if (!langs.includes(addLang)) addLang = langs[0];
+      const solo = langs.length === 1;
+      box.style.display   = solo ? 'none' : '';
+      label.style.display = solo ? 'none' : '';
+      box.innerHTML = langs.map(k => {
+        const info = LANGS.find(l => l.key === k);
+        return `<button class="filter-btn ${k === addLang ? 'active' : ''}" onclick="setAddLang('${k}')">${info.flag} ${info.name}</button>`;
+      }).join('');
+    }
+
+    function setAddLang(lang) {
+      addLang = lang;
+      renderAddLangPills();
+      if (addMode === 'grammar') loadAddGrammarList();
+    }
+
     function showAddContent() {
       showScreen('screen-add');
-      document.getElementById('add-lang-select').value = currentLang || 'English';
+      addLang = currentLang || (selectedLangs[0] || 'English');
+      renderAddLangPills();
       document.getElementById('add-word-result').textContent   = '';
       document.getElementById('add-grammar-result').textContent = '';
       setAddMode('word');
@@ -5062,8 +5147,6 @@ Write all scenarios and explanations in ${langName}.`;
       document.getElementById('add-grammar-panel').style.display = mode === 'grammar' ? '' : 'none';
       if (mode === 'grammar') loadAddGrammarList();
     }
-
-    function onAddLangChange() { if (addMode === 'grammar') loadAddGrammarList(); }
 
     let _addBatch = []; // mots du dernier ajout ([{word, lang}]) — pour « ajouter quand même » par ligne
 
@@ -5111,7 +5194,7 @@ Write all scenarios and explanations in ${langName}.`;
     async function addWordFromApp() {
       const input = document.getElementById('add-word-input');
       const res   = document.getElementById('add-word-result');
-      const lang  = document.getElementById('add-lang-select').value;
+      const lang  = addLang;
       const seen  = new Set();
       const words = splitAddInput(input.value).filter(w => {
         const k = w.toLowerCase();
@@ -5155,7 +5238,7 @@ Write all scenarios and explanations in ${langName}.`;
     }
 
     async function addGrammarForm() {
-      const lang     = document.getElementById('add-lang-select').value;
+      const lang     = addLang;
       const category = document.getElementById('add-cat-input').value.trim();
       const form     = document.getElementById('add-form-input').value.trim();
       const res      = document.getElementById('add-grammar-result');
@@ -5173,7 +5256,7 @@ Write all scenarios and explanations in ${langName}.`;
     }
 
     async function loadAddGrammarList() {
-      const lang = document.getElementById('add-lang-select').value;
+      const lang = addLang;
       const list = document.getElementById('add-grammar-list');
       list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
       try {
@@ -5188,7 +5271,7 @@ Write all scenarios and explanations in ${langName}.`;
     }
 
     async function deleteGrammarForm(category, form) {
-      const lang = document.getElementById('add-lang-select').value;
+      const lang = addLang;
       if (!confirm(`Supprimer la forme « ${form} » ?`)) return;
       try {
         await authFetch('/api/grammar', { method: 'DELETE', body: JSON.stringify({ lang, category, form }) });
@@ -6089,7 +6172,9 @@ Return ONLY a JSON array of exactly 3 items, no other text:
 
     // ── Menu contextuel mot (right-click / long press) ────────
     // Affiche le menu (déjà rempli) en le gardant dans la fenêtre
+    let _ctxPos = { x: 0, y: 0 };
     function positionCtxMenu(x, y) {
+      _ctxPos = { x, y };
       const menu = document.getElementById('word-ctx-menu');
       menu.style.left = '-9999px';
       menu.style.top  = '-9999px';
@@ -6118,6 +6203,8 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       _ctxWord         = null;
       _justLongPressed = false;
       _langMenuPick    = null;
+      _verifyActions   = null;
+      _verifySuggest   = '';
       document.getElementById('word-ctx-menu').classList.remove('visible');
       ctxMenuBack(); // le menu se rouvre toujours sur le premier niveau
     }
@@ -6126,6 +6213,10 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     // Utilisé par « mes mots » (bouton 🔀 d'une ligne, action groupée) ;
     // la carte de pratique passe par ctxMenuMove, son menu étant déjà ouvert.
     let _langMenuPick = null;
+    // Actions proposées sous le verdict de « vérifier le mot » : dépendent d'où la
+    // vérif a été lancée (carte de pratique ou ligne de « mes mots »).
+    let _verifyActions = null;
+    let _verifySuggest = '';
     function openLangMenu(ev, label, excludeLang, onPick) {
       ev.stopPropagation(); // sinon le listener global referme aussitôt
       _ctxWord      = null;
@@ -6163,8 +6254,11 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     function ctxMenuBack() {
       const main = document.getElementById('ctx-main');
       const box  = document.getElementById('ctx-langs');
+      const ver  = document.getElementById('ctx-verify');
       if (main) main.style.display = '';
       if (box)  { box.style.display = 'none'; box.innerHTML = ''; }
+      if (ver)  { ver.style.display = 'none'; ver.innerHTML = ''; }
+      document.getElementById('word-ctx-menu').classList.remove('verify');
     }
 
     async function ctxMoveTo(lang) {
@@ -6206,6 +6300,115 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       if (!word) return;
       if (!confirm(`Supprimer « ${lc(word)} » de ta liste ?`)) return;
       await deleteWordFromSheets(word);
+    }
+
+    // ── « Vérifier le mot » : le mot existe-t-il vraiment ? ────
+    // Appel FRONT (clé BYOK + modèle et raisonnement choisis dans ⚙️) : l'entonnoir
+    // /add valide avec la clé propriétaire et un modèle plus faible, et n'est de
+    // toute façon pas exposé pour un mot déjà en base.
+    // Le verdict PROPOSE, il ne supprime jamais tout seul : sur un régionalisme ou
+    // un mot rare, c'est l'IA qui a tort (cf. la validité IA retirée de l'import Kindle).
+    async function verifyWordSense(word, lang) {
+      const info     = LANGS.find(l => l.key === lang) || getLang();
+      const langName = info.mistralName;
+      const respLang = info.feedbackLang;
+      const prompt = `You are a lexicographer of ${langName}.
+
+Decide whether this entry is a real word or expression in ${langName}: "${lc(wordBase(word))}"${entryContext(word)}
+
+Rules:
+- Archaic, obsolete, literary, dialectal, regional, colloquial, vulgar, technical and rare items ARE valid. Never reject something just because it is uncommon or not in a standard dictionary.
+- Inflected forms and fixed expressions ARE valid.
+- Mark it invalid ONLY if it is a typo, a garbled or truncated string, a word from another language, or something that simply does not exist in ${langName}.
+- If it is invalid but you can tell what was meant, put the corrected entry alone in "suggestion" (no explanation, no quotes). Otherwise leave "suggestion" empty.
+- "note": ONE short sentence (20 words max) in ${respLang} — if valid, what it means; if invalid, what is wrong with it.
+
+Reply with ONLY this JSON object, nothing else:
+{"valid": true, "note": "...", "suggestion": ""}`;
+
+      // GPT est un modèle de raisonnement : le budget couvre reasoning + texte, d'où
+      // les 16000 (même convention que le QCM et les mots liés) — sinon le raisonnement
+      // consomme tout et la réponse revient vide.
+      const raw  = await callAI(prompt, isGemini() ? 800 : 16000);
+      const json = String(raw || '').match(/\{[\s\S]*\}/);
+      if (!json) throw new Error('réponse illisible');
+      const data = JSON.parse(json[0]);
+      return {
+        valid:      data.valid === true || data.valid === 'true',
+        note:       String(data.note || '').trim(),
+        suggestion: String(data.suggestion || '').trim(),
+      };
+    }
+
+    function verifyAction(kind) {
+      const act = _verifyActions;
+      const sug = _verifySuggest;
+      if (!act) { closeWordContextMenu(); return; }
+      if (kind === 'fix') act.fix(sug);
+      else                act.del();
+    }
+
+    // Ouvre le popup de vérification (réutilise #word-ctx-menu). `ev` = clic à
+    // ancrer (« mes mots ») ; null quand le menu ⋯ est déjà ouvert et positionné.
+    async function openVerifyPopup(word, lang, ev, actions, t) {
+      t = t || tApp;
+      if (ev) ev.stopPropagation(); // sinon le listener global referme aussitôt
+      const menu = document.getElementById('word-ctx-menu');
+      const pane = document.getElementById('ctx-verify');
+      _ctxWord       = word;
+      _verifyActions = actions;
+      _verifySuggest = '';
+      document.getElementById('word-ctx-label').textContent = lc(word);
+      document.getElementById('ctx-main').style.display  = 'none';
+      document.getElementById('ctx-langs').style.display = 'none';
+      pane.style.display = '';
+      menu.classList.add('verify');
+      pane.innerHTML = `<div class="ctx-verify-body"><span class="spinner"></span> ${t('verify_checking')}</div>`;
+      if (ev) {
+        const r = ev.currentTarget.getBoundingClientRect();
+        positionCtxMenu(r.right - 4, r.bottom + 4);
+      } else {
+        positionCtxMenu(_ctxPos.x, _ctxPos.y);
+      }
+
+      let html;
+      try {
+        const v = await verifyWordSense(word, lang);
+        if (_ctxWord !== word) return; // popup refermé ou changé de mot entre-temps
+        _verifySuggest = v.suggestion;
+        html = `<div class="ctx-verify-body ${v.valid ? 'ok' : 'ko'}">${v.valid ? '✓' : '✗'} ${escapeHtml(v.note)}</div>`;
+        if (!v.valid && v.suggestion)
+          html += `<div class="ctx-verify-sug">${t('verify_suggestion')} <strong>${escapeHtml(v.suggestion)}</strong></div>`;
+        html += v.valid
+          ? `<button class="ctx-menu-btn" onclick="closeWordContextMenu()">${t('verify_close')}</button>`
+          : `<button class="ctx-menu-btn" onclick="verifyAction('fix')">${t('verify_fix')}</button>
+             <button class="ctx-menu-btn danger" onclick="verifyAction('del')">${t('ctx_delete')}</button>
+             <button class="ctx-menu-btn" onclick="closeWordContextMenu()">${t('verify_close')}</button>`;
+      } catch (e) {
+        if (_ctxWord !== word) return;
+        html = `<div class="ctx-verify-body err">${escapeHtml(e.message || 'erreur')}</div>
+                <button class="ctx-menu-btn" onclick="closeWordContextMenu()">${t('verify_close')}</button>`;
+      }
+      pane.innerHTML = html;
+      positionCtxMenu(_ctxPos.x, _ctxPos.y); // le contenu a grandi → on recadre
+    }
+
+    // Depuis le menu ⋯ de la carte / des chips (menu déjà ouvert et positionné)
+    function ctxMenuVerify() {
+      const word = _ctxWord;
+      if (!word) return;
+      openVerifyPopup(word, currentLang, null, {
+        fix: sug => { const w = word; closeWordContextMenu(); editWordOnCard(w, sug); },
+        del: ()  => ctxMenuDelete(),
+      }, tPrac); // menu de la carte : langue pratiquée, comme ses autres entrées
+    }
+
+    // Depuis une ligne de « mes mots » (multi-langues : la langue vient de la ligne)
+    function verifyMot(lang, word, ev) {
+      openVerifyPopup(word, lang, ev, {
+        fix: sug => { closeWordContextMenu(); editMot(lang, word, sug); },
+        del: ()  => { closeWordContextMenu(); deleteMot(lang, word); },
+      });
     }
 
     // Ferme le menu au clic en dehors
@@ -6284,8 +6487,8 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       deleteWordFromSheets(word);
     }
 
-    async function editWordOnCard(word) {
-      const nw = prompt(`Modifier « ${lc(word)} » :`, lc(word));
+    async function editWordOnCard(word, prefill) {
+      const nw = prompt(`Modifier « ${lc(word)} » :`, lc(prefill || word));
       if (nw === null) return;
       const newWord = nw.trim();
       if (!newWord || newWord === word) return;
@@ -6434,6 +6637,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
   <div id="word-ctx-menu">
     <div class="ctx-word-label" id="word-ctx-label"></div>
     <div id="ctx-main">
+      <button class="ctx-menu-btn" onclick="ctxMenuVerify()" data-i18n="ctx_verify">🔍 Vérifier le mot</button>
       <button class="ctx-menu-btn" onclick="ctxMenuEdit()" data-i18n="ctx_edit">✏️ Modifier</button>
       <button class="ctx-menu-btn" onclick="ctxMenuMove()" data-i18n="ctx_move">🔀 Changer de langue</button>
       <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()" data-i18n="ctx_delete">🗑 Supprimer</button>
@@ -6441,6 +6645,8 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     </div>
     <!-- Sous-menu « changer de langue » (rempli par ctxMenuMove) -->
     <div id="ctx-langs" style="display:none"></div>
+    <!-- Verdict de « vérifier le mot » (rempli par openVerifyPopup) -->
+    <div id="ctx-verify" style="display:none"></div>
   </div>
 </body>
 </html>
