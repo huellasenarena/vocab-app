@@ -668,6 +668,30 @@
     .hint-box.collapsed .hint-body { display: none; }
     .hint-box.collapsed .hint-collapse-btn { transform: rotate(180deg); }
 
+    /* ── Bas de la boîte définition : traduire / étudier ── */
+    .hint-extra { padding: 0 1.25rem 1.25rem 1.25rem; }
+    .hint-box.collapsed .hint-extra { display: none; }
+    .hint-actions { display: flex; flex-wrap: wrap; gap: 0.9rem; align-items: center; }
+    .btn-link {
+      background: none; border: none; padding: 0; cursor: pointer;
+      font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted);
+      text-decoration: underline; text-underline-offset: 3px;
+    }
+    .btn-link:hover { color: var(--accent); }
+    .hint-translation {
+      margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid var(--border);
+      font-size: 0.92rem;
+    }
+    .hint-translation .tr-word { color: var(--accent); }
+    .hint-translation.tr-err   { color: var(--error); font-size: 0.85rem; }
+    .study-note {
+      margin-top: 0.75rem; font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      color: var(--muted); text-align: center;
+    }
+    #word-image-wrap { border-radius: 8px; overflow: hidden; background: #222; }
+    #word-image-wrap img { width: 100%; display: block; }
+    .word-image-none { color: var(--muted); font-style: italic; font-size: 0.88rem; text-align: center; }
+
     /* ── Mode image ── */
     #vocab-section { display: contents; } /* hérite du gap flex du parent .screen */
     #image-section { display: none; flex-direction: column; gap: 0.75rem; width: 100%; }
@@ -852,6 +876,15 @@
     /* ── Chip révision (mot déjà vu) ── */
     .word-chip.chip-review .chip-word { color: var(--text); }
     .word-card.card-review #current-word { color: var(--text); }
+
+    /* ── Mot « étudié » : reste à l'écran, mais sort de la phrase du tour ── */
+    .word-chip.chip-studied,
+    .word-card.card-studied { opacity: 0.6; border-style: dashed; }
+    .word-chip.chip-studied .chip-word { color: var(--text); }
+    .studied-badge {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem; color: var(--muted);
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
 
     /* ── Contour résultat (après vérification) ── */
     .word-chip.chip-correct,
@@ -1432,6 +1465,7 @@
         <span class="stars s0" id="word-stars">☆☆☆</span>
         <span class="word-count" id="word-count-label"></span>
         <span class="hint-used-badge" id="hint-used-badge" data-i18n="hint_badge">💡 aide</span>
+        <span class="studied-badge" id="card-studied-badge" style="display:none"></span>
       </div>
     </div>
 
@@ -1468,6 +1502,21 @@
         <button class="hint-collapse-btn">▲</button>
       </div>
       <div class="hint-body" id="hint-text"></div>
+      <div class="hint-extra" id="hint-extra" style="display:none;">
+        <div class="hint-actions">
+          <button class="btn-link" id="hint-translate-btn" onclick="hintTranslate()" data-i18n="act_translate">🌐 traduire</button>
+        </div>
+        <div id="hint-translation"></div>
+        <div id="hint-study" style="display:none; margin-top:0.9rem;">
+          <button class="btn-secondary" style="width:100%" onclick="startStudyQuiz()" data-i18n="btn_study">✓ je l'ai compris — teste-moi</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image du mot (option « voir une image ») -->
+    <div class="hint-box" id="word-image-box">
+      <div class="hint-label"><span id="word-image-label">🖼</span></div>
+      <div class="hint-body" id="word-image-body"></div>
     </div>
     </div><!-- /vocab-section -->
 
@@ -1487,6 +1536,12 @@
         <textarea id="sentence-input" rows="1" placeholder="Écris ta phrase ici…" data-i18n-ph="sentence_ph"></textarea>
         <button class="btn-submit-inline" id="btn-submit" onclick="submitSentence()" title="Vérifier">↑</button>
       </div>
+    </div>
+
+    <!-- Tous les mots du tour ont été étudiés : plus de phrase à écrire -->
+    <div id="study-all-done" style="display:none; width:100%; text-align:center;">
+      <p class="sentence-label" data-i18n="study_all">Tous les mots du tour sont étudiés — à employer demain.</p>
+      <button class="btn-primary" style="margin-top:0.7rem" onclick="nextWord()" data-i18n="btn_next_word">Autre mot →</button>
     </div>
 
     <!-- Zone situation (mode situation) -->
@@ -1944,6 +1999,18 @@
       verify_close:     { en: `Close`, fr: `Fermer`, es: `Cerrar`, el: `Κλείσιμο` },
       title_verify:     { en: `Check this word`, fr: `Vérifier le mot`, es: `Comprobar la palabra`, el: `Έλεγχος της λέξης` },
       move_to:          { en: `Move to…`, fr: `Déplacer vers…`, es: `Mover a…`, el: `Μετακίνηση σε…` },
+      // — traduire / image / étudier —
+      ctx_translate:    { en: `🌐 Translate`, fr: `🌐 Traduire`, es: `🌐 Traducir`, el: `🌐 Μετάφραση` },
+      ctx_photo:        { en: `🖼 Show an image`, fr: `🖼 Voir une image`, es: `🖼 Ver una imagen`, el: `🖼 Δες μια εικόνα` },
+      act_translate:    { en: `🌐 translate`, fr: `🌐 traduire`, es: `🌐 traducir`, el: `🌐 μετάφραση` },
+      act_see_def:      { en: `see the definition`, fr: `voir la définition`, es: `ver la definición`, el: `δες τον ορισμό` },
+      translating:      { en: `Translating…`, fr: `Traduction…`, es: `Traduciendo…`, el: `Μετάφραση…` },
+      photo_none:       { en: `No useful image for this word.`, fr: `Pas d'image utile pour ce mot.`, es: `No hay imagen útil para esta palabra.`, el: `Καμία χρήσιμη εικόνα για αυτή τη λέξη.` },
+      btn_study:        { en: `✓ I've got it — quiz me`, fr: `✓ je l'ai compris — teste-moi`, es: `✓ lo he entendido — ponme a prueba`, el: `✓ το κατάλαβα — δοκίμασέ με` },
+      study_marked:     { en: `📖 Studied — you'll have to use it tomorrow.`, fr: `📖 Étudié — à employer demain.`, es: `📖 Estudiada — habrá que usarla mañana.`, el: `📖 Μελετήθηκε — αύριο θα τη χρησιμοποιήσεις.` },
+      study_badge:      { en: `📖 studied`, fr: `📖 étudié`, es: `📖 estudiada`, el: `📖 μελετήθηκε` },
+      study_other_q:    { en: `🎯 Another question`, fr: `🎯 Autre question`, es: `🎯 Otra pregunta`, el: `🎯 Άλλη ερώτηση` },
+      study_all:        { en: `All the words of this round are studied — you'll use them tomorrow.`, fr: `Tous les mots du tour sont étudiés — à employer demain.`, es: `Todas las palabras de la ronda están estudiadas — las usarás mañana.`, el: `Όλες οι λέξεις του γύρου μελετήθηκαν — θα τις χρησιμοποιήσεις αύριο.` },
       move_done:        { en: `✓ {n} word(s) moved`, fr: `✓ {n} mot(s) déplacé(s)`, es: `✓ {n} palabra(s) movida(s)`, el: `✓ {n} λέξη/-εις μετακινήθηκαν` },
       // — modale d'aide —
       help_title:       { en: `How it works`, fr: `Comment ça marche`, es: `Cómo funciona`, el: `Πώς λειτουργεί` },
@@ -2032,6 +2099,15 @@
     let _relatedWordsShown = []; // mots affichés dans la section "même univers"
     let _relatedWordsAdded = new Set(); // mots ajoutés via ＋ dans la session courante
     let currentWords       = [];
+    // Mots « étudiés » ce tour (clés en minuscules). Ils restent affichés et
+    // comptent toujours pour le slider, mais sortent du prompt, du score et de
+    // la sauvegarde : voir sentenceWords().
+    let studiedWords       = new Set();
+    let _hintBoxWord       = null; // mot actuellement affiché dans la boîte définition
+    let _studyQuizWord     = null; // mot en cours d'étude (QCM neutre : jamais de ✗)
+    let _studyTries        = 0;    // tentatives de QCM d'étude sur ce mot
+    let _pendingGloss      = null; // { word, kind } en attente de « je ne sais pas »
+    const translationCache = {};   // { "mot|appLang": { tr, en, concrete } }
     let previousWordsPool  = []; // garde tous les mots déjà vus dans la session slider
     let currentLang        = "";
     let hintUsedWords      = new Set();
@@ -2648,6 +2724,7 @@
         document.getElementById('word-count-slider').value = actual;
         document.getElementById('slider-value').textContent = wordsLabel(actual);
       }
+      updateStudyUI(); // le slider a pu ajouter un mot à employer, ou n'en laisser aucun
       saveSettingsToServer();
     }
 
@@ -3183,6 +3260,14 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       return !prog || !prog.nextReview;
     }
 
+    // Mots réellement à employer dans la phrase de ce tour : les mots étudiés en
+    // sont retirés. Ils restent dans currentWords (donc à l'écran, et le slider
+    // ne voit pas de place libre à recombler), mais n'entrent ni dans le prompt,
+    // ni dans le parsing du verdict, ni dans le score, ni dans la progression.
+    function sentenceWords() {
+      return currentWords.filter(w => !studiedWords.has(w.toLowerCase()));
+    }
+
     function updateDueCountDisplay(nDue, newRemaining, totalNew) {
       const el = document.getElementById('due-count');
       if (nDue === 0 && newRemaining === 0) {
@@ -3208,6 +3293,20 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('hint-used-badge').classList.remove('visible');
       document.getElementById('hint-box').classList.remove('visible');
       document.getElementById('hint-text').textContent        = '';
+      document.getElementById('hint-extra').style.display      = 'none';
+      document.getElementById('hint-translation').innerHTML    = '';
+      document.getElementById('hint-study').style.display      = 'none';
+      document.getElementById('word-image-box').classList.remove('visible');
+      document.getElementById('word-image-body').innerHTML     = '';
+      document.getElementById('study-all-done').style.display  = 'none';
+      document.getElementById('sentence-section').style.display = practiceMode === 'situation' ? 'none' : '';
+      document.getElementById('card-studied-badge').style.display = 'none';
+      document.getElementById('single-word-card').classList.remove('card-studied');
+      studiedWords   = new Set();
+      _hintBoxWord   = null;
+      _studyQuizWord = null;
+      _studyTries    = 0;
+      _pendingGloss  = null;
       document.getElementById('sentence-input').value         = '';
       document.getElementById('sentence-input').style.height  = '';
       document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'partial', 'image');
@@ -3942,14 +4041,21 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         const noteEl = document.getElementById('current-word-note');
         noteEl.textContent   = note ? `(${lc(note)})` : '';
         noteEl.style.display = note ? '' : 'none';
-        single.classList.toggle('card-review', practiceMode === 'spaced' && !isNewWord(currentWords[0]));
+        const studied = studiedWords.has(currentWords[0].toLowerCase());
+        single.classList.toggle('card-studied', studied);
+        single.classList.toggle('card-review', practiceMode === 'spaced' && !studied && !isNewWord(currentWords[0]));
+        const cardBadge = document.getElementById('card-studied-badge');
+        cardBadge.textContent   = studied ? tPrac('study_badge') : '';
+        cardBadge.style.display = studied ? '' : 'none';
         updateStars(currentWords[0]);
       } else {
         single.style.display = 'none';
         multi.style.display  = '';
         multi.innerHTML = currentWords.map(w => {
           const starsInfo  = getStarsInfo(w);
-          const reviewCls  = (practiceMode === 'spaced' && !isNewWord(w)) ? ' chip-review' : '';
+          const studied    = studiedWords.has(w.toLowerCase());
+          const reviewCls  = studied ? ' chip-studied'
+            : (practiceMode === 'spaced' && !isNewWord(w)) ? ' chip-review' : '';
           const esc = w.replace(/'/g, "\\'");
           const { base, note } = splitEntry(w);
           // data-word = entrée COMPLÈTE : c'est la clé de progression/verdict,
@@ -3958,6 +4064,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
             <span class="chip-menu-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">⋯</span>
             <span class="chip-word">${escapeHtml(lc(base))}</span>
             ${note ? `<span class="chip-note">(${escapeHtml(lc(note))})</span>` : ''}
+            ${studied ? `<span class="studied-badge">${tPrac('study_badge')}</span>` : ''}
             <span class="chip-stars ${starsInfo.cls}">${starsInfo.str}</span>
           </button>`;
         }).join('');
@@ -3992,9 +4099,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const spaced = practiceMode === 'spaced';
       const single = document.getElementById('single-word-card');
       if (currentWords.length === 1)
-        single.classList.toggle('card-review', spaced && !isNewWord(currentWords[0]));
+        single.classList.toggle('card-review', spaced && !studiedWords.has(currentWords[0].toLowerCase()) && !isNewWord(currentWords[0]));
       document.querySelectorAll('#multi-word-chips .word-chip').forEach(chip => {
-        chip.classList.toggle('chip-review', spaced && !isNewWord(chip.dataset.word));
+        const st = studiedWords.has(chip.dataset.word.toLowerCase());
+        chip.classList.toggle('chip-review', spaced && !st && !isNewWord(chip.dataset.word));
       });
     }
 
@@ -4047,7 +4155,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     function chipHint(word) {
       if (_justLongPressed) { _justLongPressed = false; return; }
       const spaced = practiceMode === 'spaced' && !sentenceSubmitted;
-      if (spaced && !isNewWord(word)) showJeNeSaisPas(word);
+      const studied = studiedWords.has(word.toLowerCase());
+      if (spaced && !studied && !isNewWord(word)) showJeNeSaisPas(word);
       else fetchHint(word);
     }
 
@@ -4107,16 +4216,21 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
     function cancelJeNeSaisPas() {
       jeNeSaisPasWord = null;
+      _pendingGloss   = null;
       document.getElementById('confirm-panel').classList.remove('visible');
       document.getElementById('sentence-input').disabled = false;
     }
 
     async function confirmJeNeSaisPas() {
-      const word = jeNeSaisPasWord;
+      const word    = jeNeSaisPasWord;
+      const pending = _pendingGloss;
       cancelJeNeSaisPas();
       revealHiddenWords();
       await saveProgress(word, false);
       startQCM(word);
+      // La traduction / l'image demandée sur un mot à réviser s'affiche une fois
+      // le ✗ acté (c'est ce qui la paie).
+      if (pending && pending.word === word) runGloss(pending.word, pending.kind);
     }
 
     function adjustChipFontSizes() {
@@ -4215,6 +4329,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const hintTextEl = document.getElementById('hint-text');
       const hintBox    = document.getElementById('hint-box');
       const cacheKey   = `${word.toLowerCase()}|${currentLang}|${currentModel}`;
+      _hintBoxWord     = word;
+      prepareHintExtra();
 
       // Met à jour le label et s'assure que la boîte est dépliée
       document.getElementById('hint-box-label-text').innerHTML = `${tPrac('label_definition')} — <span class="hint-word-in-label">${lc(word).replace(/</g,'&lt;')}</span>`;
@@ -4229,6 +4345,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         if (currentWords.length === 1) {
           document.getElementById('hint-used-badge').classList.add('visible');
         }
+        showStudyOffer(word);
         return; // pas d'appel API, pas de saveHint (déjà enregistré)
       }
 
@@ -4294,6 +4411,7 @@ Respond entirely in ${langName}.`;
         if (currentWords.length === 1) {
           document.getElementById('hint-used-badge').classList.add('visible');
         }
+        showStudyOffer(word);
         if (!sentenceSubmitted) await saveHint(word);
       } catch (err) {
         const ew = word.replace(/'/g, "\\'");
@@ -4305,12 +4423,209 @@ Respond entirely in ${langName}.`;
       }
     }
 
+    // ── « Étudier » un mot nouveau ────────────────────────────
+    // Définition → QCM → le mot compte comme un « nouveau + ✓ » (revient demain,
+    // net inchangé) mais dispense de l'employer dans la phrase de ce tour.
+    // Auto-limité : un mot n'est nouveau qu'une fois, l'offre s'éteint d'elle-même.
+
+    function canStudy(word) {
+      return practiceMode === 'spaced' && !sentenceSubmitted
+        && isNewWord(word) && !studiedWords.has(word.toLowerCase());
+    }
+
+    // Le bas de la boîte définition (traduire / étudier). Le bouton d'étude
+    // n'apparaît qu'une fois la définition affichée — voir showStudyOffer.
+    function prepareHintExtra() {
+      document.getElementById('hint-extra').style.display   = '';
+      document.getElementById('hint-translation').innerHTML = '';
+      document.getElementById('hint-study').style.display   = 'none';
+      document.getElementById('hint-translate-btn').textContent = tPrac('act_translate');
+    }
+
+    function showStudyOffer(word) {
+      document.getElementById('hint-study').style.display = canStudy(word) ? '' : 'none';
+    }
+
+    async function startStudyQuiz() {
+      const word = _hintBoxWord;
+      if (!word || !canStudy(word)) return;
+      _studyQuizWord = word;
+      _studyTries    = 0;
+      document.getElementById('hint-study').style.display = 'none';
+      // Le QCM d'étude n'est pas le QCM d'échec : le verrou « 1 QCM par mot » ne
+      // doit pas l'empêcher, et il ne doit pas empêcher celui d'après.
+      _qcmStartedWords.delete(lc(word));
+      await startQCM(word);
+      _qcmStartedWords.delete(lc(word));
+    }
+
+    async function retryStudyQuiz() {
+      if (!_studyQuizWord) return;
+      const w = _studyQuizWord;
+      _qcmStartedWords.delete(lc(w));
+      await startQCM(w);
+      _qcmStartedWords.delete(lc(w));
+    }
+
+    // Même effet que « nouveau + ✓ » : next_review = demain, net et étoiles
+    // inchangés, quota du jour consommé. Rien dans l'historique : le mot n'a pas
+    // été testé en production.
+    async function markWordStudied(word) {
+      const k = word.toLowerCase();
+      if (studiedWords.has(k)) return;
+      studiedWords.add(k);
+      _studyQuizWord = null;
+
+      const promises = [saveProgressNew(word)];
+      if (!sessionNewPracticed.has(k)) {
+        sessionNewPracticed.add(k);
+        todayNewCount++;
+        promises.push(saveTodayCount(currentLang, todayNewCount));
+      }
+      await Promise.all(promises);
+
+      renderWordDisplay(); // avant vérification : aucun contour ✓/✗ à préserver
+      updateStudyUI();
+      const trulyDue  = allWords.filter(w => { const pr = progressMap[w.toLowerCase()]; return pr && pr.nextReview && isDue(w); });
+      const neverPrac = allWords.filter(w => isNewWord(w));
+      updateDueCountDisplay(trulyDue.length, Math.max(0, maxNewPerDay - todayNewCount), neverPrac.length);
+    }
+
+    // Quand tous les mots du tour sont étudiés, il n'y a plus de phrase à écrire.
+    function updateStudyUI() {
+      if (practiceMode !== 'spaced') return;
+      const remaining  = sentenceWords().length;
+      const allStudied = !sentenceSubmitted && currentWords.length > 0 && remaining === 0;
+      document.getElementById('sentence-section').style.display = allStudied ? 'none' : '';
+      document.getElementById('study-all-done').style.display   = allStudied ? '' : 'none';
+      if (remaining > 0) {
+        const langInfo = getLang();
+        document.getElementById('sentence-label').textContent =
+          remaining === 1 ? langInfo.sentencePromptSingle : langInfo.sentencePrompt;
+      }
+    }
+
+    // ── Traduction d'un mot (+ mot-clé image) ─────────────────
+    // Un seul appel front (BYOK, modèle et raisonnement de ⚙️) sert la traduction
+    // ET la recherche d'image : il renvoie aussi le mot-clé anglais et si le mot
+    // est concret (photographiable). Cache par (mot, langue de l'appli) : rien
+    // n'est stocké côté serveur, donc changer de langue d'interface reste libre.
+    const APP_LANG_NAME = { en: 'English', fr: 'French', es: 'Spanish', el: 'Modern Greek' };
+
+    async function wordGloss(word, lang) {
+      const key = `${word.toLowerCase()}|${appLang}`;
+      if (translationCache[key]) return translationCache[key];
+      const info     = LANGS.find(l => l.key === lang) || getLang();
+      const langName = info.mistralName;
+      const target   = APP_LANG_NAME[appLang] || 'English';
+      const prompt = `You are a bilingual lexicographer.
+
+Entry in ${langName}: "${lc(wordBase(word))}"${entryContext(word)}
+
+Reply with ONLY this JSON object, nothing else:
+{"translation": "...", "english": "...", "concrete": true}
+
+- "translation": the shortest natural equivalent in ${target} — one to four words, no sentence, no explanation. If the entry has several distinct senses, give the two or three main ones separated by ", ".
+- "english": one or two English words to search a photo library with, describing what this entry looks like. Empty string if it cannot be photographed.
+- "concrete": true ONLY if the entry names something a photograph could plainly show (an object, an animal, a plant, a place, a food, a visible action). false for abstractions, feelings, qualities, grammatical words and idioms.`;
+
+      // GPT est un modèle de raisonnement : le budget couvre reasoning + texte.
+      const raw = await callAI(prompt, isGemini() ? 500 : 16000);
+      const m   = String(raw || '').match(/\{[\s\S]*\}/);
+      if (!m) throw new Error('réponse illisible');
+      const d = JSON.parse(m[0]);
+      const out = {
+        tr:       String(d.translation || '').trim(),
+        en:       String(d.english || '').trim(),
+        concrete: d.concrete === true || d.concrete === 'true',
+      };
+      if (!out.tr) throw new Error('réponse vide');
+      translationCache[key] = out;
+      return out;
+    }
+
+    // Sur un mot À RÉVISER, traduction et image donnent la réponse : même règle
+    // que la définition — ça passe par « je ne sais pas » (✗ + QCM), et la glose
+    // n'est affichée qu'une fois la confirmation donnée.
+    function requestGloss(word, kind) {
+      if (practiceMode === 'spaced' && !sentenceSubmitted
+          && !studiedWords.has(word.toLowerCase()) && !isNewWord(word)
+          && !_qcmStartedWords.has(lc(word))) {
+        _pendingGloss = { word, kind };
+        showJeNeSaisPas(word);
+        return;
+      }
+      runGloss(word, kind);
+    }
+
+    function hintTranslate() { if (_hintBoxWord) requestGloss(_hintBoxWord, 'translate'); }
+
+    async function runGloss(word, kind) {
+      if (kind === 'photo') return runWordImage(word);
+
+      // La traduction vit dans la boîte définition : elle en est le filet.
+      const box = document.getElementById('hint-box');
+      if (_hintBoxWord !== word) {
+        _hintBoxWord = word;
+        const ew = word.replace(/'/g, "\\'");
+        document.getElementById('hint-text').innerHTML =
+          `<button class="btn-link" onclick="fetchHint('${ew}')">${tPrac('act_see_def')}</button>`;
+        prepareHintExtra();
+      }
+      document.getElementById('hint-box-label-text').innerHTML =
+        `${tPrac('label_definition')} — <span class="hint-word-in-label">${escapeHtml(lc(word))}</span>`;
+      box.classList.remove('collapsed');
+      box.classList.add('visible');
+      document.getElementById('hint-extra').style.display = '';
+      showStudyOffer(word);
+
+      const el = document.getElementById('hint-translation');
+      el.innerHTML = `<div class="hint-translation"><span class="spinner"></span> ${tPrac('translating')}</div>`;
+      try {
+        const g = await wordGloss(word, currentLang);
+        if (_hintBoxWord !== word) return; // changé de mot pendant l'appel
+        el.innerHTML = `<div class="hint-translation"><span class="tr-word">${escapeHtml(lc(wordBase(word)))}</span> → ${escapeHtml(g.tr)}</div>`;
+      } catch (e) {
+        if (_hintBoxWord !== word) return;
+        el.innerHTML = `<div class="hint-translation tr-err">${tPrac('err_prefix')} ${escapeHtml(e.message || '')}</div>`;
+      }
+    }
+
+    // Image du mot : le mot-clé anglais et le caractère concret viennent du même
+    // appel que la traduction — un mot abstrait n'atteint jamais Unsplash.
+    async function runWordImage(word) {
+      const box  = document.getElementById('word-image-box');
+      const body = document.getElementById('word-image-body');
+      document.getElementById('word-image-label').textContent = `🖼 ${lc(wordBase(word))}`;
+      box.classList.add('visible');
+      body.innerHTML = SPINNER_BOX;
+      try {
+        const g = await wordGloss(word, currentLang);
+        if (!g.concrete || !g.en) {
+          body.innerHTML = `<div class="word-image-none">${tPrac('photo_none')}</div>`;
+          return;
+        }
+        const resp = await fetch(`${API_ENDPOINT}/unsplash`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT() },
+          body: JSON.stringify({ query: g.en })
+        });
+        const data = await resp.json();
+        if (!data.url) throw new Error((data.error && data.error.message) || 'image indisponible');
+        body.innerHTML = `<div id="word-image-wrap"><img alt=""></div>`;
+        body.querySelector('img').src = data.url;
+      } catch (e) {
+        body.innerHTML = `<div class="word-image-none">${escapeHtml(e.message || 'erreur')}</div>`;
+      }
+    }
+
     // ── Évaluation ────────────────────────────────────────────
     async function submitSentence() {
       if (practiceMode === 'image') { await analyzePhoto(); return; }
 
       const sentence = document.getElementById('sentence-input').value.trim();
       if (!sentence) return;
+      if (practiceMode !== 'image' && sentenceWords().length === 0) return; // tout étudié
 
       // Même réponse qu'avant : shake et ignore
       if (sentence === lastSubmittedSentence) {
@@ -4342,12 +4657,15 @@ Respond entirely in ${langName}.`;
       const feedbackLang = langInfo.feedbackLang;
       // Cible = la base seule : la note entre parenthèses n'a pas à figurer dans
       // la phrase de l'apprenant (elle guide le modèle, plus bas).
-      const wordsList    = currentWords.map(w => lc(promptLabel(w, currentWords))).join('", "');
-      const isSingle     = currentWords.length === 1;
+      // Les mots étudiés ce tour sont hors phrase : ils ne sont ni demandés au
+      // modèle, ni notés, ni sauvegardés.
+      const sWords       = sentenceWords();
+      const wordsList    = sWords.map(w => lc(promptLabel(w, sWords))).join('", "');
+      const isSingle     = sWords.length === 1;
 
       const prompt = `You are a ${langName} language teacher preparing a student for a language proficiency exam.
 
-The learner is practicing the following word(s) in ${langName}: "${wordsList}"${entryContext(currentWords)}
+The learner is practicing the following word(s) in ${langName}: "${wordsList}"${entryContext(sWords)}
 Their text: "${sentence}"
 
 ════════════════════════════════
@@ -4400,7 +4718,7 @@ ${isSingle
   : `First: a ## markdown heading in ${langName} for the overall verdict (e.g. "## Verdict"), then ✓ if ALL words pass BLOC 1, ✗ if any word fails.
 
 Then for each word, one line:
-${currentWords.map(w => `- "${lc(promptLabel(w, currentWords))}": ✓ or ✗ — one sentence on usage and meaning`).join('\n')}`}
+${sWords.map(w => `- "${lc(promptLabel(w, sWords))}": ✓ or ✗ — one sentence on usage and meaning`).join('\n')}`}
 
 Then a blank line, then a section with a ## markdown heading in ${langName} for the linguistic analysis (e.g. "## Analyse linguistique" in French, "## Análisis lingüístico" in Spanish, "## Γλωσσική ανάλυση" in Greek, "## Linguistic analysis" in English), followed by a numbered list of confirmed errors from B2-STEP 2 only. Each item must cover exactly one error. The bold label must name that specific error — never a preliminary observation that is then contradicted. If none, write the equivalent of "No errors detected" in ${langName}.
 
@@ -4439,7 +4757,7 @@ Respond entirely in ${feedbackLang}.`;
         // growSpacer s'en charge pendant le streaming, quand la place manque.
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-        const evalMaxTokens = isGemini() ? 2000 + currentWords.length * 400 : 16000;
+        const evalMaxTokens = isGemini() ? 2000 + sWords.length * 400 : 16000;
         const scroller = startAutoScroll(feedbackBox, spacer);
         const reply = await callAIStream(prompt, fullText => {
           // Sections repliables dès le streaming : les sections finies se replient
@@ -4451,7 +4769,7 @@ Respond entirely in ${feedbackLang}.`;
         scroller.cleanup();
 
         // Notice aide — affichée après le streaming (le scroll final voit la hauteur complète)
-        const wordsWithHelp = currentWords.filter(w => hintUsedWords.has(w.toLowerCase()));
+        const wordsWithHelp = sWords.filter(w => hintUsedWords.has(w.toLowerCase()));
         noCountNotice.textContent = wordsWithHelp.length > 0
           ? getLang().hintNotice.replace('{words}', wordsWithHelp.join(', '))
           : '';
@@ -4497,13 +4815,13 @@ Respond entirely in ${feedbackLang}.`;
         // Score indépendant par mot en mode multi
         const wordResults = {};
         if (isSingle) {
-          wordResults[currentWords[0].toLowerCase()] = verdictTrue;
+          wordResults[sWords[0].toLowerCase()] = verdictTrue;
         } else {
-          currentWords.forEach(w => {
+          sWords.forEach(w => {
             // On cherche le libellé RÉELLEMENT envoyé au modèle (base, ou
             // base + note si ambiguë) : chercher le texte complet ne matcherait
             // aucune ligne et compterait tous les mots annotés ✗.
-            const wEscaped = promptLabel(w, currentWords).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const wEscaped = promptLabel(w, sWords).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             // Frontières Unicode (\b ASCII échoue sur mots accentués : ánimo, corazón…)
             const line = lines.find(l => new RegExp(`(^|[^\\p{L}])${wEscaped}([^\\p{L}]|$)`, 'iu').test(l));
             if (line) {
@@ -4523,7 +4841,7 @@ Respond entirely in ${feedbackLang}.`;
 
         // Couleur 3 états : vert (tout ✓), orange (partiel), rouge (tout ✗)
         const correctCount = Object.values(wordResults).filter(v => v).length;
-        const total = currentWords.length;
+        const total = sWords.length;
         let colorClass;
         if (isSingle)                     colorClass = isCorrect ? 'correct' : 'incorrect';
         else if (correctCount === total)  colorClass = 'correct';
@@ -4545,7 +4863,7 @@ Respond entirely in ${feedbackLang}.`;
         const historyRows   = [];
         const prevNewCount  = todayNewCount;
 
-        for (const w of currentWords) {
+        for (const w of sWords) {
           const k           = w.toLowerCase();
           const wResult     = wordResults[k] ?? isCorrect;
           const hintWasUsed = hintUsedWords.has(k);
@@ -4592,7 +4910,7 @@ Respond entirely in ${feedbackLang}.`;
         }
 
         // Rafraîchit les étoiles des chips multi-mots (single géré dans saveProgress)
-        if (!isSingle) refreshChipStars();
+        if (currentWords.length > 1) refreshChipStars();
         refreshWordColors(); // le doré d'un nouveau mot validé tombe tout de suite
 
         // Point 19/6 : prochaine date de révision affichée DANS la boîte (visible),
@@ -4600,7 +4918,7 @@ Respond entirely in ${feedbackLang}.`;
         if (practiceMode === 'spaced') {
           const today = todayStrLocal();
           const parts = [];
-          for (const w of currentWords) {
+          for (const w of sWords) {
             const p = progressMap[w.toLowerCase()];
             if (p && p.nextReview) {
               const lab = reviewLabel(p.nextReview, today);
@@ -4617,7 +4935,7 @@ Respond entirely in ${feedbackLang}.`;
 
         // Mots liés après ✓
         if (isCorrect) {
-          fetchRelatedWords(currentWords);
+          fetchRelatedWords(sWords);
         } else {
           document.getElementById('related-box').classList.remove('visible');
         }
@@ -4628,9 +4946,9 @@ Respond entirely in ${feedbackLang}.`;
           // Réutilise wordResults (source unique de vérité) au lieu d'un matching
           // includes divergent qui retombait sur currentWords[0] (faux mot proposé).
           const failedWords = isSingle
-            ? [currentWords[0]]
-            : currentWords.filter(w => !wordResults[w.toLowerCase()]);
-          const wordsForQCM = failedWords.length > 0 ? failedWords : [currentWords[0]];
+            ? [sWords[0]]
+            : sWords.filter(w => !wordResults[w.toLowerCase()]);
+          const wordsForQCM = failedWords.length > 0 ? failedWords : [sWords[0]];
           _qcmWordsOffer = wordsForQCM;
           document.getElementById('qcm-question').textContent = langInfo.qcmQuestion;
           document.getElementById('qcm-offer-buttons').innerHTML = wordsForQCM
@@ -4751,9 +5069,12 @@ Write all scenarios and explanations in ${langName}.`;
 
       const resultEl = document.getElementById('qcm-result');
       const correct  = _qcmChoices.find(c => c.correct);
+      // QCM d'étude : neutre. Un ✗ sur un mot jamais employé lui donnerait un net
+      // négatif (☆☆☆) alors qu'il n'a même pas encore été testé en production.
+      const inStudy  = !!_studyQuizWord && lc(_studyQuizWord) === lc(qcmWord);
       if (!isCorrect) {
-        // Compte comme ✗ supplémentaire
-        await saveProgress(qcmWord, false);
+        // Compte comme ✗ supplémentaire (sauf en étude)
+        if (!inStudy) await saveProgress(qcmWord, false);
         // Le « pourquoi » : pourquoi le scénario choisi ne colle pas + pourquoi la bonne réponse colle
         let html = `✗ ${chosen.explanation || tPrac('qcm_bad')}`;
         if (correct && correct.explanation) html += `<br>✓ ${correct.explanation}`;
@@ -4770,12 +5091,32 @@ Write all scenarios and explanations in ${langName}.`;
           requestAnimationFrame(() => hb.scrollIntoView({ behavior: 'smooth', block: 'start' }));
         };
         resultEl.appendChild(defBtn);
+        if (inStudy) {
+          _studyTries++;
+          if (_studyTries >= 2) {
+            // 2e échec : le but est d'avoir lu et réfléchi, pas de recaler.
+            // Le vrai test, c'est demain, quand il faudra employer le mot.
+            await markWordStudied(qcmWord);
+            resultEl.appendChild(studiedNote());
+          } else {
+            const again = document.createElement('button');
+            again.className = 'btn-secondary';
+            again.style.cssText = 'display:block;margin-top:0.75rem';
+            again.textContent = tPrac('study_other_q');
+            again.onclick = () => retryStudyQuiz();
+            resultEl.appendChild(again);
+          }
+        }
       } else {
         // Résultat neutre — ni ✓ ni ✗ dans la progression
         resultEl.innerHTML = `✓ ${chosen.explanation || tPrac('qcm_good')}`;
         resultEl.className = 'qcm-result correct';
+        if (inStudy) {
+          await markWordStudied(qcmWord);
+          resultEl.appendChild(studiedNote());
+        }
       }
-      if (_qcmWordsOffer.length > 1) {
+      if (_qcmWordsOffer.length > 1 && !inStudy) {
         const backBtn = document.createElement('button');
         backBtn.className = 'btn-secondary';
         backBtn.style.cssText = 'display:block;margin-top:0.75rem';
@@ -4783,6 +5124,13 @@ Write all scenarios and explanations in ${langName}.`;
         backBtn.onclick = showQCMOffer;
         resultEl.appendChild(backBtn);
       }
+    }
+
+    function studiedNote() {
+      const el = document.createElement('div');
+      el.className   = 'study-note';
+      el.textContent = tPrac('study_marked');
+      return el;
     }
 
     function toggleQcmCollapse() {
@@ -6244,6 +6592,10 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     function showWordContextMenu(word, x, y) {
       _ctxWord = word;
       document.getElementById('word-ctx-label').textContent = lc(word);
+      // En Situation le mot est la réponse à trouver : ni traduction ni image.
+      document.querySelectorAll('.ctx-gloss-btn').forEach(b => {
+        b.style.display = practiceMode === 'situation' ? 'none' : '';
+      });
       ctxMenuBack(); // toujours au premier niveau
       positionCtxMenu(x, y);
     }
@@ -6450,6 +6802,18 @@ Reply with ONLY this JSON object, nothing else:
     }
 
     // Depuis le menu ⋯ de la carte / des chips (menu déjà ouvert et positionné)
+    function ctxMenuTranslate() {
+      const w = _ctxWord;
+      closeWordContextMenu();
+      if (w) requestGloss(w, 'translate');
+    }
+
+    function ctxMenuPhoto() {
+      const w = _ctxWord;
+      closeWordContextMenu();
+      if (w) requestGloss(w, 'photo');
+    }
+
     function ctxMenuVerify() {
       const word = _ctxWord;
       if (!word) return;
@@ -6686,6 +7050,8 @@ Reply with ONLY this JSON object, nothing else:
     <div class="ctx-word-label" id="word-ctx-label"></div>
     <div id="ctx-main">
       <button class="ctx-menu-btn" onclick="ctxMenuVerify()" data-i18n="ctx_verify">🔍 Vérifier le mot</button>
+      <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuTranslate()" data-i18n="ctx_translate">🌐 Traduire</button>
+      <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuPhoto()" data-i18n="ctx_photo">🖼 Voir une image</button>
       <button class="ctx-menu-btn" onclick="ctxMenuEdit()" data-i18n="ctx_edit">✏️ Modifier</button>
       <button class="ctx-menu-btn" onclick="ctxMenuMove()" data-i18n="ctx_move">🔀 Changer de langue</button>
       <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()" data-i18n="ctx_delete">🗑 Supprimer</button>
