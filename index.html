@@ -738,6 +738,29 @@
       /* clippe net à exactement 2 lignes (line-clamp seul laisse parfois dépasser la 3e) */
       max-height: 3.4em; padding-bottom: 0;
     }
+    /* Analyse linguistique : gravité des remarques.
+       Les pastilles suivent la couleur de la boîte (currentColor) : elles doivent
+       rester lisibles sur les trois états vert / orange / rouge. */
+    .fb-item { margin: 0 0 0.5rem; }
+    .fb-item:last-child { margin-bottom: 0; }
+    .sev {
+      font-family: 'DM Mono', monospace; font-size: 0.6rem; text-transform: uppercase;
+      letter-spacing: 0.08em; border: 1px solid currentColor; border-radius: 4px;
+      padding: 0.05rem 0.35rem; margin-right: 0.4rem; white-space: nowrap;
+    }
+    .sev-maj { opacity: 1; font-weight: 700; }
+    .sev-min { opacity: 0.75; }
+    .sev-det { opacity: 0.5; }
+    .fb-details { margin-top: 0.7rem; }
+    .fb-details > summary {
+      cursor: pointer; font-family: 'DM Mono', monospace; font-size: 0.7rem;
+      opacity: 0.65; list-style: none;
+    }
+    .fb-details > summary::-webkit-details-marker { display: none; }
+    .fb-details > summary::before { content: '▸ '; }
+    .fb-details[open] > summary::before { content: '▾ '; }
+    .fb-details > .fb-item { margin-top: 0.5rem; }
+
     .feedback-box.image     { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
     .feedback-box.image .md-h2 {
       font-family: 'DM Mono', monospace;
@@ -1988,6 +2011,11 @@
       sort_far:         { en: `📆 Furthest`, fr: `📆 Plus lointaine`, es: `📆 Más lejana`, el: `📆 Πιο μακρινή` },
       sort_az:          { en: `🔤 A-Z`, fr: `🔤 A-Z`, es: `🔤 A-Z`, el: `🔤 Α-Ω` },
       fb_expand:        { en: `⌄ Expand all`, fr: `⌄ Tout déplier`, es: `⌄ Desplegar todo`, el: `⌄ Άνοιγμα όλων` },
+      sev_maj:          { en: `major`, fr: `majeur`, es: `grave`, el: `σοβαρό` },
+      sev_min:          { en: `minor`, fr: `mineur`, es: `menor`, el: `ήσσον` },
+      sev_det:          { en: `form`, fr: `forme`, es: `forma`, el: `μορφή` },
+      fb_details:       { en: `{n} form details`, fr: `{n} détails de forme`, es: `{n} detalles de forma`, el: `{n} λεπτομέρειες μορφής` },
+      fb_detail_one:    { en: `1 form detail`, fr: `1 détail de forme`, es: `1 detalle de forma`, el: `1 λεπτομέρεια μορφής` },
       fb_collapse:      { en: `⌃ Collapse all`, fr: `⌃ Tout replier`, es: `⌃ Plegar todo`, el: `⌃ Κλείσιμο όλων` },
       ctx_edit:         { en: `✏️ Edit`, fr: `✏️ Modifier`, es: `✏️ Editar`, el: `✏️ Επεξεργασία` },
       ctx_delete:       { en: `🗑 Delete`, fr: `🗑 Supprimer`, es: `🗑 Eliminar`, el: `🗑 Διαγραφή` },
@@ -3281,6 +3309,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
 
     function resetPracticeUI() {
+      flushBlacklist(); // avant tout nettoyage : c'est lui qui vide _relatedWordsShown
       hintUsedWords          = new Set();
       sentenceSubmitted      = false;
       lastSubmittedSentence  = '';
@@ -3760,6 +3789,33 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       }
     }
 
+    // Point de sortie UNIQUE des mots du même univers vus mais non ajoutés.
+    // Appelé par resetPracticeUI (donc aussi par setMode, selectLanguage, la file
+    // du mode libre et nextSituation) et par pagehide. ⚠️ Avant, seul nextWord
+    // blacklistait : tout mot affiché puis quitté par un autre chemin était perdu
+    // et revenait en suggestion plus tard.
+    function flushBlacklist() {
+      const toBlacklist = _relatedWordsShown.filter(w => !_relatedWordsAdded.has(w.toLowerCase()));
+      _relatedWordsShown = [];
+      _relatedWordsAdded = new Set();
+      if (toBlacklist.length && currentLang) saveToBlacklist(toBlacklist, currentLang); // fire-and-forget
+    }
+
+    // Fermeture de l'app / passage en arrière-plan : la requête doit survivre à la
+    // page, d'où keepalive (sendBeacon ne permettrait pas l'en-tête JWT).
+    window.addEventListener('pagehide', () => {
+      const toBlacklist = _relatedWordsShown.filter(w => !_relatedWordsAdded.has(w.toLowerCase()));
+      if (!toBlacklist.length || !currentLang || !getJWT()) return;
+      _relatedWordsShown = [];
+      _relatedWordsAdded = new Set();
+      try {
+        authFetch('/api/blacklist', {
+          method: 'POST', keepalive: true,
+          body: JSON.stringify({ lang: currentLang, words: toBlacklist })
+        });
+      } catch (e) { /* la page part : rien à rattraper */ }
+    });
+
     async function saveToBlacklist(words, lang) {
       if (!words.length) return;
       try {
@@ -4118,11 +4174,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     async function nextWord() {
       const draft = document.getElementById('sentence-input').value.trim();
       if (draft && draft !== lastSubmittedSentence && !confirm('Tu as une phrase non vérifiée. Continuer quand même ?')) return;
-      // Blackliste les mots du même univers non ajoutés
-      const toBlacklist = _relatedWordsShown.filter(w => !_relatedWordsAdded.has(w.toLowerCase()));
-      if (toBlacklist.length) saveToBlacklist(toBlacklist, currentLang); // fire-and-forget
-      _relatedWordsShown = [];
-      _relatedWordsAdded = new Set();
+      // La blacklist part depuis resetPracticeUI (appelé plus bas), point unique.
       if (freeQueueActive) freeCursor += currentWords.length; // avance d'un batch dans la sélection
       sessionFirstResult  = {};
       previousWordsPool   = [];
@@ -4703,7 +4755,10 @@ B2-STEP 2 — For each item noted in Step 1, verify: is this definitively wrong 
 
 CRITICAL FILTER RULE: If your own explanation contains phrases like "es correcto", "no hay error confirmado", "podría", "en algunos dialectos", or any equivalent hedge — the item MUST be silently dropped. Do not include it in the output at all, not even with a note saying it was discarded or not confirmed. An item that ends up being correct or uncertain has no place in the error list.
 
-B2-STEP 3 — For each confirmed error from Step 2, explain what is wrong and what would be correct.
+B2-STEP 3 — For each confirmed error from Step 2, explain what is wrong and what would be correct, then assign it EXACTLY ONE severity:
+- [MAJ] — the language itself is wrong: agreement, conjugation, tense or mood, gender, number, wrong preposition, wrong word choice, and MISSING OR WRONG DIACRITICS (accents, tildes, diaereses) — a missing accent is a spelling error, not typography.
+- [MIN] — grammatically correct but not idiomatic: collocation, register, word order, clumsy or unnatural phrasing.
+- [DET] — surface form only: capitalisation, punctuation, spacing.
 
 CRITICAL: If the learner used a wrong inflection of a target entry (e.g. "da a luz" where the syntax requires "dieran a luz"), this IS a confirmed grammar error — report it here. It must NEVER change the verdict: BLOC 1 judges meaning and usage only.
 
@@ -4721,6 +4776,10 @@ Then for each word, one line:
 ${sWords.map(w => `- "${lc(promptLabel(w, sWords))}": ✓ or ✗ — one sentence on usage and meaning`).join('\n')}`}
 
 Then a blank line, then a section with a ## markdown heading in ${langName} for the linguistic analysis (e.g. "## Analyse linguistique" in French, "## Análisis lingüístico" in Spanish, "## Γλωσσική ανάλυση" in Greek, "## Linguistic analysis" in English), followed by a numbered list of confirmed errors from B2-STEP 2 only. Each item must cover exactly one error. The bold label must name that specific error — never a preliminary observation that is then contradicted. If none, write the equivalent of "No errors detected" in ${langName}.
+
+ORDER AND SEVERITY TAGS — mandatory:
+- Sort the list by the severity assigned in B2-STEP 3, most serious FIRST: all [MAJ] items, then all [MIN], then all [DET]. Never open the list with a capitalisation or punctuation remark when a real grammar error exists.
+- Every item MUST begin with its severity tag, written verbatim in ASCII brackets — "[MAJ]", "[MIN]" or "[DET]" — placed immediately after the item number and before the bold label. Example: "1. [MAJ] **agreement** — ...". Do not translate the tags, do not invent other ones.
 
 If and only if the global verdict is ✓: then a blank line, then a section with a ## markdown heading in ${langName} for an improved version (e.g. "## Version enrichie" in French, "## Versión mejorada" in Spanish), followed by the improved text in italics (surrounded by * on each side). If the global verdict is ✗, do not output an improved version section at all.
 
@@ -6286,6 +6345,61 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     // Rendu PENDANT le streaming : chaque section déjà terminée se replie dès que
     // la suivante commence — seule la section en cours d'écriture reste ouverte.
     // (Le rendu final ré-ouvre le verdict et ajoute le bouton « tout déplier » + la note.)
+    // ── Analyse linguistique : gravité des remarques ──────────
+    // Le modèle préfixe chaque item de [MAJ] / [MIN] / [DET] (voir le prompt).
+    // Pendant le STREAMING on remplace seulement le marqueur par sa pastille et on
+    // garde l'ordre d'arrivée (le prompt le trie déjà) : trier en direct ferait
+    // sauter les items sous les yeux. Au rendu FINAL on trie et on replie les
+    // détails de forme.
+    // ⚠️ Un item sans marqueur est traité en « mineur » et garde sa place : on ne
+    // perd jamais une remarque parce que le modèle a oublié l'étiquette.
+    const SEV_RE   = /^\s*\[(MAJ|MIN|DET)\]\s*/i;
+    const SEV_RANK = { MAJ: 0, MIN: 1, DET: 2 };
+
+    function hasSeverityTags(body) { return /\[(MAJ|MIN|DET)\]/i.test(body); }
+
+    // Découpe le corps en items de liste numérotée (un item peut tenir sur
+    // plusieurs lignes) ; ce qui précède le premier item est conservé tel quel.
+    function splitAnalysisItems(body) {
+      const head = [], items = [];
+      for (const line of body.split('\n')) {
+        if (/^\s*\d+[.)]\s/.test(line)) items.push([line.replace(/^\s*\d+[.)]\s*/, '')]);
+        else if (items.length) items[items.length - 1].push(line);
+        else head.push(line);
+      }
+      return { head: head.join('\n').trim(), items: items.map(l => l.join('\n').trim()) };
+    }
+
+    function sevPill(sev) {
+      const key = { MAJ: 'sev_maj', MIN: 'sev_min', DET: 'sev_det' }[sev];
+      return `<span class="sev sev-${sev.toLowerCase()}">${tPrac(key)}</span>`;
+    }
+
+    function renderAnalysisBody(body, final) {
+      const { head, items } = splitAnalysisItems(body);
+      if (!items.length) return renderMarkdown(body);
+      const parsed = items.map(txt => {
+        const m = txt.match(SEV_RE);
+        return { sev: m ? m[1].toUpperCase() : 'MIN', text: txt.replace(SEV_RE, '') };
+      });
+      const one  = it => `<div class="fb-item">${sevPill(it.sev)}${renderMarkdown(it.text)}</div>`;
+      let html   = head ? renderMarkdown(head) : '';
+      if (!final) return html + parsed.map(one).join('');
+      // Array.prototype.sort est stable : à gravité égale, l'ordre du modèle tient.
+      const sorted = parsed.slice().sort((a, b) => SEV_RANK[a.sev] - SEV_RANK[b.sev]);
+      const det    = sorted.filter(it => it.sev === 'DET');
+      html += sorted.filter(it => it.sev !== 'DET').map(one).join('');
+      if (det.length) {
+        const lab = det.length === 1 ? tPrac('fb_detail_one') : tPrac('fb_details').replace('{n}', det.length);
+        html += `<details class="fb-details"><summary>${lab}</summary>${det.map(one).join('')}</details>`;
+      }
+      return html;
+    }
+
+    function feedbackBodyHtml(body, final) {
+      return hasSeverityTags(body) ? renderAnalysisBody(body, final) : renderMarkdown(body);
+    }
+
     function renderFeedbackSectionsStreaming(partial) {
       const sections = parseFeedbackSections(partial).filter(s => s.title || s.body);
       if (!sections.length) return '';
@@ -6297,7 +6411,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
             <span class="fb-title">${title}</span>
             <span class="fb-chevron">▾</span>
           </div>
-          <div class="fb-body">${renderMarkdown(s.body)}</div>
+          <div class="fb-body">${feedbackBodyHtml(s.body, false)}</div>
         </div>`;
       }).join('');
     }
@@ -6313,7 +6427,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
             <span class="fb-title">${title}</span>
             <span class="fb-chevron">▾</span>
           </div>
-          <div class="fb-body">${renderMarkdown(s.body)}</div>
+          <div class="fb-body">${feedbackBodyHtml(s.body, true)}</div>
         </div>`;
       });
       if (scoreHtml) html += scoreHtml;
