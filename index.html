@@ -1502,7 +1502,7 @@
       </div>
       <!-- Bouton « Commencer » (évite l'appel API automatique à l'entrée du mode) -->
       <div id="situation-start" style="display:none; padding-top:0.5rem;">
-        <button class="btn-primary" onclick="startSituation()" data-i18n="btn_start">▶ Commencer</button>
+        <button class="btn-primary" onclick="startSituation()" data-i18n="btn_start">Commencer</button>
       </div>
       <!-- Boîte situation générée par Mistral -->
       <div class="hint-box" id="situation-box" style="display:none;">
@@ -1577,6 +1577,11 @@
       <button class="btn-ghost" onclick="showRevisions()" data-i18n="btn_revisions">📅 mes révisions à venir</button>
     </div>
 
+    <!-- Liste des mots maîtrisés (mode Situation) — jumeau de #revisions-bar -->
+    <div id="mastered-bar" style="display:none; padding-top:1.2rem; text-align:center;">
+      <button class="btn-ghost" onclick="showMastered()" data-i18n="btn_mastered">★★★ mes mots maîtrisés</button>
+    </div>
+
     <!-- Spacer pour permettre le scroll jusqu'au feedback -->
     <div id="scroll-spacer" style="display:none;"></div>
 
@@ -1626,7 +1631,7 @@
   <!-- ── Écran : Révisions à venir (mode espacé) ── -->
   <div class="screen" id="screen-revisions">
     <div class="stats-header">
-      <h1 class="app-title" data-i18n="revisions_title">Révisions</h1>
+      <h1 class="app-title" id="revisions-title" data-i18n="revisions_title">Révisions</h1>
       <button class="btn-ghost" onclick="showScreen('screen-practice')" data-i18n="btn_back">← retour</button>
     </div>
     <input type="text" id="revisions-search" placeholder="🔍 chercher un mot…" data-i18n-ph="search_ph" oninput="renderRevisions()"
@@ -1826,6 +1831,7 @@
       history_title:    { en: `History`, fr: `Historique`, es: `Historial`, el: `Ιστορικό` },
       mots_title:       { en: `My words`, fr: `Mes mots`, es: `Mis palabras`, el: `Οι λέξεις μου` },
       revisions_title:  { en: `Reviews`, fr: `Révisions`, es: `Repasos`, el: `Επαναλήψεις` },
+      mastered_title:   { en: `Mastered`, fr: `Maîtrisés`, es: `Dominadas`, el: `Κατακτημένες` },
       add_title:        { en: `Add`, fr: `Ajouter`, es: `Añadir`, el: `Προσθήκη` },
       filter_all:       { en: `🌐 All`, fr: `🌐 Tout`, es: `🌐 Todo`, el: `🌐 Όλα` },
       history_empty:    { en: `Nothing in the history yet.`, fr: `Aucun mot dans l'historique pour l'instant.`, es: `Todavía no hay nada en el historial.`, el: `Δεν υπάρχει τίποτα στο ιστορικό ακόμη.` },
@@ -1881,6 +1887,7 @@
       done_label:       { en: `done`, fr: `terminé`, es: `hecho`, el: `τέλος` },
       done_msg:         { en: `All done for today — come back tomorrow!`, fr: `Tout fait pour aujourd'hui — reviens demain !`, es: `¡Todo hecho por hoy — vuelve mañana!`, el: `Όλα έγιναν για σήμερα — έλα ξανά αύριο!` },
       btn_revisions:    { en: `📅 my upcoming reviews`, fr: `📅 mes révisions à venir`, es: `📅 mis próximos repasos`, el: `📅 οι επόμενες επαναλήψεις μου` },
+      btn_mastered:     { en: `★★★ my mastered words`, fr: `★★★ mes mots maîtrisés`, es: `★★★ mis palabras dominadas`, el: `★★★ οι κατακτημένες λέξεις μου` },
       confirm_sure:     { en: `Are you sure? It will count as incorrect.`, fr: `Es-tu sûr ? Ce sera compté comme incorrect.`, es: `¿Seguro? Contará como incorrecto.`, el: `Σίγουρα; Θα μετρήσει ως λάθος.` },
       confirm_sure_word:{ en: `Are you sure about "{word}"? It will count as incorrect.`, fr: `Es-tu sûr pour "{word}" ? Ce sera compté comme incorrect.`, es: `¿Seguro con "{word}"? Contará como incorrecto.`, el: `Σίγουρα για το "{word}"; Θα μετρήσει ως λάθος.` },
       btn_confirm2:     { en: `Confirm`, fr: `Confirmer`, es: `Confirmar`, el: `Επιβεβαίωση` },
@@ -1889,7 +1896,7 @@
       btn_next_word:    { en: `Another word →`, fr: `Autre mot →`, es: `Otra palabra →`, el: `Άλλη λέξη →` },
       label_definition: { en: `Definition`, fr: `Définition`, es: `Definición`, el: `Ορισμός` },
       sentence_ph:      { en: `Write your sentence here…`, fr: `Écris ta phrase ici…`, es: `Escribe tu frase aquí…`, el: `Γράψε την πρότασή σου εδώ…` },
-      btn_start:        { en: `▶ Start`, fr: `▶ Commencer`, es: `▶ Empezar`, el: `▶ Ξεκίνα` },
+      btn_start:        { en: `Start`, fr: `Commencer`, es: `Empezar`, el: `Ξεκίνα` },
       situation_label:  { en: `🎯 Situation`, fr: `🎯 Situation`, es: `🎯 Situación`, el: `🎯 Περίσταση` },
       btn_dont_know:    { en: `I don't know →`, fr: `Je ne sais pas →`, es: `No lo sé →`, el: `Δεν ξέρω →` },
       btn_next_situation:{ en: `Another situation →`, fr: `Autre situation →`, es: `Otra situación →`, el: `Άλλη περίσταση →` },
@@ -1919,6 +1926,7 @@
       rev_tomorrow:     { en: `tomorrow`, fr: `demain`, es: `mañana`, el: `αύριο` },
       rev_in_days:      { en: `in {n} d`, fr: `dans {n} j`, es: `en {n} d`, el: `σε {n} ημ.` },
       revs_due_today:   { en: `{n} word(s) to review today`, fr: `{n} mot(s) à réviser aujourd'hui`, es: `{n} palabra(s) por repasar hoy`, el: `{n} λέξη/εις για επανάληψη σήμερα` },
+      mastered_empty:   { en: `No mastered word yet — a word becomes mastered at ★★★ (3 more correct than wrong).`, fr: `Aucun mot maîtrisé encore — un mot le devient à ★★★ (3 réussites de plus que d'échecs).`, es: `Aún no hay palabras dominadas — una palabra lo es a ★★★ (3 aciertos más que fallos).`, el: `Καμία κατακτημένη λέξη ακόμη — μια λέξη γίνεται ★★★ (3 σωστά παραπάνω από λάθη).` },
       revisions_empty:  { en: `No scheduled words yet — practice some words to see them here.`, fr: `Aucun mot programmé pour l'instant — pratique des mots pour les voir apparaître ici.`, es: `Aún no hay palabras programadas — practica algunas para verlas aquí.`, el: `Καμία προγραμματισμένη λέξη ακόμη — εξασκήσου για να τις δεις εδώ.` },
       none_found:       { en: `No words found.`, fr: `Aucun mot trouvé.`, es: `Ninguna palabra encontrada.`, el: `Δεν βρέθηκαν λέξεις.` },
       sort_next:        { en: `📅 Soonest`, fr: `📅 Plus proche`, es: `📅 Más próxima`, el: `📅 Πιο κοντινή` },
@@ -2604,16 +2612,7 @@
       if (n > currentWords.length) {
         // En mode espacé : pool éligible = mêmes règles que pickWords (révisions + nouveaux dans la limite)
         let eligible = null;
-        if (practiceMode === 'spaced') {
-          const trulyDue = allWords.filter(w => {
-            const prog = progressMap[w.toLowerCase()];
-            return prog && prog.nextReview && isDue(w);
-          });
-          const neverPracticed = shuffleInPlace(allWords.filter(w => isNewWord(w)));
-          const newRemaining = Math.max(0, maxNewPerDay - todayNewCount);
-          const newToShow = neverPracticed.slice(0, newRemaining);
-          eligible = new Set([...trulyDue, ...newToShow]);
-        }
+        if (practiceMode === 'spaced') eligible = spacedEligibleSet();
         while (currentWords.length < n) {
           const nextFromPool = previousWordsPool.find(w =>
             !currentWords.includes(w) && (!eligible || eligible.has(w))
@@ -3297,6 +3296,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.querySelector('.slider-section').style.display = (mode === 'situation' || isImage) ? 'none' : '';
       const rb = document.getElementById('revisions-bar');
       if (rb) rb.style.display = (mode === 'spaced') ? '' : 'none';
+      const mb = document.getElementById('mastered-bar');
+      if (mb) mb.style.display = 'none'; // rallumée par pickWords s'il y a des ★★★
 
       // Adapter la zone phrase
       document.getElementById('sentence-section').style.display = mode === 'situation' ? 'none' : '';
@@ -3355,6 +3356,23 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const prog = progressMap[word.toLowerCase()];
       if (!prog || !prog.nextReview) return true; // jamais pratiqué → toujours dû
       return prog.nextReview <= todayStrLocal();
+    }
+
+    // Mots ajoutables en mode espacé (slider, remplacement d'un mot retiré).
+    // Le quota du jour compte les nouveaux DÉJÀ tirés dans la série : sans ça,
+    // chaque appel rouvrait `newRemaining` places et en ajoutait un de plus.
+    // Les nouveaux déjà vus passent en tête pour qu'un aller-retour du slider
+    // redonne les mêmes mots (la liste des jamais-pratiqués est re-mélangée ici).
+    function spacedEligibleSet() {
+      const trulyDue = allWords.filter(w => {
+        const prog = progressMap[w.toLowerCase()];
+        return prog && prog.nextReview && isDue(w);
+      });
+      const seenNew = [...new Set([...currentWords, ...previousWordsPool])].filter(w => isNewWord(w));
+      const neverPracticed = shuffleInPlace(allWords.filter(w => isNewWord(w) && !seenNew.includes(w)));
+      const newRemaining = Math.max(0, maxNewPerDay - todayNewCount);
+      const newToShow = [...seenNew, ...neverPracticed].slice(0, newRemaining);
+      return new Set([...trulyDue, ...newToShow]);
     }
 
     // ── Tirage pondéré (mode libre) ───────────────────────────
@@ -3741,6 +3759,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       // (pas seulement après avoir cliqué l'onglet — selectLanguage n'appelle pas setMode).
       const rbar = document.getElementById('revisions-bar');
       if (rbar) rbar.style.display = (practiceMode === 'spaced') ? '' : 'none';
+      // Barre « mes mots maîtrisés » : éteinte par défaut, rallumée plus bas
+      // seulement si le mode Situation a effectivement des mots ★★★ à lister.
+      const mbar = document.getElementById('mastered-bar');
+      if (mbar) mbar.style.display = 'none';
 
       // Affichage : mode situation cache la carte mot et les boutons hint/next
       // (appliqué AVANT le cas « aucun mot » pour ne jamais retomber sur la carte espacée)
@@ -3836,6 +3858,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
         document.getElementById('due-count').innerHTML =
           `<span class="highlight">${mastered.length}</span> ${tPrac(mastered.length > 1 ? 'mastered_pl' : 'mastered_sg')}`;
+        if (mbar) mbar.style.display = ''; // il y a des ★★★ → on propose la liste
 
         // Slider nombre de mots (plafonné au nombre de mots maîtrisés, max 5)
         document.getElementById('situation-slider-section').style.display = '';
@@ -3962,6 +3985,19 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
 
     // Rafraîchit les étoiles des chips multi-mots (après une vérification)
+    // Après sauvegarde : un mot nouveau réussi vient de recevoir sa date de révision,
+    // il n'est donc plus « nouveau » (doré). On recale la couleur SANS re-rendre —
+    // un renderWordDisplay() effacerait les contours ✓/✗ posés par applyWordOutlines.
+    function refreshWordColors() {
+      const spaced = practiceMode === 'spaced';
+      const single = document.getElementById('single-word-card');
+      if (currentWords.length === 1)
+        single.classList.toggle('card-review', spaced && !isNewWord(currentWords[0]));
+      document.querySelectorAll('#multi-word-chips .word-chip').forEach(chip => {
+        chip.classList.toggle('chip-review', spaced && !isNewWord(chip.dataset.word));
+      });
+    }
+
     function refreshChipStars() {
       document.querySelectorAll('#multi-word-chips .word-chip').forEach(chip => {
         const w = chip.dataset.word;
@@ -4111,6 +4147,16 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       box.classList.toggle('collapsed');
     }
 
+    // #scroll-spacer ne sert qu'à rendre le document assez haut pour scroller.
+    // On ne le pré-alloue JAMAIS : un rectangle vide de la hauteur d'un écran
+    // s'ouvrait sous la boîte dès le clic sur « Vérifier ». Il grandit — et
+    // n'apparaît — que lorsque le scroll a réellement besoin de place.
+    function growSpacer(spacer, px) {
+      if (!spacer || px <= 0) return;
+      spacer.style.height  = (spacer.offsetHeight + px) + 'px';
+      spacer.style.display = '';
+    }
+
     function startAutoScroll(box, spacer) {
       let active = true;
       let stoppedAtTop = false;
@@ -4138,7 +4184,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           if (spacer) {
             const maxScroll = document.body.scrollHeight - window.innerHeight;
             if (topTarget > maxScroll) {
-              spacer.style.height = (spacer.offsetHeight + topTarget - maxScroll + 16) + 'px';
+              growSpacer(spacer, topTarget - maxScroll + 16);
             }
           }
           window.scrollTo(0, topTarget);
@@ -4149,7 +4195,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         if (spacer) {
           const maxScroll = document.body.scrollHeight - window.innerHeight;
           if (bottomTarget > maxScroll) {
-            spacer.style.height = (spacer.offsetHeight + bottomTarget - maxScroll + 16) + 'px';
+            growSpacer(spacer, bottomTarget - maxScroll + 16);
           }
         }
         window.scrollTo(0, bottomTarget);
@@ -4388,17 +4434,10 @@ Respond entirely in ${feedbackLang}.`;
         spacer.style.height  = '0';
         spacer.style.display = 'none';
 
-        // Attendre que le layout se stabilise avant de pré-calculer topTarget
+        // Attendre que le layout se stabilise : startAutoScroll mesure la position
+        // de la boîte pour fixer son topTarget. Aucun spacer n'est ajouté ici —
+        // growSpacer s'en charge pendant le streaming, quand la place manque.
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-        // Ajoute uniquement le spacer strictement nécessaire pour permettre le scroll
-        const boxTopInDoc = feedbackBox.getBoundingClientRect().top + window.scrollY;
-        const neededDocH  = boxTopInDoc - 8 + window.innerHeight;
-        const naturalH    = document.body.scrollHeight;
-        if (neededDocH > naturalH) {
-          spacer.style.height  = (neededDocH - naturalH + 32) + 'px';
-          spacer.style.display = '';
-        }
 
         const evalMaxTokens = isGemini() ? 2000 + currentWords.length * 400 : 16000;
         const scroller = startAutoScroll(feedbackBox, spacer);
@@ -4425,7 +4464,7 @@ Respond entirely in ${feedbackLang}.`;
               const target = window.scrollY + rect.bottom - window.innerHeight + 16;
               const maxScroll = document.body.scrollHeight - window.innerHeight;
               if (target > maxScroll) {
-                spacer.style.height = (spacer.offsetHeight + target - maxScroll + 16) + 'px';
+                growSpacer(spacer, target - maxScroll + 16);
               }
               window.scrollTo(0, target);
             }
@@ -4554,6 +4593,7 @@ Respond entirely in ${feedbackLang}.`;
 
         // Rafraîchit les étoiles des chips multi-mots (single géré dans saveProgress)
         if (!isSingle) refreshChipStars();
+        refreshWordColors(); // le doré d'un nouveau mot validé tombe tout de suite
 
         // Point 19/6 : prochaine date de révision affichée DANS la boîte (visible),
         // pour le mot seul comme pour le multi-mots.
@@ -5100,6 +5140,7 @@ Write all scenarios and explanations in ${langName}.`;
 
     let revisionsRows = [];          // [{ word, next }]
     let revisionsSort = 'next';      // 'next' | 'far' | 'az'
+    let revisionsView = 'due';       // 'due' (révisions à venir) | 'mastered' (mots ★★★)
 
     // ── Écran « Ajouter du contenu » (point 15) ───────────────
     let addMode = 'word';
@@ -5280,13 +5321,28 @@ Write all scenarios and explanations in ${langName}.`;
       } catch (e) { alert('Erreur : ' + e.message); }
     }
 
-    function showRevisions() {
+    function showRevisions() { openWordListScreen('due'); }
+
+    // Mots ★★★ de la langue courante — ceux que le mode Situation peut tirer.
+    function showMastered() { openWordListScreen('mastered'); }
+
+    // Même écran pour les deux listes : seuls le titre, le filtre et le message
+    // « liste vide » changent (mêmes tris, même recherche, mêmes étoiles).
+    function openWordListScreen(view) {
+      revisionsView = view;
       showScreen('screen-revisions');
+      const titleKey = view === 'mastered' ? 'mastered_title' : 'revisions_title';
+      const titleEl  = document.getElementById('revisions-title');
+      titleEl.setAttribute('data-i18n', titleKey);   // sinon applyI18n remettrait l'autre titre
+      titleEl.textContent = tPrac(titleKey);
       document.getElementById('revisions-search').value = '';
       revisionsRows = [];
       for (const w of allWords) {
         const p = progressMap[w.toLowerCase()];
-        if (p && p.nextReview) revisionsRows.push({ word: w, next: p.nextReview, net: (p.correct || 0) - (p.incorrect || 0) });
+        if (!p || !p.nextReview) continue;
+        const net = (p.correct || 0) - (p.incorrect || 0);
+        if (view === 'mastered' && net < 3) continue;  // ★★★ = même seuil que pickWords
+        revisionsRows.push({ word: w, next: p.nextReview, net });
       }
       renderRevisions();
     }
@@ -5302,7 +5358,7 @@ Write all scenarios and explanations in ${langName}.`;
       const list  = document.getElementById('revisions-list');
       const today = todayStrLocal();
       if (revisionsRows.length === 0) {
-        list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tPrac('revisions_empty')}</p>`;
+        list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tPrac(revisionsView === 'mastered' ? 'mastered_empty' : 'revisions_empty')}</p>`;
         return;
       }
       const q = (document.getElementById('revisions-search').value || '').trim().toLowerCase();
@@ -5318,7 +5374,7 @@ Write all scenarios and explanations in ${langName}.`;
       } else { // 'next' — prochaine révision la plus proche
         rows.sort((a, b) => a.next < b.next ? -1 : a.next > b.next ? 1 : lc(a.word).localeCompare(lc(b.word)));
       }
-      const dueCount = rows.filter(r => r.next <= today).length;
+      const dueCount = revisionsView === 'mastered' ? 0 : rows.filter(r => r.next <= today).length;
       const head = dueCount > 0
         ? `<p style="color:var(--accent);font-weight:600;margin-bottom:0.5rem;">${tPrac('revs_due_today').replace('{n}', dueCount)}</p>`
         : '';
@@ -6443,15 +6499,7 @@ Reply with ONLY this JSON object, nothing else:
       // Piocher un remplaçant pour maintenir le nombre de mots (même logique que onSliderChange)
       if (allWords.length > 0 && currentWords.length > 0) {
         let eligible = null;
-        if (practiceMode === 'spaced') {
-          const trulyDue = allWords.filter(w => {
-            const prog = progressMap[w.toLowerCase()];
-            return prog && prog.nextReview && isDue(w);
-          });
-          const neverPracticed = allWords.filter(w => isNewWord(w));
-          const newToShow = neverPracticed.slice(0, Math.max(0, maxNewPerDay - todayNewCount));
-          eligible = new Set([...trulyDue, ...newToShow]);
-        }
+        if (practiceMode === 'spaced') eligible = spacedEligibleSet();
         const nextFromPool = previousWordsPool.find(w =>
           !currentWords.includes(w) && (!eligible || eligible.has(w))
         );

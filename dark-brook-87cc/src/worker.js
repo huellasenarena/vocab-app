@@ -124,7 +124,7 @@ async function callScriptLLM(prompt, maxTokens, env) {
   return null;
 }
 
-// Appel LLM raisonnement (gpt-5.6-terra via Responses API), pour les jugements fins
+// Appel LLM raisonnement (gpt-5.6-luna via Responses API), pour les jugements fins
 // (similarité). `env.OPENAI_API_KEY_SCRIPT` = clé propriétaire OU clé appelant
 // (aiEnv). max_output_tokens compte reasoning + texte → budget large requis.
 async function callScriptReasoning(prompt, maxOutputTokens, env, effort = 'low') {
@@ -136,7 +136,7 @@ async function callScriptReasoning(prompt, maxOutputTokens, env, effort = 'low')
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.OPENAI_API_KEY_SCRIPT}` },
         body: JSON.stringify({
-          model: 'gpt-5.6-terra',
+          model: 'gpt-5.6-luna',
           input: [{ role: 'user', content: prompt }],
           max_output_tokens: maxOutputTokens,
           ...(effort !== 'none' && { reasoning: { effort } })
@@ -160,7 +160,7 @@ async function callScriptReasoning(prompt, maxOutputTokens, env, effort = 'low')
   return null;
 }
 
-// Similarité groupée (1 appel gpt-5.6-terra pour N mots) — utilisée par l'import Kindle.
+// Similarité groupée (1 appel gpt-5.6-luna pour N mots) — utilisée par l'import Kindle.
 // items = [{ word, candidates: [...] }] ; renvoie un Set de mots à IGNORER (flexions).
 async function judgeSimilarBatch(items, langName, env) {
   if (!items.length) return {};
@@ -189,8 +189,10 @@ ${lines}`;
 }
 
 // Détection langue + validité en un appel → { valid, reason, lang }
-// GPT-5.4 « low » : gpt-4.1-mini rejetait à tort des mots rares/littéraires
+// GPT-5.6 luna « low » : gpt-4.1-mini rejetait à tort des mots rares/littéraires
 // (mêmes faux INVALID qui ont fait retirer la validation IA de l'import Kindle).
+// Luna a remplacé terra le 2026-08-27 : réponses identiques sur 23 mots rares /
+// dialectaux des 4 langues et sur 12 cas de similarité, pour ~10× moins cher.
 // Contexte commun aux prompts d'ajout : une entrée multi-mots est une expression
 // figée (jamais à lire mot à mot) et la note de l'utilisateur précise la variété
 // régionale / le registre / le sens visé.
@@ -694,7 +696,7 @@ export default {
           if (candidates.length) items.push({ word: w, candidates });
         }
 
-        // Découpe en lots de 40 → 1 appel gpt-5.6-terra chacun
+        // Découpe en lots de 40 → 1 appel gpt-5.6-luna chacun
         const skip = {};
         for (let i = 0; i < items.length; i += 40) {
           const chunk = items.slice(i, i + 40);
