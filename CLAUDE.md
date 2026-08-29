@@ -391,6 +391,40 @@ Worker : `wrangler deploy`. Front : push `main` → GitHub Actions → `gh-pages
 
 ---
 
+## Groupes de mots (2026-08-29)
+
+Chaque mot appartient à **0 à 3 groupes thématiques**, **par langue** (les groupes sont nommés dans la langue pratiquée : *comida* en espagnol, *nourriture* en français). Taxonomie de 88 groupes construite à partir du corpus réel : 38 espagnols, 24 français, 14 anglais, 12 grecs.
+
+| Table | Colonnes |
+|---|---|
+| `groups` | id, user_id, language, **name**, **kind** (`theme`\|`lot`), **scope**, created_at — `UNIQUE(user_id, language, name)` |
+| `word_groups` | user_id, language, word, group_id, **auto** (1 = posé par l'IA, 0 = à la main) |
+| `words.grouped` | 0/1 — un mot classé dans *zéro* groupe est indiscernable d'un mot jamais traité |
+
+Migrations `0004_groups.sql` (tables + colonne) et `0005_group_scope.sql` (`groups.scope`).
+
+- **`scope`** = ligne de portée du groupe (« ce qu'il contient, et surtout ce qu'il ne contient pas »). ⚠️ **Indispensable** : avec le seul nom, le modèle lisait « fórmulas del ensayo y la crítica » comme « tout ce qui est intellectuel » et y rangeait des adjectifs. Sert aussi de définition à l'écran de gestion.
+- **`auto`** : un reclassement ne recalcule QUE les lignes `auto = 1`. Tout ce qui passe par `/api/word-groups` est `auto = 0`.
+- **Changement de langue** (`PUT /api/words` avec `newLang`) → les rattachements **tombent** (ils appartiennent à la taxonomie de l'ancienne langue) et le mot repasse à `grouped = 0`. Un simple renommage les garde. `DELETE /api/words` les supprime.
+
+### Routes
+- `/api/autogroup` POST (**JWT ou token perso**, clé OpenAI de l'utilisateur — header sinon `users.openai_key`, jamais de repli propriétaire) → classe `body.words` ou, à défaut, les `limit` premiers mots `grouped = 0`. `dry: true` rend le verdict sans écrire. `model` ∈ luna\|terra.
+  - Prompt : **numéros des deux côtés** (groupes ET entrées) — 3× moins de tokens et plus aucun rapprochement de chaînes ; hors liste, l'index est ignoré, donc le modèle ne peut pas inventer de groupe.
+  - Front : `autogroupAfterAdd(texts)` appelé après un ajout réussi (un appel par lot collé, fire-and-forget ; la langue est lue dans la réponse de `/add`).
+- `/api/groups` GET (effectif + jauge `mastered` en une requête) · POST · PUT (nom, scope) · DELETE (relâche les mots à `grouped = 0`)
+- `/api/word-groups` GET (`?group_id=`) · POST · DELETE — toujours `auto = 0`
+
+### UI
+- **Mode libre** : bouton **🏷 groupes** → `#groups-modal` (liste + jauge `12/128 ★★★`, choix multiple) puis **tous / au hasard N / à la main**. Le « au hasard » est un **tirage pondéré restreint au groupe** (`pickWeightedOne(picked, pool)`), donc gouverné par le curseur de mélange.
+- **`beginFreeQueue(list)`** = point d'entrée unique d'une file imposée (recherche manuelle ET groupe) — sans lui les deux chemins recalaient le slider différemment.
+- **`screen-groups`** (⚙ gérer) : renommer, supprimer, créer un groupe ou un **lot d'étude** (N mots tirés par `pickWeightedOne`, `kind='lot'`, jamais alimenté par l'IA).
+- Les mots d'un groupe s'affichent dans `screen-revisions` via **`revisionsView = 'group'`** — un mot de groupe peut n'avoir jamais été pratiqué, d'où `next` vide → tiret, et compteur « dûs aujourd'hui » réservé à la vue `due`.
+
+### Classement initial (2026-08-29)
+9 785 mots en 96 appels **gpt-5.6-luna « low »**, ~0,30 $. Mesure faite avant de choisir : **luna comparé à lui-même = 90/100 verdicts identiques** ; luna vs terra = 86/100, donc dans le bruit (terra gagne 4 fois, perd 4 fois sur 14 divergences). Résultat : 1,5 % de mots sans groupe en espagnol, 2,4 % en français (des formes fléchies nues — refus justifié), 0,7 % en anglais après ajout de deux groupes manquants (*change, process & consequence* et *nature, body & the physical world* : la taxonomie anglaise, pensée « par registre », n'avait aucune étagère pour le concret). ~1,01 groupe par mot : le classement est en pratique mono-groupe.
+
+**À faire** : passe **`mode: 'propose'`** (refaire la taxonomie depuis l'app) · rattacher un mot à un groupe depuis le menu ⋯ et depuis « mes mots » · `kindle_import.py` n'appelle pas encore `/api/autogroup`.
+
 ## Idées futures
 
 **Faites ✅** : Auth Google + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · **écran « ajouter du contenu » in-app (mots + formes grammaticales)** · Mes mots (+ étoiles) · calendrier des révisions (tri + recherche + étoiles) · **sync de tous les réglages** · **langues configurables par utilisateur** (sous-ensemble des 4) · **page d'instructions (modale)** · **boîte de vérif repliable** · `kindle_import.py` → `/add`/D1 · compteur tokens corrigé · PWA `manifest` corrigé · déploiement prod · **refonte mode Situation** (bouton Commencer, multi-mots 1-5, poids de relance ×4, verdict par mot + score, autoscroll, UI cohérente) · **toggle progression Situation+Libre** · **refonte import Kindle** (validité IA off + filtre charabia/`wordfreq`, similarité groupée GPT-5.6 Terra via `/judge-similar`, **clé Kindle dédiée** `.openai_key`, import reprenable) · **« mes mots » paginé + sélection multiple/suppression groupée** · **notes entre parenthèses** (`hacer el oso (expresión colombiana)`) + traitement « expression figée » automatique pour toute entrée multi-mots · **formes grammaticales dans les 4 langues** (réglages par langue, libellé `{lang}`) · **transfert d'un mot d'une langue à l'autre** (menu ⋯, mes mots, action groupée) · spinners centrés · **modèles 2026-08** (GPT-5.6 Terra, Gemini 3.7 Flash / 3.5 Flash Lite, efforts `xhigh`/`max` + budget doublé) · **version améliorée : flexion autorisée, lexique figé** · **cartes « même univers » sans débordement** · **slider Libre débloqué** · **compteur de mots par mode + valeur souhaitée persistante** · **pilules de langue + panneaux pleine largeur dans « ajouter »** · **« 🔍 vérifier le mot »** (menu ⋯ + « mes mots ») · **quota des nouveaux mots respecté quand on bouge le slider** · **liste « ★★★ mes mots maîtrisés »** (mode Situation) · **entonnoir d'ajout sur gpt-5.6-luna** (10× moins cher, qualité vérifiée) · **spacer d'autoscroll non pré-alloué** · **« étudier un mot »** (définition + QCM à la place de la phrase, nouveaux mots seulement) · **traduction et image d'un mot à la demande** · **graphie proposée à l'ajout** · **curseur de mélange du mode libre**.
