@@ -203,21 +203,38 @@ function entryContext(base, note) {
   return parts.length ? '\n' + parts.join('\n') : '';
 }
 
+// Graphie proposée par le modèle quand le mot est invalide : on ne garde que
+// ce qui est exploitable en un clic (« ajouter le mot proposé »). NONE, une
+// réponse vide, ou une suggestion identique au mot saisi → rien à proposer.
+function cleanSuggestion(raw, word) {
+  const s = String(raw || '').trim().replace(/^["'«»\s]+|["'«».\s]+$/g, '');
+  if (!s || s.length > 80) return null;
+  if (/^(none|aucun|n\/a|-)$/i.test(s)) return null;
+  if (s.toLowerCase() === String(word || '').trim().toLowerCase()) return null;
+  return s;
+}
+
 async function analyzeWordLangSense(word, note, env) {
   const prompt = `Analyze the expression: "${word}".${entryContext(word, note)}
 1. Identify its language (must be one of: French, English, Spanish, Greek).
 2. Check if it is a valid word or expression in that language (allow real words, conjugated forms, phrases, slang, and rare/archaic/literary/dialectal terms).
 Answer NO only for gibberish, typos producing no real word, or text clearly in a different language.
-Reply STRICTLY in one of these two formats:
+3. If it is INVALID and looks like a typo for a real word of that language, give the corrected spelling. Otherwise write NONE.
+Reply STRICTLY in one of these two formats (never use the "|" character inside the reason):
 VALID | <LanguageName>
-INVALID: <brief reason> | <LanguageName>`;
+INVALID: <brief reason> | <LanguageName> | <corrected spelling or NONE>`;
   const res = await callScriptReasoning(prompt, 2000, env, 'low');
   if (!res) return { valid: false, reason: 'Erreur API OpenAI', lang: null };
   const parts = res.split('|');
   const statusPart = (parts[0] || '').trim();
   const langPart = (parts[1] || '').trim();
   const lang = ADD_LANGS.find(l => langPart.toLowerCase().includes(l.toLowerCase())) || null;
-  if (/^INVALID/i.test(statusPart)) return { valid: false, reason: statusPart.replace(/^INVALID[:\s]*/i, '').trim(), lang };
+  if (/^INVALID/i.test(statusPart)) return {
+    valid: false,
+    reason: statusPart.replace(/^INVALID[:\s]*/i, '').trim(),
+    lang,
+    suggestion: cleanSuggestion(parts[2], word),
+  };
   return { valid: true, lang };
 }
 
@@ -234,10 +251,18 @@ async function validateWord(word, note, lang, env) {
   const prompt = `Is "${word}" a valid ${langName} word or expression?${entryContext(word, note)}
 Answer YES for: real words, conjugated forms, multi-word expressions, phrases, slang, archaic, literary, dialectal or rare terms.
 Answer NO only for: gibberish, typos producing no real word, or text clearly in a different language.
-Reply with YES or NO: <brief reason if NO>.`;
+If the answer is NO and it looks like a typo for a real ${langName} word, give the corrected spelling after the "|"; otherwise write NONE.
+Reply with "YES", or "NO: <brief reason> | <corrected spelling or NONE>" (never use "|" inside the reason).`;
   const res = await callScriptReasoning(prompt, 2000, env, 'low');
   if (res === null) return { valid: false, reason: 'Erreur API OpenAI' };
-  if (/^NO\b/i.test(res)) return { valid: false, reason: res.replace(/^NO[:\s]*/i, '').trim() };
+  if (/^NO\b/i.test(res)) {
+    const parts = res.split('|');
+    return {
+      valid: false,
+      reason: (parts[0] || '').replace(/^NO[:\s]*/i, '').trim(),
+      suggestion: cleanSuggestion(parts[1], word),
+    };
+  }
   return { valid: true };
 }
 
@@ -589,12 +614,21 @@ export default {
           if (!(ignoreSens && ignoreSim)) return textOut('NOKEY:Aucune clé OpenAI enregistrée — le mot ne sera pas vérifié. | ' + language);
         }
 
+        // Réponse INVALID : la graphie proposée est renvoyée en 3e segment
+        // (`| SUGGEST:<entrée>`), entrée COMPLÈTE — note comprise, sinon
+        // « ajouter le mot proposé » perdrait la note. Segment ajouté en fin :
+        // le raccourci iPhone, qui ne lit que [0] et [1], n'est pas affecté.
+        const invalidOut = (reason, sugg) => {
+          const full = sugg ? (note ? sugg + ' (' + note + ')' : sugg) : null;
+          return textOut('INVALID:' + reason + ' | ' + language + (full ? ' | SUGGEST:' + full : ''));
+        };
+
         // 1 & 2 — détection langue + validité
         if (!language && !ignoreSens) {
           const analysis = await analyzeWordLangSense(base, note, aiEnv);
           if (!analysis.lang) return textOut('Erreur : langue non détectée. Réessaie ou précise la langue.');
           language = analysis.lang;
-          if (!analysis.valid) return textOut('INVALID:' + analysis.reason + ' | ' + language);
+          if (!analysis.valid) return invalidOut(analysis.reason, analysis.suggestion);
         } else {
           if (!language) {
             language = await identifyLang(base, aiEnv);
@@ -602,7 +636,7 @@ export default {
           }
           if (!ignoreSens) {
             const v = await validateWord(base, note, language, aiEnv);
-            if (!v.valid) return textOut('INVALID:' + v.reason + ' | ' + language);
+            if (!v.valid) return invalidOut(v.reason, v.suggestion);
           }
         }
 
