@@ -1,0 +1,12 @@
+-- Ligne de portée d'un groupe : ce qu'il contient, et surtout ce qu'il NE
+-- contient pas.
+--
+-- Le lot témoin du classement l'a rendue nécessaire : avec le seul nom, le
+-- modèle lisait « fórmulas del ensayo y la crítica » comme « tout ce qui est
+-- intellectuel » et y rangeait des adjectifs (abstruso, digresivo) ; « locuciones
+-- de modo y manera » attirait le substantif « modos ». Un nom de groupe est
+-- ambigu ; une ligne de portée ne l'est pas.
+--
+-- Sert aussi de définition à l'écran quand l'utilisateur relit ses groupes, et
+-- la passe « refaire la taxonomie » la produira en même temps que le nom.
+ALTER TABLE groups ADD COLUMN scope TEXT;
