@@ -996,6 +996,19 @@
 
     .mot-row { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.6rem 0.85rem; margin-bottom:0.5rem; border:1px solid var(--border); border-radius:12px; background:var(--surface); transition:border-color 0.15s; }
     .mot-row:hover { border-color:var(--accent); }
+    /* Sélection à la LIGNE : plus de case native, la ligne s'allume — même
+       idiome que « chercher un mot ». Le ✓ dit l'état sans ajouter de contrôle. */
+    .mot-row.sel { border-color:var(--accent); }
+    .mot-row .mot-check { flex:0 0 auto; width:0.9rem; color:var(--accent); font-size:0.8rem; }
+    .mot-row.selectable { cursor:pointer; }
+    /* En-tête collé de « mes mots » : il porte le fond, sinon la liste
+       défilerait visiblement au travers. */
+    .mots-head {
+      position: sticky; top: var(--safe-top, 0px); z-index: 5;
+      width: 100%; background: var(--bg);
+      padding-top: 0.4rem; margin-bottom: -0.6rem;
+      box-shadow: 0 8px 12px -10px #000;
+    }
     .mot-row .mot-w { font-family:'Lora', Georgia, serif; font-size:1rem; }
     /* Note entre parenthèses d'une entrée annotée : contexte, pas vocabulaire */
     .mot-row .mot-note { color: var(--muted); font-size: 0.78rem; font-style: italic; }
@@ -1437,6 +1450,15 @@
           style="width:100%; accent-color: var(--accent);"
           oninput="setMaxNewPerDay(MAX_NEW_VALUES[+this.value])">
       </div>
+      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
+        <div style="display:flex; justify-content:space-between; width:100%;">
+          <span data-i18n="set_free_mix">Mélange du mode libre</span>
+          <span id="free-mix-value" style="color: var(--accent); font-weight: 600;"></span>
+        </div>
+        <input type="range" id="free-mix-slider" min="0" max="4" step="1"
+          style="width:100%; accent-color: var(--accent);"
+          oninput="onFreeMixPreview(this.value)" onchange="onFreeMixChange(this.value)">
+      </div>
     </div>
 
     <!-- Toggle mode espacé / situation / libre -->
@@ -1458,16 +1480,6 @@
       </div>
       <input type="range" id="word-count-slider" min="1" max="30" value="1"
         oninput="onSliderPreview(this.value)" onchange="onSliderChange(this.value, true)" />
-    </div>
-
-    <!-- Curseur de mélange découverte ↔ révision (mode libre uniquement) -->
-    <div class="slider-section" id="free-mix-section" style="display:none;">
-      <div class="slider-header">
-        <span class="slider-label" data-i18n="label_free_mix">Mélange</span>
-        <span class="slider-value" id="free-mix-value">équilibré</span>
-      </div>
-      <input type="range" id="free-mix-slider" min="0" max="4" value="2"
-        oninput="onFreeMixPreview(this.value)" onchange="onFreeMixChange(this.value)" />
     </div>
 
     <!-- Recherche d'un mot précis (mode libre uniquement) -->
@@ -1704,16 +1716,21 @@
 
   <!-- ── Écran : Mes mots (voir / chercher / renommer / supprimer) ── -->
   <div class="screen" id="screen-mots">
-    <div class="stats-header">
-      <h1 class="app-title" data-i18n="mots_title">Mes mots</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">← retour</button>
+    <!-- Tout ce qui sert à RÉGLER la vue reste collé en haut ; seule la liste
+         défile sous lui. Un défilement imbriqué serait plus littéral mais c'est
+         cette famille de solutions qui a déjà dû être retirée en PWA iOS. -->
+    <div class="mots-head">
+      <div class="stats-header">
+        <h1 class="app-title" data-i18n="mots_title">Mes mots</h1>
+        <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">← retour</button>
+      </div>
+      <input type="text" id="mots-search" placeholder="🔍 chercher un mot…" data-i18n-ph="search_ph" oninput="motsPage=0;renderMots()"
+        autocapitalize="off" autocomplete="off"
+        style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.6rem;">
+      <div class="history-filters" id="mots-filters"></div>
+      <div class="history-filters" id="mots-group-filters" style="display:none"></div>
+      <div id="mots-controls"></div>
     </div>
-    <input type="text" id="mots-search" placeholder="🔍 chercher un mot…" data-i18n-ph="search_ph" oninput="motsPage=0;renderMots()"
-      autocapitalize="off" autocomplete="off"
-      style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.6rem;">
-    <div class="history-filters" id="mots-filters"></div>
-    <div class="history-filters" id="mots-group-filters" style="display:none"></div>
-    <div id="mots-controls"></div>
     <div class="history-list" id="mots-list">
       <p style="color:var(--muted);font-style:italic;" data-i18n="loading">Chargement…</p>
     </div>
@@ -1989,6 +2006,7 @@
       label_word_count: { en: `Number of words`, fr: `Nombre de mots`, es: `Número de palabras`, el: `Αριθμός λέξεων` },
       label_form_count: { en: `Number of forms`, fr: `Nombre de formes`, es: `Número de formas`, el: `Αριθμός τύπων` },
       label_free_mix:   { en: `Mix`, fr: `Mélange`, es: `Mezcla`, el: `Μείγμα` },
+      set_free_mix:     { en: `Free mode mix ({lang})`, fr: `Mélange du mode libre ({lang})`, es: `Mezcla del modo libre ({lang})`, el: `Μείγμα ελεύθερης ({lang})` },
       mix_0:            { en: `discovery`, fr: `découverte`, es: `descubrimiento`, el: `ανακάλυψη` },
       mix_1:            { en: `mostly discovery`, fr: `plutôt découverte`, es: `más descubrimiento`, el: `κυρίως ανακάλυψη` },
       mix_2:            { en: `balanced`, fr: `équilibré`, es: `equilibrado`, el: `ισορροπημένο` },
@@ -2259,6 +2277,7 @@
     let freeCursor         = 0;     // index de début du batch courant dans freeSelection
     let freeQueueActive    = false; // true tant qu'on parcourt une sélection manuelle
     let _freePool          = null;  // restreint la recherche manuelle à un groupe
+    let _freePoolLabel     = '';
     let groupsCache        = {};    // langue -> [{id, name, scope, kind, n, mastered}]
     let _groupPick         = new Set(); // ids des groupes cochés
     let _groupSubset       = 'all'; // all | random | manual
@@ -2267,7 +2286,6 @@
     let _ungroupedCache    = null;  // mots sans groupe de la langue courante
     let _sitGroupWords     = null;  // restriction de groupe en mode Situation
     let _sitGroupLabel     = '';
-    let _sitAllOfGroup     = false; // false = maîtrisés seulement (principe du mode)
 
     // Groupes calculés, offerts à côté des vrais dans le même sélecteur : ils
     // évitent un mode « pratiquer les maîtrisés » et une pilule « sans groupe »
@@ -2829,6 +2847,11 @@
       freeLap = 1;
       freeQueueLabel = '';
       freeQueueActive = false;
+      // Un groupe appartient à UNE langue : la restriction de Situation ne
+      // survit pas plus au changement de langue que la file du mode libre.
+      _sitGroupWords = null;
+      _sitGroupLabel = '';
+      _ungroupedCache = null;
       applyPracticeLangUI(); // tous les libellés de l'écran passent dans la langue pratiquée
       const _langWC = desiredWordCount(lang, practiceMode);
       document.getElementById('word-count-slider').value = _langWC;
@@ -3676,11 +3699,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       _groupPick = new Set();
       _groupSubset = 'all';
       setGroupSubset('all');
-      // En Situation, « tous / au hasard / à la main » n'a pas de sens : le mode
-      // tire lui-même ses mots. On propose à la place la portée du pool.
-      document.getElementById('groups-subset').style.display   = inSituation() ? 'none' : 'flex';
-      document.getElementById('groups-sit-scope').style.display = inSituation() ? 'flex' : 'none';
-      if (inSituation()) setSitScope(_sitAllOfGroup);
+      // Situation et Libre offrent EXACTEMENT les mêmes options : dans les deux
+      // cas on construit un pool, seule son exploitation diffère ensuite.
+      // Par défaut, Situation se pratique sur les ★★★ — on coche donc le groupe
+      // virtuel plutôt que d'appliquer un filtre invisible.
+      if (inSituation() && !_sitGroupWords) _groupPick.add(-1);
       const list = document.getElementById('groups-list');
       list.innerHTML = '<div style="text-align:center;padding:1rem"><span class="spinner"></span></div>';
       document.getElementById('groups-modal').classList.add('visible');
@@ -3690,12 +3713,6 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         _ungroupedCache = (await r.json()).words || [];
       } catch { list.innerHTML = '<div id="free-search-empty">Erreur de chargement.</div>'; return; }
       renderGroupsList();
-    }
-    function setSitScope(all) {
-      _sitAllOfGroup = !!all;
-      document.getElementById('gsit-mastered').classList.toggle('active', !all);
-      document.getElementById('gsit-all').classList.toggle('active', all);
-      updateGroupStartBtn();
     }
     // Effectif d'un groupe virtuel, calculé sur la langue courante.
     function vgroupWords(id) {
@@ -3793,7 +3810,6 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const total = groupPickTotal();
       btn.disabled = _groupPick.size === 0;
       if (_groupPick.size === 0) { btn.textContent = 'Commencer'; return; }
-      if (inSituation()) { btn.textContent = `Pratiquer (≈${total})`; return; }
       if (_groupSubset === 'manual') { btn.textContent = `Choisir parmi ${total}`; return; }
       const n = _groupSubset === 'random'
         ? Math.min(parseInt(document.getElementById('groups-random-slider').value), total)
@@ -3813,19 +3829,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const label = groupPickLabel();
       closeGroupsPicker();
 
-      // En Situation, le groupe n'est pas une file : c'est une restriction du
-      // pool dans lequel le mode tire ses mots à chaque situation.
-      if (inSituation()) {
-        _sitGroupWords = pool;
-        _sitGroupLabel = label;
-        resetPracticeUI();
-        pickWords();
-        updateFreeSearchBar();
-        return;
-      }
-
-      if (_groupSubset === 'manual') { openFreeSearch(pool); return; }
-      if (_groupSubset === 'all') { beginFreeQueue(shuffleInPlace([...pool]), label); return; }
+      if (_groupSubset === 'manual') { openFreeSearch(pool, label); return; }
+      if (_groupSubset === 'all') { usePool(shuffleInPlace([...pool]), label); return; }
 
       // « au hasard » = tirage PONDÉRÉ dans le groupe, pas uniforme : les N mots
       // privilégient ce qui n'est pas maîtrisé, et le curseur de mélange les
@@ -3837,21 +3842,39 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         if (!w || picked.includes(w)) break;
         picked.push(w);
       }
-      beginFreeQueue(picked, label);
+      usePool(picked, label);
+    }
+
+    // Un pool choisi n'a pas le même emploi selon le mode : une file à parcourir
+    // en Libre, une restriction du tirage en Situation. Un seul point de sortie
+    // pour que les deux modes offrent exactement les mêmes options.
+    function usePool(words, label) {
+      if (practiceMode === 'situation') {
+        _sitGroupWords = words;
+        _sitGroupLabel = label || '';
+        resetPracticeUI();
+        pickWords();
+        updateFreeSearchBar();
+        return;
+      }
+      beginFreeQueue(words, label);
     }
 
     // Montre le pool dans lequel le mode libre pioche, trié par POIDS de tirage
     // décroissant : avec le curseur de mélange tout est « possible », seule la
     // probabilité change — une liste alphabétique ne dirait rien.
     function peekFreePool() {
-      const pool = freeQueueActive ? freeSelection : allWords;
+      const pool = practiceMode === 'situation'
+        ? (_sitGroupWords || allWords.filter(w => netOf(w) >= 3))
+        : (freeQueueActive ? freeSelection : allWords);
+      if (!pool.length) return;
       const counts = bucketCounts(pool);
       const sorted = [...pool].sort((a, b) => {
         const d = getWeight(b, counts) - getWeight(a, counts);
         return d !== 0 ? d : lc(a).localeCompare(lc(b));
       });
       openWordListScreen('group', {
-        title: freeQueueLabel || 'mots les plus probables',
+        title: (practiceMode === 'situation' ? _sitGroupLabel : freeQueueLabel) || 'mots les plus probables',
         words: sorted,
         keepOrder: true,
       });
@@ -4111,8 +4134,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // Ouvre le sélecteur : on coche 1..N mots → sélection `freeSelection`.
     // `pool` restreint la liste aux mots d'un ou plusieurs groupes ; sans lui,
     // on cherche dans toute la langue (comportement d'origine).
-    function openFreeSearch(pool) {
+    function openFreeSearch(pool, label) {
       _freePool = (pool && pool.length) ? pool : null;
+      _freePoolLabel = _freePool ? (label || groupPickLabel()) : '';
       _freePickOrder = [];
       document.getElementById('free-search-input').value = '';
       renderFreeSearchList('');
@@ -4188,7 +4212,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     function startFreeQueue() {
       if (_freePickOrder.length === 0) return;
       closeFreeSearch();
-      beginFreeQueue([..._freePickOrder], _freePool ? freeQueueLabel : '');
+      usePool([..._freePickOrder], _freePool ? _freePoolLabel : '');
     }
 
     // Point d'entrée unique d'une file imposée (recherche manuelle OU groupe) :
@@ -4234,22 +4258,20 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const inFree = practiceMode === 'free';
       const inSit  = practiceMode === 'situation';
       bar.style.display = (inFree || inSit) ? '' : 'none';
-      document.getElementById('free-search-open').style.display = (inFree && !freeQueueActive) ? '' : 'none';
+      // Situation et Libre exposent les MÊMES commandes de choix des mots.
+      const picking = (inFree && !freeQueueActive) || (inSit && !_sitGroupWords);
+      document.getElementById('free-search-open').style.display = picking ? '' : 'none';
       const gb = document.getElementById('groups-open');
-      if (gb) gb.style.display = ((inFree && !freeQueueActive) || (inSit && !_sitGroupWords)) ? '' : 'none';
+      if (gb) gb.style.display = picking ? '' : 'none';
       const pk = document.getElementById('free-peek');
-      if (pk) pk.style.display = (inFree && !freeQueueActive) ? '' : 'none';
+      if (pk) pk.style.display = (inFree || inSit) ? '' : 'none';
       const exitBtn = document.getElementById('free-queue-exit');
       exitBtn.style.display = ((inFree && freeQueueActive) || (inSit && _sitGroupWords)) ? '' : 'none';
       exitBtn.textContent = inSit ? '✕ quitter le groupe' : '✕ quitter la file';
-      // Le mélange ne pilote que le tirage : dans une sélection manuelle, le pool
-      // est imposé → curseur masqué.
-      const mix = document.getElementById('free-mix-section');
-      if (mix) {
-        mix.style.display = (inFree && !freeQueueActive) ? '' : 'none';
-        document.getElementById('free-mix-slider').value = freeMix;
-        document.getElementById('free-mix-value').textContent = freeMixLabel(freeMix);
-      }
+      // Le curseur de mélange vit maintenant dans ⚙ (réglage PAR LANGUE, à côté
+      // des nouveaux mots/jour et des formes grammaticales).
+      document.getElementById('free-mix-slider').value = freeMix;
+      document.getElementById('free-mix-value').textContent = freeMixLabel(freeMix);
     }
     // Sélection manuelle (mode libre) : construit le batch courant depuis
     // freeSelection[freeCursor…] ; taille = valeur du slider, le reste = file en attente.
@@ -4655,10 +4677,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
       } else if (practiceMode === 'situation') {
         // Pioche uniquement les mots maîtrisés (★★★ = net >= 3)
-        // Pool = les mots maîtrisés, restreints au groupe choisi le cas échéant.
-        // La bascule « tout le groupe » sert aux groupes trop maigres en ★★★.
-        const sitBase = _sitGroupWords || allWords;
-        const mastered = _sitGroupWords && _sitAllOfGroup ? [...sitBase] : sitBase.filter(w => {
+        // Sans sélection, Situation se pratique sur les ★★★ — c'est le principe
+        // du mode. Avec une sélection, elle fait foi telle quelle : le filtre
+        // « maîtrisés » est disponible dans le sélecteur comme groupe virtuel,
+        // donc l'imposer par-dessus reviendrait à ignorer un choix explicite.
+        const mastered = _sitGroupWords ? [..._sitGroupWords] : allWords.filter(w => {
           const prog = progressMap[w.toLowerCase()];
           return prog && (prog.correct - prog.incorrect) >= 3;
         });
@@ -6110,6 +6133,12 @@ Write all scenarios and explanations in ${langName}.`;
       return rows;
     }
 
+    // Un clic sur 🔍 ✏️ 🔀 🗑 ne doit pas sélectionner la ligne au passage.
+    function toggleMotRow(ev, lang, word) {
+      if (ev.target.closest('button')) return;
+      toggleMotSel(lang, word, !motsSelected.has(lang + '|' + word));
+    }
+
     function toggleMotSel(lang, word, on) {
       const k = lang + '|' + word;
       if (on) motsSelected.add(k); else motsSelected.delete(k);
@@ -6164,17 +6193,20 @@ Write all scenarios and explanations in ${langName}.`;
         return;
       }
       const allPageSel = _pageRowsCache.length && _pageRowsCache.every(m => motsSelected.has(motKey(m)));
-      list.innerHTML = `<label class="mot-row" style="background:transparent;border:none;cursor:pointer">
-          <input type="checkbox" ${allPageSel ? 'checked' : ''} onchange="toggleSelectAllPage(this.checked)" style="margin-right:0.4rem">
+      list.innerHTML = `<div class="mot-row selectable" style="background:transparent;border-color:transparent"
+            onclick="toggleSelectAllPage(${!allPageSel})">
+          <span class="mot-check">${allPageSel ? '✓' : ''}</span>
           <span style="color:var(--muted);font-size:0.85rem">${tApp('select_all_page')}</span>
-        </label>` + _pageRowsCache.map(m => {
+        </div>` + _pageRowsCache.map(m => {
         const info = LANGS.find(x => x.key === m.lang);
         const esc  = jsEsc(m.word);
         const si   = starsFromNet(motsStars[m.lang + '|' + m.word.toLowerCase()] || 0);
         const checked = motsSelected.has(motKey(m));
-        return `<div class="mot-row" style="${checked ? 'border-color:var(--accent)' : ''}">
+        // Clic n'importe où sur la ligne = sélection ; les boutons d'action
+        // s'en excluent eux-mêmes (voir toggleMotRow).
+        return `<div class="mot-row selectable ${checked ? 'sel' : ''}" onclick="toggleMotRow(event, '${m.lang}','${esc}')">
           <span style="display:flex;align-items:center;gap:0.5rem;min-width:0">
-            <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleMotSel('${m.lang}','${esc}',this.checked)">
+            <span class="mot-check">${checked ? '✓' : ''}</span>
             <span class="mot-w">${info?.flag || ''} ${motWordHtml(m.word)}</span>
           </span>
           <span class="mot-actions">
@@ -8045,10 +8077,6 @@ Reply with ONLY this JSON object, nothing else:
       <div id="groups-list" style="max-height:42vh; overflow-y:auto;"></div>
       <div style="text-align:right; margin-top:0.4rem;">
         <button class="btn-ghost" style="font-size:0.8rem" onclick="openGroupsManager()">⚙ gérer mes groupes</button>
-      </div>
-      <div id="groups-sit-scope" style="display:none; gap:0.4rem; margin-top:0.9rem;">
-        <button class="filter-btn active" id="gsit-mastered" onclick="setSitScope(false)" style="flex:1 1 auto">★★★ maîtrisés</button>
-        <button class="filter-btn"        id="gsit-all"      onclick="setSitScope(true)"  style="flex:1 1 auto">tout le groupe</button>
       </div>
       <div id="groups-subset" style="display:flex; gap:0.4rem; margin-top:0.9rem;">
         <button class="filter-btn active" id="gsub-all"    onclick="setGroupSubset('all')"    style="flex:1 1 auto">tous</button>

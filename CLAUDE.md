@@ -437,7 +437,8 @@ Migrations `0004_groups.sql` (tables + colonne) et `0005_group_scope.sql` (`grou
 ### Groupes virtuels et pools
 `VGROUPS` (ids **négatifs**, jamais en base) : **★★★ maîtrisés** · **à travailler** · **sans groupe** (celui-ci via `GET /api/word-groups?ungrouped=1&lang=`). Offerts dans le même sélecteur que les vrais groupes — d'où l'absence d'un mode « pratiquer les maîtrisés » séparé.
 - **Sémantique du pool** (`resolveGroupPool`) : les vrais groupes s'**additionnent**, les virtuels **filtrent** ce qui en sort (« comida ∩ maîtrisés »).
-- **Mode Situation** : le 🏷 y apparaît aussi ; le groupe n'y est pas une file mais une **restriction du pool** (`_sitGroupWords`), avec bascule **maîtrisés seulement** (défaut) / **tout le groupe** pour les groupes trop maigres en ★★★. `✕ quitter le groupe` lève la restriction.
+- **Situation et Libre offrent les MÊMES commandes** (🏷 groupes · 🔍 chercher un mot · 👁 voir les mots · ✕ quitter) et le même sélecteur avec les mêmes sous-options. Seule l'exploitation du pool diffère, et elle passe par **`usePool(words, label)`** : file à parcourir en Libre, **restriction du tirage** en Situation (`_sitGroupWords`).
+- Sans sélection, Situation se pratique sur les ★★★ ; **avec** sélection, elle fait foi telle quelle — le filtre « maîtrisés » étant offert comme **groupe virtuel**, l'imposer par-dessus ignorerait un choix explicite. Le sélecteur pré-coche donc ★★★ en Situation au lieu d'appliquer un filtre invisible.
 - **👁 voir les mots** (mode libre) : ouvre le pool trié par **poids de tirage décroissant** — avec le curseur de mélange tout est « possible », seule la probabilité change. Passe par `openWordListScreen('group', {keepOrder:true})` → `revisionsSort = 'given'`.
 
 ### La file ne se termine plus toute seule
@@ -447,10 +448,14 @@ Migrations `0004_groups.sql` (tables + colonne) et `0005_group_scope.sql` (`grou
 Seconde ligne de pilules (`#mots-group-filters`), **masquée sur « Tout »** (les groupes sont par langue) : `tous · ★★★ · à travailler · sans groupe · <groupes> · ⚙ gérer`. `openGroupsManager(lang, back)` — l'écran de gestion s'ouvre donc sur une langue qui n'est pas forcément celle qu'on pratique (`_manageLang`, `_manageBack`) ; le bouton « lot d'étude » est masqué dans ce cas (un lot se tire dans le stock de la langue **pratiquée**).
 
 ### Divers
-- **Mélange par langue** : `vocab_free_mix_<Langue>` via `freeMixKey()`, **repli sur l'ancienne clé globale** (même motif que la grammaire). Recalé par `selectLanguage()`.
+- **Mélange par langue** : `vocab_free_mix_<Langue>` via `freeMixKey()`, **repli sur l'ancienne clé globale** (même motif que la grammaire). Recalé par `selectLanguage()`. Le curseur vit dans **⚙**, avec les autres réglages de la langue — pas sur l'écran de pratique.
 - **`progress.last_practiced`** est désormais chargé côté front (`progressMap[...].lastPracticed`) → tris **A-Z / vus récemment / les plus anciens / jamais vus** dans « chercher un mot » (« jamais vus » filtre en plus de trier ; « les plus anciens » renvoie les jamais-vus en fin, ils ne sont pas « anciens »).
 
-**À faire** : refonte visuelle de `screen-mots` (frontières, cases à cocher, défilement iOS) — discutée, pas encore faite.
+### `screen-mots` — visuel (2026-08-29)
+Retenu après essai comparatif : **cartes** (inchangé) · **sélection à la ligne** · **en-tête collé** · densité aérée.
+- `.mots-head` = `position: sticky; top: var(--safe-top)` autour du titre, de la recherche, des deux lignes de pilules et de la pagination. Elle **porte le fond** (`--bg`), sinon la liste défilerait au travers.
+- **Plus de case native** : `.mot-row.selectable` bascule au clic n'importe où, `.sel` allume la bordure et un ✓ (`toggleMotRow` ignore les clics sur 🔍 ✏️ 🔀 🗑). Même idiome que `.free-pick-row`.
+- ⚠️ Écartés : le défilement imbriqué (famille de solutions déjà retirée en PWA iOS, cf. `#sticky-words-bar`) et l'en-tête qui se réduit (essayé, jugé instable à l'usage).
 
 ## Idées futures
 
