@@ -1474,6 +1474,7 @@
     <div id="free-search-bar" style="display:none; text-align:center; margin-bottom:0.6rem;">
       <button class="btn-ghost" id="groups-open" onclick="openGroupsPicker()">🏷 groupes</button>
       <button class="btn-ghost" id="free-search-open" onclick="openFreeSearch()">🔍 chercher un mot</button>
+      <button class="btn-ghost" id="free-peek" onclick="peekFreePool()">👁 voir les mots</button>
       <button class="btn-ghost" id="free-queue-exit" style="display:none;" onclick="exitFreeQueue()">✕ quitter la file</button>
     </div>
 
@@ -1711,6 +1712,7 @@
       autocapitalize="off" autocomplete="off"
       style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.6rem;">
     <div class="history-filters" id="mots-filters"></div>
+    <div class="history-filters" id="mots-group-filters" style="display:none"></div>
     <div id="mots-controls"></div>
     <div class="history-list" id="mots-list">
       <p style="color:var(--muted);font-style:italic;" data-i18n="loading">Chargement…</p>
@@ -1721,12 +1723,12 @@
   <div class="screen" id="screen-groups">
     <div class="stats-header">
       <h1 class="app-title" id="groups-screen-title">Mes groupes</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-practice')" data-i18n="btn_back">← retour</button>
+      <button class="btn-ghost" onclick="showScreen(_manageBack)" data-i18n="btn_back">← retour</button>
     </div>
     <div id="groups-manage-list"></div>
     <div style="display:flex; gap:0.5rem; margin-top:1rem; flex-wrap:wrap;">
       <button class="btn-ghost" style="flex:1 1 auto" onclick="createGroupPrompt()">＋ nouveau groupe</button>
-      <button class="btn-ghost" style="flex:1 1 auto" onclick="createLotPrompt()">＋ lot d'étude</button>
+      <button class="btn-ghost" style="flex:1 1 auto" id="groups-lot-btn" onclick="createLotPrompt()">＋ lot d'étude</button>
     </div>
     <div style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
       <button class="btn-ghost" style="flex:1 1 auto" id="taxo-redo" onclick="startTaxoProposal()">⟳ refaire la taxonomie</button>
@@ -2260,6 +2262,25 @@
     let groupsCache        = {};    // langue -> [{id, name, scope, kind, n, mastered}]
     let _groupPick         = new Set(); // ids des groupes cochés
     let _groupSubset       = 'all'; // all | random | manual
+    let freeLap            = 1;     // tour en cours dans une file imposée
+    let freeQueueLabel     = '';    // ce qu'on pratique (nom du groupe, ou recherche)
+    let _ungroupedCache    = null;  // mots sans groupe de la langue courante
+    let _sitGroupWords     = null;  // restriction de groupe en mode Situation
+    let _sitGroupLabel     = '';
+    let _sitAllOfGroup     = false; // false = maîtrisés seulement (principe du mode)
+
+    // Groupes calculés, offerts à côté des vrais dans le même sélecteur : ils
+    // évitent un mode « pratiquer les maîtrisés » et une pilule « sans groupe »
+    // séparés. Ids négatifs pour ne jamais collisionner avec ceux de la base.
+    const VGROUPS = [
+      { id: -1, name: '★★★ maîtrisés',  test: w => netOf(w) >= 3 },
+      { id: -2, name: 'à travailler',   test: w => netOf(w) < 3 },
+      { id: -3, name: 'sans groupe',    test: null }, // vient du serveur
+    ];
+    function netOf(w) {
+      const p = progressMap[w.toLowerCase()];
+      return p ? (p.correct || 0) - (p.incorrect || 0) : 0;
+    }
     let _freePickOrder     = [];    // mots cochés dans le sélecteur de recherche (ordre de sélection)
     let _freeFiltered      = [];    // liste affichée dans le sélecteur (après filtre texte)
     // Réinitialisation de la progression (⚙️ réglages globaux)
@@ -2805,6 +2826,8 @@
       // Une sélection manuelle (mode libre) référence les mots d'une langue → on la vide au changement.
       freeSelection = [];
       freeCursor = 0;
+      freeLap = 1;
+      freeQueueLabel = '';
       freeQueueActive = false;
       applyPracticeLangUI(); // tous les libellés de l'écran passent dans la langue pratiquée
       const _langWC = desiredWordCount(lang, practiceMode);
@@ -2814,6 +2837,7 @@
       document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
       document.getElementById('max-new-value').textContent = `${maxNewPerDay} ${tPrac('words_suffix')}`;
       // Grammaire : réglages propres à la langue qu'on ouvre
+      freeMix = _readFreeMix(lang); // le mélange est propre à la langue qu'on ouvre
       grammarFormsEnabled = grammarEnabledFor(lang);
       document.getElementById('toggle-grammar').checked = grammarFormsEnabled;
       const _langGC = grammarCountFor(lang);
@@ -3090,7 +3114,7 @@
       showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
       situationCounts     = localStorage.getItem(KEY_SITUATION_COUNTS) === 'true';
       situationWordCount  = parseInt(localStorage.getItem(KEY_SITUATION_WORDS)) || 1;
-      freeMix             = _readFreeMix();
+      freeMix             = _readFreeMix(currentLang);
       currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4';
       gptEffort           = localStorage.getItem(KEY_GPT_EFFORT) || 'low';
       geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';
@@ -3442,7 +3466,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
             correct:    r.correct     || 0,
             incorrect:  r.incorrect   || 0,
             hintUsed:   r.hint_used   || 0,
-            nextReview: r.next_review || null
+            nextReview: r.next_review || null,
+            lastPracticed: r.last_practiced || ''
           };
         });
       } catch (e) {}
@@ -3454,6 +3479,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       // La sélection manuelle du mode libre ne survit pas à un changement de mode.
       freeSelection = [];
       freeCursor = 0;
+      freeLap = 1;
+      freeQueueLabel = '';
       freeQueueActive = false;
       document.getElementById('btn-mode-spaced').classList.toggle('active',    mode === 'spaced');
       document.getElementById('btn-mode-free').classList.toggle('active',      mode === 'free');
@@ -3561,8 +3588,13 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       { new: 15, bad: 30, mid: 25, mastered: 30 }, // 3
       { new:  5, bad: 30, mid: 25, mastered: 40 }, // 4 révision
     ];
-    function _readFreeMix() {
-      const v = parseInt(localStorage.getItem(KEY_FREE_MIX));
+    // Réglage PAR LANGUE, comme le nombre de mots et les formes grammaticales.
+    // ⚠️ Repli sur l'ancienne clé globale, qui porte le réglage d'avant la
+    // séparation — la supprimer ferait retomber tout le monde sur « équilibré ».
+    function freeMixKey(lang) { return KEY_FREE_MIX + '_' + (lang || currentLang); }
+    function _readFreeMix(lang) {
+      const raw = localStorage.getItem(freeMixKey(lang));
+      const v = parseInt(raw !== null ? raw : localStorage.getItem(KEY_FREE_MIX));
       return Number.isInteger(v) && v >= 0 && v <= 4 ? v : 2; // borne littérale : FREE_MIX est déclaré plus bas
     }
     function bucketOf(word) {
@@ -3618,7 +3650,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
     function onFreeMixChange(val) {
       freeMix = parseInt(val);
-      localStorage.setItem(KEY_FREE_MIX, String(freeMix));
+      localStorage.setItem(freeMixKey(), String(freeMix));
       document.getElementById('free-mix-value').textContent = freeMixLabel(freeMix);
       saveSettingsToServer();
       // Nouveau tirage tout de suite pour qu'on voie l'effet — mais jamais sous
@@ -3638,36 +3670,90 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       return groupsCache[lang];
     }
 
+    function inSituation() { return practiceMode === 'situation'; }
+
     async function openGroupsPicker() {
       _groupPick = new Set();
       _groupSubset = 'all';
       setGroupSubset('all');
+      // En Situation, « tous / au hasard / à la main » n'a pas de sens : le mode
+      // tire lui-même ses mots. On propose à la place la portée du pool.
+      document.getElementById('groups-subset').style.display   = inSituation() ? 'none' : 'flex';
+      document.getElementById('groups-sit-scope').style.display = inSituation() ? 'flex' : 'none';
+      if (inSituation()) setSitScope(_sitAllOfGroup);
       const list = document.getElementById('groups-list');
       list.innerHTML = '<div style="text-align:center;padding:1rem"><span class="spinner"></span></div>';
       document.getElementById('groups-modal').classList.add('visible');
-      try { await loadGroups(currentLang); }
-      catch { list.innerHTML = '<div id="free-search-empty">Erreur de chargement.</div>'; return; }
+      try {
+        await loadGroups(currentLang);
+        const r = await authFetch(`/api/word-groups?ungrouped=1&lang=${encodeURIComponent(currentLang)}`);
+        _ungroupedCache = (await r.json()).words || [];
+      } catch { list.innerHTML = '<div id="free-search-empty">Erreur de chargement.</div>'; return; }
       renderGroupsList();
+    }
+    function setSitScope(all) {
+      _sitAllOfGroup = !!all;
+      document.getElementById('gsit-mastered').classList.toggle('active', !all);
+      document.getElementById('gsit-all').classList.toggle('active', all);
+      updateGroupStartBtn();
+    }
+    // Effectif d'un groupe virtuel, calculé sur la langue courante.
+    function vgroupWords(id) {
+      if (id === -3) return (_ungroupedCache || []).filter(w => allWords.includes(w));
+      const v = VGROUPS.find(g => g.id === id);
+      return v && v.test ? allWords.filter(v.test) : [];
     }
     function closeGroupsPicker() {
       document.getElementById('groups-modal').classList.remove('visible');
     }
     function renderGroupsList() {
-      const groups = (groupsCache[currentLang] || []).filter(g => g.n > 0);
+      const real = (groupsCache[currentLang] || []).filter(g => g.n > 0);
       const list = document.getElementById('groups-list');
-      if (!groups.length) {
-        list.innerHTML = '<div id="free-search-empty">Aucun groupe pour cette langue.</div>';
-        return;
-      }
-      list.innerHTML = groups.map(g => {
-        const on = _groupPick.has(g.id);
-        // Jauge de maîtrise : c'est elle qui donne envie de finir un lot.
-        const gauge = g.n ? `${g.mastered}/${g.n} ★★★` : '';
-        return `<div class="free-pick-row ${on ? 'on' : ''}" onclick="toggleGroupPick(${g.id})">
-          <span class="fp-word">${g.kind === 'lot' ? '📘 ' : ''}${escapeHtml(g.name)}</span>
-          <span class="fp-order" style="color:var(--muted);font-size:0.78rem">${gauge}</span>
+      const row = (id, label, right) => {
+        const on = _groupPick.has(id);
+        return `<div class="free-pick-row ${on ? 'on' : ''}" onclick="toggleGroupPick(${id})">
+          <span class="fp-word">${label}</span>
+          <span class="fp-order" style="color:var(--muted);font-size:0.78rem">${right}</span>
         </div>`;
-      }).join('');
+      };
+      // Les virtuels d'abord, séparés : ce sont des FILTRES, pas des thèmes.
+      let html = VGROUPS.map(v => row(v.id, escapeHtml(v.name), vgroupWords(v.id).length)).join('');
+      html += real.length
+        ? `<div style="height:1px;background:var(--border);margin:0.5rem 0"></div>` +
+          real.map(g => row(g.id, (g.kind === 'lot' ? '📘 ' : '') + escapeHtml(g.name), `${g.mastered}/${g.n} ★★★`)).join('')
+        : '<div id="free-search-empty">Aucun groupe thématique pour cette langue.</div>';
+      list.innerHTML = html;
+    }
+
+    // Pool résultant de la sélection : les vrais groupes s'ADDITIONNENT, les
+    // virtuels FILTRENT ce qui en sort (« comida ∩ maîtrisés »).
+    async function resolveGroupPool() {
+      const realIds = [..._groupPick].filter(id => id > 0);
+      const virtIds = [..._groupPick].filter(id => id < 0);
+      let base;
+      if (realIds.length) {
+        const lists = await Promise.all(realIds.map(id =>
+          authFetch('/api/word-groups?group_id=' + id).then(r => r.json())));
+        const inLang = new Set(allWords);
+        base = [...new Set(lists.flatMap(x => x.words || []))].filter(w => inLang.has(w));
+      } else {
+        base = [...allWords];
+      }
+      for (const id of virtIds) {
+        const keep = new Set(vgroupWords(id));
+        base = base.filter(w => keep.has(w));
+      }
+      return base;
+    }
+    function groupPickLabel() {
+      const names = [];
+      for (const id of _groupPick) {
+        const v = VGROUPS.find(g => g.id === id);
+        if (v) { names.push(v.name); continue; }
+        const g = (groupsCache[currentLang] || []).find(x => x.id === id);
+        if (g) names.push(g.name);
+      }
+      return names.join(' + ');
     }
     function toggleGroupPick(id) {
       if (_groupPick.has(id)) _groupPick.delete(id); else _groupPick.add(id);
@@ -3675,8 +3761,21 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       updateGroupStartBtn();
     }
     function groupPickTotal() {
+      // Approximation volontaire : le total exact d'une intersection demanderait
+      // de charger les mots de chaque groupe. Ici on borne par le plus petit
+      // ensemble sélectionné, ce qui suffit à libeller le bouton.
       const groups = groupsCache[currentLang] || [];
-      return groups.filter(g => _groupPick.has(g.id)).reduce((a, g) => a + g.n, 0);
+      const sizes = [];
+      for (const id of _groupPick) {
+        if (id < 0) sizes.push(vgroupWords(id).length);
+        else { const g = groups.find(x => x.id === id); if (g) sizes.push(g.n); }
+      }
+      if (!sizes.length) return 0;
+      const hasReal = [..._groupPick].some(id => id > 0);
+      const reals = [..._groupPick].filter(id => id > 0).map(id => (groups.find(x => x.id === id) || {}).n || 0);
+      const virts = [..._groupPick].filter(id => id < 0).map(id => vgroupWords(id).length);
+      const sum = hasReal ? reals.reduce((a, b) => a + b, 0) : allWords.length;
+      return virts.length ? Math.min(sum, ...virts) : sum;
     }
     function setGroupSubset(mode) {
       _groupSubset = mode;
@@ -3694,6 +3793,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const total = groupPickTotal();
       btn.disabled = _groupPick.size === 0;
       if (_groupPick.size === 0) { btn.textContent = 'Commencer'; return; }
+      if (inSituation()) { btn.textContent = `Pratiquer (≈${total})`; return; }
       if (_groupSubset === 'manual') { btn.textContent = `Choisir parmi ${total}`; return; }
       const n = _groupSubset === 'random'
         ? Math.min(parseInt(document.getElementById('groups-random-slider').value), total)
@@ -3707,23 +3807,25 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const btn = document.getElementById('groups-start');
       btn.disabled = true;
       let pool;
-      try {
-        const lists = await Promise.all(ids.map(id =>
-          authFetch('/api/word-groups?group_id=' + id).then(r => r.json())));
-        // Un mot peut être dans deux groupes cochés → dédoublonnage. Et on ne
-        // garde que ce qui est encore dans la langue courante (un mot déplacé
-        // depuis un autre appareil laisserait sinon un fantôme dans la file).
-        const inLang = new Set(allWords);
-        pool = [...new Set(lists.flatMap(x => x.words || []))].filter(w => inLang.has(w));
-      } catch {
-        btn.disabled = false;
-        return;
-      }
-      if (!pool.length) { btn.disabled = false; return; }
+      try { pool = await resolveGroupPool(); }
+      catch { btn.disabled = false; return; }
+      if (!pool.length) { btn.disabled = false; alert('Aucun mot ne correspond à cette sélection.'); return; }
+      const label = groupPickLabel();
       closeGroupsPicker();
 
+      // En Situation, le groupe n'est pas une file : c'est une restriction du
+      // pool dans lequel le mode tire ses mots à chaque situation.
+      if (inSituation()) {
+        _sitGroupWords = pool;
+        _sitGroupLabel = label;
+        resetPracticeUI();
+        pickWords();
+        updateFreeSearchBar();
+        return;
+      }
+
       if (_groupSubset === 'manual') { openFreeSearch(pool); return; }
-      if (_groupSubset === 'all') { beginFreeQueue(shuffleInPlace([...pool])); return; }
+      if (_groupSubset === 'all') { beginFreeQueue(shuffleInPlace([...pool]), label); return; }
 
       // « au hasard » = tirage PONDÉRÉ dans le groupe, pas uniforme : les N mots
       // privilégient ce qui n'est pas maîtrisé, et le curseur de mélange les
@@ -3735,24 +3837,51 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         if (!w || picked.includes(w)) break;
         picked.push(w);
       }
-      beginFreeQueue(picked);
+      beginFreeQueue(picked, label);
+    }
+
+    // Montre le pool dans lequel le mode libre pioche, trié par POIDS de tirage
+    // décroissant : avec le curseur de mélange tout est « possible », seule la
+    // probabilité change — une liste alphabétique ne dirait rien.
+    function peekFreePool() {
+      const pool = freeQueueActive ? freeSelection : allWords;
+      const counts = bucketCounts(pool);
+      const sorted = [...pool].sort((a, b) => {
+        const d = getWeight(b, counts) - getWeight(a, counts);
+        return d !== 0 ? d : lc(a).localeCompare(lc(b));
+      });
+      openWordListScreen('group', {
+        title: freeQueueLabel || 'mots les plus probables',
+        words: sorted,
+        keepOrder: true,
+      });
     }
 
     // ── Gestion des groupes (écran dédié) ─────────────────────
-    async function openGroupsManager() {
+    // `lang` : la gestion s'ouvre aussi depuis « mes mots », où la langue
+    // affichée n'est pas forcément celle qu'on pratique. `back` : l'écran d'où
+    // l'on vient, sinon « retour » ramènerait toujours à la pratique.
+    let _manageLang = null, _manageBack = 'screen-practice';
+    async function openGroupsManager(lang, back) {
       closeGroupsPicker();
+      _manageLang = lang || currentLang;
+      _manageBack = back || 'screen-practice';
       showScreen('screen-groups');
+      const info = LANGS.find(l => l.key === _manageLang);
       document.getElementById('groups-screen-title').textContent =
-        'Mes groupes (' + (getLang().name || currentLang) + ')';
+        'Mes groupes (' + ((info && info.name) || _manageLang) + ')';
+      // Un lot se tire dans le stock de la langue PRATIQUÉE : on ne le propose
+      // pas pour une autre langue plutôt que de tirer dans le mauvais pool.
+      document.getElementById('groups-lot-btn').style.display = _manageLang === currentLang ? '' : 'none';
       const list = document.getElementById('groups-manage-list');
       document.getElementById('taxo-panel').innerHTML = '';
       _taxo = null;
       list.innerHTML = '<div style="text-align:center;padding:1rem"><span class="spinner"></span></div>';
-      try { await loadGroups(currentLang); } catch { list.innerHTML = '<p style="color:var(--error)">Erreur de chargement.</p>'; return; }
+      try { await loadGroups(_manageLang); } catch { list.innerHTML = '<p style="color:var(--error)">Erreur de chargement.</p>'; return; }
       renderGroupsManager();
     }
     function renderGroupsManager() {
-      const groups = groupsCache[currentLang] || [];
+      const groups = groupsCache[_manageLang] || [];
       const list = document.getElementById('groups-manage-list');
       if (!groups.length) {
         list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun groupe pour cette langue.</p>';
@@ -3771,7 +3900,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           </span>
         </div>`).join('');
     }
-    function groupById(id) { return (groupsCache[currentLang] || []).find(g => g.id === id); }
+    function groupById(id) { return (groupsCache[_manageLang] || []).find(g => g.id === id); }
 
     async function openGroupWords(id) {
       const g = groupById(id);
@@ -3802,7 +3931,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (!confirm(`Supprimer le groupe « ${g.name} » ? Les ${g.n} mots restent dans ta liste.`)) return;
       const r = await authFetch('/api/groups', { method: 'DELETE', body: JSON.stringify({ id }) });
       if (!r.ok) { alert('erreur'); return; }
-      groupsCache[currentLang] = (groupsCache[currentLang] || []).filter(x => x.id !== id);
+      groupsCache[_manageLang] = (groupsCache[_manageLang] || []).filter(x => x.id !== id);
       renderGroupsManager();
     }
 
@@ -3810,11 +3939,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const name = prompt('Nom du nouveau groupe :', '');
       if (name === null || !name.trim()) return;
       const r = await authFetch('/api/groups', {
-        method: 'POST', body: JSON.stringify({ lang: currentLang, name: name.trim(), kind: 'theme' })
+        method: 'POST', body: JSON.stringify({ lang: _manageLang, name: name.trim(), kind: 'theme' })
       });
       const d = await r.json();
       if (!r.ok) { alert(d.error?.message || 'erreur'); return; }
-      await loadGroups(currentLang);
+      await loadGroups(_manageLang);
       renderGroupsManager();
     }
 
@@ -3859,7 +3988,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       try {
         const r = await authFetch('/api/autogroup', {
           method: 'POST',
-          body: JSON.stringify({ lang: currentLang, mode: 'propose' })
+          body: JSON.stringify({ lang: _manageLang, mode: 'propose' })
         });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error?.message || 'erreur');
@@ -3872,7 +4001,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
     function renderTaxoProposal() {
       const panel = document.getElementById('taxo-panel');
-      const cur = groupsCache[currentLang] || [];
+      const cur = groupsCache[_manageLang] || [];
       const byName = new Map(cur.map(g => [g.name.toLowerCase(), g]));
       const news = _taxo.proposed.filter(g => g.isNew);
       // Un groupe conservé peut recevoir une meilleure description : c'est le
@@ -3918,7 +4047,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     async function applyTaxoProposal() {
       const panel = document.getElementById('taxo-panel');
       const rows = [...panel.querySelectorAll('.free-pick-row.on')];
-      const cur = groupsCache[currentLang] || [];
+      const cur = groupsCache[_manageLang] || [];
       const byName = new Map(cur.map(g => [g.name.toLowerCase(), g]));
       let created = 0, updated = 0;
       for (const row of rows) {
@@ -3927,7 +4056,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         if (!g) continue;
         if (kind === 'new') {
           const r = await authFetch('/api/groups', {
-            method: 'POST', body: JSON.stringify({ lang: currentLang, name: g.name, scope: g.scope, kind: 'theme' })
+            method: 'POST', body: JSON.stringify({ lang: _manageLang, name: g.name, scope: g.scope, kind: 'theme' })
           });
           if (r.ok) created++;
         } else {
@@ -3937,7 +4066,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           if (r.ok) updated++;
         }
       }
-      await loadGroups(currentLang);
+      await loadGroups(_manageLang);
       renderGroupsManager();
       panel.innerHTML = `<p style="color:var(--success)">✓ ${created} groupe(s) créé(s), ${updated} description(s) mise(s) à jour.</p>` +
         (created ? '<p style="color:var(--muted);font-size:0.85rem">Les nouveaux groupes sont vides : lance « 🏷 classer les mots sans groupe » pour qu\'ils se remplissent.</p>' : '');
@@ -3952,7 +4081,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       btn.disabled = true;
       try {
         const r0 = await authFetch('/api/autogroup', {
-          method: 'POST', body: JSON.stringify({ lang: currentLang, reopen: 'orphans' })
+          method: 'POST', body: JSON.stringify({ lang: _manageLang, reopen: 'orphans' })
         });
         const d0 = await r0.json();
         if (!r0.ok) throw new Error(d0.error?.message || 'erreur');
@@ -3962,7 +4091,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         for (;;) {
           panel.innerHTML = `<p style="color:var(--muted)"><span class="spinner"></span> ${done}/${left} mots classés…</p>`;
           const r = await authFetch('/api/autogroup', {
-            method: 'POST', body: JSON.stringify({ lang: currentLang, limit: 100 })
+            method: 'POST', body: JSON.stringify({ lang: _manageLang, limit: 100 })
           });
           const d = await r.json();
           if (!r.ok) throw new Error(d.error?.message || 'erreur');
@@ -3970,7 +4099,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           done += d.processed;
           if (!d.remaining) break;
         }
-        await loadGroups(currentLang);
+        await loadGroups(_manageLang);
         renderGroupsManager();
         panel.innerHTML = `<p style="color:var(--success)">✓ ${done} mot(s) repassés au classement.</p>`;
       } catch (e) {
@@ -3994,11 +4123,39 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     function closeFreeSearch() {
       document.getElementById('free-search-modal').classList.remove('visible');
     }
+    // Tri de la boîte de recherche. « jamais vus » FILTRE en plus de trier :
+    // c'est la seule des quatre entrées qui réduit la liste.
+    let _freeSort = 'az';
+    function setFreeSearchSort(mode) {
+      _freeSort = mode;
+      document.querySelectorAll('#free-search-sort .filter-btn').forEach(b =>
+        b.classList.toggle('active', b.getAttribute('onclick').includes(`'${mode}'`)));
+      renderFreeSearchList(document.getElementById('free-search-input').value);
+    }
+    function lastPracticedOf(w) {
+      const p = progressMap[w.toLowerCase()];
+      return (p && p.lastPracticed) || '';
+    }
     function renderFreeSearchList(filter) {
       const q = (filter || '').trim().toLowerCase();
       _freeFiltered = (_freePool || allWords)
         .filter(w => !q || w.toLowerCase().includes(q))
-        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        .filter(w => _freeSort !== 'never' || !lastPracticedOf(w));
+      const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
+      if (_freeSort === 'recent') {
+        _freeFiltered.sort((a, b) => { const x = lastPracticedOf(a), y = lastPracticedOf(b); return x === y ? byName(a, b) : (x > y ? -1 : 1); });
+      } else if (_freeSort === 'old') {
+        // Un mot jamais vu n'est pas « le plus ancien » : il passe en fin.
+        _freeFiltered.sort((a, b) => {
+          const x = lastPracticedOf(a), y = lastPracticedOf(b);
+          if (!x && !y) return byName(a, b);
+          if (!x) return 1;
+          if (!y) return -1;
+          return x === y ? byName(a, b) : (x < y ? -1 : 1);
+        });
+      } else {
+        _freeFiltered.sort(byName);
+      }
       const list = document.getElementById('free-search-list');
       if (_freeFiltered.length === 0) {
         list.innerHTML = '<div id="free-search-empty">Aucun mot.</div>';
@@ -4007,8 +4164,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       list.innerHTML = _freeFiltered.map((w, i) => {
         const pos = _freePickOrder.indexOf(w);
         const on  = pos >= 0;
+        const seen = lastPracticedOf(w);
         return `<div class="free-pick-row ${on ? 'on' : ''}" onclick="toggleFreePick(${i})">
-          <span class="fp-word">${lc(w)}</span>
+          <span class="fp-word">${lc(w)}${seen ? `<span class="mot-note" style="display:block">${seen}</span>` : ''}</span>
           <span class="fp-order">${on ? (pos + 1) : ''}</span>
         </div>`;
       }).join('');
@@ -4030,15 +4188,17 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     function startFreeQueue() {
       if (_freePickOrder.length === 0) return;
       closeFreeSearch();
-      beginFreeQueue([..._freePickOrder]);
+      beginFreeQueue([..._freePickOrder], _freePool ? freeQueueLabel : '');
     }
 
     // Point d'entrée unique d'une file imposée (recherche manuelle OU groupe) :
     // les deux doivent recaler le slider et l'UI de la même façon.
-    function beginFreeQueue(list) {
+    function beginFreeQueue(list, label) {
       if (!list || !list.length) return;
       freeSelection   = list;
       freeCursor      = 0;
+      freeLap         = 1;
+      freeQueueLabel  = label || '';
       freeQueueActive = true;
       resetPracticeUI();
       // Par défaut on affiche TOUS les mots choisis (slider = N, plafonné à 30).
@@ -4049,8 +4209,18 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
     // Quitte la sélection manuelle → retour au tirage pondéré normal.
     function exitFreeQueue() {
+      if (practiceMode === 'situation') { // en Situation, on lève la restriction
+        _sitGroupWords = null;
+        _sitGroupLabel = '';
+        resetPracticeUI();
+        pickWords();
+        updateFreeSearchBar();
+        return;
+      }
       freeSelection = [];
       freeCursor = 0;
+      freeLap = 1;
+      freeQueueLabel = '';
       freeQueueActive = false;
       resetPracticeUI();
       pickWords();
@@ -4062,11 +4232,16 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const bar = document.getElementById('free-search-bar');
       if (!bar) return;
       const inFree = practiceMode === 'free';
-      bar.style.display = inFree ? '' : 'none';
+      const inSit  = practiceMode === 'situation';
+      bar.style.display = (inFree || inSit) ? '' : 'none';
       document.getElementById('free-search-open').style.display = (inFree && !freeQueueActive) ? '' : 'none';
       const gb = document.getElementById('groups-open');
-      if (gb) gb.style.display = (inFree && !freeQueueActive) ? '' : 'none';
-      document.getElementById('free-queue-exit').style.display  = (inFree &&  freeQueueActive) ? '' : 'none';
+      if (gb) gb.style.display = ((inFree && !freeQueueActive) || (inSit && !_sitGroupWords)) ? '' : 'none';
+      const pk = document.getElementById('free-peek');
+      if (pk) pk.style.display = (inFree && !freeQueueActive) ? '' : 'none';
+      const exitBtn = document.getElementById('free-queue-exit');
+      exitBtn.style.display = ((inFree && freeQueueActive) || (inSit && _sitGroupWords)) ? '' : 'none';
+      exitBtn.textContent = inSit ? '✕ quitter le groupe' : '✕ quitter la file';
       // Le mélange ne pilote que le tirage : dans une sélection manuelle, le pool
       // est imposé → curseur masqué.
       const mix = document.getElementById('free-mix-section');
@@ -4079,9 +4254,25 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // Sélection manuelle (mode libre) : construit le batch courant depuis
     // freeSelection[freeCursor…] ; taille = valeur du slider, le reste = file en attente.
     function freeCountLabel(shown, left) {
+      const head = (freeQueueLabel ? `🏷 ${escapeHtml(freeQueueLabel)}` : '🔍') +
+        (freeLap > 1 ? ` <span style="color:var(--muted)">· tour ${freeLap}</span>` : '');
       return left > 0
-        ? `🔍 <span class="highlight">${shown}</span> affiché(s) · <span class="highlight">${left}</span> en file`
-        : `🔍 <span class="highlight">${shown}</span> ${tPrac(shown > 1 ? 'practice_pl' : 'practice_sg')}`;
+        ? `${head} · <span class="highlight">${shown}</span> affiché(s) · <span class="highlight">${left}</span> en file`
+        : `${head} · <span class="highlight">${shown}</span> ${tPrac(shown > 1 ? 'practice_pl' : 'practice_sg')}`;
+    }
+
+    // Réordonne une file par tirage pondéré : même pool, ordre qui privilégie
+    // ce qui n'est pas acquis. Sert au rebouclage.
+    function reorderQueueByWeight(pool) {
+      const out = [];
+      for (let i = 0; i < pool.length; i++) {
+        const w = pickWeightedOne(out, pool);
+        if (!w || out.includes(w)) break;
+        out.push(w);
+      }
+      // Le réservoir peut s'arrêter avant d'avoir tout tiré : on complète.
+      for (const w of pool) if (!out.includes(w)) out.push(w);
+      return out;
     }
     function renderFreeBatch() {
       const remaining = freeSelection.length - freeCursor;
@@ -4464,7 +4655,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
       } else if (practiceMode === 'situation') {
         // Pioche uniquement les mots maîtrisés (★★★ = net >= 3)
-        const mastered = allWords.filter(w => {
+        // Pool = les mots maîtrisés, restreints au groupe choisi le cas échéant.
+        // La bascule « tout le groupe » sert aux groupes trop maigres en ★★★.
+        const sitBase = _sitGroupWords || allWords;
+        const mastered = _sitGroupWords && _sitAllOfGroup ? [...sitBase] : sitBase.filter(w => {
           const prog = progressMap[w.toLowerCase()];
           return prog && (prog.correct - prog.incorrect) >= 3;
         });
@@ -4478,6 +4672,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         }
 
         document.getElementById('due-count').innerHTML =
+          (_sitGroupLabel ? `🏷 ${escapeHtml(_sitGroupLabel)} · ` : '') +
           `<span class="highlight">${mastered.length}</span> ${tPrac(mastered.length > 1 ? 'mastered_pl' : 'mastered_sg')}`;
         if (mbar) mbar.style.display = ''; // il y a des ★★★ → on propose la liste
 
@@ -4512,7 +4707,15 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
       } else {
         // Mode libre
-        if (freeQueueActive && freeCursor >= freeSelection.length) freeQueueActive = false; // sélection épuisée
+        // Sélection épuisée → on REBOUCLE au lieu de retomber silencieusement
+        // dans les 7 000 mots : l'utilisateur croyait travailler son groupe.
+        // Le nouvel ordre vient du tirage pondéré restreint au pool, donc les
+        // mots ratés ou inconnus reviennent en tête au tour suivant.
+        if (freeQueueActive && freeCursor >= freeSelection.length) {
+          freeLap++;
+          freeSelection = reorderQueueByWeight(freeSelection);
+          freeCursor = 0;
+        }
         if (freeQueueActive) {
           renderFreeBatch(); // affiche le batch courant de la sélection (taille = slider)
         } else {
@@ -5810,6 +6013,7 @@ Write all scenarios and explanations in ${langName}.`;
         });
         sortMots();
         renderMotsFilters();
+        renderMotsGroupFilters();
         renderMots();
       } catch (err) {
         document.getElementById('mots-list').innerHTML =
@@ -5826,7 +6030,64 @@ Write all scenarios and explanations in ${langName}.`;
       }).join('');
     }
 
-    function setMotsFilter(k) { motsFilter = k; motsPage = 0; renderMotsFilters(); renderMots(); }
+    function setMotsFilter(k) {
+      motsFilter = k;
+      motsPage = 0;
+      motsGroupFilter = null; motsGroupWords = null; // les groupes d'une langue ne valent pas pour une autre
+      renderMotsFilters();
+      renderMotsGroupFilters();
+      renderMots();
+    }
+
+    async function renderMotsGroupFilters() {
+      const box = document.getElementById('mots-group-filters');
+      if (motsFilter === 'all') { box.style.display = 'none'; box.innerHTML = ''; return; }
+      const lang = motsFilter;
+      box.style.display = '';
+      let groups = groupsCache[lang];
+      if (!groups) {
+        box.innerHTML = '<span style="color:var(--muted);font-size:0.8rem"><span class="spinner"></span></span>';
+        try { groups = await loadGroups(lang); } catch { box.innerHTML = ''; return; }
+        if (motsFilter !== lang) return; // l'utilisateur a changé de langue entre-temps
+      }
+      const netOfMot = w => motsStars[lang + '|' + w.toLowerCase()] || 0;
+      const inLang = motsData.filter(m => m.lang === lang);
+      const counts = {
+        '-1': inLang.filter(m => netOfMot(m.word) >= 3).length,
+        '-2': inLang.filter(m => netOfMot(m.word) < 3).length,
+      };
+      const pill = (id, label) =>
+        `<button class="filter-btn ${motsGroupFilter === id ? 'active' : ''}" onclick="setMotsGroupFilter(${id})">${label}</button>`;
+      box.innerHTML =
+        `<button class="filter-btn ${motsGroupFilter === null ? 'active' : ''}" onclick="setMotsGroupFilter(null)">tous</button>` +
+        pill(-1, `★★★ ${counts['-1']}`) +
+        pill(-2, `à travailler ${counts['-2']}`) +
+        pill(-3, 'sans groupe') +
+        groups.filter(g => g.n > 0).map(g =>
+          pill(g.id, `${g.kind === 'lot' ? '📘 ' : ''}${escapeHtml(g.name)} ${g.n}`)).join('') +
+        `<button class="filter-btn" onclick="openGroupsManager('${lang}', 'screen-mots')">⚙ gérer</button>`;
+    }
+
+    async function setMotsGroupFilter(id) {
+      motsGroupFilter = id;
+      motsPage = 0;
+      motsGroupWords = null;
+      const lang = motsFilter;
+      if (id !== null && id > 0) {
+        try {
+          const r = await authFetch('/api/word-groups?group_id=' + id);
+          motsGroupWords = new Set(((await r.json()).words || []).map(w => w.toLowerCase()));
+        } catch { motsGroupWords = new Set(); }
+      } else if (id === -3) {
+        try {
+          const r = await authFetch(`/api/word-groups?ungrouped=1&lang=${encodeURIComponent(lang)}`);
+          motsGroupWords = new Set(((await r.json()).words || []).map(w => w.toLowerCase()));
+        } catch { motsGroupWords = new Set(); }
+      }
+      renderMotsGroupFilters();
+      renderMots();
+    }
+
     function setMotsPageSize(n) { motsPageSize = +n; motsPage = 0; renderMots(); }
     function motsGoPage(d) { motsPage += d; renderMots(); }
     const jsEsc = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -5834,6 +6095,17 @@ Write all scenarios and explanations in ${langName}.`;
     function filteredMots() {
       const q = (document.getElementById('mots-search').value || '').trim().toLowerCase();
       let rows = motsFilter === 'all' ? motsData : motsData.filter(m => m.lang === motsFilter);
+      if (motsGroupFilter !== null) {
+        if (motsGroupFilter === -1 || motsGroupFilter === -2) {
+          const min = motsGroupFilter === -1;
+          rows = rows.filter(m => {
+            const net = motsStars[m.lang + '|' + m.word.toLowerCase()] || 0;
+            return min ? net >= 3 : net < 3;
+          });
+        } else if (motsGroupWords) {
+          rows = rows.filter(m => motsGroupWords.has(m.word.toLowerCase()));
+        }
+      }
       if (q) rows = rows.filter(m => m.word.toLowerCase().includes(q));
       return rows;
     }
@@ -5851,6 +6123,10 @@ Write all scenarios and explanations in ${langName}.`;
 
     function clearMotsSelection() { motsSelected.clear(); renderMots(); }
 
+    // Filtre par groupe dans « mes mots ». Les groupes étant PAR LANGUE, la
+    // ligne de pilules n'apparaît que sur une langue précise, jamais sur « Tout ».
+    let motsGroupFilter = null;   // id de groupe (négatif = virtuel) ou null
+    let motsGroupWords  = null;   // Set des mots du groupe actif
     let _pageRowsCache = [];
     function pageMots() { return _pageRowsCache; }
 
@@ -6341,7 +6617,11 @@ Write all scenarios and explanations in ${langName}.`;
         if (view === 'mastered' && net < 3) continue;  // ★★★ = même seuil que pickWords
         revisionsRows.push({ word: w, next: p.nextReview, net });
       }
-      if (view === 'group') setRevisionsSort('az'); else renderRevisions();
+      if (view !== 'group') { renderRevisions(); return; }
+      revisionsSort = (opts && opts.keepOrder) ? 'given' : 'az';
+      document.querySelectorAll('#revisions-sort .filter-btn').forEach(b =>
+        b.classList.toggle('active', b.getAttribute('onclick').includes(`'${revisionsSort}'`)));
+      renderRevisions();
     }
 
     function setRevisionsSort(mode) {
@@ -6366,7 +6646,9 @@ Write all scenarios and explanations in ${langName}.`;
         list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tPrac('none_found')}</p>`;
         return;
       }
-      if (revisionsSort === 'az') {
+      if (revisionsSort === 'given') {
+        // Ordre imposé par l'appelant (tri par poids de tirage) : on n'y touche pas.
+      } else if (revisionsSort === 'az') {
         rows.sort((a, b) => lc(a.word).localeCompare(lc(b.word)));
       } else if (revisionsSort === 'far') {
         rows.sort((a, b) => a.next > b.next ? -1 : a.next < b.next ? 1 : lc(a.word).localeCompare(lc(b.word)));
@@ -7764,6 +8046,10 @@ Reply with ONLY this JSON object, nothing else:
       <div style="text-align:right; margin-top:0.4rem;">
         <button class="btn-ghost" style="font-size:0.8rem" onclick="openGroupsManager()">⚙ gérer mes groupes</button>
       </div>
+      <div id="groups-sit-scope" style="display:none; gap:0.4rem; margin-top:0.9rem;">
+        <button class="filter-btn active" id="gsit-mastered" onclick="setSitScope(false)" style="flex:1 1 auto">★★★ maîtrisés</button>
+        <button class="filter-btn"        id="gsit-all"      onclick="setSitScope(true)"  style="flex:1 1 auto">tout le groupe</button>
+      </div>
       <div id="groups-subset" style="display:flex; gap:0.4rem; margin-top:0.9rem;">
         <button class="filter-btn active" id="gsub-all"    onclick="setGroupSubset('all')"    style="flex:1 1 auto">tous</button>
         <button class="filter-btn"        id="gsub-random" onclick="setGroupSubset('random')" style="flex:1 1 auto">au hasard</button>
@@ -7789,7 +8075,13 @@ Reply with ONLY this JSON object, nothing else:
       <p style="color:var(--muted);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs mots à pratiquer (dans l'ordre choisi), puis « commencer ».</p>
       <input type="text" id="free-search-input" placeholder="🔍 filtrer…" autocomplete="off" autocapitalize="off"
         oninput="renderFreeSearchList(this.value)"
-        style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.9rem;">
+        style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.6rem;">
+      <div id="free-search-sort" style="display:flex; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.7rem;">
+        <button class="filter-btn active" onclick="setFreeSearchSort('az')">A-Z</button>
+        <button class="filter-btn" onclick="setFreeSearchSort('recent')">vus récemment</button>
+        <button class="filter-btn" onclick="setFreeSearchSort('old')">les plus anciens</button>
+        <button class="filter-btn" onclick="setFreeSearchSort('never')">jamais vus</button>
+      </div>
       <div id="free-search-list" style="max-height:48vh; overflow-y:auto;"></div>
       <button class="btn-primary" id="free-search-start" style="width:100%; margin-top:1rem;"
         onclick="startFreeQueue()" disabled>Commencer</button>

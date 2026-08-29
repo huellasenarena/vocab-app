@@ -434,7 +434,23 @@ Migrations `0004_groups.sql` (tables + colonne) et `0005_group_scope.sql` (`grou
 - `GET /api/word-groups?lang=&word=` rend les groupes d'un mot.
 - `kindle_import.py` : `parse_added()` + `autogroup()` — classement **après** l'import, un lot de 100 par langue, best-effort.
 
-**À faire** : rien de bloquant sur les groupes.
+### Groupes virtuels et pools
+`VGROUPS` (ids **négatifs**, jamais en base) : **★★★ maîtrisés** · **à travailler** · **sans groupe** (celui-ci via `GET /api/word-groups?ungrouped=1&lang=`). Offerts dans le même sélecteur que les vrais groupes — d'où l'absence d'un mode « pratiquer les maîtrisés » séparé.
+- **Sémantique du pool** (`resolveGroupPool`) : les vrais groupes s'**additionnent**, les virtuels **filtrent** ce qui en sort (« comida ∩ maîtrisés »).
+- **Mode Situation** : le 🏷 y apparaît aussi ; le groupe n'y est pas une file mais une **restriction du pool** (`_sitGroupWords`), avec bascule **maîtrisés seulement** (défaut) / **tout le groupe** pour les groupes trop maigres en ★★★. `✕ quitter le groupe` lève la restriction.
+- **👁 voir les mots** (mode libre) : ouvre le pool trié par **poids de tirage décroissant** — avec le curseur de mélange tout est « possible », seule la probabilité change. Passe par `openWordListScreen('group', {keepOrder:true})` → `revisionsSort = 'given'`.
+
+### La file ne se termine plus toute seule
+⚠️ Avant : file épuisée → `freeQueueActive = false` et retour **silencieux** dans tout le stock, alors qu'on croyait travailler son groupe. Désormais elle **reboucle** (`freeLap++`, ordre re-tiré par `reorderQueueByWeight` → les mots ratés reviennent en tête) et seul le bouton ✕ en sort. Le compteur affiche `🏷 <groupe> · tour N`.
+
+### « Mes mots » : filtre par groupe
+Seconde ligne de pilules (`#mots-group-filters`), **masquée sur « Tout »** (les groupes sont par langue) : `tous · ★★★ · à travailler · sans groupe · <groupes> · ⚙ gérer`. `openGroupsManager(lang, back)` — l'écran de gestion s'ouvre donc sur une langue qui n'est pas forcément celle qu'on pratique (`_manageLang`, `_manageBack`) ; le bouton « lot d'étude » est masqué dans ce cas (un lot se tire dans le stock de la langue **pratiquée**).
+
+### Divers
+- **Mélange par langue** : `vocab_free_mix_<Langue>` via `freeMixKey()`, **repli sur l'ancienne clé globale** (même motif que la grammaire). Recalé par `selectLanguage()`.
+- **`progress.last_practiced`** est désormais chargé côté front (`progressMap[...].lastPracticed`) → tris **A-Z / vus récemment / les plus anciens / jamais vus** dans « chercher un mot » (« jamais vus » filtre en plus de trier ; « les plus anciens » renvoie les jamais-vus en fin, ils ne sont pas « anciens »).
+
+**À faire** : refonte visuelle de `screen-mots` (frontières, cases à cocher, défilement iOS) — discutée, pas encore faite.
 
 ## Idées futures
 
