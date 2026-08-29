@@ -142,7 +142,7 @@ Entonnoir (porté de l'ancien Apps Script, lit les mots existants depuis D1) :
 
 `ignore_sens=true` / `ignore_sim=true` bypassent (1)/(3). Retries 429/5xx (3 tentatives).
 
-**Normalisation** (`normalizeWord`) : minuscules, apostrophes unifiées, points isolés retirés, liste blanche de caractères. Les **parenthèses** y sont admises → voir « Entrées annotées » (une parenthèse mal formée renvoie `Erreur : <raison>`, sans bouton « ajouter quand même » : l'utilisateur doit corriger).
+**Normalisation** (`normalizeWord`) : minuscules, apostrophes unifiées, points isolés retirés, liste blanche de caractères (`cleanBase` admet lettres, **chiffres**, espace, `'¿?,.-+()`). ⚠️ **La virgule n'est plus un séparateur de saisie** (`splitAddInput` : retour à la ligne et `;` seulement) — sans ça une expression comme « cabe inferir, aunque el texto no lo dice, que... » était impossible à taper. Les chiffres ont été rétablis en même temps (« los años 70 » perdait son année). Les **parenthèses** y sont admises → voir « Entrées annotées » (une parenthèse mal formée renvoie `Erreur : <raison>`, sans bouton « ajouter quand même » : l'utilisateur doit corriger).
 
 **Raccourci iOS** : POST le mot dans le corps, `token`+`lang=auto` dans l'URL ; gère `INVALID:`/`SIMILAR:` par alerte « ajouter quand même ? » → renvoie avec `ignore_*`. (Utilise (1)+(3) avec la clé propriétaire.)
 
@@ -160,7 +160,7 @@ Une entrée peut porter une **note en fin de chaîne** : `hacer el oso (expresi�
 - **`/add`** : doublon exact sur le **texte complet** (`berraco (…enojo)` et `berraco (…inteligencia)` sont deux entrées légitimes) ; validité IA et similarité sur la **base** seule, note passée en contexte au juge LLM (`entryContext`, Worker). Idem `/judge-similar`.
 - **Front** : `wordBase`/`wordNote`/`hasNote` · `entryContext(words)` = bloc injecté dans les 6 prompts · `promptLabel(w, all)` = base, **sauf** si deux entrées de la session partagent la même base (alors base + note, sinon ni le modèle ni le parsing ne peuvent les distinguer).
 - **Affichage** : base en principal, note en gris (`.word-note`, `.chip-note`, `.mot-note`) sur la carte, les chips, « mes mots » et les révisions ; floutée avec 👁 ; **jamais affichée en mode Situation** avant la réponse. Les chips portent `data-word` = entrée complète — clé de progression et de verdict, que le texte affiché ne porte plus (⚠️ ne pas relire la clé depuis `.chip-word.textContent`).
-- **Saisie multi-mots** : `splitAddInput()` ne coupe pas sur `,`/`;` **à l'intérieur** des parenthèses.
+- **Saisie multi-mots** : `splitAddInput()` coupe sur retour à la ligne et `;` (plus sur `,`), jamais **à l'intérieur** des parenthèses.
 
 ### Import Kindle — `kindle_import.py` (refonte juin 2026)
 Lit `vocab.db`/`My Clippings` de la Kindle → sélection → import D1. **Config** : `.token` (jeton perso) et `.openai_key` (clé OpenAI dédiée) — **fichiers prioritaires sur `$ADD_TOKEN`/`$OPENAI_KEY_IMPORT`** (sinon une vieille var parasite casse tout). 

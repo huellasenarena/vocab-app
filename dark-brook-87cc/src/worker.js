@@ -317,10 +317,14 @@ function splitEntry(raw) {
 }
 
 // Le mot lui-même : jeu de caractères étroit (lettres, espaces, apostrophes…).
+// Chiffres et virgule admis : sans eux « los años 70 » perdait son année et
+// « cabe inferir, aunque…, que... » ses virgules. La virgule n'est plus un
+// séparateur de saisie (voir splitAddInput côté front), elle peut donc entrer
+// dans une entrée.
 function cleanBase(s) {
   return s
     .replace(/(?<!\.)\.(?!\.)/g, '')
-    .replace(/[^\p{L}\p{M} '¿?\.\-\+()]/gu, '')
+    .replace(/[^\p{L}\p{M}\p{N} '¿?,\.\-\+()]/gu, '')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();

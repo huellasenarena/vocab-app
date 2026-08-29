@@ -1752,7 +1752,7 @@
     <!-- Panneau : ajouter un mot -->
     <div id="add-word-panel">
       <label class="add-field-label" data-i18n="label_words">Mot(s) ou expression(s)</label>
-      <textarea id="add-word-input" class="add-input" rows="4" autocapitalize="off" autocomplete="off" placeholder="ex. resilience&#10;plusieurs mots : un par ligne, ou séparés par des virgules&#10;expression : hacer el oso (expresión colombiana)" data-i18n-ph="add_words_ph"></textarea>
+      <textarea id="add-word-input" class="add-input" rows="4" autocapitalize="off" autocomplete="off" placeholder="ex. resilience&#10;plusieurs mots : un par ligne, ou séparés par des « ; »&#10;expression : hacer el oso (expresión colombiana)" data-i18n-ph="add_words_ph"></textarea>
       <button class="btn-primary" style="width:100%;margin-top:0.7rem" onclick="addWordFromApp()" data-i18n="btn_add">Ajouter</button>
       <div id="add-word-result" class="add-result"></div>
     </div>
@@ -1945,7 +1945,7 @@
       tab_grammar:      { en: `🔤 Grammar form`, fr: `🔤 Forme grammaticale`, es: `🔤 Forma gramatical`, el: `🔤 Γραμματικός τύπος` },
       label_lang:       { en: `Language`, fr: `Langue`, es: `Idioma`, el: `Γλώσσα` },
       label_words:      { en: `Word(s) or expression(s)`, fr: `Mot(s) ou expression(s)`, es: `Palabra(s) o expresión(es)`, el: `Λέξη/εις ή έκφραση/εις` },
-      add_words_ph:     { en: `e.g. resilience\nseveral words: one per line, or comma-separated\nexpression: hacer el oso (Colombian expression)`, fr: `ex. resilience\nplusieurs mots : un par ligne, ou séparés par des virgules\nexpression : hacer el oso (expresión colombiana)`, es: `ej. resilience\nvarias palabras: una por línea, o separadas por comas\nexpresión: hacer el oso (expresión colombiana)`, el: `π.χ. resilience\nπερισσότερες λέξεις: μία ανά γραμμή, ή χωρισμένες με κόμμα\nέκφραση: hacer el oso (κολομβιανή έκφραση)` },
+      add_words_ph:     { en: `e.g. resilience\nseveral words: one per line, or separated by « ; »\nexpression: hacer el oso (Colombian expression)`, fr: `ex. resilience\nplusieurs mots : un par ligne, ou séparés par des « ; »\nexpression : hacer el oso (expresión colombiana)`, es: `ej. resilience\nvarias palabras: una por línea, o separadas por « ; »\nexpresión: hacer el oso (expresión colombiana)`, el: `π.χ. resilience\nπερισσότερες λέξεις: μία ανά γραμμή, ή χωρισμένες με « ; »\nέκφραση: hacer el oso (κολομβιανή έκφραση)` },
       btn_add:          { en: `Add`, fr: `Ajouter`, es: `Añadir`, el: `Προσθήκη` },
       label_category:   { en: `Category`, fr: `Catégorie`, es: `Categoría`, el: `Κατηγορία` },
       label_form:       { en: `Form`, fr: `Forme`, es: `Forma`, el: `Τύπος` },
@@ -5682,17 +5682,20 @@ Write all scenarios and explanations in ${langName}.`;
 
     let _addBatch = []; // mots du dernier ajout ([{word, lang}]) — pour « ajouter quand même » par ligne
 
-    // Découpe la saisie en entrées (\n , ;) MAIS jamais à l'intérieur d'une
-    // parenthèse : « hacer el oso (expresión colombiana, informal) » est UNE
-    // entrée, pas deux. Parenthèse jamais fermée → le reste part en une seule
-    // entrée, que le Worker rejettera avec un message explicite.
+    // Découpe la saisie en entrées (retour à la ligne ou « ; ») MAIS jamais à
+    // l'intérieur d'une parenthèse : « hacer el oso (expresión colombiana,
+    // informal) » est UNE entrée, pas deux. Parenthèse jamais fermée → le reste
+    // part en une seule entrée, que le Worker rejettera avec un message explicite.
+    // ⚠️ La VIRGULE n'est plus un séparateur : trop d'expressions en contiennent
+    // (« cabe inferir, aunque el texto no lo dice, que... ») et elles étaient
+    // impossibles à saisir ici. Le point-virgule et le retour à la ligne suffisent.
     function splitAddInput(text) {
       const out = [];
       let cur = '', depth = 0;
       for (const ch of String(text || '')) {
         if (ch === '(') depth++;
         else if (ch === ')') depth = Math.max(0, depth - 1);
-        else if (depth === 0 && (ch === '\n' || ch === ',' || ch === ';')) { out.push(cur); cur = ''; continue; }
+        else if (depth === 0 && (ch === '\n' || ch === ';')) { out.push(cur); cur = ''; continue; }
         cur += ch;
       }
       out.push(cur);
@@ -5734,7 +5737,7 @@ Write all scenarios and explanations in ${langName}.`;
         <button class="btn-secondary" style="margin-left:0.4rem;padding:0.15rem 0.5rem;font-size:0.78rem" onclick="retryAddRow(${i}, '${flags}')">${tApp('add_anyway')}</button>`;
     }
 
-    // Ajout d'un ou plusieurs mots (un par ligne, ou séparés par des virgules) —
+    // Ajout d'un ou plusieurs mots (un par ligne, ou séparés par des « ; ») —
     // traités séquentiellement, une ligne de résultat par mot.
     async function addWordFromApp() {
       const input = document.getElementById('add-word-input');
