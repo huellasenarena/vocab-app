@@ -214,6 +214,70 @@ function cleanSuggestion(raw, word) {
   return s;
 }
 
+// ---- Proposition d'une taxonomie à partir du corpus réel ----
+//
+// Un seul appel : même 7 000 entrées tiennent largement dans la fenêtre, et le
+// modèle voit alors TOUT le corpus au lieu d'un échantillon — c'est ce qui lui
+// fait sortir « colombianismos » ou « fórmulas del ensayo » plutôt qu'une liste
+// générique de manuel. Plafonné à 5000 entrées tirées au hasard pour borner la
+// latence ; au-delà, l'échantillon suffit largement à dessiner des catégories.
+const PROPOSE_MAX = 5000;
+function targetGroupCount(n) {
+  if (n < 500)  return 12;
+  if (n < 1500) return 18;
+  if (n < 4000) return 24;
+  return 38;
+}
+
+async function proposeTaxonomy(words, existing, langName, env, model) {
+  let sample = words;
+  if (sample.length > PROPOSE_MAX) {
+    sample = [...words];
+    for (let i = sample.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [sample[i], sample[j]] = [sample[j], sample[i]];
+    }
+    sample = sample.slice(0, PROPOSE_MAX);
+  }
+  const target = targetGroupCount(words.length);
+  const per = Math.max(10, Math.round(words.length / target));
+
+  const prompt = `You design the thematic taxonomy of a learner's personal vocabulary list of ${langName}.
+
+Here is the whole list (${sample.length} entries):
+${sample.join(' | ')}
+
+Propose about ${target} groups covering this corpus, roughly ${per} entries each.
+
+Rules:
+- Name every group IN ${langName}, lowercase, short (2 to 5 words).
+- Give each group a one-line scope: what it holds and, when the name is ambiguous, what it does NOT hold.
+- Look at what this corpus actually contains. If a large share of the entries are fixed phrases, connectors or sentence fragments rather than single words, some groups MUST be functional (discourse, time, manner, judgement...) and not thematic — a purely thematic taxonomy would leave them homeless.
+- Give a group to any distinctive layer you notice (a regional variety, a register, a recurring source).
+- Reuse the EXACT name of an existing group whenever it still fits: ${existing.length ? existing.join(' | ') : '(none yet)'}.
+- No group that would hold fewer than 5 entries.
+
+Reply with ONLY a JSON array, no prose, no code fences:
+[{"name":"...","scope":"..."}]`;
+
+  const res = await callScriptReasoning(prompt, 16000, env, 'low', model);
+  if (!res) return null;
+  const m = res.match(/\[[\s\S]*\]/);
+  if (!m) return null;
+  let parsed;
+  try { parsed = JSON.parse(m[0]); } catch { return null; }
+  if (!Array.isArray(parsed)) return null;
+  const seen = new Set();
+  return parsed
+    .map(g => ({ name: String(g && g.name || '').trim(), scope: String(g && g.scope || '').trim() }))
+    .filter(g => {
+      const k = g.name.toLowerCase();
+      if (!g.name || g.name.length > 80 || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+}
+
 // ---- Classement d'un lot d'entrées dans une liste FERMÉE de groupes ----
 //
 // Numéros des deux côtés (groupes ET entrées) : c'est 3x moins de tokens qu'un
@@ -1011,6 +1075,19 @@ export default {
         const language = ADD_LANGS.includes(body.lang) ? body.lang : null;
         if (!language) return json({ error: { message: 'langue inconnue' } }, 400);
 
+        // Rouvre les mots restés SANS groupe pour qu'une nouvelle passe les
+        // reprenne. On ne touche pas aux mots déjà rangés : c'est ce qui rend un
+        // ajout de groupes rattrapable sans tout reclasser.
+        if (body.reopen === 'orphans') {
+          const r = await env.DB.prepare(
+            `UPDATE words SET grouped = 0
+              WHERE user_id = ? AND language = ? AND grouped = 1
+                AND NOT EXISTS (SELECT 1 FROM word_groups wg
+                                 WHERE wg.user_id = ? AND wg.language = ? AND wg.word = words.word)`
+          ).bind(uid, language, uid, language).run();
+          return json({ ok: true, reopened: r.meta.changes || 0 });
+        }
+
         let key = sanitizeScriptKey(request.headers.get('X-OpenAI-Key'));
         if (!key) {
           const row = await env.DB.prepare('SELECT openai_key FROM users WHERE id = ?').bind(uid).first();
@@ -1023,6 +1100,34 @@ export default {
           "SELECT id, name, scope FROM groups WHERE user_id = ? AND language = ? AND kind = 'theme' ORDER BY id"
         ).bind(uid, language).all();
         const groups = gRows || [];
+
+        // Modèle au choix pour comparer sur un lot témoin ; luna par défaut.
+        const model = ['gpt-5.6-luna', 'gpt-5.6-terra'].includes(body.model) ? body.model : 'gpt-5.6-luna';
+
+        // Mode « refaire la taxonomie » : PROPOSE, n'écrit jamais. La liste
+        // actuelle n'est pas remplacée — le front affiche les deux et
+        // l'utilisateur accepte groupe par groupe. Supprimer reste son geste :
+        // une suppression automatique emporterait aussi ses rangements manuels.
+        if (body.mode === 'propose') {
+          const { results: wRows } = await env.DB.prepare(
+            'SELECT word FROM words WHERE user_id = ? AND language = ?'
+          ).bind(uid, language).all();
+          const words = (wRows || []).map(r => r.word);
+          if (!words.length) return json({ error: { message: 'aucun mot dans cette langue' } }, 400);
+          const proposed = await proposeTaxonomy(
+            words, groups.map(g => g.name), LANG_FULL[language] || language, aiEnv, model
+          );
+          if (!proposed) return json({ error: { message: 'réponse illisible du modèle' } }, 502);
+          const have = new Set(groups.map(g => g.name.toLowerCase()));
+          const kept = new Set(proposed.map(g => g.name.toLowerCase()));
+          return json({
+            mode: 'propose',
+            total: words.length,
+            proposed: proposed.map(g => ({ ...g, isNew: !have.has(g.name.toLowerCase()) })),
+            dropped: groups.filter(g => !kept.has(g.name.toLowerCase())).map(g => ({ id: g.id, name: g.name })),
+          });
+        }
+
         if (!groups.length) return json({ error: { message: 'aucun groupe pour cette langue' } }, 400);
 
         // Mots à traiter : ceux fournis, sinon les non encore classés.
@@ -1039,8 +1144,6 @@ export default {
         if (!entries.length) return json({ processed: 0, remaining: 0, assigned: {} });
 
         const langName = LANG_FULL[language] || language;
-        // Modèle au choix pour comparer sur un lot témoin ; luna par défaut.
-        const model = ['gpt-5.6-luna', 'gpt-5.6-terra'].includes(body.model) ? body.model : 'gpt-5.6-luna';
         const verdict = await classifyBatch(entries, groups, langName, aiEnv, model);
         if (!verdict) return json({ error: { message: 'réponse illisible du modèle' } }, 502);
 
@@ -1174,8 +1277,16 @@ export default {
       try {
         if (request.method === 'GET') {
           const u = new URL(request.url).searchParams;
+          // ?lang=&word= → les groupes d'UN mot (pour cocher le menu 🏷).
+          const w = u.get('word'), wl = u.get('lang');
+          if (w && wl) {
+            const { results } = await env.DB.prepare(
+              'SELECT group_id FROM word_groups WHERE user_id = ? AND language = ? AND word = ?'
+            ).bind(auth.uid, wl, w).all();
+            return json({ group_ids: (results || []).map(r => r.group_id) });
+          }
           const gid = parseInt(u.get('group_id'));
-          if (!gid) return json({ error: { message: 'group_id requis' } }, 400);
+          if (!gid) return json({ error: { message: 'group_id ou (lang, word) requis' } }, 400);
           const { results } = await env.DB.prepare(
             'SELECT word FROM word_groups WHERE user_id = ? AND group_id = ? ORDER BY word COLLATE NOCASE'
           ).bind(auth.uid, gid).all();

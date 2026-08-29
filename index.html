@@ -1728,6 +1728,11 @@
       <button class="btn-ghost" style="flex:1 1 auto" onclick="createGroupPrompt()">＋ nouveau groupe</button>
       <button class="btn-ghost" style="flex:1 1 auto" onclick="createLotPrompt()">＋ lot d'étude</button>
     </div>
+    <div style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
+      <button class="btn-ghost" style="flex:1 1 auto" id="taxo-redo" onclick="startTaxoProposal()">⟳ refaire la taxonomie</button>
+      <button class="btn-ghost" style="flex:1 1 auto" id="taxo-orphans" onclick="classifyOrphans()">🏷 classer les mots sans groupe</button>
+    </div>
+    <div id="taxo-panel" style="margin-top:1rem;"></div>
   </div>
 
   <div class="screen" id="screen-revisions">
@@ -3740,6 +3745,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('groups-screen-title').textContent =
         'Mes groupes (' + (getLang().name || currentLang) + ')';
       const list = document.getElementById('groups-manage-list');
+      document.getElementById('taxo-panel').innerHTML = '';
+      _taxo = null;
       list.innerHTML = '<div style="text-align:center;padding:1rem"><span class="spinner"></span></div>';
       try { await loadGroups(currentLang); } catch { list.innerHTML = '<p style="color:var(--error)">Erreur de chargement.</p>'; return; }
       renderGroupsManager();
@@ -3839,6 +3846,136 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (!r2.ok) { alert('le lot a été créé mais les mots n\'ont pas pu y être ajoutés'); return; }
       await loadGroups(currentLang);
       renderGroupsManager();
+    }
+
+    // ── Refaire la taxonomie (proposition + validation) ───────
+    let _taxo = null; // dernière proposition reçue
+
+    async function startTaxoProposal() {
+      const panel = document.getElementById('taxo-panel');
+      const btn = document.getElementById('taxo-redo');
+      btn.disabled = true;
+      panel.innerHTML = '<p style="color:var(--muted)"><span class="spinner"></span> le modèle relit tous tes mots…</p>';
+      try {
+        const r = await authFetch('/api/autogroup', {
+          method: 'POST',
+          body: JSON.stringify({ lang: currentLang, mode: 'propose' })
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error?.message || 'erreur');
+        _taxo = d;
+        renderTaxoProposal();
+      } catch (e) {
+        panel.innerHTML = `<p style="color:var(--error)">${escapeHtml(e.message)}</p>`;
+      } finally { btn.disabled = false; }
+    }
+
+    function renderTaxoProposal() {
+      const panel = document.getElementById('taxo-panel');
+      const cur = groupsCache[currentLang] || [];
+      const byName = new Map(cur.map(g => [g.name.toLowerCase(), g]));
+      const news = _taxo.proposed.filter(g => g.isNew);
+      // Un groupe conservé peut recevoir une meilleure description : c'est le
+      // seul changement qu'on propose sur l'existant, et il ne déplace aucun mot.
+      const rescoped = _taxo.proposed.filter(g => {
+        const old = byName.get(g.name.toLowerCase());
+        return old && g.scope && g.scope !== (old.scope || '');
+      });
+
+      let html = `<p style="color:var(--muted);font-size:0.85rem">Sur tes <strong>${_taxo.total}</strong> mots, le modèle propose <strong>${_taxo.proposed.length}</strong> groupes.</p>`;
+
+      if (!news.length && !rescoped.length && !_taxo.dropped.length) {
+        html += '<p style="color:var(--success)">✓ Ta taxonomie actuelle est déjà celle qu\'il proposerait. Rien à changer.</p>';
+        panel.innerHTML = html;
+        return;
+      }
+      if (news.length) {
+        html += '<p style="margin-top:0.8rem"><strong>Nouveaux groupes proposés</strong></p>' +
+          news.map((g, i) => `<div class="free-pick-row on" onclick="toggleTaxoPick(this)" data-kind="new" data-i="${i}">
+            <span class="fp-word">${escapeHtml(g.name)}<span class="mot-note" style="display:block">${escapeHtml(g.scope || '')}</span></span>
+            <span class="fp-order">✓</span></div>`).join('');
+      }
+      if (rescoped.length) {
+        html += '<p style="margin-top:0.8rem"><strong>Descriptions à mettre à jour</strong></p>' +
+          rescoped.map((g, i) => `<div class="free-pick-row on" onclick="toggleTaxoPick(this)" data-kind="scope" data-i="${i}">
+            <span class="fp-word">${escapeHtml(g.name)}<span class="mot-note" style="display:block">${escapeHtml(g.scope)}</span></span>
+            <span class="fp-order">✓</span></div>`).join('');
+      }
+      if (_taxo.dropped.length) {
+        // Jamais de suppression automatique : elle emporterait aussi les
+        // rattachements posés à la main. On signale, l'utilisateur tranche.
+        html += `<p style="margin-top:0.8rem"><strong>Plus proposés</strong> <span style="color:var(--muted);font-size:0.8rem">(rien n'est supprimé — à toi de voir avec 🗑)</span></p>
+          <p style="color:var(--muted);font-size:0.85rem">${_taxo.dropped.map(d => escapeHtml(d.name)).join(' · ')}</p>`;
+      }
+      html += `<button class="btn-primary" style="width:100%;margin-top:1rem" onclick="applyTaxoProposal()">Appliquer</button>`;
+      panel.innerHTML = html;
+      _taxo._news = news;
+      _taxo._rescoped = rescoped;
+    }
+
+    function toggleTaxoPick(el) { el.classList.toggle('on'); el.querySelector('.fp-order').textContent = el.classList.contains('on') ? '✓' : ''; }
+
+    async function applyTaxoProposal() {
+      const panel = document.getElementById('taxo-panel');
+      const rows = [...panel.querySelectorAll('.free-pick-row.on')];
+      const cur = groupsCache[currentLang] || [];
+      const byName = new Map(cur.map(g => [g.name.toLowerCase(), g]));
+      let created = 0, updated = 0;
+      for (const row of rows) {
+        const kind = row.getAttribute('data-kind');
+        const g = (kind === 'new' ? _taxo._news : _taxo._rescoped)[parseInt(row.getAttribute('data-i'))];
+        if (!g) continue;
+        if (kind === 'new') {
+          const r = await authFetch('/api/groups', {
+            method: 'POST', body: JSON.stringify({ lang: currentLang, name: g.name, scope: g.scope, kind: 'theme' })
+          });
+          if (r.ok) created++;
+        } else {
+          const old = byName.get(g.name.toLowerCase());
+          if (!old) continue;
+          const r = await authFetch('/api/groups', { method: 'PUT', body: JSON.stringify({ id: old.id, scope: g.scope }) });
+          if (r.ok) updated++;
+        }
+      }
+      await loadGroups(currentLang);
+      renderGroupsManager();
+      panel.innerHTML = `<p style="color:var(--success)">✓ ${created} groupe(s) créé(s), ${updated} description(s) mise(s) à jour.</p>` +
+        (created ? '<p style="color:var(--muted);font-size:0.85rem">Les nouveaux groupes sont vides : lance « 🏷 classer les mots sans groupe » pour qu\'ils se remplissent.</p>' : '');
+    }
+
+    // Rouvre les mots restés sans groupe et les repasse à la moulinette, par
+    // lots de 100. On ne touche jamais aux mots déjà rangés : c'est ce qui rend
+    // l'ajout d'un groupe rattrapable sans tout reclasser.
+    async function classifyOrphans() {
+      const panel = document.getElementById('taxo-panel');
+      const btn = document.getElementById('taxo-orphans');
+      btn.disabled = true;
+      try {
+        const r0 = await authFetch('/api/autogroup', {
+          method: 'POST', body: JSON.stringify({ lang: currentLang, reopen: 'orphans' })
+        });
+        const d0 = await r0.json();
+        if (!r0.ok) throw new Error(d0.error?.message || 'erreur');
+        let left = d0.reopened;
+        if (!left) { panel.innerHTML = '<p style="color:var(--success)">✓ Tous tes mots ont déjà un groupe.</p>'; return; }
+        let done = 0;
+        for (;;) {
+          panel.innerHTML = `<p style="color:var(--muted)"><span class="spinner"></span> ${done}/${left} mots classés…</p>`;
+          const r = await authFetch('/api/autogroup', {
+            method: 'POST', body: JSON.stringify({ lang: currentLang, limit: 100 })
+          });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error?.message || 'erreur');
+          if (!d.processed) break;
+          done += d.processed;
+          if (!d.remaining) break;
+        }
+        await loadGroups(currentLang);
+        renderGroupsManager();
+        panel.innerHTML = `<p style="color:var(--success)">✓ ${done} mot(s) repassés au classement.</p>`;
+      } catch (e) {
+        panel.innerHTML = `<p style="color:var(--error)">${escapeHtml(e.message)}</p>`;
+      } finally { btn.disabled = false; }
     }
 
     // ── Recherche d'un mot à pratiquer (mode libre) ───────────
@@ -5732,7 +5869,8 @@ Write all scenarios and explanations in ${langName}.`;
         ${sel ? `<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem;padding:0.4rem 0.6rem;background:var(--surface);border:1px solid var(--accent);border-radius:10px;">
           <strong>${tApp('selected_n').replace('{n}', sel)}</strong>
           <button class="btn-ghost" onclick="clearMotsSelection()">${tApp('cancel_lc')}</button>
-          <button class="btn-ghost" style="margin-left:auto" onclick="moveSelectedMots(event)">🔀</button>
+          <button class="btn-ghost" style="margin-left:auto" onclick="groupSelectedMots(event)">🏷</button>
+          <button class="btn-ghost" onclick="moveSelectedMots(event)">🔀</button>
           <button class="btn-ghost" style="color:#e05a5a" onclick="deleteSelectedMots()">${tApp('btn_delete')}</button>
         </div>` : ''}`;
     }
@@ -5851,6 +5989,58 @@ Write all scenarios and explanations in ${langName}.`;
         renderMots();
         if (failed.length) alert(tApp('move_done').replace('{n}', ok) + '\n\n' + failed.join('\n'));
       });
+    }
+
+    // Ajout groupé à un groupe depuis « mes mots ». Les groupes étant PAR LANGUE,
+    // une sélection multi-langues n'a pas de cible commune : on le dit plutôt que
+    // de ranger la moitié des mots en silence.
+    async function groupSelectedMots(ev) {
+      if (!motsSelected.size) return;
+      const items = [...motsSelected].map(k => { const i = k.indexOf('|'); return { lang: k.slice(0, i), word: k.slice(i + 1) }; });
+      const langs = [...new Set(items.map(i => i.lang))];
+      if (langs.length > 1) {
+        alert('Les groupes sont propres à chaque langue : sélectionne des mots d\'une seule langue.');
+        return;
+      }
+      const lang = langs[0];
+      let groups;
+      try { groups = groupsCache[lang] || await loadGroups(lang); }
+      catch { alert('Erreur de chargement des groupes.'); return; }
+      if (!groups.length) { alert('Aucun groupe dans cette langue.'); return; }
+      openGroupMenu(ev, 'Ajouter à…', groups, async id => {
+        const r = await authFetch('/api/word-groups', {
+          method: 'POST',
+          body: JSON.stringify({ lang, group_id: id, words: items.map(i => i.word) })
+        });
+        if (!r.ok) { alert('erreur'); return; }
+        const g = groups.find(x => x.id === id);
+        motsSelected.clear();
+        renderMotsFilters();
+        renderMots();
+        alert(`${items.length} mot(s) ajouté(s) à « ${g ? g.name : ''} ».`);
+      });
+    }
+
+    // Jumeau d'openLangMenu : réutilise #word-ctx-menu comme popup de choix.
+    let _groupMenuPick = null;
+    function openGroupMenu(ev, label, groups, onPick) {
+      ev.stopPropagation(); // sinon le listener global referme aussitôt
+      _ctxWord = null;
+      _groupMenuPick = onPick;
+      document.getElementById('word-ctx-label').textContent = label;
+      const box = document.getElementById('ctx-groups');
+      box.innerHTML = groups.map(g =>
+        `<button class="ctx-menu-btn" onclick="pickGroupMenu(${g.id})">${g.kind === 'lot' ? '📘 ' : ''}${escapeHtml(g.name)}</button>`
+      ).join('') + `<button class="ctx-menu-btn" onclick="closeWordContextMenu()">${tApp('btn_cancel')}</button>`;
+      document.getElementById('ctx-main').style.display = 'none';
+      box.style.display = '';
+      const r = ev.currentTarget.getBoundingClientRect();
+      positionCtxMenu(r.right - 4, r.bottom + 4);
+    }
+    function pickGroupMenu(id) {
+      const cb = _groupMenuPick;
+      closeWordContextMenu();
+      if (cb) cb(id);
     }
 
     async function deleteMot(lang, word) {
@@ -7177,13 +7367,63 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       box.style.display = '';
     }
 
+    // 🏷 Groupes d'un mot : liste cochable. Chaque bascule est un geste humain,
+    // donc `auto = 0` côté serveur — un reclassement automatique n'y touchera plus.
+    let _ctxGroupWord = null;
+    async function ctxMenuGroups() {
+      const word = _ctxWord;
+      if (!word) return;
+      _ctxGroupWord = word;
+      const box = document.getElementById('ctx-groups');
+      document.getElementById('ctx-main').style.display = 'none';
+      box.style.display = '';
+      box.innerHTML = `<div style="padding:0.6rem;text-align:center"><span class="spinner"></span></div>`;
+      try {
+        const [groups, mine] = await Promise.all([
+          groupsCache[currentLang] ? Promise.resolve(groupsCache[currentLang]) : loadGroups(currentLang),
+          authFetch(`/api/word-groups?lang=${encodeURIComponent(currentLang)}&word=${encodeURIComponent(word)}`).then(r => r.json()),
+        ]);
+        _ctxGroupIds = new Set(mine.group_ids || []);
+        renderCtxGroups(groups);
+      } catch {
+        box.innerHTML = `<button class="ctx-menu-btn" onclick="ctxMenuBack()">erreur — retour</button>`;
+      }
+    }
+    let _ctxGroupIds = new Set();
+    function renderCtxGroups(groups) {
+      const box = document.getElementById('ctx-groups');
+      box.innerHTML = (groups || []).map(g =>
+        `<button class="ctx-menu-btn" onclick="toggleCtxGroup(${g.id})">${_ctxGroupIds.has(g.id) ? '✓ ' : '＋ '}${escapeHtml(lc(g.name))}</button>`
+      ).join('') + `<button class="ctx-menu-btn" onclick="ctxMenuBack()">${tPrac('btn_cancel')}</button>`;
+    }
+    async function toggleCtxGroup(id) {
+      const word = _ctxGroupWord;
+      if (!word) return;
+      const on = _ctxGroupIds.has(id);
+      if (on) _ctxGroupIds.delete(id); else _ctxGroupIds.add(id);
+      renderCtxGroups(groupsCache[currentLang] || []); // retour visuel immédiat
+      const r = await authFetch('/api/word-groups', {
+        method: on ? 'DELETE' : 'POST',
+        body: JSON.stringify({ lang: currentLang, group_id: id, words: [word] })
+      }).catch(() => null);
+      if (!r || !r.ok) { // échec réseau : on remet l'état d'avant plutôt que de mentir
+        if (on) _ctxGroupIds.add(id); else _ctxGroupIds.delete(id);
+        renderCtxGroups(groupsCache[currentLang] || []);
+        return;
+      }
+      const g = (groupsCache[currentLang] || []).find(x => x.id === id);
+      if (g) g.n += on ? -1 : 1;
+    }
+
     function ctxMenuBack() {
       const main = document.getElementById('ctx-main');
       const box  = document.getElementById('ctx-langs');
       const ver  = document.getElementById('ctx-verify');
+      const grp  = document.getElementById('ctx-groups');
       if (main) main.style.display = '';
       if (box)  { box.style.display = 'none'; box.innerHTML = ''; }
       if (ver)  { ver.style.display = 'none'; ver.innerHTML = ''; }
+      if (grp)  { grp.style.display = 'none'; grp.innerHTML = ''; }
       document.getElementById('word-ctx-menu').classList.remove('verify');
     }
 
@@ -7598,6 +7838,7 @@ Reply with ONLY this JSON object, nothing else:
       <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuTranslate()" data-i18n="ctx_translate">🌐 Traduire</button>
       <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuPhoto()" data-i18n="ctx_photo">🖼 Voir une image</button>
       <button class="ctx-menu-btn" onclick="ctxMenuEdit()" data-i18n="ctx_edit">✏️ Modifier</button>
+      <button class="ctx-menu-btn" onclick="ctxMenuGroups()">🏷 Groupes</button>
       <button class="ctx-menu-btn" onclick="ctxMenuMove()" data-i18n="ctx_move">🔀 Changer de langue</button>
       <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()" data-i18n="ctx_delete">🗑 Supprimer</button>
       <button class="ctx-menu-btn" onclick="closeWordContextMenu()" data-i18n="btn_cancel">Annuler</button>
@@ -7606,6 +7847,8 @@ Reply with ONLY this JSON object, nothing else:
     <div id="ctx-langs" style="display:none"></div>
     <!-- Verdict de « vérifier le mot » (rempli par openVerifyPopup) -->
     <div id="ctx-verify" style="display:none"></div>
+    <!-- Groupes du mot (rempli par ctxMenuGroups) -->
+    <div id="ctx-groups" style="display:none"></div>
   </div>
 </body>
 </html>
