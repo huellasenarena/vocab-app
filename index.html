@@ -1472,6 +1472,7 @@
 
     <!-- Recherche d'un mot précis (mode libre uniquement) -->
     <div id="free-search-bar" style="display:none; text-align:center; margin-bottom:0.6rem;">
+      <button class="btn-ghost" id="groups-open" onclick="openGroupsPicker()">🏷 groupes</button>
       <button class="btn-ghost" id="free-search-open" onclick="openFreeSearch()">🔍 chercher un mot</button>
       <button class="btn-ghost" id="free-queue-exit" style="display:none;" onclick="exitFreeQueue()">✕ quitter la file</button>
     </div>
@@ -2238,6 +2239,10 @@
     let freeSelection      = [];    // mode libre : mots choisis via la recherche (ordre)
     let freeCursor         = 0;     // index de début du batch courant dans freeSelection
     let freeQueueActive    = false; // true tant qu'on parcourt une sélection manuelle
+    let _freePool          = null;  // restreint la recherche manuelle à un groupe
+    let groupsCache        = {};    // langue -> [{id, name, scope, kind, n, mastered}]
+    let _groupPick         = new Set(); // ids des groupes cochés
+    let _groupSubset       = 'all'; // all | random | manual
     let _freePickOrder     = [];    // mots cochés dans le sélecteur de recherche (ordre de sélection)
     let _freeFiltered      = [];    // liste affichée dans le sélecteur (après filtre texte)
     // Réinitialisation de la progression (⚙️ réglages globaux)
@@ -3608,9 +3613,120 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (practiceMode === 'free' && !freeQueueActive && !busy && allWords.length > 0) pickWords();
     }
 
+    // ── Groupes de mots (mode libre) ──────────────────────────
+    async function loadGroups(lang) {
+      const r = await authFetch('/api/groups?lang=' + encodeURIComponent(lang));
+      const d = await r.json();
+      groupsCache[lang] = d.groups || [];
+      return groupsCache[lang];
+    }
+
+    async function openGroupsPicker() {
+      _groupPick = new Set();
+      _groupSubset = 'all';
+      setGroupSubset('all');
+      const list = document.getElementById('groups-list');
+      list.innerHTML = '<div style="text-align:center;padding:1rem"><span class="spinner"></span></div>';
+      document.getElementById('groups-modal').classList.add('visible');
+      try { await loadGroups(currentLang); }
+      catch { list.innerHTML = '<div id="free-search-empty">Erreur de chargement.</div>'; return; }
+      renderGroupsList();
+    }
+    function closeGroupsPicker() {
+      document.getElementById('groups-modal').classList.remove('visible');
+    }
+    function renderGroupsList() {
+      const groups = (groupsCache[currentLang] || []).filter(g => g.n > 0);
+      const list = document.getElementById('groups-list');
+      if (!groups.length) {
+        list.innerHTML = '<div id="free-search-empty">Aucun groupe pour cette langue.</div>';
+        return;
+      }
+      list.innerHTML = groups.map(g => {
+        const on = _groupPick.has(g.id);
+        // Jauge de maîtrise : c'est elle qui donne envie de finir un lot.
+        const gauge = g.n ? `${g.mastered}/${g.n} ★★★` : '';
+        return `<div class="free-pick-row ${on ? 'on' : ''}" onclick="toggleGroupPick(${g.id})">
+          <span class="fp-word">${g.kind === 'lot' ? '📘 ' : ''}${escapeHtml(g.name)}</span>
+          <span class="fp-order" style="color:var(--muted);font-size:0.78rem">${gauge}</span>
+        </div>`;
+      }).join('');
+    }
+    function toggleGroupPick(id) {
+      if (_groupPick.has(id)) _groupPick.delete(id); else _groupPick.add(id);
+      renderGroupsList();
+      updateGroupStartBtn();
+    }
+    function groupPickTotal() {
+      const groups = groupsCache[currentLang] || [];
+      return groups.filter(g => _groupPick.has(g.id)).reduce((a, g) => a + g.n, 0);
+    }
+    function setGroupSubset(mode) {
+      _groupSubset = mode;
+      for (const m of ['all', 'random', 'manual'])
+        document.getElementById('gsub-' + m).classList.toggle('active', m === mode);
+      document.getElementById('groups-random-row').style.display = mode === 'random' ? '' : 'none';
+      updateGroupStartBtn();
+    }
+    function onGroupRandomSlider(v) {
+      document.getElementById('groups-random-value').textContent = wordsLabel(parseInt(v));
+      updateGroupStartBtn();
+    }
+    function updateGroupStartBtn() {
+      const btn = document.getElementById('groups-start');
+      const total = groupPickTotal();
+      btn.disabled = _groupPick.size === 0;
+      if (_groupPick.size === 0) { btn.textContent = 'Commencer'; return; }
+      if (_groupSubset === 'manual') { btn.textContent = `Choisir parmi ${total}`; return; }
+      const n = _groupSubset === 'random'
+        ? Math.min(parseInt(document.getElementById('groups-random-slider').value), total)
+        : total;
+      btn.textContent = `Commencer (${n})`;
+    }
+
+    async function startGroupQueue() {
+      const ids = [..._groupPick];
+      if (!ids.length) return;
+      const btn = document.getElementById('groups-start');
+      btn.disabled = true;
+      let pool;
+      try {
+        const lists = await Promise.all(ids.map(id =>
+          authFetch('/api/word-groups?group_id=' + id).then(r => r.json())));
+        // Un mot peut être dans deux groupes cochés → dédoublonnage. Et on ne
+        // garde que ce qui est encore dans la langue courante (un mot déplacé
+        // depuis un autre appareil laisserait sinon un fantôme dans la file).
+        const inLang = new Set(allWords);
+        pool = [...new Set(lists.flatMap(x => x.words || []))].filter(w => inLang.has(w));
+      } catch {
+        btn.disabled = false;
+        return;
+      }
+      if (!pool.length) { btn.disabled = false; return; }
+      closeGroupsPicker();
+
+      if (_groupSubset === 'manual') { openFreeSearch(pool); return; }
+      if (_groupSubset === 'all') { beginFreeQueue(shuffleInPlace([...pool])); return; }
+
+      // « au hasard » = tirage PONDÉRÉ dans le groupe, pas uniforme : les N mots
+      // privilégient ce qui n'est pas maîtrisé, et le curseur de mélange les
+      // gouverne comme le reste du mode libre.
+      const n = Math.min(parseInt(document.getElementById('groups-random-slider').value), pool.length);
+      const picked = [];
+      for (let i = 0; i < n; i++) {
+        const w = pickWeightedOne(picked, pool);
+        if (!w || picked.includes(w)) break;
+        picked.push(w);
+      }
+      beginFreeQueue(picked);
+    }
+
     // ── Recherche d'un mot à pratiquer (mode libre) ───────────
     // Ouvre le sélecteur : on coche 1..N mots → sélection `freeSelection`.
-    function openFreeSearch() {
+    // `pool` restreint la liste aux mots d'un ou plusieurs groupes ; sans lui,
+    // on cherche dans toute la langue (comportement d'origine).
+    function openFreeSearch(pool) {
+      _freePool = (pool && pool.length) ? pool : null;
       _freePickOrder = [];
       document.getElementById('free-search-input').value = '';
       renderFreeSearchList('');
@@ -3623,7 +3739,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
     function renderFreeSearchList(filter) {
       const q = (filter || '').trim().toLowerCase();
-      _freeFiltered = allWords
+      _freeFiltered = (_freePool || allWords)
         .filter(w => !q || w.toLowerCase().includes(q))
         .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
       const list = document.getElementById('free-search-list');
@@ -3656,10 +3772,17 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
     function startFreeQueue() {
       if (_freePickOrder.length === 0) return;
-      freeSelection   = [..._freePickOrder];
+      closeFreeSearch();
+      beginFreeQueue([..._freePickOrder]);
+    }
+
+    // Point d'entrée unique d'une file imposée (recherche manuelle OU groupe) :
+    // les deux doivent recaler le slider et l'UI de la même façon.
+    function beginFreeQueue(list) {
+      if (!list || !list.length) return;
+      freeSelection   = list;
       freeCursor      = 0;
       freeQueueActive = true;
-      closeFreeSearch();
       resetPracticeUI();
       // Par défaut on affiche TOUS les mots choisis (slider = N, plafonné à 30).
       setWordSliderMax(freeSelection.length);
@@ -3684,6 +3807,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const inFree = practiceMode === 'free';
       bar.style.display = inFree ? '' : 'none';
       document.getElementById('free-search-open').style.display = (inFree && !freeQueueActive) ? '' : 'none';
+      const gb = document.getElementById('groups-open');
+      if (gb) gb.style.display = (inFree && !freeQueueActive) ? '' : 'none';
       document.getElementById('free-queue-exit').style.display  = (inFree &&  freeQueueActive) ? '' : 'none';
       // Le mélange ne pilote que le tirage : dans une sélection manuelle, le pool
       // est imposé → curseur masqué.
@@ -7228,6 +7353,30 @@ Reply with ONLY this JSON object, nothing else:
   </div>
 
   <!-- Recherche d'un mot à pratiquer (mode libre) -->
+  <div class="modal-overlay" id="groups-modal" onclick="if(event.target===this)closeGroupsPicker()">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeGroupsPicker()">✕</button>
+      <h2 class="modal-title">Mes groupes</h2>
+      <p style="color:var(--muted);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs groupes, puis choisis combien de mots pratiquer.</p>
+      <div id="groups-list" style="max-height:42vh; overflow-y:auto;"></div>
+      <div id="groups-subset" style="display:flex; gap:0.4rem; margin-top:0.9rem;">
+        <button class="filter-btn active" id="gsub-all"    onclick="setGroupSubset('all')"    style="flex:1 1 auto">tous</button>
+        <button class="filter-btn"        id="gsub-random" onclick="setGroupSubset('random')" style="flex:1 1 auto">au hasard</button>
+        <button class="filter-btn"        id="gsub-manual" onclick="setGroupSubset('manual')" style="flex:1 1 auto">à la main</button>
+      </div>
+      <div class="slider-section" id="groups-random-row" style="display:none; margin-top:0.7rem;">
+        <div class="slider-header">
+          <span class="slider-label">Combien de mots</span>
+          <span class="slider-value" id="groups-random-value">20 mots</span>
+        </div>
+        <input type="range" id="groups-random-slider" min="5" max="60" step="5" value="20"
+          oninput="onGroupRandomSlider(this.value)" />
+      </div>
+      <button class="btn-primary" id="groups-start" style="width:100%; margin-top:1rem;"
+        onclick="startGroupQueue()" disabled>Commencer</button>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="free-search-modal" onclick="if(event.target===this)closeFreeSearch()">
     <div class="modal-card">
       <button class="modal-close" onclick="closeFreeSearch()">✕</button>
