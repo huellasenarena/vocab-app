@@ -737,6 +737,42 @@ def judge_similar_batch(words, lang_code):
     return skip
 
 
+# ── Classement dans les groupes (route /api/autogroup) ───────────────────────
+_ADDED_RE = re.compile(r"^Succès \(([^)]+)\)\s*:\s*'(.*)' ajouté\.$", re.S)
+
+
+def parse_added(txt):
+    """Extrait (Langue, mot) d'une réponse « Succès » de /add, sinon None.
+    La langue vient de la réponse du Worker, pas du code envoyé : c'est lui qui
+    tranche la langue retenue."""
+    m = _ADDED_RE.match((txt or "").strip())
+    return (m.group(1), m.group(2)) if m else None
+
+
+def autogroup(language, words):
+    """Range les mots fraîchement importés dans les groupes de leur langue.
+    Best-effort : un échec laisse simplement les mots à grouped = 0, et la
+    prochaine passe (app ou script) les reprendra."""
+    url = WORKER_URL + "/api/autogroup"
+    headers = {"User-Agent": _UA, "Content-Type": "application/json"}
+    if IMPORT_OPENAI_KEY:
+        headers["X-OpenAI-Key"] = IMPORT_OPENAI_KEY
+    done = 0
+    CH = 100  # même taille de lot que l'app
+    for i in range(0, len(words), CH):
+        chunk = words[i:i + CH]
+        data = json.dumps({"token": ADD_TOKEN, "lang": language, "words": chunk}).encode()
+        try:
+            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=180) as r:
+                json.loads(r.read())
+            done += len(chunk)
+        except Exception as e:
+            print(f"   ⚠️  classement indisponible ({e}) — les mots restent sans groupe.")
+            return done
+    return done
+
+
 def main():
     sep("═")
     print("  📖  Kindle → base BYOV (D1) via /add")
@@ -957,6 +993,7 @@ def run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips):
         return
 
     total_new = total_dup = total_similar = total_err = 0
+    added_by_lang = {}  # Langue -> mots ajoutés, pour le classement en groupes
 
     def done(sheet, w):
         """Mot traité → on le retire du cache et on réécrit le fichier."""
@@ -990,11 +1027,23 @@ def run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips):
             txt = add_word(w, code, ignore_sens=True, ignore_sim=True)
             if txt.startswith("Succès"):
                 total_new += 1; print(f"   ✓ {w}"); done(sheet, w)
+                got = parse_added(txt)
+                if got:
+                    added_by_lang.setdefault(got[0], []).append(got[1])
             elif txt.startswith("Doublon"):
                 total_dup += 1; print(f"   = {w} (déjà présent)"); done(sheet, w)
             else:
                 # erreur dure → on GARDE le mot dans le cache pour réessayer
                 total_err += 1; print(f"   ✗ {w} — {txt}")
+
+    # Classement dans les groupes : après coup et en un seul lot par langue,
+    # pour ne pas rallonger chaque ajout d'un appel au modèle.
+    if added_by_lang:
+        sep()
+        print("\n🏷  Classement dans les groupes :\n")
+        for language, ws in added_by_lang.items():
+            n = autogroup(language, ws)
+            print(f"   {language} : {n}/{len(ws)} mot(s) classés")
 
     remaining = sum(len(w) for w in pending.values())
     if remaining:

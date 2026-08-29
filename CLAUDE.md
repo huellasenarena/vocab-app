@@ -423,7 +423,18 @@ Migrations `0004_groups.sql` (tables + colonne) et `0005_group_scope.sql` (`grou
 ### Classement initial (2026-08-29)
 9 785 mots en 96 appels **gpt-5.6-luna « low »**, ~0,30 $. Mesure faite avant de choisir : **luna comparé à lui-même = 90/100 verdicts identiques** ; luna vs terra = 86/100, donc dans le bruit (terra gagne 4 fois, perd 4 fois sur 14 divergences). Résultat : 1,5 % de mots sans groupe en espagnol, 2,4 % en français (des formes fléchies nues — refus justifié), 0,7 % en anglais après ajout de deux groupes manquants (*change, process & consequence* et *nature, body & the physical world* : la taxonomie anglaise, pensée « par registre », n'avait aucune étagère pour le concret). ~1,01 groupe par mot : le classement est en pratique mono-groupe.
 
-**À faire** : passe **`mode: 'propose'`** (refaire la taxonomie depuis l'app) · rattacher un mot à un groupe depuis le menu ⋯ et depuis « mes mots » · `kindle_import.py` n'appelle pas encore `/api/autogroup`.
+### Refaire la taxonomie (`mode: 'propose'`)
+`/api/autogroup` avec `mode: 'propose'` envoie **tout le corpus de la langue** (plafond `PROPOSE_MAX` = 5000 entrées tirées au hasard) et rend une liste de groupes `[{name, scope}]`, **sans rien écrire**. Nombre visé calculé sur la taille du corpus (`targetGroupCount` : 12 / 18 / 24 / 38). Le prompt impose de **réutiliser le nom exact** d'un groupe existant qui convient encore, et de prévoir des catégories **fonctionnelles** si le corpus est riche en locutions.
+- Front : `screen-groups` → **⟳ refaire la taxonomie** → panneau de validation (nouveaux groupes cochables, descriptions à mettre à jour, groupes « plus proposés » simplement signalés). ⚠️ **Jamais de suppression automatique** : elle emporterait aussi les rattachements manuels.
+- **🏷 classer les mots sans groupe** (`reopen: 'orphans'`) rouvre les seuls orphelins puis les repasse par lots de 100 — ce qui rend l'ajout d'un groupe rattrapable sans tout reclasser. Validation croisée : relancée à l'aveugle sur le grec, la passe a retrouvé **exactement** les 12 groupes existants.
+
+### Rattacher un mot à la main
+- Menu ⋯ → **🏷 Groupes** (`ctxMenuGroups`, panneau `#ctx-groups`) : liste cochable, bascule optimiste avec retour arrière si le réseau échoue.
+- « mes mots » → **🏷** sur la sélection (`groupSelectedMots` + `openGroupMenu`, jumeau d'`openLangMenu`). Les groupes étant par langue, une sélection **multi-langues est refusée** explicitement.
+- `GET /api/word-groups?lang=&word=` rend les groupes d'un mot.
+- `kindle_import.py` : `parse_added()` + `autogroup()` — classement **après** l'import, un lot de 100 par langue, best-effort.
+
+**À faire** : rien de bloquant sur les groupes.
 
 ## Idées futures
 
