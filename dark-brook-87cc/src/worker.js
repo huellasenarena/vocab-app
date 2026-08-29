@@ -837,9 +837,10 @@ export default {
             if (!it || !it.lang || !it.word) continue;
             stmts.push(env.DB.prepare('DELETE FROM words WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, it.lang, it.word));
             stmts.push(env.DB.prepare('DELETE FROM progress WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, it.lang, it.word));
+            stmts.push(env.DB.prepare('DELETE FROM word_groups WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, it.lang, it.word));
           }
           if (stmts.length) await env.DB.batch(stmts);
-          return json({ ok: true, deleted: stmts.length / 2 });
+          return json({ ok: true, deleted: stmts.length / 3 });
         }
         if (request.method === 'PUT') {
           // Renommage (`newWord`) et/ou transfert de langue (`newLang`) — la
@@ -863,7 +864,17 @@ export default {
             env.DB.prepare('DELETE FROM progress WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, nl, nw),
             env.DB.prepare('UPDATE words SET word = ?, language = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, nl, auth.uid, lang, oldWord),
             env.DB.prepare('UPDATE progress SET word = ?, language = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, nl, auth.uid, lang, oldWord),
-            env.DB.prepare('UPDATE history SET word = ?, language = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, nl, auth.uid, lang, oldWord)
+            env.DB.prepare('UPDATE history SET word = ?, language = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, nl, auth.uid, lang, oldWord),
+            // Les groupes appartiennent à la taxonomie d'UNE langue : un simple
+            // renommage les garde, un changement de langue les fait tomber (le
+            // mot repasse à grouped = 0 et la prochaine passe le reclasse dans
+            // la taxonomie de sa nouvelle langue).
+            nl === lang
+              ? env.DB.prepare('UPDATE word_groups SET word = ? WHERE user_id = ? AND language = ? AND word = ?').bind(nw, auth.uid, lang, oldWord)
+              : env.DB.prepare('DELETE FROM word_groups WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, lang, oldWord),
+            ...(nl === lang ? [] : [
+              env.DB.prepare('UPDATE words SET grouped = 0 WHERE user_id = ? AND language = ? AND word = ?').bind(auth.uid, nl, nw)
+            ])
           ]);
           return json({ ok: true });
         }
@@ -1063,6 +1074,137 @@ export default {
           dry: !!body.dry,
           assigned,
         });
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
+    // Groupes : liste (avec effectif et jauge de maîtrise), création, renommage,
+    // suppression. `kind` distingue le groupe thématique du lot d'étude.
+    if (path === '/api/groups') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      try {
+        if (request.method === 'GET') {
+          const lang = new URL(request.url).searchParams.get('lang');
+          if (!lang) return json({ error: { message: 'lang requis' } }, 400);
+          // La jauge « N/M ★★★ » se calcule ici : le front n'a pas à recroiser
+          // les groupes avec la progression pour afficher une liste.
+          const { results } = await env.DB.prepare(
+            `SELECT g.id, g.name, g.scope, g.kind,
+                    COUNT(wg.word) AS n,
+                    SUM(CASE WHEN COALESCE(p.correct,0) - COALESCE(p.incorrect,0) >= 3 THEN 1 ELSE 0 END) AS mastered
+               FROM groups g
+               LEFT JOIN word_groups wg ON wg.group_id = g.id AND wg.user_id = g.user_id
+               LEFT JOIN progress p ON p.user_id = g.user_id AND p.language = g.language AND p.word = wg.word
+              WHERE g.user_id = ? AND g.language = ?
+              GROUP BY g.id
+              ORDER BY g.kind DESC, g.name COLLATE NOCASE`
+          ).bind(auth.uid, lang).all();
+          return json({ groups: (results || []).map(r => ({ ...r, mastered: r.mastered || 0 })) });
+        }
+        if (request.method === 'POST') {
+          const { lang, name, kind, scope } = await request.json();
+          const nm = (name || '').trim();
+          if (!lang || !ADD_LANGS.includes(lang) || !nm) return json({ error: { message: 'lang et name requis' } }, 400);
+          const k = kind === 'lot' ? 'lot' : 'theme';
+          const dup = await env.DB.prepare('SELECT id FROM groups WHERE user_id = ? AND language = ? AND name = ?')
+            .bind(auth.uid, lang, nm).first();
+          if (dup) return json({ error: { message: 'ce groupe existe déjà' } }, 409);
+          const res = await env.DB.prepare(
+            'INSERT INTO groups (user_id, language, name, kind, scope, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+          ).bind(auth.uid, lang, nm, k, (scope || '').trim() || null, new Date().toISOString()).run();
+          return json({ ok: true, id: res.meta.last_row_id });
+        }
+        if (request.method === 'PUT') {
+          const { id, name, scope } = await request.json();
+          if (!id) return json({ error: { message: 'id requis' } }, 400);
+          const g = await env.DB.prepare('SELECT id, language FROM groups WHERE id = ? AND user_id = ?').bind(id, auth.uid).first();
+          if (!g) return json({ error: { message: 'groupe introuvable' } }, 404);
+          const nm = name === undefined ? null : (name || '').trim();
+          if (nm !== null && !nm) return json({ error: { message: 'nom vide' } }, 400);
+          if (nm !== null) {
+            const dup = await env.DB.prepare('SELECT id FROM groups WHERE user_id = ? AND language = ? AND name = ? AND id <> ?')
+              .bind(auth.uid, g.language, nm, id).first();
+            if (dup) return json({ error: { message: 'ce nom est déjà pris' } }, 409);
+            await env.DB.prepare('UPDATE groups SET name = ? WHERE id = ? AND user_id = ?').bind(nm, id, auth.uid).run();
+          }
+          if (scope !== undefined) {
+            await env.DB.prepare('UPDATE groups SET scope = ? WHERE id = ? AND user_id = ?')
+              .bind((scope || '').trim() || null, id, auth.uid).run();
+          }
+          return json({ ok: true });
+        }
+        if (request.method === 'DELETE') {
+          const { id } = await request.json();
+          if (!id) return json({ error: { message: 'id requis' } }, 400);
+          const g = await env.DB.prepare('SELECT id, language FROM groups WHERE id = ? AND user_id = ?').bind(id, auth.uid).first();
+          if (!g) return json({ error: { message: 'groupe introuvable' } }, 404);
+          // Les mots qui n'étaient QUE dans ce groupe repassent à grouped = 0 :
+          // la prochaine passe les reclassera. On ne touche pas aux mots que le
+          // modèle avait délibérément laissés sans groupe (ils n'étaient pas ici).
+          const { results } = await env.DB.prepare(
+            'SELECT word FROM word_groups WHERE user_id = ? AND group_id = ?'
+          ).bind(auth.uid, id).all();
+          const words = (results || []).map(r => r.word);
+          await env.DB.prepare('DELETE FROM word_groups WHERE user_id = ? AND group_id = ?').bind(auth.uid, id).run();
+          await env.DB.prepare('DELETE FROM groups WHERE id = ? AND user_id = ?').bind(id, auth.uid).run();
+          if (words.length) {
+            const reset = env.DB.prepare(
+              `UPDATE words SET grouped = 0
+                WHERE user_id = ? AND language = ? AND word = ?
+                  AND NOT EXISTS (SELECT 1 FROM word_groups wg
+                                   WHERE wg.user_id = ? AND wg.language = ? AND wg.word = ?)`
+            );
+            await env.DB.batch(words.map(w => reset.bind(auth.uid, g.language, w, auth.uid, g.language, w)));
+          }
+          return json({ ok: true, released: words.length });
+        }
+        return json({ error: { message: 'méthode non supportée' } }, 405);
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
+    // Appartenance d'un mot à un groupe. Tout ce qui passe par ici est un geste
+    // de l'utilisateur → auto = 0, donc protégé d'un reclassement automatique.
+    if (path === '/api/word-groups') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      try {
+        if (request.method === 'GET') {
+          const u = new URL(request.url).searchParams;
+          const gid = parseInt(u.get('group_id'));
+          if (!gid) return json({ error: { message: 'group_id requis' } }, 400);
+          const { results } = await env.DB.prepare(
+            'SELECT word FROM word_groups WHERE user_id = ? AND group_id = ? ORDER BY word COLLATE NOCASE'
+          ).bind(auth.uid, gid).all();
+          return json({ words: (results || []).map(r => r.word) });
+        }
+        const { lang, group_id, words } = await request.json();
+        const list = Array.isArray(words) ? words.map(w => String(w || '').trim()).filter(Boolean) : [];
+        if (!lang || !group_id || !list.length) return json({ error: { message: 'lang, group_id et words requis' } }, 400);
+        const g = await env.DB.prepare('SELECT id FROM groups WHERE id = ? AND user_id = ? AND language = ?')
+          .bind(group_id, auth.uid, lang).first();
+        if (!g) return json({ error: { message: 'groupe introuvable' } }, 404);
+
+        if (request.method === 'POST') {
+          const ins = env.DB.prepare(
+            'INSERT OR REPLACE INTO word_groups (user_id, language, word, group_id, auto) VALUES (?, ?, ?, ?, 0)'
+          );
+          const mark = env.DB.prepare('UPDATE words SET grouped = 1 WHERE user_id = ? AND language = ? AND word = ?');
+          await env.DB.batch(list.flatMap(w => [
+            ins.bind(auth.uid, lang, w, group_id),
+            mark.bind(auth.uid, lang, w),
+          ]));
+          return json({ ok: true, added: list.length });
+        }
+        if (request.method === 'DELETE') {
+          const del = env.DB.prepare('DELETE FROM word_groups WHERE user_id = ? AND language = ? AND word = ? AND group_id = ?');
+          await env.DB.batch(list.map(w => del.bind(auth.uid, lang, w, group_id)));
+          return json({ ok: true, removed: list.length });
+        }
+        return json({ error: { message: 'méthode non supportée' } }, 405);
       } catch (err) {
         return json({ error: { message: err.message } }, 500);
       }
