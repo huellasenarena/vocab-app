@@ -1460,6 +1460,16 @@
         oninput="onSliderPreview(this.value)" onchange="onSliderChange(this.value, true)" />
     </div>
 
+    <!-- Curseur de mélange découverte ↔ révision (mode libre uniquement) -->
+    <div class="slider-section" id="free-mix-section" style="display:none;">
+      <div class="slider-header">
+        <span class="slider-label" data-i18n="label_free_mix">Mélange</span>
+        <span class="slider-value" id="free-mix-value">équilibré</span>
+      </div>
+      <input type="range" id="free-mix-slider" min="0" max="4" value="2"
+        oninput="onFreeMixPreview(this.value)" onchange="onFreeMixChange(this.value)" />
+    </div>
+
     <!-- Recherche d'un mot précis (mode libre uniquement) -->
     <div id="free-search-bar" style="display:none; text-align:center; margin-bottom:0.6rem;">
       <button class="btn-ghost" id="free-search-open" onclick="openFreeSearch()">🔍 chercher un mot</button>
@@ -1794,6 +1804,7 @@
     const KEY_OPENAI_KEY       = "vocab_openai_key";
     const KEY_GEMINI_KEY       = "vocab_gemini_key";
     const KEY_WORD_COUNT       = "vocab_word_count";
+    const KEY_FREE_MIX         = "vocab_free_mix"; // mélange découverte ↔ révision (mode libre, 0-4)
     const SESSION_LANG_COLS    = { English: 1, Spanish: 2, French: 3, Greek: 4 }; // index dans la ligne [Date, En, Es, Fr, Gr]
     const KEY_GRAMMAR_COUNT    = "vocab_grammar_count";
     const KEY_LANGUAGES        = "vocab_languages"; // langues choisies par l'utilisateur (synced)
@@ -1942,6 +1953,7 @@
       add_dup:          { en: `already exists`, fr: `existe déjà`, es: `ya existe`, el: `υπάρχει ήδη` },
       add_variant_of:   { en: `possible variant of`, fr: `variante possible de`, es: `posible variante de`, el: `πιθανή παραλλαγή του` },
       add_anyway:       { en: `add anyway`, fr: `ajouter quand même`, es: `añadir igualmente`, el: `προσθήκη ούτως ή άλλως` },
+      add_suggested:    { en: `add « {w} »`, fr: `ajouter « {w} »`, es: `añadir « {w} »`, el: `προσθήκη « {w} »` },
       add_no_token:     { en: `Add token unavailable — reload the page.`, fr: `Token d'ajout indisponible — recharge la page.`, es: `Token no disponible — recarga la página.`, el: `Το token δεν είναι διαθέσιμο — φόρτωσε ξανά τη σελίδα.` },
       // — modale langues —
       langpicker_title: { en: `Your languages`, fr: `Tes langues`, es: `Tus idiomas`, el: `Οι γλώσσες σου` },
@@ -1956,6 +1968,12 @@
       mode_image:       { en: `📸<br>Imagen`, fr: `📸<br>Imagen`, es: `📸<br>Imagen`, el: `📸<br>Imagen` },
       label_word_count: { en: `Number of words`, fr: `Nombre de mots`, es: `Número de palabras`, el: `Αριθμός λέξεων` },
       label_form_count: { en: `Number of forms`, fr: `Nombre de formes`, es: `Número de formas`, el: `Αριθμός τύπων` },
+      label_free_mix:   { en: `Mix`, fr: `Mélange`, es: `Mezcla`, el: `Μείγμα` },
+      mix_0:            { en: `discovery`, fr: `découverte`, es: `descubrimiento`, el: `ανακάλυψη` },
+      mix_1:            { en: `mostly discovery`, fr: `plutôt découverte`, es: `más descubrimiento`, el: `κυρίως ανακάλυψη` },
+      mix_2:            { en: `balanced`, fr: `équilibré`, es: `equilibrado`, el: `ισορροπημένο` },
+      mix_3:            { en: `mostly review`, fr: `plutôt révision`, es: `más repaso`, el: `κυρίως επανάληψη` },
+      mix_4:            { en: `review`, fr: `révision`, es: `repaso`, el: `επανάληψη` },
       one_word:         { en: `1 word`, fr: `1 mot`, es: `1 palabra`, el: `1 λέξη` },
       words_suffix:     { en: `words`, fr: `mots`, es: `palabras`, el: `λέξεις` },
       one_form:         { en: `1 form`, fr: `1 forme`, es: `1 forma`, el: `1 τύπος` },
@@ -2229,6 +2247,7 @@
     let _resetWordCache    = {};          // { Langue: [mots] } — évite de recharger
     let _resetBrowseWords  = [];          // liste affichée (après filtre) dans la vue « mots précis »
     let situationWordCount = parseInt(localStorage.getItem(KEY_SITUATION_WORDS)) || 1; // nb de mots évoqués (1-5)
+    let freeMix = _readFreeMix(); // mode libre : 0 = découverte … 4 = révision
     let todayNewCount      = 0;  // nouveaux mots pratiqués aujourd'hui (chargé depuis Sheets)
     let sessionNewPracticed = new Set(); // nouveaux mots pratiqués dans cette session (pour éviter double-comptage)
     let maxNewPerDay       = parseInt(localStorage.getItem(KEY_MAX_NEW)) || 60;
@@ -3049,6 +3068,7 @@
       showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
       situationCounts     = localStorage.getItem(KEY_SITUATION_COUNTS) === 'true';
       situationWordCount  = parseInt(localStorage.getItem(KEY_SITUATION_WORDS)) || 1;
+      freeMix             = _readFreeMix();
       currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4';
       gptEffort           = localStorage.getItem(KEY_GPT_EFFORT) || 'low';
       geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';
@@ -3066,6 +3086,8 @@
       document.getElementById('toggle-situation-counts').checked = situationCounts;
       document.getElementById('situation-word-slider').value = situationWordCount;
       updateSituationSliderLabel();
+      document.getElementById('free-mix-slider').value = freeMix;
+      document.getElementById('free-mix-value').textContent = freeMixLabel(freeMix);
       document.getElementById('image-theme-select').value = imageTheme;
       document.getElementById('model-select').value = currentModel;
       updateReasoningUI();
@@ -3504,13 +3526,47 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
 
     // ── Tirage pondéré (mode libre) ───────────────────────────
-    function getWeight(word) {
+    // Les poids sont des PARTS DE TIRAGE par catégorie, pas des poids par mot :
+    // le poids d'un mot vaut part(catégorie) / effectif(catégorie). Sans cette
+    // normalisation, un poids « par tête » est écrasé par la taille du stock —
+    // avec ~6600 mots jamais pratiqués contre ~200 travaillés, même un poids 1
+    // contre 8 donne >90 % de mots neufs, et les mots déjà vus ne reviennent
+    // jamais. Une catégorie vide disparaît d'elle-même (le total renormalise).
+    const FREE_MIX = [
+      { new: 80, bad: 12, mid:  6, mastered:  2 }, // 0 découverte
+      { new: 55, bad: 20, mid: 15, mastered: 10 }, // 1
+      { new: 34, bad: 26, mid: 20, mastered: 20 }, // 2 équilibré (défaut)
+      { new: 15, bad: 30, mid: 25, mastered: 30 }, // 3
+      { new:  5, bad: 30, mid: 25, mastered: 40 }, // 4 révision
+    ];
+    function _readFreeMix() {
+      const v = parseInt(localStorage.getItem(KEY_FREE_MIX));
+      return Number.isInteger(v) && v >= 0 && v <= 4 ? v : 2; // borne littérale : FREE_MIX est déclaré plus bas
+    }
+    function bucketOf(word) {
       const prog = progressMap[word.toLowerCase()];
-      if (!prog) return 10;
+      if (!prog) return 'new';
       const net = prog.correct - prog.incorrect;
-      if (net >= 3) return 1;
-      if (net < 0)  return 8;
-      return 5;
+      if (net >= 3) return 'mastered';
+      if (net < 0)  return 'bad';
+      return 'mid';
+    }
+    // Effectifs par catégorie, mémorisés pour le TICK courant seulement : une
+    // passe pour toute une salve de tirages, et jamais de cache à invalider à la
+    // main quand la progression bouge.
+    let _bucketMemo = null;
+    function bucketCounts(source) {
+      if (_bucketMemo && _bucketMemo.src === source) return _bucketMemo.c;
+      const c = { new: 0, bad: 0, mid: 0, mastered: 0 };
+      for (let i = 0; i < source.length; i++) c[bucketOf(source[i])]++;
+      _bucketMemo = { src: source, c };
+      Promise.resolve().then(() => { _bucketMemo = null; });
+      return c;
+    }
+    function getWeight(word, counts) {
+      const b = bucketOf(word);
+      const n = counts ? counts[b] : 1;
+      return n > 0 ? FREE_MIX[freeMix][b] / n : 0;
     }
 
     // Échantillonnage pondéré par réservoir : un seul passage, aucune allocation.
@@ -3519,17 +3575,37 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     function pickWeightedOne(exclude = [], pool = null) {
       const source = pool || allWords;
       const skip   = exclude.length ? new Set(exclude) : null;
+      const counts = bucketCounts(source);
       let total = 0, chosen = null;
       for (let i = 0; i < source.length; i++) {
         const w = source[i];
         if (skip && skip.has(w)) continue;
-        const weight = getWeight(w);
+        const weight = getWeight(w, counts);
         total += weight;
         // P(garder w) = weight / total courant → à la fin, P(w) = weight / total
         if (Math.random() * total < weight) chosen = w;
       }
       // Tout est exclu : on retombe sur un mot quelconque du pool
       return chosen !== null ? chosen : source[Math.floor(Math.random() * source.length)];
+    }
+
+    // ── Curseur de mélange (mode libre) ───────────────────────
+    function freeMixLabel(i) { return tPrac('mix_' + i); }
+    function onFreeMixPreview(val) { // oninput : libellé seul (le tirage attend le relâchement)
+      document.getElementById('free-mix-value').textContent = freeMixLabel(parseInt(val));
+    }
+    function onFreeMixChange(val) {
+      freeMix = parseInt(val);
+      localStorage.setItem(KEY_FREE_MIX, String(freeMix));
+      document.getElementById('free-mix-value').textContent = freeMixLabel(freeMix);
+      saveSettingsToServer();
+      // Nouveau tirage tout de suite pour qu'on voie l'effet — mais jamais sous
+      // une phrase en cours ou une correction affichée : là, le réglage ne prend
+      // effet qu'au mot suivant.
+      const ta   = document.getElementById('sentence-input');
+      const busy = (ta && ta.value.trim() !== '') ||
+                   document.getElementById('feedback-box').style.display !== 'none';
+      if (practiceMode === 'free' && !freeQueueActive && !busy && allWords.length > 0) pickWords();
     }
 
     // ── Recherche d'un mot à pratiquer (mode libre) ───────────
@@ -3609,6 +3685,14 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       bar.style.display = inFree ? '' : 'none';
       document.getElementById('free-search-open').style.display = (inFree && !freeQueueActive) ? '' : 'none';
       document.getElementById('free-queue-exit').style.display  = (inFree &&  freeQueueActive) ? '' : 'none';
+      // Le mélange ne pilote que le tirage : dans une sélection manuelle, le pool
+      // est imposé → curseur masqué.
+      const mix = document.getElementById('free-mix-section');
+      if (mix) {
+        mix.style.display = (inFree && !freeQueueActive) ? '' : 'none';
+        document.getElementById('free-mix-slider').value = freeMix;
+        document.getElementById('free-mix-value').textContent = freeMixLabel(freeMix);
+      }
     }
     // Sélection manuelle (mode libre) : construit le batch courant depuis
     // freeSelection[freeCursor…] ; taille = valeur du slider, le reste = file en attente.
@@ -4050,7 +4134,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         if (freeQueueActive) {
           renderFreeBatch(); // affiche le batch courant de la sélection (taille = slider)
         } else {
-          const remaining = allWords.filter(w => getWeight(w) > 1).length;
+          const remaining = allWords.filter(w => bucketOf(w) !== 'mastered').length;
           document.getElementById('due-count').innerHTML =
             `<span class="highlight">${remaining}</span> ${tPrac(remaining > 1 ? 'practice_pl' : 'practice_sg')} <span style="color:var(--muted);font-size:0.85em">(${allWords.length} ${tPrac('in_total')})</span>`;
           document.getElementById('word-count-label').textContent = '';
@@ -5623,6 +5707,12 @@ Write all scenarios and explanations in ${langName}.`;
       return (await r.text()).trim();
     }
 
+    // Graphie proposée par le Worker en fin de réponse INVALID (`| SUGGEST:<entrée>`).
+    function _addSuggestion(txt) {
+      const m = txt.match(/\|\s*SUGGEST:\s*([^|]+)$/);
+      return m ? m[1].trim() : '';
+    }
+
     // HTML d'une ligne de résultat selon la réponse texte de /add
     function _renderAddRowResult(txt, i, word) {
       const w = escapeHtml(word);
@@ -5633,7 +5723,14 @@ Write all scenarios and explanations in ${langName}.`;
       else if (txt.startsWith('SIMILAR:')) { warn = tApp('add_variant_of') + ' ' + escapeHtml(txt.slice(8).split('|')[0].trim()); flags = 'sim'; }
       else if (txt.startsWith('NOKEY:'))   { warn = escapeHtml(txt.slice(6).split('|')[0].trim()); flags = 'both'; }
       else return `<span style="color:var(--error)">✗ ${w} — ${escapeHtml(txt)}</span>`;
-      return `<span style="color:#e0a85a">⚠️ ${w} — ${warn}</span>
+      // « ajouter le mot proposé » : le mot part dans _addBatch (jamais dans le
+      // onclick — une apostrophe dans la suggestion casserait l'attribut).
+      const sugg = flags === 'sens' ? _addSuggestion(txt) : '';
+      if (_addBatch[i]) _addBatch[i].suggestion = sugg;
+      const btnSugg = sugg
+        ? `<button class="btn-secondary" style="margin-left:0.4rem;padding:0.15rem 0.5rem;font-size:0.78rem" onclick="addSuggestedRow(${i})">${tApp('add_suggested').replace('{w}', escapeHtml(sugg))}</button>`
+        : '';
+      return `<span style="color:#e0a85a">⚠️ ${w} — ${warn}</span>${btnSugg}
         <button class="btn-secondary" style="margin-left:0.4rem;padding:0.15rem 0.5rem;font-size:0.78rem" onclick="retryAddRow(${i}, '${flags}')">${tApp('add_anyway')}</button>`;
     }
 
@@ -5670,6 +5767,23 @@ Write all scenarios and explanations in ${langName}.`;
       }
       if (okCount === words.length) input.value = ''; // tout est passé → champ vidé
       if (okCount > 0 && lang === currentLang) await loadWords(currentLang); // rafraîchit le pool
+    }
+
+    // « Ajouter « X » » : réinjecte la graphie proposée dans l'entonnoir SANS
+    // ignore_* — le mot corrigé repasse par le doublon et la similarité (il est
+    // très souvent déjà en base, c'est justement pourquoi on l'a proposé).
+    async function addSuggestedRow(i) {
+      const item = _addBatch[i];
+      const row  = document.getElementById(`add-row-${i}`);
+      if (!item || !item.suggestion || !row) return;
+      const word = item.suggestion;
+      item.word = word; // les actions suivantes de la ligne portent sur le mot corrigé
+      row.innerHTML = `<span class="spinner"></span> ${escapeHtml(word)}…`;
+      let txt;
+      try { txt = await _sendAddWord(word, item.lang, null); }
+      catch (e) { txt = 'Erreur : ' + e.message; }
+      row.innerHTML = _renderAddRowResult(txt, i, word);
+      if (txt.startsWith('Succès') && item.lang === currentLang) await loadWords(currentLang);
     }
 
     // « Ajouter quand même » sur une ligne (INVALID/SIMILAR/NOKEY) — renvoie avec les flags ignore_*
