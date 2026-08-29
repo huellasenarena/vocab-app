@@ -1718,6 +1718,18 @@
   </div>
 
   <!-- ── Écran : Révisions à venir (mode espacé) ── -->
+  <div class="screen" id="screen-groups">
+    <div class="stats-header">
+      <h1 class="app-title" id="groups-screen-title">Mes groupes</h1>
+      <button class="btn-ghost" onclick="showScreen('screen-practice')" data-i18n="btn_back">← retour</button>
+    </div>
+    <div id="groups-manage-list"></div>
+    <div style="display:flex; gap:0.5rem; margin-top:1rem; flex-wrap:wrap;">
+      <button class="btn-ghost" style="flex:1 1 auto" onclick="createGroupPrompt()">＋ nouveau groupe</button>
+      <button class="btn-ghost" style="flex:1 1 auto" onclick="createLotPrompt()">＋ lot d'étude</button>
+    </div>
+  </div>
+
   <div class="screen" id="screen-revisions">
     <div class="stats-header">
       <h1 class="app-title" id="revisions-title" data-i18n="revisions_title">Révisions</h1>
@@ -3719,6 +3731,114 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         picked.push(w);
       }
       beginFreeQueue(picked);
+    }
+
+    // ── Gestion des groupes (écran dédié) ─────────────────────
+    async function openGroupsManager() {
+      closeGroupsPicker();
+      showScreen('screen-groups');
+      document.getElementById('groups-screen-title').textContent =
+        'Mes groupes (' + (getLang().name || currentLang) + ')';
+      const list = document.getElementById('groups-manage-list');
+      list.innerHTML = '<div style="text-align:center;padding:1rem"><span class="spinner"></span></div>';
+      try { await loadGroups(currentLang); } catch { list.innerHTML = '<p style="color:var(--error)">Erreur de chargement.</p>'; return; }
+      renderGroupsManager();
+    }
+    function renderGroupsManager() {
+      const groups = groupsCache[currentLang] || [];
+      const list = document.getElementById('groups-manage-list');
+      if (!groups.length) {
+        list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun groupe pour cette langue.</p>';
+        return;
+      }
+      list.innerHTML = groups.map(g => `
+        <div class="mot-row">
+          <span class="mot-w" style="cursor:pointer" onclick="openGroupWords(${g.id})">
+            ${g.kind === 'lot' ? '📘 ' : ''}${escapeHtml(g.name)}
+            ${g.scope ? `<span class="mot-note" style="display:block">${escapeHtml(g.scope)}</span>` : ''}
+          </span>
+          <span class="mot-actions">
+            <span style="color:var(--muted);font-size:0.78rem">${g.mastered}/${g.n} ★★★</span>
+            <button title="renommer" onclick="renameGroup(${g.id})">✏️</button>
+            <button title="supprimer" onclick="deleteGroup(${g.id})">🗑</button>
+          </span>
+        </div>`).join('');
+    }
+    function groupById(id) { return (groupsCache[currentLang] || []).find(g => g.id === id); }
+
+    async function openGroupWords(id) {
+      const g = groupById(id);
+      if (!g) return;
+      try {
+        const r = await authFetch('/api/word-groups?group_id=' + id);
+        const d = await r.json();
+        openWordListScreen('group', { title: lc(g.name), words: d.words || [] });
+      } catch { alert('Erreur de chargement du groupe.'); }
+    }
+
+    async function renameGroup(id) {
+      const g = groupById(id);
+      if (!g) return;
+      const name = prompt('Nouveau nom du groupe :', g.name);
+      if (name === null || !name.trim() || name.trim() === g.name) return;
+      const r = await authFetch('/api/groups', { method: 'PUT', body: JSON.stringify({ id, name: name.trim() }) });
+      const d = await r.json();
+      if (!r.ok) { alert(d.error?.message || 'erreur'); return; }
+      g.name = name.trim();
+      renderGroupsManager();
+    }
+
+    async function deleteGroup(id) {
+      const g = groupById(id);
+      if (!g) return;
+      // Le mot lui-même n'est jamais touché : on ne supprime que le rangement.
+      if (!confirm(`Supprimer le groupe « ${g.name} » ? Les ${g.n} mots restent dans ta liste.`)) return;
+      const r = await authFetch('/api/groups', { method: 'DELETE', body: JSON.stringify({ id }) });
+      if (!r.ok) { alert('erreur'); return; }
+      groupsCache[currentLang] = (groupsCache[currentLang] || []).filter(x => x.id !== id);
+      renderGroupsManager();
+    }
+
+    async function createGroupPrompt() {
+      const name = prompt('Nom du nouveau groupe :', '');
+      if (name === null || !name.trim()) return;
+      const r = await authFetch('/api/groups', {
+        method: 'POST', body: JSON.stringify({ lang: currentLang, name: name.trim(), kind: 'theme' })
+      });
+      const d = await r.json();
+      if (!r.ok) { alert(d.error?.message || 'erreur'); return; }
+      await loadGroups(currentLang);
+      renderGroupsManager();
+    }
+
+    // Lot d'étude : N mots à travailler, tirés du stock puis figés. Le tirage est
+    // PONDÉRÉ (comme le mode libre), donc un lot « au hasard » vise déjà ce qui
+    // n'est pas acquis ; `kind = 'lot'` le tient hors du classement automatique.
+    async function createLotPrompt() {
+      const nRaw = prompt('Combien de mots dans ce lot ?', '20');
+      if (nRaw === null) return;
+      const n = Math.min(Math.max(parseInt(nRaw) || 0, 1), 200);
+      if (!n) return;
+      const name = (prompt('Nom du lot :', 'lot du ' + todayStrLocal()) || '').trim();
+      if (!name) return;
+      const picked = [];
+      for (let i = 0; i < n; i++) {
+        const w = pickWeightedOne(picked);
+        if (!w || picked.includes(w)) break;
+        picked.push(w);
+      }
+      if (!picked.length) return;
+      const r = await authFetch('/api/groups', {
+        method: 'POST', body: JSON.stringify({ lang: currentLang, name, kind: 'lot' })
+      });
+      const d = await r.json();
+      if (!r.ok) { alert(d.error?.message || 'erreur'); return; }
+      const r2 = await authFetch('/api/word-groups', {
+        method: 'POST', body: JSON.stringify({ lang: currentLang, group_id: d.id, words: picked })
+      });
+      if (!r2.ok) { alert('le lot a été créé mais les mots n\'ont pas pu y être ajoutés'); return; }
+      await loadGroups(currentLang);
+      renderGroupsManager();
     }
 
     // ── Recherche d'un mot à pratiquer (mode libre) ───────────
@@ -5977,23 +6097,35 @@ Write all scenarios and explanations in ${langName}.`;
 
     // Même écran pour les deux listes : seuls le titre, le filtre et le message
     // « liste vide » changent (mêmes tris, même recherche, mêmes étoiles).
-    function openWordListScreen(view) {
+    // `words` : vue « groupe » — la liste vient du groupe, pas du calendrier, donc
+    // elle contient des mots jamais pratiqués (sans date de révision).
+    function openWordListScreen(view, opts) {
       revisionsView = view;
       showScreen('screen-revisions');
-      const titleKey = view === 'mastered' ? 'mastered_title' : 'revisions_title';
-      const titleEl  = document.getElementById('revisions-title');
-      titleEl.setAttribute('data-i18n', titleKey);   // sinon applyI18n remettrait l'autre titre
-      titleEl.textContent = tPrac(titleKey);
+      const titleEl = document.getElementById('revisions-title');
+      if (view === 'group') {
+        titleEl.removeAttribute('data-i18n');   // titre libre : applyI18n ne doit plus y toucher
+        titleEl.textContent = (opts && opts.title) || 'Groupe';
+      } else {
+        const titleKey = view === 'mastered' ? 'mastered_title' : 'revisions_title';
+        titleEl.setAttribute('data-i18n', titleKey);   // sinon applyI18n remettrait l'autre titre
+        titleEl.textContent = tPrac(titleKey);
+      }
       document.getElementById('revisions-search').value = '';
       revisionsRows = [];
-      for (const w of allWords) {
+      const source = view === 'group' ? ((opts && opts.words) || []) : allWords;
+      for (const w of source) {
         const p = progressMap[w.toLowerCase()];
+        const net = p ? (p.correct || 0) - (p.incorrect || 0) : 0;
+        if (view === 'group') {
+          revisionsRows.push({ word: w, next: (p && p.nextReview) || '', net });
+          continue;
+        }
         if (!p || !p.nextReview) continue;
-        const net = (p.correct || 0) - (p.incorrect || 0);
         if (view === 'mastered' && net < 3) continue;  // ★★★ = même seuil que pickWords
         revisionsRows.push({ word: w, next: p.nextReview, net });
       }
-      renderRevisions();
+      if (view === 'group') setRevisionsSort('az'); else renderRevisions();
     }
 
     function setRevisionsSort(mode) {
@@ -6007,7 +6139,9 @@ Write all scenarios and explanations in ${langName}.`;
       const list  = document.getElementById('revisions-list');
       const today = todayStrLocal();
       if (revisionsRows.length === 0) {
-        list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tPrac(revisionsView === 'mastered' ? 'mastered_empty' : 'revisions_empty')}</p>`;
+        const emptyMsg = revisionsView === 'group' ? 'Ce groupe est vide.'
+          : tPrac(revisionsView === 'mastered' ? 'mastered_empty' : 'revisions_empty');
+        list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${emptyMsg}</p>`;
         return;
       }
       const q = (document.getElementById('revisions-search').value || '').trim().toLowerCase();
@@ -6023,12 +6157,14 @@ Write all scenarios and explanations in ${langName}.`;
       } else { // 'next' — prochaine révision la plus proche
         rows.sort((a, b) => a.next < b.next ? -1 : a.next > b.next ? 1 : lc(a.word).localeCompare(lc(b.word)));
       }
-      const dueCount = revisionsView === 'mastered' ? 0 : rows.filter(r => r.next <= today).length;
+      // Hors du calendrier, `next` peut être vide (mot jamais pratiqué) : le
+      // compteur « à réviser aujourd'hui » n'a alors aucun sens.
+      const dueCount = revisionsView !== 'due' ? 0 : rows.filter(r => r.next && r.next <= today).length;
       const head = dueCount > 0
         ? `<p style="color:var(--accent);font-weight:600;margin-bottom:0.5rem;">${tPrac('revs_due_today').replace('{n}', dueCount)}</p>`
         : '';
       list.innerHTML = head + rows.map(r => {
-        const lab = reviewLabel(r.next, today);
+        const lab = r.next ? reviewLabel(r.next, today) : '—';
         const si  = starsFromNet(r.net || 0);
         return `<div class="mot-row">
           <span class="mot-w">${motWordHtml(lc(r.word))}</span>
@@ -7359,6 +7495,9 @@ Reply with ONLY this JSON object, nothing else:
       <h2 class="modal-title">Mes groupes</h2>
       <p style="color:var(--muted);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs groupes, puis choisis combien de mots pratiquer.</p>
       <div id="groups-list" style="max-height:42vh; overflow-y:auto;"></div>
+      <div style="text-align:right; margin-top:0.4rem;">
+        <button class="btn-ghost" style="font-size:0.8rem" onclick="openGroupsManager()">⚙ gérer mes groupes</button>
+      </div>
       <div id="groups-subset" style="display:flex; gap:0.4rem; margin-top:0.9rem;">
         <button class="filter-btn active" id="gsub-all"    onclick="setGroupSubset('all')"    style="flex:1 1 auto">tous</button>
         <button class="filter-btn"        id="gsub-random" onclick="setGroupSubset('random')" style="flex:1 1 auto">au hasard</button>
