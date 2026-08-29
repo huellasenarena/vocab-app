@@ -127,7 +127,7 @@ async function callScriptLLM(prompt, maxTokens, env) {
 // Appel LLM raisonnement (gpt-5.6-luna via Responses API), pour les jugements fins
 // (similarité). `env.OPENAI_API_KEY_SCRIPT` = clé propriétaire OU clé appelant
 // (aiEnv). max_output_tokens compte reasoning + texte → budget large requis.
-async function callScriptReasoning(prompt, maxOutputTokens, env, effort = 'low') {
+async function callScriptReasoning(prompt, maxOutputTokens, env, effort = 'low', model = 'gpt-5.6-luna') {
   const waits = [0, 2000, 5000];
   for (let attempt = 0; attempt < waits.length; attempt++) {
     if (waits[attempt]) await new Promise(r => setTimeout(r, waits[attempt]));
@@ -136,7 +136,7 @@ async function callScriptReasoning(prompt, maxOutputTokens, env, effort = 'low')
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.OPENAI_API_KEY_SCRIPT}` },
         body: JSON.stringify({
-          model: 'gpt-5.6-luna',
+          model,
           input: [{ role: 'user', content: prompt }],
           max_output_tokens: maxOutputTokens,
           ...(effort !== 'none' && { reasoning: { effort } })
@@ -221,8 +221,11 @@ function cleanSuggestion(raw, word) {
 // un nom de groupe re-tapé avec un accent en moins n'est plus un groupe perdu.
 // Le modèle ne peut donc PAS inventer de groupe : hors de la liste, l'index est
 // simplement ignoré.
-async function classifyBatch(entries, groups, langName, env) {
-  const list = groups.map((g, i) => `${i + 1}. ${g.name}`).join('\n');
+async function classifyBatch(entries, groups, langName, env, model) {
+  // Nom + ligne de portée : le seul nom est ambigu (« fórmulas del ensayo »
+  // attirait les adjectifs, « locuciones de modo » attirait le nom « modos »).
+  const list = groups.map((g, i) =>
+    `${i + 1}. ${g.name}` + (g.scope ? `\n   -> ${g.scope}` : '')).join('\n');
   const items = entries.map((e, i) => {
     const { base, note } = splitEntry(e);
     return `${i + 1}. ${base}${note ? `   [note: ${note}]` : ''}`;
@@ -235,8 +238,9 @@ ${list}
 
 Rules:
 - Pick the group(s) the entry would most naturally be practised with.
-- Prefer ONE group. Add a second or a third only when the entry genuinely belongs to both.
-- If nothing in the list fits, reply with an empty array. Never force a bad fit.
+- Prefer ONE group, but add a second (rarely a third) whenever the entry plainly belongs to two of them at once.
+- An empty array is for entries that genuinely fit nothing: bare inflected fragments, ambiguous forms. An ordinary noun, verb or adjective almost always fits at least one group — look again before giving up.
+- Match on what the entry IS, not on words it shares with a group name.
 - A multi-word entry is a fixed expression: classify it as a whole, never word by word.
 - A [note: ...] is the learner's own comment (regional variety, register, intended sense). Use it as context; it is not part of the expression.
 - Use ONLY numbers from the list above.
@@ -248,7 +252,7 @@ Reply with ONLY a JSON object mapping each entry number (as a string) to an arra
 Example: {"1":[8],"2":[3,34],"3":[]}
 No prose, no code fences, one key per entry.`;
 
-  const res = await callScriptReasoning(prompt, 12000, env, 'low');
+  const res = await callScriptReasoning(prompt, 12000, env, 'low', model);
   if (!res) return null;
   const m = res.match(/\{[\s\S]*\}/);
   if (!m) return null;
@@ -1005,7 +1009,7 @@ export default {
         const aiEnv = { ...env, OPENAI_API_KEY_SCRIPT: key };
 
         const { results: gRows } = await env.DB.prepare(
-          "SELECT id, name FROM groups WHERE user_id = ? AND language = ? AND kind = 'theme' ORDER BY id"
+          "SELECT id, name, scope FROM groups WHERE user_id = ? AND language = ? AND kind = 'theme' ORDER BY id"
         ).bind(uid, language).all();
         const groups = gRows || [];
         if (!groups.length) return json({ error: { message: 'aucun groupe pour cette langue' } }, 400);
@@ -1024,7 +1028,9 @@ export default {
         if (!entries.length) return json({ processed: 0, remaining: 0, assigned: {} });
 
         const langName = LANG_FULL[language] || language;
-        const verdict = await classifyBatch(entries, groups, langName, aiEnv);
+        // Modèle au choix pour comparer sur un lot témoin ; luna par défaut.
+        const model = ['gpt-5.6-luna', 'gpt-5.6-terra'].includes(body.model) ? body.model : 'gpt-5.6-luna';
+        const verdict = await classifyBatch(entries, groups, langName, aiEnv, model);
         if (!verdict) return json({ error: { message: 'réponse illisible du modèle' } }, 502);
 
         const nameById = new Map(groups.map(g => [g.id, g.name]));
