@@ -214,6 +214,60 @@ function cleanSuggestion(raw, word) {
   return s;
 }
 
+// ---- Classement d'un lot d'entrées dans une liste FERMÉE de groupes ----
+//
+// Numéros des deux côtés (groupes ET entrées) : c'est 3x moins de tokens qu'un
+// échange de libellés, et surtout ça supprime le rapprochement de chaînes —
+// un nom de groupe re-tapé avec un accent en moins n'est plus un groupe perdu.
+// Le modèle ne peut donc PAS inventer de groupe : hors de la liste, l'index est
+// simplement ignoré.
+async function classifyBatch(entries, groups, langName, env) {
+  const list = groups.map((g, i) => `${i + 1}. ${g.name}`).join('\n');
+  const items = entries.map((e, i) => {
+    const { base, note } = splitEntry(e);
+    return `${i + 1}. ${base}${note ? `   [note: ${note}]` : ''}`;
+  }).join('\n');
+
+  const prompt = `You are sorting a learner's personal vocabulary list of ${langName}.
+
+Assign each ENTRY to 0, 1, 2 or 3 groups from this CLOSED list:
+${list}
+
+Rules:
+- Pick the group(s) the entry would most naturally be practised with.
+- Prefer ONE group. Add a second or a third only when the entry genuinely belongs to both.
+- If nothing in the list fits, reply with an empty array. Never force a bad fit.
+- A multi-word entry is a fixed expression: classify it as a whole, never word by word.
+- A [note: ...] is the learner's own comment (regional variety, register, intended sense). Use it as context; it is not part of the expression.
+- Use ONLY numbers from the list above.
+
+ENTRIES:
+${items}
+
+Reply with ONLY a JSON object mapping each entry number (as a string) to an array of group numbers.
+Example: {"1":[8],"2":[3,34],"3":[]}
+No prose, no code fences, one key per entry.`;
+
+  const res = await callScriptReasoning(prompt, 12000, env, 'low');
+  if (!res) return null;
+  const m = res.match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  let parsed;
+  try { parsed = JSON.parse(m[0]); } catch { return null; }
+
+  // index d'entrée -> [group_id], borné à 3 et filtré sur la liste fermée
+  const out = new Map();
+  for (let i = 0; i < entries.length; i++) {
+    const raw = parsed[String(i + 1)];
+    const ids = (Array.isArray(raw) ? raw : [])
+      .map(n => groups[Number(n) - 1])
+      .filter(Boolean)
+      .map(g => g.id);
+    out.set(i, [...new Set(ids)].slice(0, 3));
+  }
+  return out;
+}
+
 async function analyzeWordLangSense(word, note, env) {
   const prompt = `Analyze the expression: "${word}".${entryContext(word, note)}
 1. Identify its language (must be one of: French, English, Spanish, Greek).
@@ -914,6 +968,95 @@ export default {
           return json({ ok: true });
         }
         return json({ error: { message: 'méthode non supportée' } }, 405);
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
+    // Classement automatique dans les groupes (liste fermée).
+    // Deux authentifications acceptées : le JWT (appel depuis l'app) OU le jeton
+    // perso (traitement par lots hors navigateur, comme /judge-similar).
+    // La clé OpenAI est celle de L'UTILISATEUR (header, sinon celle stockée en
+    // D1) : aucun repli sur la clé du propriétaire, ce serait lui faire payer
+    // le classement de la base d'un autre.
+    if (path === '/api/autogroup') {
+      if (request.method !== 'POST') return json({ error: { message: 'méthode non supportée' } }, 405);
+      try {
+        const body = await request.json().catch(() => ({}));
+        const auth = await requireAuth(request, env);
+        let uid = auth ? auth.uid : null;
+        if (!uid) {
+          const token = new URL(request.url).searchParams.get('token') || body.token;
+          if (!token) return json({ error: { message: 'non authentifié' } }, 401);
+          const u = await env.DB.prepare('SELECT id FROM users WHERE add_token = ?').bind(token).first();
+          if (!u) return json({ error: { message: 'token invalide' } }, 403);
+          uid = u.id;
+        }
+
+        const language = ADD_LANGS.includes(body.lang) ? body.lang : null;
+        if (!language) return json({ error: { message: 'langue inconnue' } }, 400);
+
+        let key = sanitizeScriptKey(request.headers.get('X-OpenAI-Key'));
+        if (!key) {
+          const row = await env.DB.prepare('SELECT openai_key FROM users WHERE id = ?').bind(uid).first();
+          key = sanitizeScriptKey(row && row.openai_key);
+        }
+        if (!key) return json({ error: { message: 'aucune clé OpenAI enregistrée' } }, 400);
+        const aiEnv = { ...env, OPENAI_API_KEY_SCRIPT: key };
+
+        const { results: gRows } = await env.DB.prepare(
+          "SELECT id, name FROM groups WHERE user_id = ? AND language = ? AND kind = 'theme' ORDER BY id"
+        ).bind(uid, language).all();
+        const groups = gRows || [];
+        if (!groups.length) return json({ error: { message: 'aucun groupe pour cette langue' } }, 400);
+
+        // Mots à traiter : ceux fournis, sinon les non encore classés.
+        const limit = Math.min(Math.max(parseInt(body.limit) || 100, 1), 200);
+        let entries;
+        if (Array.isArray(body.words) && body.words.length) {
+          entries = body.words.map(w => String(w || '').trim()).filter(Boolean).slice(0, limit);
+        } else {
+          const { results } = await env.DB.prepare(
+            'SELECT word FROM words WHERE user_id = ? AND language = ? AND grouped = 0 ORDER BY rowid LIMIT ?'
+          ).bind(uid, language, limit).all();
+          entries = (results || []).map(r => r.word);
+        }
+        if (!entries.length) return json({ processed: 0, remaining: 0, assigned: {} });
+
+        const langName = LANG_FULL[language] || language;
+        const verdict = await classifyBatch(entries, groups, langName, aiEnv);
+        if (!verdict) return json({ error: { message: 'réponse illisible du modèle' } }, 502);
+
+        const nameById = new Map(groups.map(g => [g.id, g.name]));
+        const assigned = {};
+        const stmts = [];
+        const insert = env.DB.prepare(
+          'INSERT OR IGNORE INTO word_groups (user_id, language, word, group_id, auto) VALUES (?, ?, ?, ?, 1)'
+        );
+        const mark = env.DB.prepare(
+          'UPDATE words SET grouped = 1 WHERE user_id = ? AND language = ? AND word = ?'
+        );
+        for (let i = 0; i < entries.length; i++) {
+          const ids = verdict.get(i) || [];
+          assigned[entries[i]] = ids.map(id => nameById.get(id));
+          for (const id of ids) stmts.push(insert.bind(uid, language, entries[i], id));
+          stmts.push(mark.bind(uid, language, entries[i]));
+        }
+
+        // `dry` : on rend le verdict sans rien écrire — sert à juger un lot
+        // témoin avant de lancer le classement complet.
+        if (!body.dry && stmts.length) await env.DB.batch(stmts);
+
+        const rest = await env.DB.prepare(
+          'SELECT COUNT(*) AS n FROM words WHERE user_id = ? AND language = ? AND grouped = 0'
+        ).bind(uid, language).first();
+
+        return json({
+          processed: entries.length,
+          remaining: rest ? rest.n : 0,
+          dry: !!body.dry,
+          assigned,
+        });
       } catch (err) {
         return json({ error: { message: err.message } }, 500);
       }
