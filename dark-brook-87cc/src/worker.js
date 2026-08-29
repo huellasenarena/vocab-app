@@ -954,12 +954,13 @@ export default {
       try {
         if (request.method === 'GET') {
           const lang = new URL(request.url).searchParams.get('lang');
+          // `last_practiced` sert aux tris « vus récemment / jamais vus » du front.
           const { results } = lang
             ? await env.DB.prepare(
-                'SELECT word, language, correct, incorrect, hint_used, next_review FROM progress WHERE user_id = ? AND language = ?'
+                'SELECT word, language, correct, incorrect, hint_used, next_review, last_practiced FROM progress WHERE user_id = ? AND language = ?'
               ).bind(auth.uid, lang).all()
             : await env.DB.prepare(
-                'SELECT word, language, correct, incorrect, hint_used, next_review FROM progress WHERE user_id = ?'
+                'SELECT word, language, correct, incorrect, hint_used, next_review, last_practiced FROM progress WHERE user_id = ?'
               ).bind(auth.uid).all();
           return json({ progress: results });
         }
@@ -1278,6 +1279,17 @@ export default {
         if (request.method === 'GET') {
           const u = new URL(request.url).searchParams;
           // ?lang=&word= → les groupes d'UN mot (pour cocher le menu 🏷).
+          // ?lang=&ungrouped=1 → les mots d'une langue qui ne sont dans AUCUN
+          // groupe (pilule « sans groupe » de « mes mots » et du sélecteur).
+          if (u.get('ungrouped') && u.get('lang')) {
+            const { results } = await env.DB.prepare(
+              `SELECT w.word FROM words w
+                WHERE w.user_id = ? AND w.language = ?
+                  AND NOT EXISTS (SELECT 1 FROM word_groups wg
+                                   WHERE wg.user_id = w.user_id AND wg.language = w.language AND wg.word = w.word)`
+            ).bind(auth.uid, u.get('lang')).all();
+            return json({ words: (results || []).map(r => r.word) });
+          }
           const w = u.get('word'), wl = u.get('lang');
           if (w && wl) {
             const { results } = await env.DB.prepare(
