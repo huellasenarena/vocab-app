@@ -1290,6 +1290,22 @@ export default {
             ).bind(auth.uid, u.get('lang')).all();
             return json({ words: (results || []).map(r => r.word) });
           }
+          // ?lang=&words=a\nb\nc → les groupes de PLUSIEURS mots d'un coup
+          // (pastilles de « mes mots » : une requête par page affichée, jamais
+          // les 10 000 rattachements de la langue).
+          const many = u.get('words');
+          if (many && u.get('lang')) {
+            const list = many.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 200);
+            if (!list.length) return json({ map: {} });
+            const ph = list.map(() => '?').join(',');
+            const { results } = await env.DB.prepare(
+              `SELECT word, group_id FROM word_groups
+                 WHERE user_id = ? AND language = ? AND word IN (${ph})`
+            ).bind(auth.uid, u.get('lang'), ...list).all();
+            const map = {};
+            for (const r of (results || [])) (map[r.word] = map[r.word] || []).push(r.group_id);
+            return json({ map });
+          }
           const w = u.get('word'), wl = u.get('lang');
           if (w && wl) {
             const { results } = await env.DB.prepare(

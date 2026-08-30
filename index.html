@@ -1012,6 +1012,9 @@
     .mot-row .mot-w { font-family:'Lora', Georgia, serif; font-size:1rem; }
     /* Note entre parenthèses d'une entrée annotée : contexte, pas vocabulaire */
     .mot-row .mot-note { color: var(--muted); font-size: 0.78rem; font-style: italic; }
+    .mot-row .mot-groups { display:flex; flex-wrap:wrap; gap:0.25rem; margin-top:0.25rem; }
+    .mot-row .mot-gchip { font-family:inherit; font-size:0.68rem; color:var(--muted); background:none; border:1px solid var(--border); border-radius:999px; padding:0.05rem 0.45rem; cursor:pointer; }
+    .mot-row .mot-gchip:hover { color:var(--accent); border-color:var(--accent); }
     .mot-row .mot-lang-tag { font-size:0.78rem; margin-left:0.4rem; opacity:0.7; }
     .mot-row .mot-actions { display:flex; align-items:center; gap:0.2rem; flex-shrink:0; }
     .mot-row .mot-date { font-size:0.72rem; color:var(--muted); margin-right:0.35rem; white-space:nowrap; }
@@ -1600,7 +1603,7 @@
           <span class="slider-value" id="situation-slider-value">1 mot</span>
         </div>
         <input type="range" id="situation-word-slider" min="1" max="5" value="1"
-          oninput="onSituationSliderChange(this.value)" />
+          oninput="onSituationSliderPreview(this.value)" onchange="onSituationSliderChange(this.value)" />
       </div>
       <!-- Bouton « Commencer » (évite l'appel API automatique à l'entrée du mode) -->
       <div id="situation-start" style="display:none; padding-top:0.5rem;">
@@ -2191,7 +2194,7 @@
     let _studyQuizWord     = null; // mot en cours d'étude (QCM neutre : jamais de ✗)
     let _studyTries        = 0;    // tentatives de QCM d'étude sur ce mot
     let _pendingGloss      = null; // { word, kind } en attente de « je ne sais pas »
-    const translationCache = {};   // { "mot|appLang": { tr, en, concrete } }
+    const translationCache = {};   // { "mot|langue de sortie": { tr, en, concrete } }
     let previousWordsPool  = []; // garde tous les mots déjà vus dans la session slider
     let currentLang        = "";
     let hintUsedWords      = new Set();
@@ -5256,12 +5259,23 @@ Respond entirely in ${langName}.`;
     // n'est stocké côté serveur, donc changer de langue d'interface reste libre.
     const APP_LANG_NAME = { en: 'English', fr: 'French', es: 'Spanish', el: 'Modern Greek' };
 
+    // Langue de sortie = celle de l'appli, SAUF quand c'est déjà la langue du
+    // mot : traduire « pensar » vers l'espagnol pendant qu'on étudie l'espagnol
+    // ne donne rien. On bascule alors sur l'anglais — et sur le français quand
+    // le mot est lui-même anglais.
+    function glossTargetCode(lang) {
+      const src = LANG_CODE[lang] || '';
+      if (appLang !== src) return appLang;
+      return src === 'en' ? 'fr' : 'en';
+    }
+
     async function wordGloss(word, lang) {
-      const key = `${word.toLowerCase()}|${appLang}`;
+      const code = glossTargetCode(lang);
+      const key = `${word.toLowerCase()}|${code}`;
       if (translationCache[key]) return translationCache[key];
       const info     = LANGS.find(l => l.key === lang) || getLang();
       const langName = info.mistralName;
-      const target   = APP_LANG_NAME[appLang] || 'English';
+      const target   = APP_LANG_NAME[code] || 'English';
       const prompt = `You are a bilingual lexicographer.
 
 Entry in ${langName}: "${lc(wordBase(word))}"${entryContext(word)}
@@ -6197,7 +6211,7 @@ Write all scenarios and explanations in ${langName}.`;
             onclick="toggleSelectAllPage(${!allPageSel})">
           <span class="mot-check">${allPageSel ? '✓' : ''}</span>
           <span style="color:var(--muted);font-size:0.85rem">${tApp('select_all_page')}</span>
-        </div>` + _pageRowsCache.map(m => {
+        </div>` + _pageRowsCache.map((m, idx) => {
         const info = LANGS.find(x => x.key === m.lang);
         const esc  = jsEsc(m.word);
         const si   = starsFromNet(motsStars[m.lang + '|' + m.word.toLowerCase()] || 0);
@@ -6207,7 +6221,10 @@ Write all scenarios and explanations in ${langName}.`;
         return `<div class="mot-row selectable ${checked ? 'sel' : ''}" onclick="toggleMotRow(event, '${m.lang}','${esc}')">
           <span style="display:flex;align-items:center;gap:0.5rem;min-width:0">
             <span class="mot-check">${checked ? '✓' : ''}</span>
-            <span class="mot-w">${info?.flag || ''} ${motWordHtml(m.word)}</span>
+            <span style="min-width:0">
+              <span class="mot-w">${info?.flag || ''} ${motWordHtml(m.word)}</span>
+              <span class="mot-groups" id="mg-${idx}"></span>
+            </span>
           </span>
           <span class="mot-actions">
             <span class="stars ${si.cls}" style="font-size:0.8rem">${si.str}</span>
@@ -6219,6 +6236,65 @@ Write all scenarios and explanations in ${langName}.`;
           </span>
         </div>`;
       }).join('');
+      hydrateMotsGroups();   // pastilles de groupe (réseau seulement si inconnu)
+    }
+
+    // Groupes affichés sous chaque mot. Chargés PAR PAGE (25 lignes par défaut)
+    // et mémorisés : repasser sur une page déjà vue ne rappelle rien. Le cache
+    // est vidé dès qu'un rattachement ou une clé (mot, langue) change.
+    let motsGroupsOf = {};   // 'lang|mot' -> [group_id]
+    function clearMotGroupsCache() { motsGroupsOf = {}; }
+
+    async function hydrateMotsGroups() {
+      paintMotsGroups();     // ce qu'on sait déjà, sans attendre le réseau
+      const rows  = _pageRowsCache;
+      const langs = [...new Set(rows.map(m => m.lang))];
+      const todo  = {};
+      for (const m of rows) {
+        if (motsGroupsOf[motKey(m)] === undefined) (todo[m.lang] = todo[m.lang] || []).push(m.word);
+      }
+      await Promise.all([
+        // Les noms des groupes viennent du cache habituel (une fois par langue).
+        ...langs.filter(l => !groupsCache[l]).map(l => loadGroups(l).catch(() => {})),
+        ...Object.keys(todo).map(async l => {
+          const words = todo[l];
+          try {
+            const r = await authFetch('/api/word-groups?lang=' + encodeURIComponent(l)
+              + '&words=' + encodeURIComponent(words.join('\n')));
+            const map = (await r.json()).map || {};
+            words.forEach(w => { motsGroupsOf[l + '|' + w] = map[w] || []; });
+          } catch {
+            words.forEach(w => { motsGroupsOf[l + '|' + w] = []; });
+          }
+        }),
+      ]);
+      paintMotsGroups();
+    }
+
+    function paintMotsGroups() {
+      _pageRowsCache.forEach((m, i) => {
+        const el = document.getElementById('mg-' + i);
+        if (!el) return;
+        const ids = motsGroupsOf[motKey(m)];
+        const names = groupsCache[m.lang] || [];
+        el.innerHTML = (ids || []).map(id => {
+          const g = names.find(x => x.id === id);
+          return g ? `<button class="mot-gchip" onclick="motsFilterByGroup('${m.lang}',${id})">${g.kind === 'lot' ? '📘 ' : ''}${escapeHtml(g.name)}</button>` : '';
+        }).join('');
+      });
+    }
+
+    // Clic sur une pastille = filtrer sur ce groupe. Les groupes étant par
+    // langue, la ligne de pilules n'existe que sur une langue précise : on y
+    // bascule d'abord si on regardait « Tout ».
+    async function motsFilterByGroup(lang, id) {
+      if (motsFilter !== lang) {
+        motsFilter = lang;
+        motsPage = 0;
+        renderMotsFilters();
+        await renderMotsGroupFilters();
+      }
+      setMotsGroupFilter(id);
     }
 
     async function deleteSelectedMots() {
@@ -6246,6 +6322,7 @@ Write all scenarios and explanations in ${langName}.`;
         if (!r.ok) throw new Error(data.error?.message || 'erreur');
         const m = motsData.find(x => x.lang === lang && x.word === word);
         if (m) m.word = newWord;
+        clearMotGroupsCache();   // la clé du cache porte le mot
         sortMots();
         renderMots();
       } catch (e) { alert('Erreur : ' + e.message); }
@@ -6258,6 +6335,7 @@ Write all scenarios and explanations in ${langName}.`;
         if (!await moveWordToLang(word, lang, target)) return;
         const m = motsData.find(x => x.lang === lang && x.word === word);
         if (m) m.lang = target;
+        clearMotGroupsCache();   // changer de langue relâche les rattachements
         const oldKey = lang + '|' + word;
         if (motsSelected.delete(oldKey)) motsSelected.add(target + '|' + word);
         const st = motsStars[lang + '|' + word.toLowerCase()];
@@ -6293,6 +6371,7 @@ Write all scenarios and explanations in ${langName}.`;
           }
         }
         motsSelected.clear();
+        clearMotGroupsCache();   // changer de langue relâche les rattachements
         renderMotsFilters();
         renderMots();
         if (failed.length) alert(tApp('move_done').replace('{n}', ok) + '\n\n' + failed.join('\n'));
@@ -6322,6 +6401,7 @@ Write all scenarios and explanations in ${langName}.`;
         });
         if (!r.ok) { alert('erreur'); return; }
         const g = groups.find(x => x.id === id);
+        clearMotGroupsCache();
         motsSelected.clear();
         renderMotsFilters();
         renderMots();
@@ -6861,13 +6941,23 @@ Write all scenarios and explanations in ${langName}.`;
       const el = document.getElementById('situation-slider-value');
       if (el) el.textContent = wordsLabel(situationWordCount);
     }
+    // Glissement : libellé seul (même découpage que le slider du mode espacé —
+    // le travail lourd attend le relâchement).
+    function onSituationSliderPreview(val) {
+      const el = document.getElementById('situation-slider-value');
+      if (el) el.textContent = wordsLabel(parseInt(val) || 1);
+    }
     function onSituationSliderChange(val) {
       situationWordCount = parseInt(val) || 1;
       localStorage.setItem(KEY_SITUATION_WORDS, String(situationWordCount));
       updateSituationSliderLabel();
       // Le nombre de mots a changé → on re-tire tout de suite. Sinon « Commencer »
       // génère avec l'ancien tirage (slider à 1 mais 2 mots dans la situation).
-      if (practiceMode === 'situation') pickWords();
+      // ⚠️ resetPracticeUI() AVANT pickWords() : re-tirer sans passer par le point
+      // de nettoyage unique laissait à l'écran le verdict de la situation
+      // précédente, « Je ne sais pas → » et « Autre situation → » pendant que
+      // « Commencer » se rallumait (pickWords ne touche qu'à la boîte situation).
+      if (practiceMode === 'situation') { resetPracticeUI(); pickWords(); }
       saveSettingsToServer();
     }
     // Plafonne le slider au nombre de mots maîtrisés (max 5) et ajuste la valeur.
