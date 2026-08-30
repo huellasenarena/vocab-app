@@ -285,6 +285,46 @@ Reply with ONLY a JSON array, no prose, no code fences:
 // un nom de groupe re-tapé avec un accent en moins n'est plus un groupe perdu.
 // Le modèle ne peut donc PAS inventer de groupe : hors de la liste, l'index est
 // simplement ignoré.
+// Verdict du modèle PUIS écriture des rattachements. Point de passage unique :
+// la route /api/autogroup et l'ajout d'un mot (/add) l'appellent toutes les
+// deux, pour qu'un mot soit rangé quel que soit le client qui l'a ajouté.
+// Rend { assigned } (mot -> noms de groupes) ou null si le modèle est illisible.
+async function classifyAndStore(env, uid, language, groups, entries, aiEnv, model, dry) {
+  const verdict = await classifyBatch(entries, groups, LANG_FULL[language] || language, aiEnv, model);
+  if (!verdict) return null;
+
+  const nameById = new Map(groups.map(g => [g.id, g.name]));
+  const assigned = {};
+  const stmts = [];
+  const insert = env.DB.prepare(
+    'INSERT OR IGNORE INTO word_groups (user_id, language, word, group_id, auto) VALUES (?, ?, ?, ?, 1)'
+  );
+  const mark = env.DB.prepare(
+    'UPDATE words SET grouped = 1 WHERE user_id = ? AND language = ? AND word = ?'
+  );
+  for (let i = 0; i < entries.length; i++) {
+    const ids = verdict.get(i) || [];
+    assigned[entries[i]] = ids.map(id => nameById.get(id));
+    for (const id of ids) stmts.push(insert.bind(uid, language, entries[i], id));
+    stmts.push(mark.bind(uid, language, entries[i]));
+  }
+  // `dry` : verdict rendu sans rien écrire — sert à juger un lot témoin.
+  if (!dry && stmts.length) await env.DB.batch(stmts);
+  return { assigned };
+}
+
+// Classement d'un mot qui vient d'être ajouté (/add). Lit les groupes de sa
+// langue et délègue. Sans groupe défini pour la langue, il n'y a rien à faire :
+// le mot reste `grouped = 0` et la prochaine passe le reprendra.
+async function autogroupOnAdd(env, uid, language, word, aiEnv) {
+  const { results } = await env.DB.prepare(
+    "SELECT id, name, scope FROM groups WHERE user_id = ? AND language = ? AND kind = 'theme' ORDER BY id"
+  ).bind(uid, language).all();
+  const groups = results || [];
+  if (!groups.length) return;
+  await classifyAndStore(env, uid, language, groups, [word], aiEnv, 'gpt-5.6-luna', false);
+}
+
 async function classifyBatch(entries, groups, langName, env, model) {
   // Nom + ligne de portée : le seul nom est ambigu (« fórmulas del ensayo »
   // attirait les adjectifs, « locuciones de modo » attirait le nom « modos »).
@@ -565,7 +605,7 @@ function json(obj, status = 200) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
     const path = new URL(request.url).pathname;
@@ -802,6 +842,15 @@ export default {
         await env.DB.prepare(
           'INSERT OR IGNORE INTO words (user_id, language, word, created_at) VALUES (?, ?, ?, ?)'
         ).bind(user.id, language, word, new Date().toISOString()).run();
+
+        // Classement automatique ICI et nulle part ailleurs : le mot est rangé
+        // quel que soit le client (app, raccourci iPhone, import Kindle). Hors
+        // du chemin de réponse — l'ajout n'attend pas le modèle, et un échec
+        // laisse simplement `grouped = 0`, repris par la passe « classer les
+        // mots sans groupe ».
+        if (callerKey && ctx && ctx.waitUntil) {
+          ctx.waitUntil(autogroupOnAdd(env, user.id, language, word, aiEnv).catch(() => {}));
+        }
         return textOut("Succès (" + language + ") : '" + word + "' ajouté.");
       } catch (err) {
         return textOut('Erreur : ' + err.message);
@@ -1144,29 +1193,9 @@ export default {
         }
         if (!entries.length) return json({ processed: 0, remaining: 0, assigned: {} });
 
-        const langName = LANG_FULL[language] || language;
-        const verdict = await classifyBatch(entries, groups, langName, aiEnv, model);
-        if (!verdict) return json({ error: { message: 'réponse illisible du modèle' } }, 502);
-
-        const nameById = new Map(groups.map(g => [g.id, g.name]));
-        const assigned = {};
-        const stmts = [];
-        const insert = env.DB.prepare(
-          'INSERT OR IGNORE INTO word_groups (user_id, language, word, group_id, auto) VALUES (?, ?, ?, ?, 1)'
-        );
-        const mark = env.DB.prepare(
-          'UPDATE words SET grouped = 1 WHERE user_id = ? AND language = ? AND word = ?'
-        );
-        for (let i = 0; i < entries.length; i++) {
-          const ids = verdict.get(i) || [];
-          assigned[entries[i]] = ids.map(id => nameById.get(id));
-          for (const id of ids) stmts.push(insert.bind(uid, language, entries[i], id));
-          stmts.push(mark.bind(uid, language, entries[i]));
-        }
-
-        // `dry` : on rend le verdict sans rien écrire — sert à juger un lot
-        // témoin avant de lancer le classement complet.
-        if (!body.dry && stmts.length) await env.DB.batch(stmts);
+        const out = await classifyAndStore(env, uid, language, groups, entries, aiEnv, model, !!body.dry);
+        if (!out) return json({ error: { message: 'réponse illisible du modèle' } }, 502);
+        const assigned = out.assigned;
 
         const rest = await env.DB.prepare(
           'SELECT COUNT(*) AS n FROM words WHERE user_id = ? AND language = ? AND grouped = 0'

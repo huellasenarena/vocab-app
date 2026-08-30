@@ -737,7 +737,7 @@ def judge_similar_batch(words, lang_code):
     return skip
 
 
-# ── Classement dans les groupes (route /api/autogroup) ───────────────────────
+# ── Lecture des réponses de /add ─────────────────────────────────────────────
 _ADDED_RE = re.compile(r"^Succès \(([^)]+)\)\s*:\s*'(.*)' ajouté\.$", re.S)
 
 
@@ -747,30 +747,6 @@ def parse_added(txt):
     tranche la langue retenue."""
     m = _ADDED_RE.match((txt or "").strip())
     return (m.group(1), m.group(2)) if m else None
-
-
-def autogroup(language, words):
-    """Range les mots fraîchement importés dans les groupes de leur langue.
-    Best-effort : un échec laisse simplement les mots à grouped = 0, et la
-    prochaine passe (app ou script) les reprendra."""
-    url = WORKER_URL + "/api/autogroup"
-    headers = {"User-Agent": _UA, "Content-Type": "application/json"}
-    if IMPORT_OPENAI_KEY:
-        headers["X-OpenAI-Key"] = IMPORT_OPENAI_KEY
-    done = 0
-    CH = 100  # même taille de lot que l'app
-    for i in range(0, len(words), CH):
-        chunk = words[i:i + CH]
-        data = json.dumps({"token": ADD_TOKEN, "lang": language, "words": chunk}).encode()
-        try:
-            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=180) as r:
-                json.loads(r.read())
-            done += len(chunk)
-        except Exception as e:
-            print(f"   ⚠️  classement indisponible ({e}) — les mots restent sans groupe.")
-            return done
-    return done
 
 
 def main():
@@ -1036,14 +1012,12 @@ def run_import(final, chosen_titles, db_path, has_db, clip_path, has_clips):
                 # erreur dure → on GARDE le mot dans le cache pour réessayer
                 total_err += 1; print(f"   ✗ {w} — {txt}")
 
-    # Classement dans les groupes : après coup et en un seul lot par langue,
-    # pour ne pas rallonger chaque ajout d'un appel au modèle.
+    # Le classement dans les groupes n'est plus fait ici : /add le lance côté
+    # Worker pour chaque mot ajouté (hors du chemin de réponse), donc pour
+    # l'app, le raccourci iPhone et cet import indifféremment.
     if added_by_lang:
-        sep()
-        print("\n🏷  Classement dans les groupes :\n")
-        for language, ws in added_by_lang.items():
-            n = autogroup(language, ws)
-            print(f"   {language} : {n}/{len(ws)} mot(s) classés")
+        n = sum(len(w) for w in added_by_lang.values())
+        print(f"\n🏷  {n} mot(s) confiés au classement automatique (côté serveur).")
 
     remaining = sum(len(w) for w in pending.values())
     if remaining:
