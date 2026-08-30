@@ -6582,7 +6582,6 @@ Write all scenarios and explanations in ${langName}.`;
         `<div id="add-row-${i}"><span style="color:var(--muted)">◌ ${escapeHtml(w)}</span></div>`).join('');
 
       let okCount = 0;
-      const okTexts = [];
       for (let i = 0; i < words.length; i++) {
         const row = document.getElementById(`add-row-${i}`);
         row.innerHTML = `<span class="spinner"></span> ${escapeHtml(words[i])}…`;
@@ -6590,33 +6589,10 @@ Write all scenarios and explanations in ${langName}.`;
         try { txt = await _sendAddWord(words[i], lang, null); }
         catch (e) { txt = 'Erreur : ' + e.message; }
         row.innerHTML = _renderAddRowResult(txt, i, words[i]);
-        if (txt.startsWith('Succès')) { okCount++; okTexts.push(txt); }
+        if (txt.startsWith('Succès')) okCount++;
       }
-      // Un seul appel pour tout le lot collé, pas un par mot.
-      if (okTexts.length) autogroupAfterAdd(okTexts);
       if (okCount === words.length) input.value = ''; // tout est passé → champ vidé
       if (okCount > 0 && lang === currentLang) await loadWords(currentLang); // rafraîchit le pool
-    }
-
-    // Classement automatique des mots qui viennent d'être ajoutés.
-    // Fire-and-forget : l'ajout ne doit pas attendre le modèle, et si l'appel
-    // échoue le mot reste simplement à `grouped = 0` — la prochaine passe le
-    // reprendra. La langue est lue dans la réponse de /add et non dans la pilule
-    // choisie : c'est le Worker qui a le dernier mot sur la langue retenue.
-    const _addedRe = /^Succès \(([^)]+)\)\s*:\s*'([\s\S]*)' ajouté\.$/;
-    function autogroupAfterAdd(texts) {
-      const byLang = {};
-      for (const t of texts) {
-        const m = _addedRe.exec(String(t || '').trim());
-        if (!m) continue;
-        (byLang[m[1]] = byLang[m[1]] || []).push(m[2]);
-      }
-      for (const lang of Object.keys(byLang)) {
-        authFetch('/api/autogroup', {
-          method: 'POST',
-          body: JSON.stringify({ lang, words: byLang[lang] })
-        }).catch(() => {});
-      }
     }
 
     // « Ajouter « X » » : réinjecte la graphie proposée dans l'entonnoir SANS
@@ -6633,7 +6609,6 @@ Write all scenarios and explanations in ${langName}.`;
       try { txt = await _sendAddWord(word, item.lang, null); }
       catch (e) { txt = 'Erreur : ' + e.message; }
       row.innerHTML = _renderAddRowResult(txt, i, word);
-      if (txt.startsWith('Succès')) autogroupAfterAdd([txt]);
       if (txt.startsWith('Succès') && item.lang === currentLang) await loadWords(currentLang);
     }
 
@@ -6647,7 +6622,6 @@ Write all scenarios and explanations in ${langName}.`;
       try { txt = await _sendAddWord(item.word, item.lang, flags); }
       catch (e) { txt = 'Erreur : ' + e.message; }
       row.innerHTML = _renderAddRowResult(txt, i, item.word);
-      if (txt.startsWith('Succès')) autogroupAfterAdd([txt]);
       if (txt.startsWith('Succès') && item.lang === currentLang) await loadWords(currentLang);
     }
 
