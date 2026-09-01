@@ -1034,9 +1034,27 @@
     .mots-head {
       position: sticky; top: var(--safe-top, 0px); z-index: 5;
       width: 100%; background: var(--bg);
-      padding-top: 0.4rem; margin-bottom: -0.6rem;
+      display: flex; flex-direction: column; gap: 0.55rem;
+      padding: 0.4rem 0 0.55rem;
       box-shadow: 0 8px 12px -10px #000;
     }
+    /* Barre de pagination : même principe, l'espacement vient du conteneur. */
+    #mots-controls { display: flex; flex-direction: column; gap: 0.5rem; }
+    #mots-controls:empty { display: none; }
+    /* Barre d'outils : total à gauche, pagination au centre, taille de page à
+       droite. Le <select> natif qu'elle remplace était le seul menu système de
+       l'app — police et chrome de l'OS au milieu d'une interface qui n'en a
+       nulle part ailleurs. */
+    .mots-toolbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+      font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted);
+    }
+    .mots-toolbar .mots-pager { display: flex; align-items: center; gap: 0.15rem; font-variant-numeric: tabular-nums; }
+    .mots-toolbar .mots-pager .cur { color: var(--text); }
+    .mots-toolbar .btn-ghost { font-size: 0.72rem; padding: 0.15rem 0.25rem; }
+    .mots-toolbar .btn-ghost[disabled] { opacity: 0.35; cursor: default; }
+    .mots-toolbar .btn-ghost[disabled]:hover { color: var(--muted); }
+    .mots-size:hover { color: var(--accent); }
     /* Filtre par groupe : un seul bouton. Les 38 groupes espagnols rendus en
        pilules poussaient l'en-tête collé au-delà de la hauteur de l'écran — plus
        un mot visible, et un sticky plus haut que la fenêtre ne se parcourt pas. */
@@ -1769,7 +1787,7 @@
       </div>
       <input type="text" id="mots-search" placeholder="🔍 chercher un mot…" data-i18n-ph="search_ph" oninput="motsPage=0;renderMots()"
         autocapitalize="off" autocomplete="off"
-        style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.6rem;">
+        style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;">
       <div class="history-filters" id="mots-filters"></div>
       <div class="history-filters" id="mots-group-filters" style="display:none"></div>
       <div id="mots-controls"></div>
@@ -2012,7 +2030,10 @@
       mots_empty:       { en: `No words.`, fr: `Aucun mot.`, es: `Ninguna palabra.`, el: `Καμία λέξη.` },
       select_all_page:  { en: `select all (this page)`, fr: `tout sélectionner (cette page)`, es: `seleccionar todo (esta página)`, el: `επιλογή όλων (αυτή η σελίδα)` },
       page_label:       { en: `page`, fr: `page`, es: `página`, el: `σελίδα` },
-      words_count:      { en: `{n} word(s)`, fr: `{n} mot(s)`, es: `{n} palabra(s)`, el: `{n} λέξη/εις` },
+      words_count:      { en: `{n} words`, fr: `{n} mots`, es: `{n} palabras`, el: `{n} λέξεις` },
+      words_count_one:  { en: `1 word`, fr: `1 mot`, es: `1 palabra`, el: `1 λέξη` },
+      page_of:          { en: `of`, fr: `sur`, es: `de`, el: `από` },
+      per_page:         { en: `{n} per page`, fr: `{n} par page`, es: `{n} por página`, el: `{n} ανά σελίδα` },
       selected_n:       { en: `{n} selected`, fr: `{n} sélectionné(s)`, es: `{n} seleccionada(s)`, el: `{n} επιλεγμένες` },
       cancel_lc:        { en: `cancel`, fr: `annuler`, es: `cancelar`, el: `άκυρο` },
       btn_delete:       { en: `🗑 Delete`, fr: `🗑 Supprimer`, es: `🗑 Eliminar`, el: `🗑 Διαγραφή` },
@@ -6318,6 +6339,24 @@ Write all scenarios and explanations in ${langName}.`;
       renderMots();
     }
 
+    // Réutilise #word-ctx-menu comme popup générique, exactement comme
+    // openLangMenu et openGroupMenu ; #ctx-groups n'est qu'un conteneur de boutons.
+    const MOTS_PAGE_SIZES = [5, 15, 25, 50, 100];
+    function openPageSizeMenu(ev) {
+      ev.stopPropagation(); // sinon le listener global referme aussitôt
+      _ctxWord = null;
+      document.getElementById('word-ctx-label').textContent = tApp('per_page').replace('{n}', motsPageSize);
+      const box = document.getElementById('ctx-groups');
+      box.innerHTML = MOTS_PAGE_SIZES.map(n =>
+        `<button class="ctx-menu-btn" onclick="pickMotsPageSize(${n})">${tApp('per_page').replace('{n}', n)}</button>`
+      ).join('');
+      document.getElementById('ctx-main').style.display = 'none';
+      box.style.display = '';
+      const r = ev.currentTarget.getBoundingClientRect();
+      positionCtxMenu(r.right - 4, r.bottom + 4);
+    }
+    function pickMotsPageSize(n) { closeWordContextMenu(); setMotsPageSize(n); }
+
     function setMotsPageSize(n) { motsPageSize = +n; motsPage = 0; renderMots(); }
     function motsGoPage(d) { motsPage += d; renderMots(); }
     const jsEsc = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -6367,18 +6406,19 @@ Write all scenarios and explanations in ${langName}.`;
     function pageMots() { return _pageRowsCache; }
 
     function renderMotsControls(total, pageCount) {
-      const sizes = [5, 15, 25, 50, 100];
-      const opts = sizes.map(s => `<option value="${s}" ${s === motsPageSize ? 'selected' : ''}>${s}/page</option>`).join('');
       const sel = motsSelected.size;
+      const nf  = n => Number(n).toLocaleString(); // séparateur de milliers de l'appareil
       document.getElementById('mots-controls').innerHTML = `
-        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.6rem;font-size:0.85rem;color:var(--muted)">
-          <select onchange="setMotsPageSize(this.value)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.3rem 0.5rem;">${opts}</select>
-          <button class="btn-ghost" ${motsPage <= 0 ? 'disabled' : ''} onclick="motsGoPage(-1)">◀</button>
-          <span>${tApp('page_label')} ${pageCount ? motsPage + 1 : 0}/${pageCount}</span>
-          <button class="btn-ghost" ${motsPage >= pageCount - 1 ? 'disabled' : ''} onclick="motsGoPage(1)">▶</button>
-          <span style="margin-left:auto">${tApp('words_count').replace('{n}', total)}</span>
+        <div class="mots-toolbar">
+          <span>${tApp(total === 1 ? 'words_count_one' : 'words_count').replace('{n}', nf(total))}</span>
+          <span class="mots-pager">
+            <button class="btn-ghost" ${motsPage <= 0 ? 'disabled' : ''} onclick="motsGoPage(-1)">◀</button>
+            <span class="cur">${tApp('page_label')} ${pageCount ? motsPage + 1 : 0}</span>&nbsp;${tApp('page_of')} ${pageCount}
+            <button class="btn-ghost" ${motsPage >= pageCount - 1 ? 'disabled' : ''} onclick="motsGoPage(1)">▶</button>
+          </span>
+          <button class="btn-ghost mots-size" onclick="openPageSizeMenu(event)">${tApp('per_page').replace('{n}', motsPageSize)} ▾</button>
         </div>
-        ${sel ? `<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem;padding:0.4rem 0.6rem;background:var(--surface);border:1px solid var(--accent);border-radius:10px;">
+        ${sel ? `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.6rem;background:var(--surface);border:1px solid var(--accent);border-radius:10px;">
           <strong>${tApp('selected_n').replace('{n}', sel)}</strong>
           <button class="btn-ghost" onclick="clearMotsSelection()">${tApp('cancel_lc')}</button>
           <button class="btn-ghost" style="margin-left:auto" onclick="groupSelectedMots(event)">🏷</button>

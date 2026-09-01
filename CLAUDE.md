@@ -473,6 +473,8 @@ Chaque ligne porte les **pastilles de ses groupes** (`hydrateMotsGroups`/`paintM
 Retenu après essai comparatif : **cartes** (inchangé) · **sélection à la ligne** · **en-tête collé** · densité aérée.
 - `.mots-head` = `position: sticky; top: var(--safe-top)` autour du titre, de la recherche, des deux lignes de pilules et de la pagination. Elle **porte le fond** (`--bg`), sinon la liste défilerait au travers.
 - **Plus de case native** : `.mot-row.selectable` bascule au clic n'importe où, `.sel` allume la bordure et un ✓ (`toggleMotRow` ignore les clics sur 🔍 ✏️ 🔀 🗑). Même idiome que `.free-pick-row`.
+- **Espacement par le conteneur** (2026-08-31) : `.mots-head` et `#mots-controls` sont des colonnes flex avec `gap` ; plus aucune `margin-bottom` inline ni le `margin-bottom:-0.6rem` qui les compensait. ⚠️ C'est cet arrangement qui laissait le bouton de groupe collé aux pilules de langue. Bénéfice : un enfant en `display:none` ne crée pas de `gap`, donc la ligne du filtre par groupe masquée sur « Tout » ne laisse plus de trou.
+- **Barre de pagination** (2026-08-31) : `.mots-toolbar` = total à gauche · `◀ page N sur M ▶` au centre · `N par page ▾` à droite (`openPageSizeMenu`, qui réutilise `#word-ctx-menu` comme les langues et les groupes). ⚠️ Remplace le `<select>` natif, **seul menu système de l'app** : police et chrome de l'OS au milieu d'une interface qui n'en a nulle part ailleurs. Nombres formatés (`toLocaleString`) et pluriel réel (`words_count_one`) au lieu de « 6412 mot(s) ».
 - ⚠️ Écartés : le défilement imbriqué (famille de solutions déjà retirée en PWA iOS, cf. `#sticky-words-bar`) et l'en-tête qui se réduit (essayé, jugé instable à l'usage).
 
 ## Idées futures
