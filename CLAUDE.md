@@ -379,7 +379,7 @@ Lus depuis D1 en parallèle (`/api/history` journal + `/api/progress` scores cum
 3. **`WORKER_SECRET` exposé** (repo public + historique git) → rotation à faire. Encore utilisé par `/openai-script` (route legacy).
 4. **Gemma 4 thinking** : `NONE`/`thinkingBudget:0` non supportés (`MINIMAL`/`HIGH` seulement).
 5. **Langues à 4/4** : la tuile « ＋ ajouter » disparaît → plus d'entrée UI pour *retirer* une langue (ajouter un « gérer mes langues » si besoin).
-6. **Latence de vérification non expliquée** : OpenAI répond en ~3 s en direct (bench sur le prompt réel), l'app semblait mettre ~20 s. L'effort explicite (~1,5 s) et le coalescing du rendu sont faits ; le reste **n'a pas été mesuré dans l'app**. Deux suspects non départagés : la clé BYOK de ⚙ (throttlée ?) et le Worker, qui ne renvoie **pas** `Cache-Control: no-cache` sur la route OpenAI par défaut, contrairement à `/gemini` — un SSE bufferisé donnerait « rien, puis tout d'un coup ».
+6. ~~**Latence de vérification (~20 s)**~~ **RÉGLÉ le 2026-08-31** : la cause était le **rendu par chunk**, pas le modèle (qui répond en ~3 s, mesuré en direct) ni le réseau. Une centaine de reconstructions complètes du DOM, chacune suivie de trois recalculs de layout synchrones. Corrigé par le coalescing sur `requestAnimationFrame` dans `callAIStream` + l'effort de raisonnement envoyé explicitement (~1,5 s). Réponses redevenues instantanées. ⚠️ Ni la clé BYOK ni un buffering SSE du Worker n'étaient en cause — ne pas repartir sur ces pistes.
 7. **Jauge `12/128 ★★★` invisible** dans `#groups-modal` : `renderGroupsList` l'écrit dans `.fp-order`, en `opacity:0` tant que la ligne n'est pas cochée.
 8. **`wrangler dev --remote`** se fait throttler (erreur Cloudflare 1031) après plusieurs heures → relancer le process.
 
