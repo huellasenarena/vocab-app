@@ -758,6 +758,28 @@
     }
     .fb-details > summary::-webkit-details-marker { display: none; }
     .fb-details > summary::before { content: '▸ '; }
+    /* Section repliée PORTANT des remarques graves : on les montre en entier
+       (MAJ_VISIBLE au plus), on masque le reste. L'aperçu 2 lignes ne s'applique
+       plus qu'aux sections sans rien de grave (version améliorée, verdict…). */
+    .fb-section.collapsed[data-has-maj] .fb-body {
+      display: block; opacity: 1; max-height: none; padding-bottom: 0.55rem;
+    }
+    .fb-section.collapsed[data-has-maj] .fb-item:not(.is-maj),
+    .fb-section.collapsed[data-has-maj] .fb-item.is-maj.over-cap,
+    .fb-section.collapsed[data-has-maj] .fb-details { display: none; }
+    .fb-count {
+      font-family: 'DM Mono', monospace; font-size: 0.66rem; opacity: 0.65;
+      margin-left: 0.4rem; text-transform: none; letter-spacing: 0.04em;
+    }
+    .fb-more {
+      font-family: 'DM Mono', monospace; font-size: 0.7rem; opacity: 0.7;
+      background: none; border: none; color: inherit; cursor: pointer; padding: 0.2rem 0;
+    }
+    .fb-more:hover { opacity: 1; }
+    /* Le « ＋N autres graves » n'a de sens que replié, et seulement là où il y a
+       effectivement des graves cachées. */
+    .fb-section:not(.collapsed) .fb-more,
+    .fb-section.collapsed:not([data-has-maj]) .fb-more { display: none; }
     .fb-details[open] > summary::before { content: '▾ '; }
     .fb-details > .fb-item { margin-top: 0.5rem; }
 
@@ -981,6 +1003,12 @@
     .free-pick-row .fp-order { color: var(--accent); font-weight: 700; font-size: 0.85rem; min-width: 1.2rem; text-align: right; opacity: 0; }
     .free-pick-row.on .fp-order { opacity: 1; }
     #free-search-empty { color: var(--muted); font-size: 0.88rem; text-align: center; padding: 1rem 0; }
+    /* Effectif d'un groupe dans le sélecteur de filtre : toujours visible,
+       contrairement à .fp-order qui n'apparaît que sur la ligne cochée. */
+    .free-pick-row .fp-count {
+      color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
 
     /* Réinitialisation de la progression */
     .reset-mode-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
@@ -1009,6 +1037,18 @@
       padding-top: 0.4rem; margin-bottom: -0.6rem;
       box-shadow: 0 8px 12px -10px #000;
     }
+    /* Filtre par groupe : un seul bouton. Les 38 groupes espagnols rendus en
+       pilules poussaient l'en-tête collé au-delà de la hauteur de l'écran — plus
+       un mot visible, et un sticky plus haut que la fenêtre ne se parcourt pas. */
+    .group-select-btn {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; color: var(--text); cursor: pointer;
+      font-family: 'DM Mono', monospace; font-size: 0.75rem; padding: 0.38rem 0.8rem;
+    }
+    .group-select-btn:hover { border-color: var(--accent); }
+    .group-select-btn.active { border-color: var(--accent); }
+    .group-select-btn .gsel-val { color: var(--accent); }
     .mot-row .mot-w { font-family:'Lora', Georgia, serif; font-size:1rem; }
     /* Note entre parenthèses d'une entrée annotée : contexte, pas vocabulaire */
     .mot-row .mot-note { color: var(--muted); font-size: 0.78rem; font-style: italic; }
@@ -1843,6 +1883,7 @@
     const KEY_GEMMA_THINKING   = "vocab_gemma_thinking";
     const KEY_OPENAI_KEY       = "vocab_openai_key";
     const KEY_GEMINI_KEY       = "vocab_gemini_key";
+    const KEY_DRAFT            = "vocab_draft"; // préfixe : la clé réelle est vocab_draft_<Langue>_<mode>
     const KEY_WORD_COUNT       = "vocab_word_count";
     const KEY_FREE_MIX         = "vocab_free_mix"; // mélange découverte ↔ révision (mode libre, 0-4)
     const SESSION_LANG_COLS    = { English: 1, Spanish: 2, French: 3, Greek: 4 }; // index dans la ligne [Date, En, Es, Fr, Gr]
@@ -2075,6 +2116,11 @@
       sev_det:          { en: `form`, fr: `forme`, es: `forma`, el: `μορφή` },
       fb_details:       { en: `{n} form details`, fr: `{n} détails de forme`, es: `{n} detalles de forma`, el: `{n} λεπτομέρειες μορφής` },
       fb_detail_one:    { en: `1 form detail`, fr: `1 détail de forme`, es: `1 detalle de forma`, el: `1 λεπτομέρεια μορφής` },
+      fb_maj_one:       { en: `1 major`, fr: `1 grave`, es: `1 grave`, el: `1 σοβαρό` },
+      fb_maj_n:         { en: `{n} major`, fr: `{n} graves`, es: `{n} graves`, el: `{n} σοβαρά` },
+      fb_other_n:       { en: `{n} more`, fr: `{n} autres`, es: `{n} más`, el: `{n} άλλα` },
+      fb_more_maj_one:  { en: `＋ 1 more major`, fr: `＋ 1 autre erreur grave`, es: `＋ 1 error grave más`, el: `＋ 1 ακόμη σοβαρό` },
+      fb_more_maj:      { en: `＋ {n} more major`, fr: `＋ {n} autres erreurs graves`, es: `＋ {n} errores graves más`, el: `＋ {n} ακόμη σοβαρά` },
       fb_collapse:      { en: `⌃ Collapse all`, fr: `⌃ Tout replier`, es: `⌃ Plegar todo`, el: `⌃ Κλείσιμο όλων` },
       ctx_edit:         { en: `✏️ Edit`, fr: `✏️ Modifier`, es: `✏️ Editar`, el: `✏️ Επεξεργασία` },
       ctx_delete:       { en: `🗑 Delete`, fr: `🗑 Supprimer`, es: `🗑 Eliminar`, el: `🗑 Διαγραφή` },
@@ -2200,6 +2246,9 @@
     let hintUsedWords      = new Set();
     let sentenceSubmitted      = false;
     let lastSubmittedSentence  = '';
+    let _draftTimer            = null; // brouillon de session (reprise après crash)
+    let _draftPending          = true; // la reprise n'a lieu qu'une fois, au démarrage
+    let _situationRaw          = '';   // texte brut de la situation, pour le rejouer au retour
     let qcmWord            = "";
     let _qcmChoices        = []; // scénarios du QCM en cours ({text, correct, explanation})
     let _qcmWordsOffer     = []; // mots disponibles pour QCM après un verdict ✗ multi-mots
@@ -2756,6 +2805,7 @@
       });
     }
     _ta.addEventListener('input', autoResizeTextarea);
+    _ta.addEventListener('input', saveDraftDebounced);
     // Autoscroll clavier retiré (trop glitchy) : on laisse iOS gérer nativement le
     // défilement vers le champ focalisé. L'app ne déclenche AUCUN scroll au focus —
     // seul l'autoscroll du streaming (définition / vérification) reste actif
@@ -2841,6 +2891,7 @@
 
     // ── Sélection de langue ───────────────────────────────────
     async function selectLanguage(lang) {
+      purgeOldDrafts();
       sessionFirstResult = {};
       currentLang = lang;
       previousWordsPool = [];
@@ -3106,7 +3157,8 @@
     // ── Sync des réglages entre appareils (point 14) ──────────
     const _settingsDenylist = new Set([KEY_JWT, KEY_PWD_OK, KEY_OPENAI_KEY, KEY_GEMINI_KEY]);
     function _isSyncableSettingKey(k) {
-      return k && k.startsWith('vocab_') && !_settingsDenylist.has(k) && !k.startsWith('vocab_today_new_');
+      return k && k.startsWith('vocab_') && !_settingsDenylist.has(k)
+             && !k.startsWith('vocab_today_new_') && !k.startsWith(KEY_DRAFT + '_');
     }
     function collectSettings() {
       const o = {};
@@ -3427,6 +3479,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('single-word-card').classList.remove('card-studied');
       studiedWords   = new Set();
       _hintBoxWord   = null;
+      _situationRaw  = '';
       _studyQuizWord = null;
       _studyTries    = 0;
       _pendingGloss  = null;
@@ -4486,6 +4539,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // Fermeture de l'app / passage en arrière-plan : la requête doit survivre à la
     // page, d'où keepalive (sendBeacon ne permettrait pas l'en-tête JWT).
     window.addEventListener('pagehide', () => {
+      saveDraft(); // filet : le débounce de 300 ms peut ne pas avoir encore tiré
       const toBlacklist = _relatedWordsShown.filter(w => !_relatedWordsAdded.has(w.toLowerCase()));
       if (!toBlacklist.length || !currentLang || !getJWT()) return;
       _relatedWordsShown = [];
@@ -4587,6 +4641,91 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           pickWords();
         }
       }
+    }
+
+    // ── Brouillon de session : reprise après fermeture, crash ou déchargement iOS ──
+    // Le tour en cours ne vivait qu'en mémoire : quitter l'app perdait la phrase tapée
+    // ET retirait de nouveaux mots au retour. On persiste donc le tour à CHAQUE frappe —
+    // un crash ne déclenche AUCUN `pagehide`, donc sauvegarder à la sortie ne suffit pas.
+    // ⚠️ KEY_DRAFT est dans _settingsDenylist : ce brouillon est propre à l'appareil et
+    // n'a rien à faire dans les réglages synchronisés en D1.
+    // Un seul brouillon à la fois : le tirage suivant écrase le précédent. On ne reprend
+    // jamais une session d'une autre langue, d'un autre mode ou d'un autre jour.
+    function draftKey(lang, mode) { return `${KEY_DRAFT}_${lang}_${mode}`; }
+
+    // Purge les brouillons des jours passés (une fois par chargement).
+    function purgeOldDrafts() {
+      const today = todayStrLocal();
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (!k || !k.startsWith(KEY_DRAFT + '_')) continue;
+        try { if (JSON.parse(localStorage.getItem(k)).day !== today) localStorage.removeItem(k); }
+        catch { localStorage.removeItem(k); }
+      }
+    }
+
+    function saveDraft() {
+      clearTimeout(_draftTimer);
+      if (!currentLang || !currentWords.length || practiceMode === 'image') return;
+      try {
+        localStorage.setItem(draftKey(currentLang, practiceMode), JSON.stringify({
+          lang: currentLang, mode: practiceMode, day: todayStrLocal(),
+          words: currentWords, prev: previousWordsPool, studied: [...studiedWords],
+          sentence:  document.getElementById('sentence-input').value,
+          sit:       practiceMode === 'situation' ? _situationRaw : '',
+          sitAnswer: practiceMode === 'situation' ? document.getElementById('situation-input').value : ''
+        }));
+      } catch { /* quota localStorage plein : rien à rattraper */ }
+    }
+
+    function saveDraftDebounced() {
+      clearTimeout(_draftTimer);
+      _draftTimer = setTimeout(saveDraft, 300); // au pire 300 ms de frappe perdues
+    }
+
+    function clearDraft() {
+      clearTimeout(_draftTimer);
+      _situationRaw = '';
+      if (currentLang) localStorage.removeItem(draftKey(currentLang, practiceMode));
+    }
+
+    // Remplace le tirage que pickWords vient de faire par le tour interrompu.
+    // Appelé APRÈS le tirage et non à sa place : compteurs, plafond du slider et
+    // « dûs aujourd'hui » restent calculés par le chemin normal, sans duplication.
+    function applyDraft() {
+      // Une seule reprise par chargement, et jamais par-dessus une file ou un groupe
+      // choisis explicitement : ces pools-là font foi.
+      if (!_draftPending || freeQueueActive || _sitGroupWords) return false;
+      let d;
+      try { d = JSON.parse(localStorage.getItem(draftKey(currentLang, practiceMode)) || 'null'); } catch { d = null; }
+      if (!d || d.day !== todayStrLocal()) return false;
+      if (!Array.isArray(d.words) || !d.words.length) return false;
+      // Un mot renommé, supprimé ou transféré entre-temps invalide le brouillon.
+      const known = new Set(allWords.map(w => w.toLowerCase()));
+      if (!d.words.every(w => known.has(String(w).toLowerCase()))) { clearDraft(); return false; }
+
+      _draftPending     = false; // consommé
+      currentWords      = d.words;
+      previousWordsPool = (d.prev || []).filter(w => known.has(String(w).toLowerCase()));
+      studiedWords      = new Set(d.studied || []);
+
+      if (practiceMode === 'situation') {
+        // Situation pas encore générée : on garde le bouton « Commencer », mais les
+        // mots tirés sont bien ceux d'avant l'interruption.
+        if (!d.sit) return true;
+        _situationRaw = d.sit;
+        document.getElementById('situation-start').style.display = 'none';
+        document.getElementById('situation-box').style.display   = 'block';
+        document.getElementById('situation-text').innerHTML      = renderMarkdown(d.sit);
+        showSituationAnswerUI(currentWords);
+        document.getElementById('situation-input').value = d.sitAnswer || '';
+      } else {
+        renderWordDisplay();
+        updateStudyUI();
+        document.getElementById('sentence-input').value = d.sentence || '';
+        autoResizeTextarea();
+      }
+      return true;
     }
 
     function pickWords() {
@@ -4761,6 +4900,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
       if (practiceMode !== 'situation' && practiceMode !== 'free') renderWordDisplay();
       if (practiceMode !== 'situation') renderGrammarForms();
+      applyDraft(); // reprend le tour interrompu, à la place du tirage qu'on vient de faire
+      saveDraft();  // les mots tirés sont persistés dès maintenant, avant la 1re frappe
     }
 
     // Contour vert/rouge par mot après vérification (wordResults : mot→bool)
@@ -4870,6 +5011,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const draft = document.getElementById('sentence-input').value.trim();
       if (draft && draft !== lastSubmittedSentence && !confirm('Tu as une phrase non vérifiée. Continuer quand même ?')) return;
       // La blacklist part depuis resetPracticeUI (appelé plus bas), point unique.
+      clearDraft(); // tour terminé volontairement
       if (freeQueueActive) freeCursor += currentWords.length; // avance d'un batch dans la sélection
       sessionFirstResult  = {};
       previousWordsPool   = [];
@@ -4881,6 +5023,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     function nextSituation() {
       // « Autre situation » = action explicite → on enchaîne directement (pas de
       // bouton « Commencer » intermédiaire).
+      clearDraft();
       resetPracticeUI();
       pickWords();
       if (currentWords.length) startSituation();
@@ -5665,6 +5808,7 @@ Respond entirely in ${feedbackLang}.`;
         if (historyRows.length > 0) savePromises.push(saveHistoryBatch(historyRows));
         if (todayNewCount !== prevNewCount) savePromises.push(saveTodayCount(currentLang, todayNewCount));
         await Promise.all(savePromises);
+        clearDraft(); // progression écrite : plus rien à protéger
 
         // Met à jour le compteur affiché
         if (practiceMode === 'spaced') {
@@ -6076,33 +6220,82 @@ Write all scenarios and explanations in ${langName}.`;
       renderMots();
     }
 
+    // Nom lisible du filtre courant, pour le libellé du bouton.
+    function motsGroupName() {
+      const id = motsGroupFilter;
+      if (id === null) return 'tous';
+      if (id === -1) return '★★★ maîtrisés';
+      if (id === -2) return 'à travailler';
+      if (id === -3) return 'sans groupe';
+      const g = (groupsCache[motsFilter] || []).find(x => x.id === id);
+      return g ? (g.kind === 'lot' ? '📘 ' : '') + g.name : 'groupe';
+    }
+
     async function renderMotsGroupFilters() {
       const box = document.getElementById('mots-group-filters');
       if (motsFilter === 'all') { box.style.display = 'none'; box.innerHTML = ''; return; }
       const lang = motsFilter;
       box.style.display = '';
+      const paint = () => {
+        box.innerHTML =
+          `<button class="group-select-btn${motsGroupFilter === null ? '' : ' active'}" onclick="openMotsGroupPicker()">
+             <span>🏷 groupe : <span class="gsel-val">${escapeHtml(motsGroupName())}</span></span>
+             <span>▾</span>
+           </button>`;
+      };
+      paint(); // le bouton s'affiche tout de suite : sa hauteur ne dépend d'aucun chargement
+      // Seul le NOM d'un vrai groupe demande la liste (cas d'un filtre posé depuis
+      // une pastille de ligne alors qu'on regardait « Tout »).
+      if (motsGroupFilter > 0 && !groupsCache[lang]) {
+        try { await loadGroups(lang); } catch { return; }
+        if (motsFilter === lang) paint();
+      }
+    }
+
+    // Sélecteur de FILTRE : choix unique, contrairement au sélecteur du mode libre
+    // (choix multiple + « Commencer ») qui construit un pool de pratique.
+    async function openMotsGroupPicker() {
+      const lang = motsFilter;
+      if (lang === 'all') return;
+      const list = document.getElementById('mots-group-list');
+      list.innerHTML = '<div style="text-align:center;padding:1rem"><span class="spinner"></span></div>';
+      document.getElementById('mots-group-modal').classList.add('visible');
+      document.getElementById('mots-group-manage').onclick = () => {
+        closeMotsGroupPicker();
+        openGroupsManager(lang, 'screen-mots');
+      };
       let groups = groupsCache[lang];
       if (!groups) {
-        box.innerHTML = '<span style="color:var(--muted);font-size:0.8rem"><span class="spinner"></span></span>';
-        try { groups = await loadGroups(lang); } catch { box.innerHTML = ''; return; }
-        if (motsFilter !== lang) return; // l'utilisateur a changé de langue entre-temps
+        try { groups = await loadGroups(lang); } catch { list.innerHTML = '<div id="free-search-empty">Erreur de chargement.</div>'; return; }
+        if (motsFilter !== lang) return; // langue changée pendant le chargement
       }
       const netOfMot = w => motsStars[lang + '|' + w.toLowerCase()] || 0;
-      const inLang = motsData.filter(m => m.lang === lang);
-      const counts = {
-        '-1': inLang.filter(m => netOfMot(m.word) >= 3).length,
-        '-2': inLang.filter(m => netOfMot(m.word) < 3).length,
-      };
-      const pill = (id, label) =>
-        `<button class="filter-btn ${motsGroupFilter === id ? 'active' : ''}" onclick="setMotsGroupFilter(${id})">${label}</button>`;
-      box.innerHTML =
-        `<button class="filter-btn ${motsGroupFilter === null ? 'active' : ''}" onclick="setMotsGroupFilter(null)">tous</button>` +
-        pill(-1, `★★★ ${counts['-1']}`) +
-        pill(-2, `à travailler ${counts['-2']}`) +
-        pill(-3, 'sans groupe') +
-        groups.filter(g => g.n > 0).map(g =>
-          pill(g.id, `${g.kind === 'lot' ? '📘 ' : ''}${escapeHtml(g.name)} ${g.n}`)).join('') +
-        `<button class="filter-btn" onclick="openGroupsManager('${lang}', 'screen-mots')">⚙ gérer</button>`;
+      const inLang   = motsData.filter(m => m.lang === lang);
+      const row = (id, label, right) =>
+        `<div class="free-pick-row ${motsGroupFilter === id ? 'on' : ''}" onclick="pickMotsGroup(${id})">
+           <span class="fp-word">${label}</span>
+           <span class="fp-count">${right}</span>
+         </div>`;
+      // Les filtres d'abord (ils portent sur la progression), les thèmes ensuite.
+      let html = row(null, 'tous les mots', inLang.length)
+               + row(-1, '★★★ maîtrisés', inLang.filter(m => netOfMot(m.word) >= 3).length)
+               + row(-2, 'à travailler',  inLang.filter(m => netOfMot(m.word) <  3).length)
+               + row(-3, 'sans groupe', '');
+      const real = groups.filter(g => g.n > 0);
+      html += real.length
+        ? `<div style="height:1px;background:var(--border);margin:0.5rem 0"></div>` +
+          real.map(g => row(g.id, (g.kind === 'lot' ? '📘 ' : '') + escapeHtml(g.name), g.n)).join('')
+        : '<div id="free-search-empty">Aucun groupe pour cette langue.</div>';
+      list.innerHTML = html;
+    }
+
+    function closeMotsGroupPicker() {
+      document.getElementById('mots-group-modal').classList.remove('visible');
+    }
+
+    function pickMotsGroup(id) {
+      closeMotsGroupPicker();
+      setMotsGroupFilter(id);
     }
 
     async function setMotsGroupFilter(id) {
@@ -6956,6 +7149,32 @@ Write all scenarios and explanations in ${langName}.`;
       if (submit) submit.disabled = locked;
     }
 
+    // Met en place le champ de réponse pour la situation affichée. Appelée par
+    // generateSituation ET par applyDraft (reprise d'une situation interrompue) :
+    // un seul endroit décide de l'état de cette zone.
+    function showSituationAnswerUI(words) {
+      const isMulti  = words.length > 1;
+      const langInfo = getLang();
+      const label = isMulti
+        ? (langInfo.key === 'English' ? `What are these ${words.length} words?` :
+           langInfo.key === 'Spanish' ? `¿Cuáles son estas ${words.length} palabras?` :
+           langInfo.key === 'Greek'   ? `Ποιες είναι αυτές οι ${words.length} λέξεις;` :
+           `Quels sont ces ${words.length} mots ?`)
+        : (langInfo.key === 'English' ? 'What is this word?' :
+           langInfo.key === 'Spanish' ? '¿Cuál es esta palabra?' :
+           langInfo.key === 'Greek'   ? 'Ποια είναι αυτή η λέξη;' :
+           'Quel est ce mot ?');
+      document.getElementById('situation-prompt-label').textContent = label;
+      document.getElementById('situation-input').placeholder = isMulti
+        ? tPrac('situation_ph_multi')
+        : tPrac('situation_ph');
+      document.getElementById('situation-input').rows = isMulti ? Math.min(6, words.length + 1) : 2;
+      document.getElementById('situation-answer-section').style.display = '';
+      document.getElementById('btn-situation-skip').style.display = '';     // dispo avant de répondre
+      document.getElementById('btn-situation-next').style.display = 'none'; // pas encore répondu
+      lockSituationAnswer(false); // saisie active tant qu'on n'a pas répondu
+    }
+
     async function generateSituation() {
       const words   = currentWords;
       const isMulti = words.length > 1;
@@ -6986,33 +7205,14 @@ Do NOT give a definition. Do NOT use the word. Never quote or paraphrase the lea
         const spacer = document.getElementById('scroll-spacer');
         spacer.style.height = '0'; spacer.style.display = 'none';
         const scroller = startAutoScroll(sitBox, spacer);
-        await callAIStream(prompt, fullText => {
+        _situationRaw = await callAIStream(prompt, fullText => {
           sitText.innerHTML = renderMarkdown(fullText);
           scroller.onChunk();
         });
         scroller.cleanup();
         spacer.style.height = '0'; spacer.style.display = 'none';
         sitBox.style.display = 'block';
-        // Affiche le champ de réponse + adapte label / placeholder selon le nombre de mots
-        const langInfo = getLang();
-        const promptLabel = isMulti
-          ? (langInfo.key === 'English' ? `What are these ${words.length} words?` :
-             langInfo.key === 'Spanish' ? `¿Cuáles son estas ${words.length} palabras?` :
-             langInfo.key === 'Greek'   ? `Ποιες είναι αυτές οι ${words.length} λέξεις;` :
-             `Quels sont ces ${words.length} mots ?`)
-          : (langInfo.key === 'English' ? 'What is this word?' :
-             langInfo.key === 'Spanish' ? '¿Cuál es esta palabra?' :
-             langInfo.key === 'Greek'   ? 'Ποια είναι αυτή η λέξη;' :
-             'Quel est ce mot ?');
-        document.getElementById('situation-prompt-label').textContent = promptLabel;
-        document.getElementById('situation-input').placeholder = isMulti
-          ? tPrac('situation_ph_multi')
-          : tPrac('situation_ph');
-        document.getElementById('situation-input').rows = isMulti ? Math.min(6, words.length + 1) : 2;
-        document.getElementById('situation-answer-section').style.display = '';
-        document.getElementById('btn-situation-skip').style.display = '';     // dispo avant de répondre
-        document.getElementById('btn-situation-next').style.display = 'none'; // pas encore répondu
-        lockSituationAnswer(false); // nouvelle situation → saisie réactivée
+        showSituationAnswerUI(words);
         // Pas d'auto-focus : évite l'ouverture du clavier + le scroll natif iOS à
         // chaque situation (l'utilisateur tape lui-même sur le champ quand il est prêt).
       } catch (err) {
@@ -7133,6 +7333,8 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
           saveHistory(w, r === 'ok');
         }
 
+        clearDraft(); // réponse enregistrée
+
         // Verrouille la saisie SANS masquer la section ; remplace « Je ne sais pas »
         // par « Autre situation » (au même endroit, entre le texte et le champ).
         lockSituationAnswer(true);
@@ -7167,12 +7369,15 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
         saveHistory(word, false);
       }
 
+      clearDraft(); // abandon enregistré
       // Remplace « Je ne sais pas » par « Autre situation » (même emplacement)
       document.getElementById('btn-situation-skip').style.display = 'none';
       document.getElementById('btn-situation-next').style.display = '';
       // Autoscroll : amène le verdict révélé à l'écran (texte statique → scrollIntoView suffit)
       fb.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+
+    document.getElementById('situation-input').addEventListener('input', saveDraftDebounced);
 
     // Cmd+Enter pour soumettre la situation aussi
     document.getElementById('situation-input').addEventListener('keydown', e => {
@@ -7326,6 +7531,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     // ⚠️ Un item sans marqueur est traité en « mineur » et garde sa place : on ne
     // perd jamais une remarque parce que le modèle a oublié l'étiquette.
     const SEV_RE   = /^\s*\[(MAJ|MIN|DET)\]\s*/i;
+    const MAJ_VISIBLE = 3; // graves montrées en entier dans l'état replié
     const SEV_RANK = { MAJ: 0, MIN: 1, DET: 2 };
 
     function hasSeverityTags(body) { return /\[(MAJ|MIN|DET)\]/i.test(body); }
@@ -7342,6 +7548,16 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       return { head: head.join('\n').trim(), items: items.map(l => l.join('\n').trim()) };
     }
 
+    function analysisCounts(body) {
+      const { items } = splitAnalysisItems(body);
+      let maj = 0;
+      for (const txt of items) {
+        const m = txt.match(SEV_RE);
+        if (m && m[1].toUpperCase() === 'MAJ') maj++;
+      }
+      return { maj, other: items.length - maj };
+    }
+
     function sevPill(sev) {
       const key = { MAJ: 'sev_maj', MIN: 'sev_min', DET: 'sev_det' }[sev];
       return `<span class="sev sev-${sev.toLowerCase()}">${tPrac(key)}</span>`;
@@ -7354,13 +7570,26 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         const m = txt.match(SEV_RE);
         return { sev: m ? m[1].toUpperCase() : 'MIN', text: txt.replace(SEV_RE, '') };
       });
-      const one  = it => `<div class="fb-item">${sevPill(it.sev)}${renderMarkdown(it.text)}</div>`;
+      const one  = (it, extra = '') => `<div class="fb-item${extra ? ' ' + extra : ''}">${sevPill(it.sev)}${renderMarkdown(it.text)}</div>`;
       let html   = head ? renderMarkdown(head) : '';
       if (!final) return html + parsed.map(one).join('');
       // Array.prototype.sort est stable : à gravité égale, l'ordre du modèle tient.
       const sorted = parsed.slice().sort((a, b) => SEV_RANK[a.sev] - SEV_RANK[b.sev]);
       const det    = sorted.filter(it => it.sev === 'DET');
-      html += sorted.filter(it => it.sev !== 'DET').map(one).join('');
+      const rest   = sorted.filter(it => it.sev !== 'DET');
+      // Les classes posées ici sont ce sur quoi le CSS s'appuie pour garder les
+      // graves visibles une fois la section repliée (3 au plus, cf. MAJ_VISIBLE).
+      let majSeen = 0;
+      html += rest.map(it => {
+        if (it.sev !== 'MAJ') return one(it);
+        majSeen++;
+        return one(it, 'is-maj' + (majSeen > MAJ_VISIBLE ? ' over-cap' : ''));
+      }).join('');
+      if (majSeen > MAJ_VISIBLE) {
+        const n = majSeen - MAJ_VISIBLE;
+        const lab = n === 1 ? tPrac('fb_more_maj_one') : tPrac('fb_more_maj').replace('{n}', n);
+        html += `<button class="fb-more" onclick="expandFbSection(this)">${lab}</button>`;
+      }
       if (det.length) {
         const lab = det.length === 1 ? tPrac('fb_detail_one') : tPrac('fb_details').replace('{n}', det.length);
         html += `<details class="fb-details"><summary>${lab}</summary>${det.map(one).join('')}</details>`;
@@ -7394,9 +7623,15 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       sections.forEach((s, i) => {
         const collapsed = i === 0 ? '' : 'collapsed'; // verdict ouvert, reste replié
         const title = escapeHtml(s.title || 'Verdict');
-        html += `<div class="fb-section ${collapsed}">
+        // Une section qui porte des remarques graves se replie autrement (voir CSS).
+        const cnt = hasSeverityTags(s.body) ? analysisCounts(s.body) : null;
+        const hasMaj = !!(cnt && cnt.maj);
+        const countHtml = hasMaj
+          ? ` <span class="fb-count">${cnt.maj === 1 ? tPrac('fb_maj_one') : tPrac('fb_maj_n').replace('{n}', cnt.maj)}${cnt.other ? ' · ' + tPrac('fb_other_n').replace('{n}', cnt.other) : ''}</span>`
+          : '';
+        html += `<div class="fb-section ${collapsed}"${hasMaj ? ' data-has-maj' : ''}>
           <div class="fb-head" onclick="toggleFbSection(this)">
-            <span class="fb-title">${title}</span>
+            <span class="fb-title">${title}${countHtml}</span>
             <span class="fb-chevron">▾</span>
           </div>
           <div class="fb-body">${feedbackBodyHtml(s.body, true)}</div>
@@ -7407,6 +7642,9 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     }
 
     function toggleFbSection(head) { head.parentElement.classList.toggle('collapsed'); }
+
+    // « ＋N autres graves » : déplie la section qui porte le bouton.
+    function expandFbSection(btn) { btn.closest('.fb-section').classList.remove('collapsed'); }
 
     function toggleAllFb(btn) {
       const secs = document.querySelectorAll('#feedback-text .fb-section');
@@ -7445,7 +7683,29 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     function isGemini() { return currentModel === 'gemma' || currentModel === 'geminiflash' || currentModel === 'geminiflashlite'; }
     function geminiModelId() { return GEMINI_MODEL_IDS[currentModel] || 'gemma-4-31b-it'; }
     function callAI(prompt, maxTokens)               { checkDailyLimit(); return isGemini() ? callGemini(prompt, maxTokens)              : callMistral(prompt, maxTokens); }
-    function callAIStream(prompt, onChunk, maxTokens) { checkDailyLimit(); return isGemini() ? callGeminiStream(prompt, onChunk, maxTokens) : callMistralStream(prompt, onChunk, maxTokens); }
+    function coalesceChunks(onChunk) {
+      let pending = null, frame = 0;
+      const run = () => {
+        frame = 0;
+        const text = pending;
+        pending = null;
+        if (text !== null) onChunk(text);
+      };
+      return {
+        cb(text) { pending = text; if (!frame) frame = requestAnimationFrame(run); },
+        // Le dernier état doit toujours être rendu, sinon la fin de la réponse
+        // pourrait rester à l'écran dans son avant-dernière version.
+        flush() { if (frame) { cancelAnimationFrame(frame); frame = 0; } if (pending !== null) run(); }
+      };
+    }
+    async function callAIStream(prompt, onChunk, maxTokens) {
+      checkDailyLimit();
+      const c = coalesceChunks(onChunk);
+      try {
+        return await (isGemini() ? callGeminiStream(prompt, c.cb, maxTokens)
+                                 : callMistralStream(prompt, c.cb, maxTokens));
+      } finally { c.flush(); }
+    }
     function callAIVision(imageUrl, prompt, maxTokens){ checkDailyLimit(); return isGemini() ? callGeminiVision(imageUrl, prompt, maxTokens): callMistralVision(imageUrl, prompt, maxTokens); }
 
     // ── Gemini (non-streaming) ─────────────────────────────────
@@ -7553,7 +7813,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         const res = await fetch(`${API_ENDPOINT}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-OpenAI-Key': openaiKey },
-          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: gptMaxTokens(maxTokens), ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } }) }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: gptMaxTokens(maxTokens), reasoning: { effort: gptEffort } }),
           signal: controller.signal
         });
         const data = await res.json();
@@ -7586,7 +7846,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
               { type: 'input_image', image_url: imageUrl }
             ]}],
             max_output_tokens: gptMaxTokens(maxTokens),
-            ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } })
+            reasoning: { effort: gptEffort }
           }),
           signal: controller.signal
         });
@@ -7616,7 +7876,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         res = await fetch(`${API_ENDPOINT}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-OpenAI-Key': openaiKey },
-          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: gptMaxTokens(maxTokens), ...(gptEffort !== 'none' && { reasoning: { effort: gptEffort } }), stream: true }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: gptMaxTokens(maxTokens), reasoning: { effort: gptEffort }, stream: true }),
           signal: controller.signal
         });
       } catch (err) {
@@ -8116,6 +8376,18 @@ Reply with ONLY this JSON object, nothing else:
           <li>Réussir <em>sans aide</em> éloigne la prochaine révision ; échouer ou afficher la définition la ramène à demain.</li>
           <li>Tu choisis combien de <strong>nouveaux mots par jour</strong> dans ⚙️, et le bouton « 📅 mes révisions à venir » montre ton calendrier.</li>
         </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modale : filtrer « mes mots » par groupe (choix unique) ── -->
+  <div class="modal-overlay" id="mots-group-modal" onclick="if(event.target===this)closeMotsGroupPicker()">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeMotsGroupPicker()">✕</button>
+      <h2 class="modal-title">Filtrer par groupe</h2>
+      <div id="mots-group-list" style="max-height:52vh; overflow-y:auto;"></div>
+      <div style="text-align:right; margin-top:0.6rem;">
+        <button class="btn-ghost" style="font-size:0.8rem" id="mots-group-manage">⚙ gérer les groupes</button>
       </div>
     </div>
   </div>
