@@ -1366,6 +1366,8 @@
                   margin-bottom      0.28s cubic-bezier(.32,.72,0,1),
                   opacity            0.17s linear;
     }
+    #kb-fold-sliders { margin-top: -0.75rem; }
+    #kb-fold-sliders .due-count { margin-top: 0; }
     .kb-fold > .kb-fold-in {
       overflow: hidden; min-height: 0; width: 100%;
       display: flex; flex-direction: column; align-items: center; gap: 1.5rem;
@@ -1426,8 +1428,13 @@
     #screen-practice.verifying .btn-submit-inline { display: none; }
     #screen-practice.verifying .textarea-wrap {
       border: none; background: transparent; border-radius: 0;
-      border-left: 2px solid var(--accent); padding: 0.05rem 0 0.05rem 0.7rem;
-      transform: none;
+      border-left: 2px solid var(--accent);
+      padding: 0.05rem 1.5rem 0.05rem 0.7rem;
+      transform: none; cursor: pointer; overflow: visible;
+    }
+    #screen-practice.verifying .textarea-wrap::after {
+      content: '✎'; position: absolute; right: 0; top: 0;
+      color: var(--muted); font-size: 0.8rem; opacity: 0.7;
     }
     #screen-practice.verifying #sentence-banner {
       display: block; font-size: 0.85rem; font-style: italic; color: var(--muted);
@@ -1749,7 +1756,7 @@
     <div class="sentence-section" id="sentence-section">
       <p class="sentence-label" id="sentence-label">Utilise ce mot dans une phrase :</p>
       <div class="grammar-forms-zone" id="grammar-forms-zone" style="display:none;"></div>
-      <div class="textarea-wrap">
+      <div class="textarea-wrap" onclick="reopenSentence()">
         <div id="sentence-banner"></div>
         <textarea id="sentence-input" rows="1" placeholder="Écris ta phrase ici…" data-i18n-ph="sentence_ph"></textarea>
         <button class="btn-submit-inline" id="btn-submit" onclick="submitSentence()" title="Vérifier">↑</button>
@@ -5334,15 +5341,21 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (anchorEl && startTop !== null && !verifying) _keepStill(anchorEl, startTop, 340);
     }
 
-    if (window.visualViewport) {
-      const _vv = window.visualViewport;
-      const _checkKb = () => {
-        const practice = document.getElementById('screen-practice');
-        const onPractice = practice && practice.classList.contains('active');
-        _setKbOpen(!!onPractice && (window.innerHeight - _vv.height) > 150);
-      };
-      _vv.addEventListener('resize', _checkKb, { passive: true });
-    }
+    const _KB_FIELDS = ['sentence-input', 'situation-input'];
+    const _coarse = !window.matchMedia || window.matchMedia('(pointer: coarse)').matches;
+
+    document.addEventListener('focusin', (e) => {
+      if (!_coarse || !_KB_FIELDS.includes(e.target.id)) return;
+      _setKbOpen(true);
+    });
+    document.addEventListener('focusout', (e) => {
+      if (!_coarse || !_KB_FIELDS.includes(e.target.id)) return;
+      // Le focus peut sauter d'un champ à l'autre : on laisse le temps au suivant.
+      setTimeout(() => {
+        const a = document.activeElement;
+        if (!a || !_KB_FIELDS.includes(a.id)) _setKbOpen(false);
+      }, 80);
+    });
 
     // Rattrapage : proposé quand du verdict est arrivé sous le bord de l'écran,
     // jamais imposé. Rien ne se déplace tout seul.
@@ -5354,6 +5367,18 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (!on) { btn.classList.remove('visible'); return; }
       btn.classList.toggle('visible', fb.getBoundingClientRect().bottom > window.innerHeight - 8);
     }
+    // Le bandeau redonne le champ : après une vérification on doit pouvoir
+    // reprendre sa phrase (le textarea est masqué tant qu'on est en bandeau).
+    function reopenSentence() {
+      const practice = document.getElementById('screen-practice');
+      if (!practice.classList.contains('verifying')) return;
+      practice.classList.remove('verifying');
+      _syncCompactWords();
+      const ta = document.getElementById('sentence-input');
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+    }
+
     function catchupToFeedback() {
       const fb = document.getElementById('feedback-box');
       const r  = fb.getBoundingClientRect();
