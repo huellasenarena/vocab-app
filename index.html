@@ -1434,7 +1434,7 @@
     }
     #screen-practice.verifying .textarea-wrap::after {
       content: '✎'; position: absolute; right: 0; top: 0;
-      color: var(--muted); font-size: 0.8rem; opacity: 0.7;
+      color: var(--muted); font-size: 0.8rem; opacity: 0.7; pointer-events: none;
     }
     #screen-practice.verifying #sentence-banner {
       display: block; font-size: 0.85rem; font-style: italic; color: var(--muted);
@@ -1756,8 +1756,8 @@
     <div class="sentence-section" id="sentence-section">
       <p class="sentence-label" id="sentence-label">Utilise ce mot dans une phrase :</p>
       <div class="grammar-forms-zone" id="grammar-forms-zone" style="display:none;"></div>
-      <div class="textarea-wrap" onclick="reopenSentence()">
-        <div id="sentence-banner"></div>
+      <div class="textarea-wrap">
+        <div id="sentence-banner" onclick="reopenSentence()"></div>
         <textarea id="sentence-input" rows="1" placeholder="Écris ta phrase ici…" data-i18n-ph="sentence_ph"></textarea>
         <button class="btn-submit-inline" id="btn-submit" onclick="submitSentence()" title="Vérifier">↑</button>
       </div>
@@ -2724,6 +2724,18 @@
 
     // Plafonne le slider « nombre de mots » au nombre réellement disponible aujourd'hui
     // (en espacé : dûs + nouveaux restants). Empêche de glisser au-delà des mots à faire.
+    // Le brouillon repris peut contenir moins de mots que la valeur souhaitée :
+    // l'affichage suit alors les cartes réellement à l'écran. Rien n'est persisté
+    // — la valeur souhaitée reste celle qu'on a réglée au doigt.
+    function syncSliderToCurrent() {
+      const slider = document.getElementById('word-count-slider');
+      const n = currentWords.length;
+      if (!n) return;
+      const val = Math.min(n, +slider.max || n);
+      slider.value = val;
+      document.getElementById('slider-value').textContent = wordsLabel(val);
+    }
+
     function setWordSliderMax(maxCount) {
       const slider = document.getElementById('word-count-slider');
       const cap    = Math.max(1, Math.min(30, maxCount || 1));
@@ -5042,7 +5054,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
 
       if (practiceMode !== 'situation' && practiceMode !== 'free') renderWordDisplay();
       if (practiceMode !== 'situation') renderGrammarForms();
-      applyDraft(); // reprend le tour interrompu, à la place du tirage qu'on vient de faire
+      // reprend le tour interrompu, à la place du tirage qu'on vient de faire
+      if (applyDraft()) syncSliderToCurrent();
       saveDraft();  // les mots tirés sont persistés dès maintenant, avant la 1re frappe
     }
 
