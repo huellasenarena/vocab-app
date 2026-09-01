@@ -310,6 +310,9 @@
     #screen-practice.spaced-done #revisions-bar,
     #screen-practice.spaced-done #sentence-section { display: none !important; }
     #screen-practice.spaced-done #spaced-done-card { display: flex; }
+    /* wrappers vidés par les règles ci-dessus : sans ça leur gap subsisterait */
+    #screen-practice.spaced-done #kb-fold-sliders,
+    #screen-practice.spaced-done #kb-fold-actions { display: none; }
     #spaced-done-card .done-check { font-size: 3rem; color: var(--success); line-height: 1; }
     #spaced-done-card .done-msg { font-size: 0.9rem; color: var(--muted); margin: 0; }
 
@@ -1345,10 +1348,110 @@
     .spinner-wrap .spinner { margin-right: 0; }
     @keyframes spin    { to { transform: rotate(360deg); } }
     @keyframes fadeIn  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    /* ═══════════ Écrire sous le clavier (2026-09-01) ═══════════
+       Deux gênes traitées par la MÊME idée : au lieu de déplacer des éléments
+       ou de courir après le scroll d'iOS, on retire de la hauteur.
+       1) Clavier ouvert → tout ce qui n'aide pas à écrire se replie, les mots
+          se retrouvent collés au champ SANS changer de parent, et la page
+          tenant dans la zone visible, iOS n'a plus rien à faire sauter.
+       2) Vérification → la phrase monte en bandeau, le verdict s'écrit dessous
+          dans un écran vide : plus besoin de défilement automatique. */
+
+    /* Bloc repliable. grid-template-rows 0fr↔1fr est la seule façon d'animer
+       « hauteur auto → 0 ». La marge négative annule le gap:1.5rem que .screen
+       laisserait autour d'un enfant de hauteur nulle. */
+    .kb-fold {
+      width: 100%; display: grid; grid-template-rows: 1fr; opacity: 1;
+      transition: grid-template-rows 0.28s cubic-bezier(.32,.72,0,1),
+                  margin-bottom      0.28s cubic-bezier(.32,.72,0,1),
+                  opacity            0.17s linear;
+    }
+    .kb-fold > .kb-fold-in {
+      overflow: hidden; min-height: 0; width: 100%;
+      display: flex; flex-direction: column; align-items: center; gap: 1.5rem;
+    }
+    body.kb-open .kb-fold,
+    #screen-practice.verifying #kb-fold-modes,
+    #screen-practice.verifying #kb-fold-sliders {
+      grid-template-rows: 0fr; margin-bottom: -1.5rem; opacity: 0; pointer-events: none;
+    }
+
+    /* ── Les mots pendant qu'on écrit : un fil, pas des cartes ──
+       On a besoin de se rappeler les mots, pas de leurs étoiles. Un fil revient
+       à la ligne au lieu de défiler : aucun mot n'est jamais coupé. */
+    .word-chip, #single-word-card {
+      transition: padding 0.28s cubic-bezier(.32,.72,0,1),
+                  gap     0.28s cubic-bezier(.32,.72,0,1),
+                  border-color 0.15s, background 0.15s;
+    }
+    body.words-compact #multi-word-chips { gap: 0 0.55rem; justify-content: center; }
+    body.words-compact #multi-word-chips .word-chip {
+      flex: 0 0 auto; min-width: 0; flex-direction: row; align-items: baseline;
+      gap: 0.5rem; background: none; border: none; padding: 0; border-radius: 0;
+    }
+    body.words-compact #multi-word-chips .word-chip:not(:last-child)::after {
+      content: '·'; color: var(--muted); font-size: 0.95rem;
+    }
+    body.words-compact .word-chip .chip-stars,
+    body.words-compact .word-chip .chip-note,
+    body.words-compact .card-actions { display: none; }
+    body.words-compact .word-chip .chip-word { font-size: 0.95rem; }
+    /* Le verdict se lit en couleur et en barré, faute de bordure à colorer */
+    body.words-compact .word-chip.chip-correct   .chip-word { color: var(--success); }
+    body.words-compact .word-chip.chip-incorrect .chip-word { color: #e05a5a; text-decoration: line-through; }
+
+    body.words-compact #single-word-card {
+      background: none; border: none; padding: 0.1rem 0; gap: 0.2rem;
+    }
+    body.words-compact #single-word-card .word-label,
+    body.words-compact #single-word-card .word-meta,
+    body.words-compact #single-word-card .word-note { display: none; }
+    body.words-compact #single-word-card .word-main { font-size: 1.05rem; }
+    body.words-compact #single-word-card.card-correct   .word-main { color: var(--success); }
+    body.words-compact #single-word-card.card-incorrect .word-main { color: #e05a5a; text-decoration: line-through; }
+
+    /* ── Vérification : la phrase monte en haut, le verdict s'écrit dessous ── */
+    #sentence-banner { display: none; }
+    #screen-practice.verifying .practice-header    { order: -6; }
+    #screen-practice.verifying #settings-panel     { order: -5; }
+    #screen-practice.verifying #sentence-section   { order: -4; }
+    #screen-practice.verifying #single-word-card,
+    #screen-practice.verifying #multi-word-chips  { order: -3; }
+    #screen-practice.verifying #feedback-box      { order: -2; }
+    /* boutons et définition restent accessibles, mais SOUS le verdict */
+    #screen-practice.verifying #kb-fold-actions   { order: 1; }
+    #screen-practice.verifying #sentence-label,
+    #screen-practice.verifying #sentence-input,
+    #screen-practice.verifying #grammar-forms-zone,
+    #screen-practice.verifying .btn-submit-inline { display: none; }
+    #screen-practice.verifying .textarea-wrap {
+      border: none; background: transparent; border-radius: 0;
+      border-left: 2px solid var(--accent); padding: 0.05rem 0 0.05rem 0.7rem;
+      transform: none;
+    }
+    #screen-practice.verifying #sentence-banner {
+      display: block; font-size: 0.85rem; font-style: italic; color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5;
+    }
+
+    /* Rattrapage : proposé, jamais imposé — rien ne se déplace tout seul */
+    #catchup-btn {
+      position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 600;
+      display: none; background: var(--accent); color: var(--bg); border: none;
+      border-radius: 999px; font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      padding: 0.5rem 1rem; box-shadow: 0 4px 16px rgba(0,0,0,0.5); cursor: pointer;
+    }
+    #catchup-btn.visible { display: block; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .kb-fold, .word-chip, #single-word-card { transition: none; }
+    }
+
   </style>
 </head>
 <body>
 <div id="status-curtain"></div>
+<button id="catchup-btn" onclick="catchupToFeedback()">↓ suite du verdict</button>
 <div id="sticky-words-bar">
   <span id="sticky-words-text"></span>
   <button id="sticky-hide-btn" onclick="toggleWordsHidden()" title="Cacher/Montrer">👁</button>
@@ -1523,14 +1626,17 @@
     </div>
 
     <!-- Toggle mode espacé / situation / libre -->
+    <div class="kb-fold" id="kb-fold-modes"><div class="kb-fold-in">
     <div class="mode-toggle">
       <button class="mode-btn active" id="btn-mode-spaced"    onclick="setMode('spaced')" data-i18n="mode_spaced">📅<br>Espacée</button>
       <button class="mode-btn"        id="btn-mode-situation" onclick="setMode('situation')" data-i18n="mode_situation">🎯<br>Situation</button>
       <button class="mode-btn"        id="btn-mode-free"      onclick="setMode('free')" data-i18n="mode_free">🎲<br>Libre</button>
       <button class="mode-btn"        id="btn-mode-image"     onclick="setMode('image')" data-i18n="mode_image">📸<br>Imagen</button>
     </div>
+    </div></div>
     <!-- Section vocab (cachée en mode image) -->
     <div id="vocab-section">
+    <div class="kb-fold" id="kb-fold-sliders"><div class="kb-fold-in">
     <p class="due-count" id="due-count"></p>
 
     <!-- Slider nombre de mots -->
@@ -1560,6 +1666,7 @@
       <input type="range" id="grammar-count-slider" min="1" max="10" value="1"
         oninput="onGrammarSliderChange(this.value)" />
     </div>
+    </div></div>
 
     <!-- Mot unique -->
     <div id="single-word-card" class="word-card" onclick="singleCardHint()" style="cursor:pointer">
@@ -1598,6 +1705,7 @@
     </div>
 
     <!-- Bouton suivant -->
+    <div class="kb-fold" id="kb-fold-actions"><div class="kb-fold-in">
     <div class="action-row">
       <button id="btn-hide-words" onclick="toggleWordsHidden()" data-i18n="btn_hide">👁 Cacher</button>
       <button class="btn-primary" id="btn-next" onclick="nextWord()" data-i18n="btn_next_word">Autre mot →</button>
@@ -1626,6 +1734,7 @@
       <div class="hint-label"><span id="word-image-label">🖼</span></div>
       <div class="hint-body" id="word-image-body"></div>
     </div>
+    </div></div><!-- /kb-fold-actions -->
     </div><!-- /vocab-section -->
 
     <!-- Section photo (mode image) -->
@@ -1641,6 +1750,7 @@
       <p class="sentence-label" id="sentence-label">Utilise ce mot dans une phrase :</p>
       <div class="grammar-forms-zone" id="grammar-forms-zone" style="display:none;"></div>
       <div class="textarea-wrap">
+        <div id="sentence-banner"></div>
         <textarea id="sentence-input" rows="1" placeholder="Écris ta phrase ici…" data-i18n-ph="sentence_ph"></textarea>
         <button class="btn-submit-inline" id="btn-submit" onclick="submitSentence()" title="Vérifier">↑</button>
       </div>
@@ -3531,6 +3641,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const btnHide = document.getElementById('btn-hide-words');
       if (btnHide) { btnHide.classList.remove('active'); btnHide.textContent = tPrac('btn_hide'); }
       document.getElementById('sticky-words-bar').classList.remove('visible');
+      document.getElementById('screen-practice').classList.remove('verifying');
+      document.getElementById('sentence-banner').textContent = '';
+      document.getElementById('catchup-btn').classList.remove('visible');
+      _syncCompactWords();
       // Situation
       document.getElementById('situation-start').style.display         = 'none';
       document.getElementById('btn-situation-skip').style.display      = 'none';
@@ -5176,6 +5290,78 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // On ne le pré-alloue JAMAIS : un rectangle vide de la hauteur d'un écran
     // s'ouvrait sous la boîte dès le clic sur « Vérifier ». Il grandit — et
     // n'apparaît — que lorsque le scroll a réellement besoin de place.
+    // ═══════════ Écrire sous le clavier (2026-09-01) ═══════════
+    // La condition n'est PAS « iOS » mais « un clavier virtuel occupe l'écran » :
+    // sur Mac visualViewport.height ne bouge jamais, sur iPad avec clavier
+    // physique non plus. Rien à débrancher ailleurs, et pas un _isIOS de plus.
+    let _kbOpen = false;
+
+    function _wordsAnchorEl() {
+      const chips = document.getElementById('multi-word-chips');
+      if (chips && chips.offsetParent) return chips;
+      const card = document.getElementById('single-word-card');
+      return (card && card.offsetParent) ? card : null;
+    }
+
+    // Garde un élément à la même place à l'écran pendant que la page se replie
+    // au-dessus de lui : sans ça les mots glissent sous l'œil au moment précis
+    // où on les regarde pour écrire.
+    function _keepStill(el, startTop, dur) {
+      const t0 = performance.now();
+      (function loop() {
+        if (!el.offsetParent) return;
+        const d = el.getBoundingClientRect().top - startTop;
+        if (Math.abs(d) > 0.5) window.scrollBy(0, d);
+        if (performance.now() - t0 < dur) requestAnimationFrame(loop);
+      })();
+    }
+
+    function _syncCompactWords() {
+      const verifying = document.getElementById('screen-practice').classList.contains('verifying');
+      document.body.classList.toggle('words-compact', _kbOpen || verifying);
+    }
+
+    function _setKbOpen(open) {
+      if (open === _kbOpen) return;
+      _kbOpen = open;
+      const anchorEl = _wordsAnchorEl();
+      const startTop = anchorEl ? anchorEl.getBoundingClientRect().top : null;
+      document.body.classList.toggle('kb-open', open);
+      _syncCompactWords();
+      // Pendant la vérification, l'écran se recompose volontairement : compenser
+      // le scroll ici annulerait la remontée du bandeau.
+      const verifying = document.getElementById('screen-practice').classList.contains('verifying');
+      if (anchorEl && startTop !== null && !verifying) _keepStill(anchorEl, startTop, 340);
+    }
+
+    if (window.visualViewport) {
+      const _vv = window.visualViewport;
+      const _checkKb = () => {
+        const practice = document.getElementById('screen-practice');
+        const onPractice = practice && practice.classList.contains('active');
+        _setKbOpen(!!onPractice && (window.innerHeight - _vv.height) > 150);
+      };
+      _vv.addEventListener('resize', _checkKb, { passive: true });
+    }
+
+    // Rattrapage : proposé quand du verdict est arrivé sous le bord de l'écran,
+    // jamais imposé. Rien ne se déplace tout seul.
+    function updateCatchup() {
+      const btn = document.getElementById('catchup-btn');
+      const fb  = document.getElementById('feedback-box');
+      const on  = document.getElementById('screen-practice').classList.contains('verifying')
+                  && fb.classList.contains('visible');
+      if (!on) { btn.classList.remove('visible'); return; }
+      btn.classList.toggle('visible', fb.getBoundingClientRect().bottom > window.innerHeight - 8);
+    }
+    function catchupToFeedback() {
+      const fb = document.getElementById('feedback-box');
+      const r  = fb.getBoundingClientRect();
+      window.scrollTo({ top: window.scrollY + r.bottom - window.innerHeight + 24, behavior: 'smooth' });
+      setTimeout(updateCatchup, 500);
+    }
+    window.addEventListener('scroll', updateCatchup, { passive: true });
+
     function growSpacer(spacer, px) {
       if (!spacer || px <= 0) return;
       spacer.style.height  = (spacer.offsetHeight + px) + 'px';
@@ -5559,6 +5745,17 @@ Reply with ONLY this JSON object, nothing else:
       lastSubmittedSentence = sentence;
       revealHiddenWords(); // les mots cachés réapparaissent dès la vérification
 
+      // La phrase monte en bandeau, les mots passent en fil sous elle, et le
+      // verdict s'écrira juste dessous dans un écran vide : plus rien à faire
+      // défiler pendant qu'on lit. Le clavier se ferme — sans ça iOS pousse la
+      // boîte derrière lui (startAutoScroll mesurait window.innerHeight, qui
+      // ignore le clavier).
+      document.getElementById('sentence-banner').textContent = sentence;
+      document.getElementById('screen-practice').classList.add('verifying');
+      _syncCompactWords();
+      document.getElementById('sentence-input').blur();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
       const btn = document.getElementById('btn-submit');
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span>';
@@ -5687,7 +5884,9 @@ Respond entirely in ${feedbackLang}.`;
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
         const evalMaxTokens = isGemini() ? 2000 + sWords.length * 400 : 16000;
-        const scroller = startAutoScroll(feedbackBox, spacer);
+        // Le verdict démarre en haut d'un écran vide : aucun défilement à faire.
+        // stoppedAtTop:true neutralise aussi le recalage final plus bas.
+        const scroller = { onChunk: updateCatchup, cleanup() {}, stoppedAtTop: true };
         const reply = await callAIStream(prompt, fullText => {
           // Sections repliables dès le streaming : les sections finies se replient
           // au fur et à mesure, seule celle en cours reste ouverte.
@@ -5889,6 +6088,10 @@ Respond entirely in ${feedbackLang}.`;
 
       } catch (err) {
         lastSubmittedSentence = null; // permet de réessayer la même phrase après une erreur
+        // On ressort du mode bandeau : sur erreur, la phrase doit redevenir
+        // modifiable (le textarea est masqué pendant la vérification).
+        document.getElementById('screen-practice').classList.remove('verifying');
+        _syncCompactWords();
         feedbackText.innerHTML = `<span>${tPrac('err_prefix')} ${err.message}</span>
           <button class="btn-secondary" style="margin-top:0.5rem" onclick="submitSentence()">${tPrac('retry')}</button>`;
         feedbackBox.classList.add('visible', 'incorrect');
