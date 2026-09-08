@@ -14,3 +14,10 @@ __pycache__/
 .token
 .openai_key
 .kindle_cache.json
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
