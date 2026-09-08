@@ -273,6 +273,67 @@
       border-radius: 8px;
       overflow: hidden;
     }
+    #screen-practice.session-mode #single-word-card,
+    #screen-practice.session-mode #multi-word-chips,
+    #screen-practice.session-mode .slider-section,
+    #screen-practice.session-mode #sentence-section,
+    #screen-practice.session-mode #due-count,
+    #screen-practice.session-mode #free-search-bar,
+    #screen-practice.session-mode #feedback-box,
+    #screen-practice.session-mode #btn-next-below,
+    #screen-practice.session-mode .action-row,
+    #screen-practice.session-mode #btn-hide-words,
+    #screen-practice.session-mode #no-count-notice,
+    #screen-practice.session-mode #qcm-section,
+    #screen-practice.session-mode #qcm-offer,
+    #screen-practice.session-mode #related-box,
+    #screen-practice.session-mode #confirm-panel,
+    #screen-practice.session-mode #spaced-done-card { display: none !important; }
+
+    .mode-current {
+      display: flex; align-items: center; justify-content: center; gap: 0.45rem;
+      width: 100%;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); border-radius: 10px; padding: 0.5rem 0.9rem;
+      font-size: 0.98rem; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .mode-current:active { opacity: 0.7; }
+    .mode-chev { color: var(--muted); font-size: 0.7rem; }
+
+    /* ── Séance (mode pratique) ── */
+    #session-section { width: 100%; }
+    .session-head { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.4rem; }
+    #session-choices { display: flex; flex-direction: column; gap: 0.6rem; }
+    #session-result:not(:empty) { margin-top: 0.9rem; }
+    .session-count { font-size: 0.82rem; color: var(--muted); }
+    .session-track { height: 4px; border-radius: 3px; background: var(--surface); overflow: hidden; }
+    .session-fill  { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.25s; }
+    .session-word  { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 0.3rem; }
+    .session-def   { font-size: 0.92rem; color: var(--muted); text-align: center; margin-bottom: 1rem; }
+    .session-q     { font-size: 0.95rem; margin-bottom: 1rem; text-align: center; color: var(--muted); }
+    .session-actions { display: flex; justify-content: center; margin-top: 1.1rem; }
+    .session-note  { font-size: 0.85rem; color: var(--muted); margin-top: 0.8rem; text-align: center; }
+    .cloze-text    { font-size: 1.02rem; line-height: 2.05; margin-bottom: 1.3rem; }
+    .cloze-blank {
+      display: inline-block; min-width: 4.2em; padding: 0.05em 0.35em;
+      border: none; border-bottom: 2px solid var(--border); border-radius: 3px 3px 0 0;
+      background: rgba(255,255,255,0.035);
+      color: var(--text); font: inherit; font-size: 0.95rem; cursor: pointer; text-align: center;
+      vertical-align: baseline;
+    }
+    .cloze-blank.empty { color: var(--muted); letter-spacing: 0.1em; }
+    .cloze-blank.active { border-bottom-color: var(--accent); background: rgba(212,175,55,0.08); }
+    .cloze-blank.ok  { border-bottom-color: var(--success); color: var(--success); }
+    .cloze-blank.ko  { border-bottom-color: #e05a5a; color: #e05a5a; text-decoration: line-through; }
+    .cloze-fix { color: var(--success); font-weight: 600; font-size: 0.92rem; }
+    .cloze-bank { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; }
+    .cloze-chip {
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      border-radius: 20px; padding: 0.34rem 0.8rem; font-size: 0.93rem; cursor: pointer; font-family: inherit;
+    }
+    .cloze-chip.used { opacity: 0.3; }
+    .cloze-chip:active { opacity: 0.6; }
+
     .mode-btn {
       flex: 1;
       background: transparent;
@@ -1398,7 +1459,13 @@
     body.words-compact .word-chip .chip-note,
     body.words-compact .card-actions { display: none; }
     body.words-compact .word-chip .chip-word { font-size: 0.95rem; }
-    /* Le verdict se lit en couleur et en barré, faute de bordure à colorer */
+    /* Le verdict se lit en couleur et en barré, faute de bordure à colorer.
+       ⚠️ `border: none` ne suffit pas : la règle générale pose aussi un
+       `box-shadow` d'1px qui redessinait une boîte autour de chaque mot. */
+    body.words-compact .word-chip.chip-correct,
+    body.words-compact .word-chip.chip-incorrect,
+    body.words-compact #single-word-card.card-correct,
+    body.words-compact #single-word-card.card-incorrect { box-shadow: none; }
     body.words-compact .word-chip.chip-correct   .chip-word { color: var(--success); }
     body.words-compact .word-chip.chip-incorrect .chip-word { color: #e05a5a; text-decoration: line-through; }
 
@@ -1635,10 +1702,9 @@
     <!-- Toggle mode espacé / situation / libre -->
     <div class="kb-fold" id="kb-fold-modes"><div class="kb-fold-in">
     <div class="mode-toggle">
-      <button class="mode-btn active" id="btn-mode-spaced"    onclick="setMode('spaced')" data-i18n="mode_spaced">📅<br>Espacée</button>
-      <button class="mode-btn"        id="btn-mode-situation" onclick="setMode('situation')" data-i18n="mode_situation">🎯<br>Situation</button>
-      <button class="mode-btn"        id="btn-mode-free"      onclick="setMode('free')" data-i18n="mode_free">🎲<br>Libre</button>
-      <button class="mode-btn"        id="btn-mode-image"     onclick="setMode('image')" data-i18n="mode_image">📸<br>Imagen</button>
+      <button class="mode-current" id="mode-current-btn" onclick="openModeMenu(event)">
+        <span id="mode-current-label">📅 Espacée</span><span class="mode-chev">▾</span>
+      </button>
     </div>
     </div></div>
     <!-- Section vocab (cachée en mode image) -->
@@ -1693,6 +1759,15 @@
 
     <!-- Multi-mots chips -->
     <div id="multi-word-chips" class="words-chips" style="display:none;"></div>
+
+    <!-- Mode pratique quotidienne -->
+    <div id="session-section" style="display:none;">
+      <div class="session-head">
+        <span class="session-count" id="session-count"></span>
+        <div class="session-track"><div class="session-fill" id="session-fill"></div></div>
+      </div>
+      <div id="session-body"></div>
+    </div>
 
     <!-- Carte « terminé pour aujourd'hui » (mode espacé) -->
     <div id="spaced-done-card" class="word-card">
@@ -2181,6 +2256,22 @@
       // — écran pratique (suit la langue pratiquée) —
       set_grammar:      { en: `Grammar forms ({lang})`, fr: `Formes grammaticales ({lang})`, es: `Formas gramaticales ({lang})`, el: `Γραμματικοί τύποι ({lang})` },
       set_max_new:      { en: `New words / day (spaced)`, fr: `Nouveaux mots / jour (espacé)`, es: `Palabras nuevas / día (espaciada)`, el: `Νέες λέξεις / ημέρα (κατανεμημένη)` },
+      modem_practice:   { en: `📝 Practice`, fr: `📝 Pratique`, es: `📝 Práctica`, el: `📝 Εξάσκηση` },
+      modem_spaced:     { en: `📅 Spaced`, fr: `📅 Espacée`, es: `📅 Espaciada`, el: `📅 Κατανεμημένη` },
+      modem_situation:  { en: `🎯 Situation`, fr: `🎯 Situation`, es: `🎯 Situación`, el: `🎯 Κατάσταση` },
+      modem_free:       { en: `🎲 Free`, fr: `🎲 Libre`, es: `🎲 Libre`, el: `🎲 Ελεύθερη` },
+      modem_image:      { en: `📸 Imagen`, fr: `📸 Imagen`, es: `📸 Imagen`, el: `📸 Imagen` },
+      sess_progress:    { en: `{a} of {b}`, fr: `{a} sur {b}`, es: `{a} de {b}`, el: `{a} από {b}` },
+      sess_which:       { en: `In which situation does this word fit?`, fr: `Dans quelle situation ce mot s'emploie-t-il ?`, es: `¿En qué situación se usa esta palabra?`, el: `Σε ποια περίπτωση ταιριάζει η λέξη;` },
+      sess_dunno:       { en: `I don't know`, fr: `Je ne sais pas`, es: `No lo sé`, el: `Δεν ξέρω` },
+      sess_def:         { en: `Definition`, fr: `Définition`, es: `Definición`, el: `Ορισμός` },
+      sess_next:        { en: `Next →`, fr: `Suivant →`, es: `Siguiente →`, el: `Επόμενο →` },
+      sess_check:       { en: `Check`, fr: `Vérifier`, es: `Comprobar`, el: `Έλεγχος` },
+      sess_writing:     { en: `Writing the text…`, fr: `Rédaction du texte…`, es: `Redactando el texto…`, el: `Σύνταξη κειμένου…` },
+      sess_done:        { en: `Session complete`, fr: `Séance terminée`, es: `Sesión terminada`, el: `Η συνεδρία ολοκληρώθηκε` },
+      sess_empty:       { en: `Nothing due today.`, fr: `Rien à faire aujourd'hui.`, es: `Nada para hoy.`, el: `Τίποτα για σήμερα.` },
+      sess_score:       { en: `{a} of {b} correct`, fr: `{a} sur {b} justes`, es: `{a} de {b} correctas`, el: `{a} από {b} σωστά` },
+      sess_inbase:      { en: `in your list: {w}`, fr: `dans ta liste : {w}`, es: `en tu lista: {w}`, el: `στη λίστα σου: {w}` },
       mode_spaced:      { en: `📅<br>Spaced`, fr: `📅<br>Espacée`, es: `📅<br>Espaciada`, el: `📅<br>Κατανεμημένη` },
       mode_situation:   { en: `🎯<br>Situation`, fr: `🎯<br>Situation`, es: `🎯<br>Situación`, el: `🎯<br>Περίσταση` },
       mode_free:        { en: `🎲<br>Free`, fr: `🎲<br>Libre`, es: `🎲<br>Libre`, el: `🎲<br>Ελεύθερη` },
@@ -3081,7 +3172,10 @@
       // (table `grammar_forms` par langue) — la section s'affiche s'il y en a.
       const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(lang), loadTodayTokens(), loadBlacklist(lang), loadGrammarForms() ];
       await Promise.all(loadFns);
-      pickWords();
+      updateModeLabel();
+      document.getElementById('screen-practice').classList.toggle('session-mode', practiceMode === 'practice');
+      document.getElementById('session-section').style.display = practiceMode === 'practice' ? '' : 'none';
+      if (practiceMode === 'practice') startSession(); else pickWords();
       updateFreeSearchBar();
     }
 
@@ -3308,7 +3402,8 @@
     const _settingsDenylist = new Set([KEY_JWT, KEY_PWD_OK, KEY_OPENAI_KEY, KEY_GEMINI_KEY]);
     function _isSyncableSettingKey(k) {
       return k && k.startsWith('vocab_') && !_settingsDenylist.has(k)
-             && !k.startsWith('vocab_today_new_') && !k.startsWith(KEY_DRAFT + '_');
+             && !k.startsWith('vocab_today_new_') && !k.startsWith(KEY_DRAFT + '_')
+             && !k.startsWith(KEY_QCM_SEEN);
     }
     function collectSettings() {
       const o = {};
@@ -3715,10 +3810,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       freeLap = 1;
       freeQueueLabel = '';
       freeQueueActive = false;
-      document.getElementById('btn-mode-spaced').classList.toggle('active',    mode === 'spaced');
-      document.getElementById('btn-mode-free').classList.toggle('active',      mode === 'free');
-      document.getElementById('btn-mode-situation').classList.toggle('active', mode === 'situation');
-      document.getElementById('btn-mode-image').classList.toggle('active',     mode === 'image');
+      updateModeLabel();
+      // Le mode pratique pilote son propre écran : les sliders, la carte du mot et la
+      // zone de phrase n'ont pas de sens et sont masqués par la classe (cf. CSS).
+      document.getElementById('screen-practice').classList.toggle('session-mode', mode === 'practice');
+      document.getElementById('session-section').style.display = mode === 'practice' ? '' : 'none';
 
       setSpacedDone(false); // on quitte l'état « terminé » en changeant de mode
 
@@ -3756,11 +3852,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       resetPracticeUI();
       lastSubmittedSentence = '';
 
-      if (isImage) {
-        newPracticePhoto();
-      } else {
-        pickWords();
-      }
+      if (isImage)                 newPracticePhoto();
+      else if (mode === 'practice') startSession();
+      else                          pickWords();
       updateFreeSearchBar();
     }
 
@@ -6142,6 +6236,69 @@ Respond entirely in ${feedbackLang}.`;
     }
 
     // ── QCM ───────────────────────────────────────────────────
+    // ── Mémoire des QCM déjà servis ─────────────────────────────────────
+    // Un mot revient trois fois ou plus : sans mémoire, le modèle repropose des
+    // scénarios quasi identiques et on finit par reconnaître la forme de la
+    // bonne réponse au lieu de connaître le mot. Local à l'appareil et exclu de
+    // la sync : c'est un garde-fou de génération, pas un réglage.
+    const KEY_QCM_SEEN = 'vocab_qcm_seen';
+    const QCM_SEEN_MAX = 8;
+
+    function _qcmSeenAll() {
+      try { return JSON.parse(localStorage.getItem(KEY_QCM_SEEN + '_' + currentLang) || '{}'); }
+      catch (e) { return {}; }
+    }
+    function qcmSeenFor(word) { return _qcmSeenAll()[lc(word)] || []; }
+    function rememberQCM(word, choices) {
+      if (!Array.isArray(choices) || !choices.length) return;
+      const all = _qcmSeenAll();
+      const key = lc(word);
+      const seen = all[key] || [];
+      const right = choices.find(c => c.correct);
+      if (right && right.text) seen.unshift(String(right.text).slice(0, 110));
+      all[key] = seen.slice(0, QCM_SEEN_MAX);
+      try { localStorage.setItem(KEY_QCM_SEEN + '_' + currentLang, JSON.stringify(all)); } catch (e) {}
+    }
+
+    // Prompt du QCM — partagé par le QCM d'après-verdict et celui de la séance.
+    function qcmPrompt(word) {
+      const langName = getLang().mistralName;
+      const qcmBase  = lc(wordBase(word));
+      const seen     = qcmSeenFor(word);
+      const avoid    = seen.length
+        ? `\n\nALREADY USED for this word in past quizzes — do not reuse these situations,
+nor a close variant of them (same setting, same actors, same twist):
+${seen.map(t => '- ' + t).join('\n')}\n`
+        : '';
+      return `You are a vocabulary teacher creating a challenging multiple-choice quiz in ${langName}.
+
+The word to test is: "${qcmBase}"${entryContext(qcmWord)}
+
+Generate exactly 4 short scenarios (1-2 sentences each):
+- 1 scenario where "${qcmBase}" is the natural, correct word to use
+- 3 distractor scenarios: situations that sound plausible but where "${qcmBase}" would be wrong or unnatural — use semantically close contexts that could genuinely fool a learner who doesn't know the word well
+
+CRITICAL: Do NOT include the word "${qcmBase}" (or any of its inflected forms) in any of the 4 scenarios. The learner must identify the correct context without seeing the word.
+
+CRITICAL — ONLY ONE SCENARIO MAY BE AN EXAMPLE OF THE WORD. Before you answer, test each
+distractor: name the word that would actually fit it. If that word is "${qcmBase}", a synonym
+of it, or if the scenario is a textbook illustration of "${qcmBase}", the distractor is wrong —
+replace it. The correct scenario must be the most prototypical use of "${qcmBase}"; a distractor
+must never be a BETTER example of it than the correct one.${avoid}
+
+Return ONLY a JSON array of 4 objects, no other text, no markdown:
+[
+  {"text": "...", "correct": true, "explanation": "..."},
+  {"text": "...", "correct": false, "explanation": "..."},
+  {"text": "...", "correct": false, "explanation": "..."},
+  {"text": "...", "correct": false, "explanation": "..."}
+]
+
+"explanation" = ONE short sentence in ${langName} explaining WHY "${qcmBase}" fits that scenario (for the correct one) or why it would be wrong/unnatural there (for the distractors). The explanation MAY mention the word and what the natural word would be instead.
+
+Write all scenarios and explanations in ${langName}.`;
+    }
+
     async function startQCM(word) {
       qcmWord = word;
       _qcmStartedWords.add(lc(word));
@@ -6165,28 +6322,7 @@ Respond entirely in ${feedbackLang}.`;
 
       const langName = getLang().mistralName;
 
-      const qcmBase = lc(wordBase(qcmWord));
-      const prompt = `You are a vocabulary teacher creating a challenging multiple-choice quiz in ${langName}.
-
-The word to test is: "${qcmBase}"${entryContext(qcmWord)}
-
-Generate exactly 4 short scenarios (1-2 sentences each):
-- 1 scenario where "${qcmBase}" is the natural, correct word to use
-- 3 distractor scenarios: situations that sound plausible but where "${qcmBase}" would be wrong or unnatural — use semantically close contexts that could genuinely fool a learner who doesn't know the word well
-
-CRITICAL: Do NOT include the word "${qcmBase}" (or any of its inflected forms) in any of the 4 scenarios. The learner must identify the correct context without seeing the word.
-
-Return ONLY a JSON array of 4 objects, no other text, no markdown:
-[
-  {"text": "...", "correct": true, "explanation": "..."},
-  {"text": "...", "correct": false, "explanation": "..."},
-  {"text": "...", "correct": false, "explanation": "..."},
-  {"text": "...", "correct": false, "explanation": "..."}
-]
-
-"explanation" = ONE short sentence in ${langName} explaining WHY "${qcmBase}" fits that scenario (for the correct one) or why it would be wrong/unnatural there (for the distractors). The explanation MAY mention the word and what the natural word would be instead.
-
-Write all scenarios and explanations in ${langName}.`;
+      const prompt = qcmPrompt(qcmWord);
 
       try {
         // GPT-5.4 : 2000 min (reasoning ~1024 + texte) ; Gemini : 1500 (4 scénarios longs)
@@ -6198,6 +6334,7 @@ Write all scenarios and explanations in ${langName}.`;
         if (jsonStart === -1 || jsonEnd <= jsonStart) throw new Error('Format inattendu — ' + stripped.slice(0, 120));
         const choices = JSON.parse(stripped.slice(jsonStart, jsonEnd + 1));
 
+        rememberQCM(qcmWord, choices);
         // Shuffle so the correct answer isn't always first
         shuffleInPlace(choices);
         _qcmChoices = choices;
@@ -6404,6 +6541,472 @@ Write all scenarios and explanations in ${langName}.`;
     }
 
     // ── Écriture historique ───────────────────────────────────
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MODE PRATIQUE QUOTIDIENNE
+    //  Un exercice par mot, choisi selon ce qu'on sait déjà de lui.
+    //  La révision espacée décide QUELS mots tombent ; le palier décide COMMENT
+    //  on les demande. Les deux mécanismes s'ignorent.
+    // ═══════════════════════════════════════════════════════════════════
+
+    const SESSION_BUDGET      = 12; // items par séance, rappels d'abord
+    const SESSION_MAX_NEW     = 5;  // plafond de mots neufs — lisse le démarrage
+    const CLOZE_MAX           = 8;  // trous dans un texte
+    const CLOZE_MIN           = 4;  // en dessous, on complète avec des mots plus avancés
+    // Palier lu sur le NET (correct - incorrect), c'est-à-dire les étoiles : ★★☆ → trous.
+    // Un mot neuf réussi passe par saveProgressNew, qui laisse le net à 0 — le seuil 2
+    // vaut donc bien TROIS rencontres réussies. Et comme un échec retire 1, un mot raté
+    // deux fois redescend tout seul au QCM : pas de compteur d'échecs à tenir.
+    const CLOZE_AT_NET        = 2;
+
+    let sessionItems   = [];
+    let sessionIdx     = 0;
+    let sessionOk      = 0;
+    let _sessionBusy   = false;
+    let _clozePromise  = null;
+    let _clozeState    = null; // { text, blanks[], bank[], filled{}, active }
+
+    const MODE_KEYS = ['practice', 'spaced', 'situation', 'free', 'image'];
+
+    function updateModeLabel() {
+      const el = document.getElementById('mode-current-label');
+      if (el) el.innerHTML = tApp('modem_' + practiceMode);
+    }
+
+    function openModeMenu(ev) {
+      ev.stopPropagation(); // sinon le listener global referme aussitôt
+      _ctxWord = null;
+      document.getElementById('word-ctx-label').textContent = '';
+      document.getElementById('ctx-langs').innerHTML = MODE_KEYS.map(k =>
+        `<button class="ctx-menu-btn" onclick="pickMode('${k}')">${k === practiceMode ? '✓ ' : ''}${tApp('modem_' + k)}</button>`
+      ).join('');
+      document.getElementById('ctx-main').style.display  = 'none';
+      document.getElementById('ctx-langs').style.display = '';
+      const r = ev.currentTarget.getBoundingClientRect();
+      positionCtxMenu(r.right - 4, r.bottom + 4);
+    }
+
+    function pickMode(m) {
+      closeWordContextMenu();
+      if (m !== practiceMode) setMode(m);
+    }
+
+    function netOf(word) {
+      const p = progressMap[lc(word)];
+      return p ? (p.correct || 0) - (p.incorrect || 0) : 0;
+    }
+
+    function sessionLevel(word) {
+      const p = progressMap[lc(word)];
+      const net = p ? (p.correct || 0) - (p.incorrect || 0) : 0;
+      return net >= CLOZE_AT_NET ? 'cloze' : 'qcm';
+    }
+
+    // Budget fixe : les rappels dus d'abord, les neufs seulement pour la place
+    // qui reste. Sans ce plafond la séance double en une semaine et on décroche.
+    function buildSessionItems() {
+      const due = shuffleInPlace(allWords.filter(w => {
+        const p = progressMap[lc(w)];
+        return p && p.nextReview && isDue(w);
+      })).slice(0, SESSION_BUDGET);
+
+      const room = SESSION_BUDGET - due.length;
+      let fresh = [];
+      if (room > 0) {
+        const quota = Math.max(0, Math.min(SESSION_MAX_NEW, maxNewPerDay - todayNewCount, room));
+        fresh = shuffleInPlace(allWords.filter(w => isNewWord(w))).slice(0, quota);
+      }
+
+      const pool  = [...due, ...fresh];
+      const qcm   = pool.filter(w => sessionLevel(w) === 'qcm');
+      let   cloze = pool.filter(w => sessionLevel(w) === 'cloze').slice(0, CLOZE_MAX);
+
+      // Trop peu de mots dus au palier trous : on complète avec des mots déjà
+      // travaillés, même s'ils ne sont pas encore dus. Réviser un mot un peu en
+      // avance ne coûte rien ; commencer par trois jours de QCM sans jamais voir
+      // un texte, si — c'est l'exercice qui donne envie de revenir. On prend les
+      // plus proches de leur échéance pour déranger le calendrier au minimum.
+      if (cloze.length < CLOZE_MIN) {
+        const extra = allWords
+          .filter(w => !pool.includes(w) && sessionLevel(w) === 'cloze')
+          .sort((a, b) => (progressMap[lc(a)]?.nextReview || '') .localeCompare(progressMap[lc(b)]?.nextReview || ''))
+          .slice(0, CLOZE_MIN - cloze.length);
+        cloze = [...cloze, ...extra];
+      }
+
+      const items = qcm.map(w => ({ kind: 'qcm', word: w }));
+      if (cloze.length >= 2) items.push({ kind: 'cloze', words: cloze });
+      return items;
+    }
+
+    async function startSession() {
+      if (!currentLang || !allWords.length) return;
+      sessionItems = buildSessionItems();
+      sessionIdx   = 0;
+      sessionOk    = 0;
+      _clozeState  = null;
+      _clozePromise = null;
+
+      // Le texte à trous met 20 à 50 s à venir. On le lance MAINTENANT : il se
+      // prépare pendant les QCM et il est là quand on y arrive.
+      const clozeItem = sessionItems.find(i => i.kind === 'cloze');
+      if (clozeItem) _clozePromise = fetchCloze(clozeItem.words).catch(e => ({ error: e.message }));
+      prefetchQCM(0); prefetchQCM(1);
+      renderSession();
+    }
+
+    function sessionTotal() {
+      return sessionItems.reduce((n, i) => n + (i.kind === 'cloze' ? i.words.length : 1), 0);
+    }
+    function sessionSeen() {
+      return sessionItems.slice(0, sessionIdx).reduce((n, i) => n + (i.kind === 'cloze' ? i.words.length : 1), 0);
+    }
+
+    function renderSession() {
+      const body  = document.getElementById('session-body');
+      const total = sessionTotal();
+      const seen  = sessionSeen();
+      document.getElementById('session-count').textContent =
+        total ? tApp('sess_progress').replace('{a}', seen).replace('{b}', total) : '';
+      document.getElementById('session-fill').style.width = total ? (100 * seen / total) + '%' : '0%';
+
+      if (!sessionItems.length)          return void (body.innerHTML = `<p class="session-note">${tApp('sess_empty')}</p>`);
+      if (sessionIdx >= sessionItems.length) return renderSessionEnd();
+
+      const hb = document.getElementById('hint-box'); // définition d'un item précédent
+      if (hb) { hb.innerHTML = ''; hb.classList.remove('visible'); }
+      const item = sessionItems[sessionIdx];
+      if (item.kind === 'qcm') renderSessionQCM(item);
+      else                     renderSessionCloze(item);
+    }
+
+    function renderSessionEnd() {
+      const total = sessionTotal();
+      document.getElementById('session-body').innerHTML =
+        `<div class="word-card" style="text-align:center">
+           <span class="word-label">${tApp('sess_done')}</span>
+           <span class="done-check">✓</span>
+           <p class="session-note">${tApp('sess_score').replace('{a}', sessionOk).replace('{b}', total)}</p>
+         </div>`;
+    }
+
+    // ── QCM de séance ───────────────────────────────────────────────────
+    async function fetchQCMChoices(word) {
+      const reply    = await callAI(qcmPrompt(word), isGemini() ? 1500 : 16000);
+      const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+      const a = stripped.search(/\[\s*\{/), b = stripped.lastIndexOf(']');
+      if (a === -1 || b <= a) throw new Error('Format inattendu');
+      const parsed = JSON.parse(stripped.slice(a, b + 1));
+      rememberQCM(word, parsed);
+      return shuffleInPlace(parsed);
+    }
+
+    // Un QCM met ~10 s à venir. On lance celui de l'item suivant dès que le
+    // courant est à l'écran : l'attente disparaît sauf sur le tout premier.
+    function prefetchQCM(i) {
+      const it = sessionItems[i];
+      if (!it || it.kind !== 'qcm' || it.choicesPromise) return;
+      console.log(`[Séance] QCM ${i + 1} lancé en avance : ${it.word}`);
+      const t0 = Date.now();
+      it.choicesPromise = fetchQCMChoices(it.word)
+        .then(r => { console.log(`[Séance] QCM ${i + 1} prêt en ${((Date.now() - t0) / 1000).toFixed(1)}s`); return r; })
+        .catch(e => ({ error: e.message }));
+    }
+
+    async function renderSessionQCM(item) {
+      const body = document.getElementById('session-body');
+      body.innerHTML =
+        `<div class="session-word">${lc(wordBase(item.word))}</div>
+         ${wordNote(item.word) ? `<div class="session-def">${wordNote(item.word)}</div>` : ''}
+         <p class="session-q">${tPrac('sess_which')}</p>
+         <div id="session-choices"><div style="text-align:center;padding:0.6rem;color:var(--muted)"><span class="spinner"></span></div></div>
+         <div id="session-result"></div>`;
+      prefetchQCM(sessionIdx + 1);
+      try {
+        if (!item.choicesPromise) prefetchQCM(sessionIdx);
+        const _tWait = Date.now();
+        const choices = await item.choicesPromise;
+        console.log(`[Séance] attente à l'écran : ${((Date.now() - _tWait) / 1000).toFixed(1)}s`);
+        if (choices && choices.error) throw new Error(choices.error);
+        item.choices = choices;
+        document.getElementById('session-choices').innerHTML =
+          choices.map((c, i) => `<button class="qcm-choice" onclick="answerSessionQCM(this, ${i})">${c.text}</button>`).join('')
+          + `<button class="btn-ghost" style="margin-top:0.5rem" onclick="sessionDunno()">${tPrac('sess_dunno')}</button>`;
+      } catch (err) {
+        item.choicesPromise = null;
+        document.getElementById('session-choices').innerHTML =
+          `<p style="color:var(--error)">${tPrac('err_prefix')} ${err.message}</p>
+           <button class="btn-secondary" style="margin-top:0.5rem" onclick="renderSession()">${tPrac('retry')}</button>`;
+      }
+    }
+
+    // « Je ne sais pas » : compte ✗ comme une mauvaise réponse, révèle la bonne
+    // et ouvre la définition. Sans ça, un mot inconnu n'a d'autre issue qu'un
+    // clic au hasard — et un ✓ obtenu au hasard fait monter le mot d'un palier.
+    async function sessionDunno() {
+      if (_sessionBusy) return;
+      _sessionBusy = true;
+      const item  = sessionItems[sessionIdx];
+      const right = (item.choices || []).find(c => c.correct);
+      document.querySelectorAll('#session-choices .qcm-choice').forEach((b, i) => {
+        b.disabled = true;
+        if (item.choices[i] && item.choices[i].correct) b.classList.add('correct-answer');
+      });
+      const res = document.getElementById('session-result');
+      res.className = 'qcm-result incorrect';
+      res.innerHTML = right?.explanation ? `✓ ${right.explanation}` : '';
+      const d = document.createElement('button');
+      d.className = 'btn-secondary';
+      d.style.cssText = 'display:block;margin-top:0.75rem';
+      d.textContent = tPrac('sess_def');
+      d.onclick = () => fetchHint(item.word);
+      res.appendChild(d);
+      await recordSessionAnswer(item.word, false);
+      addSessionNextButton();
+      _sessionBusy = false;
+    }
+
+    async function answerSessionQCM(btn, idx) {
+      if (_sessionBusy) return;
+      _sessionBusy = true;
+      const item      = sessionItems[sessionIdx];
+      const chosen    = item.choices[idx] || {};
+      const isCorrect = !!chosen.correct;
+      if (isCorrect) sessionOk++;
+
+      document.querySelectorAll('#session-choices .qcm-choice').forEach((b, i) => {
+        b.disabled = true;
+        const c = item.choices[i];
+        if (b === btn)                        b.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
+        else if (c && c.correct && !isCorrect) b.classList.add('correct-answer');
+      });
+
+      const right = item.choices.find(c => c.correct);
+      const res   = document.getElementById('session-result');
+      res.className = 'qcm-result ' + (isCorrect ? 'correct' : 'incorrect');
+      res.innerHTML = isCorrect
+        ? `✓ ${chosen.explanation || ''}`
+        : `✗ ${chosen.explanation || ''}` + (right?.explanation ? `<br>✓ ${right.explanation}` : '');
+
+      await recordSessionAnswer(item.word, isCorrect);
+      addSessionNextButton();
+      _sessionBusy = false;
+    }
+
+    function addSessionNextButton() {
+      const wrap = document.createElement('div');
+      wrap.className = 'session-actions';
+      const b = document.createElement('button');
+      b.className   = 'btn-secondary';
+      b.textContent = tApp('sess_next');
+      b.onclick     = () => { sessionIdx++; renderSession(); };
+      wrap.appendChild(b);
+      document.getElementById('session-body').appendChild(wrap);
+    }
+
+    // Mêmes règles que le mode espacé : un mot neuf réussi sort du pool sans
+    // toucher aux étoiles ; un mot neuf raté ne compte pas contre lui.
+    async function recordSessionAnswer(word, ok) {
+      if (isNewWord(word)) {
+        if (ok) {
+          await saveProgressNew(word);
+          todayNewCount++;
+          saveTodayCount(currentLang, todayNewCount);
+        }
+      } else {
+        await saveProgress(word, ok);
+      }
+      saveHistory(word, ok);
+    }
+
+    // ── Texte à trous ───────────────────────────────────────────────────
+    // Le texte emploie la forme que la phrase demande, pas celle stockée en base :
+    // l'apprenant clique son entrée, l'app écrit la forme fléchie et montre l'écart.
+    // C'est ce qui lui fait apprendre le MOT et non la forme où il l'a rencontré.
+    // Le modèle ne voit pas les textes déjà produits : sans cadre imposé, il
+    // repart chaque fois sur la même scène (« At Tuesday's hearing… »). Le tirage
+    // fait aussi voir les mêmes mots dans des registres différents.
+    const CLOZE_SETTINGS = [
+      'a news report', 'a personal letter to a friend', 'a diary entry',
+      'a scene in a novel', 'a book or film review', 'a workplace email',
+      'a radio interview', 'a travel account', 'a family scene', 'a courtroom account'
+    ];
+
+    function clozePrompt(targets, candidates) {
+      const langName = getLang().mistralName;
+      const setting  = CLOZE_SETTINGS[Math.floor(Math.random() * CLOZE_SETTINGS.length)];
+      return `You write cloze (fill-in-the-blank) exercises for a learner of ${langName}.
+
+TARGET ENTRIES (each must appear exactly once, as a blank):
+${targets.map(w => '- ' + w).join('\n')}
+
+CANDIDATE DECOYS — pick exactly ${Math.max(2, Math.round(targets.length * 0.25))} of these
+(no others, and they must NOT appear anywhere in the text):
+${candidates.join(', ')}
+
+Choose decoys that are GRAMMATICALLY PLAUSIBLE in at least one blank — same part of speech,
+and where the language marks it, same gender, number and case as the target they compete with —
+but semantically wrong there. A decoy the learner can rule out by agreement alone teaches
+nothing: it lets them pick the right word without knowing what it means. That is the single
+most important thing to get right.
+
+Write ONE coherent ${langName} paragraph, 60-120 words, on a single situation that naturally
+involves all the target entries.
+
+FORM: write it as ${setting}. Keep that register throughout. If the target words really
+cannot live in it, pick another everyday setting — but never default to a hearing,
+a briefing or a council meeting.
+
+RULES
+1. Each target entry appears EXACTLY ONCE. Replace it with a numbered marker {1}, {2}, ...
+   in reading order. Nothing else is replaced.
+2. INFLECT FREELY. The learner stored the entry in one particular form, but your sentence
+   must use whatever form grammar requires (case, number, tense, person). Report both.
+   A multi-word VERBAL expression conjugates normally; a multi-word NOMINAL expression
+   keeps its words in order and only changes case.
+3. ONE ANSWER PER BLANK. No other word from the target list or the decoy list may fit
+   grammatically AND semantically in a given blank. If two could fit, rewrite that sentence.
+3b. If two TARGET entries are near-synonyms that could fill each other's blank, place only
+   ONE of them and leave the other out of the text entirely. A blank that two targets both
+   fit is unfair, and no context can reliably separate them. List what you left out in
+   "dropped" — never force a word in.
+4. NEVER two adjacent blanks, and at least four ordinary words between two blanks.
+5. The surrounding text must be natural, correct ${langName}. Never write a clumsy sentence
+   just to accommodate a word.
+6. Give enough context to identify each missing word, without naming it or an obvious synonym.
+7. Name people and places concretely, and do not reuse the opening of a typical news lede.
+
+Answer ONLY with JSON, no markdown fence:
+{"text": "…paragraph with {1} … {n} markers…",
+ "decoys": ["<the decoys you picked, exactly as listed>"],
+ "dropped": ["<target entries you deliberately left out, if any>"],
+ "blanks": [{"n": 1, "entry": "<target entry exactly as given above>",
+             "form": "<the inflected form the sentence needs>"}]}`;
+    }
+
+    async function fetchCloze(words) {
+      // Les intrus sortent du stock de l'utilisateur, jamais inventés — mais c'est
+      // le MODÈLE qui les choisit dans une liste de candidats : lui seul sait quel
+      // mot est grammaticalement compatible avec un trou donné. Tirés au hasard,
+      // ils se laissaient éliminer par le genre ou le nombre, et on trouvait la
+      // bonne réponse sans connaître le sens.
+      const taken   = new Set(words.map(lc));
+      const known   = allWords.filter(w => !taken.has(lc(w)) && netOf(w) >= 1);
+      const source  = known.length >= 8 ? known : allWords.filter(w => !taken.has(lc(w)));
+      const candidates = shuffleInPlace(source.slice()).slice(0, 40);
+
+      const reply    = await callAI(clozePrompt(words, candidates), isGemini() ? 2000 : 16000);
+      const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+      const a = stripped.indexOf('{'), b = stripped.lastIndexOf('}');
+      if (a === -1 || b <= a) throw new Error('Format inattendu');
+      const d = JSON.parse(stripped.slice(a, b + 1));
+      if (!d.text || !Array.isArray(d.blanks) || !d.blanks.length) throw new Error('Réponse incomplète');
+      // On ne garde que les trous dont l'entrée est bien une des cibles demandées.
+      d.blanks = d.blanks.filter(x => words.some(w => lc(w) === lc(x.entry || '')));
+      if (!d.blanks.length) throw new Error('Aucune cible placée');
+      const dropped = words.filter(w => !d.blanks.some(b => lc(b.entry) === lc(w)));
+      if (dropped.length) console.log('[Séance] mots écartés du texte (synonymes) :', dropped.join(', '));
+      // On ne garde que des intrus réellement issus de la liste envoyée.
+      const picked = (Array.isArray(d.decoys) ? d.decoys : [])
+        .map(x => candidates.find(c => lc(c) === lc(x)))
+        .filter(Boolean).slice(0, 4);
+      d.bank = shuffleInPlace([...d.blanks.map(x => x.entry), ...picked]);
+      return d;
+    }
+
+    async function renderSessionCloze(item) {
+      const body = document.getElementById('session-body');
+      if (!_clozeState) {
+        body.innerHTML = `<p class="session-note"><span class="spinner"></span> ${tApp('sess_writing')}</p>`;
+        try {
+          const d = await (_clozePromise || fetchCloze(item.words));
+          if (d && d.error) throw new Error(d.error);
+          _clozeState = { ...d, filled: {}, active: Math.min(...d.blanks.map(b => b.n)), checked: false };
+        } catch (err) {
+          body.innerHTML = `<p style="color:var(--error)">${tPrac('err_prefix')} ${err.message}</p>
+            <div class="session-actions"><button class="btn-secondary" onclick="retryCloze()">${tPrac('retry')}</button></div>`;
+          return;
+        }
+      }
+      paintCloze();
+    }
+
+    function retryCloze() {
+      const item = sessionItems[sessionIdx];
+      _clozeState  = null;
+      _clozePromise = fetchCloze(item.words).catch(e => ({ error: e.message }));
+      renderSessionCloze(item);
+    }
+
+    function paintCloze() {
+      const st   = _clozeState;
+      const body = document.getElementById('session-body');
+      const html = st.text.replace(/\{(\d+)\}/g, (m, n) => {
+        const i    = +n;
+        const val  = st.filled[i];
+        const bl   = st.blanks.find(b => b.n === i);
+        if (!st.checked) {
+          return `<button class="cloze-blank ${val ? '' : 'empty'} ${st.active === i ? 'active' : ''}" onclick="clozeBlank(${i})">${val || '·····'}</button>`;
+        }
+        const ok = bl && val && lc(val) === lc(bl.entry);
+        return `<span class="cloze-blank ${ok ? 'ok' : 'ko'}">${ok ? bl.form : (val || '—')}</span>`
+             + (ok || !bl ? '' : ` <span class="cloze-fix">→ ${bl.form}</span>`);
+      });
+
+      const used = new Set(Object.values(st.filled).map(lc));
+      const bank = st.checked ? '' :
+        `<div class="cloze-bank">${st.bank.map((w, i) =>
+          `<button class="cloze-chip ${used.has(lc(w)) ? 'used' : ''}" onclick="clozePick(${i})">${lc(w)}</button>`).join('')}</div>`;
+
+      let tail = '';
+      if (st.checked) {
+        const n  = st.blanks.filter(b => lc(st.filled[b.n] || '') === lc(b.entry)).length;
+        const fx = st.blanks.filter(b => lc(st.filled[b.n] || '') === lc(b.entry) && lc(b.form) !== lc(b.entry));
+        tail = `<p class="session-note"><strong>${n} / ${st.blanks.length}</strong></p>`
+             + fx.map(b => `<p class="session-note">${lc(b.form)} — ${tApp('sess_inbase').replace('{w}', lc(b.entry))}</p>`).join('');
+      } else {
+        tail = `<div class="session-actions"><button class="btn-secondary" onclick="checkCloze()">${tApp('sess_check')}</button></div>`;
+      }
+      body.innerHTML = `<div class="cloze-text">${html}</div>${bank}${tail}`;
+      if (st.checked) addSessionNextButton();
+    }
+
+    function clozeBlank(i) {
+      const st = _clozeState;
+      if (st.checked) return;
+      if (st.filled[i]) delete st.filled[i]; // un trou plein se vide au clic
+      st.active = i;
+      paintCloze();
+    }
+
+    function clozePick(idx) {
+      const st = _clozeState;
+      if (st.checked) return;
+      const word = st.bank[idx];
+      if (Object.values(st.filled).some(v => lc(v) === lc(word))) return; // déjà placé
+      const target = st.active && !st.filled[st.active]
+        ? st.active
+        : (st.blanks.map(b => b.n).sort((a, b) => a - b).find(n => !st.filled[n]));
+      if (!target) return;
+      st.filled[target] = word;
+      // Le trou vide suivant s'allume tout seul, mais on peut toujours cliquer
+      // celui qu'on veut : rien n'oblige à remplir dans l'ordre.
+      st.active = st.blanks.map(b => b.n).sort((a, b) => a - b).find(n => !st.filled[n]) || null;
+      paintCloze();
+    }
+
+    async function checkCloze() {
+      const st = _clozeState;
+      if (st.checked) return;
+      st.checked = true;
+      paintCloze();
+      for (const b of st.blanks) {
+        const ok = lc(st.filled[b.n] || '') === lc(b.entry);
+        if (ok) sessionOk++;
+        await recordSessionAnswer(b.entry, ok);
+      }
+    }
+
     async function saveHistory(word, isCorrect) {
       await saveHistoryBatch([[new Date().toISOString(), word, currentLang, isCorrect ? '✓' : '✗']]);
     }
