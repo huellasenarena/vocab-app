@@ -7189,6 +7189,8 @@ Answer ONLY with JSON, no markdown fence:
       for (const b of st.blanks) {
         const ok = lc(st.filled[b.n] || '') === lc(b.entry);
         if (ok) sessionOk++;
+        // Mot supprimé pendant le texte : ne pas lui recréer une progression.
+        if (!allWords.some(w => lc(w) === lc(b.entry))) continue;
         await recordSessionAnswer(b.entry, ok);
       }
     }
@@ -9337,6 +9339,12 @@ Reply with ONLY this JSON object, nothing else:
       currentWords      = currentWords.filter(w => w.toLowerCase() !== wordLow);
       previousWordsPool = previousWordsPool.filter(w => w.toLowerCase() !== wordLow);
 
+      // La séance ne se joue pas sur `currentWords` mais sur `sessionItems` : sans
+      // cette branche, le mot partait bien de la base et l'écran ne bougeait pas
+      // (on croyait le bouton mort), pendant que la fin de la fonction appelait
+      // `nextWord()`, qui appartient aux autres modes.
+      if (practiceMode === 'practice') return dropWordFromRound(word);
+
       // Piocher un remplaçant pour maintenir le nombre de mots (même logique que onSliderChange)
       if (allWords.length > 0 && currentWords.length > 0) {
         let eligible = null;
@@ -9366,6 +9374,25 @@ Reply with ONLY this JSON object, nothing else:
       }
     }
 
+    // Le mot quitte la manche en cours : ses QCM disparaissent, il sort des textes
+    // à trous, et l'item courant cède la place au suivant.
+    function dropWordFromRound(word) {
+      const k = lc(word);
+      let removedBefore = 0;
+      sessionItems = sessionItems.filter((it, i) => {
+        const hit = it.kind === 'qcm' && lc(it.word) === k;
+        if (hit && i < sessionIdx) removedBefore++;
+        return !hit;
+      });
+      sessionItems.forEach(it => {
+        if (it.kind === 'cloze') it.words = it.words.filter(w => lc(w) !== k);
+      });
+      // Un texte tombé sous deux mots n'a plus de sens.
+      sessionItems = sessionItems.filter(it => it.kind !== 'cloze' || it.words.length >= 2);
+      sessionIdx = Math.max(0, sessionIdx - removedBefore);
+      renderSession();
+    }
+
     // ── Actions ✏️/✕ sur la carte de pratique (points 16 & 18) ─
     function editCurrentCardWord()   { if (currentWords[0]) editWordOnCard(currentWords[0]); }
     function deleteCurrentCardWord() { if (currentWords[0]) deleteCardWord(currentWords[0]); }
@@ -9392,6 +9419,16 @@ Reply with ONLY this JSON object, nothing else:
         previousWordsPool = previousWordsPool.map(w => w === word ? newWord : w);
         if (progressMap[lowOld]) { progressMap[lowNew] = progressMap[lowOld]; if (lowNew !== lowOld) delete progressMap[lowOld]; }
         Object.keys(definitionCache).forEach(k => { if (k.startsWith(lowOld + '|')) delete definitionCache[k]; });
+        // La séance tient sa propre liste : sans ça, le mot corrigé restait affiché
+        // sous son ancienne graphie et sa réponse s'écrivait sur un mot disparu.
+        if (practiceMode === 'practice') {
+          sessionItems.forEach(it => {
+            if (it.kind === 'qcm' && it.word === word) it.word = newWord;
+            if (it.kind === 'cloze') it.words = it.words.map(w => w === word ? newWord : w);
+          });
+          renderSession();
+          return;
+        }
         renderWordDisplay();
       } catch (e) { alert('Erreur : ' + e.message); }
     }
