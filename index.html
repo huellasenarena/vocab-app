@@ -252,13 +252,29 @@
     }
     .lang-btn:hover { border-color: var(--accent); background: #222; transform: translateY(-2px); }
     .lang-btn .flag { font-size: 1.8rem; }
+    /* L'anneau porte l'avancement du jour : le fond du disque suit celui du bouton
+       (`inherit`), sinon il resterait sombre au survol. */
+    .lang-btn .flag-ring {
+      display: grid; place-items: center; border-radius: 50%; padding: 3px;
+      background: conic-gradient(var(--ring, var(--border)) calc(var(--p, 0) * 1%), var(--border) 0);
+    }
+    .lang-btn .flag-ring .flag {
+      width: 2.9rem; height: 2.9rem; border-radius: 50%;
+      display: grid; place-items: center; background: inherit;
+    }
     .lang-btn .lang-name { font-size: 0.85rem; color: var(--muted); }
-    /* Point 10 : vert si tout est fait aujourd'hui, rouge s'il reste des mots */
-    .lang-btn.due  { border-color: #e05a5a; }
+    /* Journée finie = vert ; journée en cours = doré. Plus de rouge : à huit mots
+       neufs par jour, une carte rouge tous les matins ne veut plus rien dire. */
+    .lang-btn.due  { border-color: var(--accent); }
     .lang-btn.done { border-color: var(--success); }
-    .lang-btn .lang-badge { font-size: 0.68rem; font-family: 'DM Mono', monospace; min-height: 0.8rem; }
-    .lang-btn.due  .lang-badge { color: #e05a5a; }
+    .lang-btn .lang-badge {
+      font-size: 0.68rem; font-family: 'DM Mono', monospace; min-height: 0.8rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .lang-btn.due  .lang-badge { color: var(--accent); }
+    .lang-btn.due  .flag-ring  { --ring: var(--accent); }
     .lang-btn.done .lang-badge { color: var(--success); }
+    .lang-btn.done .flag-ring  { --ring: var(--success); }
 
     /* ── Header pratique ── */
     .practice-header { width: 100%; display: flex; align-items: center; justify-content: space-between; }
@@ -2178,7 +2194,6 @@
       btn_mots:         { en: `📝 manage my words`, fr: `📝 gérer mes mots`, es: `📝 gestionar mis palabras`, el: `📝 διαχείριση λέξεων` },
       btn_add_content:  { en: `➕ add content`, fr: `➕ ajouter du contenu`, es: `➕ añadir contenido`, el: `➕ προσθήκη περιεχομένου` },
       btn_logout:       { en: `🚪 log out`, fr: `🚪 se déconnecter`, es: `🚪 cerrar sesión`, el: `🚪 αποσύνδεση` },
-      badge_todo:       { en: `{n} to do`, fr: `{n} à faire`, es: `{n} por hacer`, el: `{n} για σήμερα` },
       badge_done:       { en: `✓ done`, fr: `✓ fait`, es: `✓ hecho`, el: `✓ έγινε` },
       tile_add:         { en: `＋ add`, fr: `＋ ajouter`, es: `＋ añadir`, el: `＋ προσθήκη` },
       tile_menu_add:    { en: `add`, fr: `ajouter`, es: `añadir`, el: `προσθήκη` },
@@ -2663,7 +2678,7 @@
         const l = LANGS.find(x => x.key === key);
         if (!l) return '';
         return `<button class="lang-btn" data-lang="${l.key}" onclick="selectLanguage('${l.key}')">
-          <span class="flag">${l.flag}</span><span class="lang-name">${l.name}</span><span class="lang-badge"></span>
+          <span class="flag-ring"><span class="flag">${l.flag}</span></span><span class="lang-name">${l.name}</span><span class="lang-badge"></span>
         </button>`;
       }).join('');
       // Tuile « ajouter » uniquement s'il reste des langues à ajouter
@@ -2785,19 +2800,32 @@
           // Le même « plus grand des deux compteurs » que la manche : sinon un mot
           // servi mais raté rouvrait une place ici et la carte annonçait des mots
           // que la séance, elle, ne donnait plus.
-          const served   = parseInt(localStorage.getItem(`vocab_today_new_served_${l.key}_${today}`)) || 0;
-          const todayNew = Math.max(sessR.count || 0, served);
+          const todayNew = Math.max(sessR.count || 0, newServedToday(l.key));
           let due = 0, neverPrac = 0;
           for (const w of words) {
             const nr = prog[w.toLowerCase()];
             if (!nr) neverPrac++;
             else if (nr <= today) due++;
           }
-          const available = due + Math.min(Math.max(0, maxNew - todayNew), neverPrac);
+          // La carte parle la même langue que la barre de la séance : ce qui est
+          // fait sur ce que la journée contient. Un nombre de mots RESTANTS ne
+          // décrivait plus rien — c'était le pool du mode espacé, « 340 » quand la
+          // manche en sert 19.
+          const remaining = due + Math.min(Math.max(0, maxNew - todayNew), neverPrac);
+          const doneN     = doneToday(l.key);
+          const total     = doneN + remaining;
           btn.classList.remove('due', 'done');
+          btn.style.removeProperty('--p');
           if (words.length === 0) { if (badge) badge.textContent = ''; return; }
-          if (available > 0) { btn.classList.add('due');  if (badge) badge.textContent = tApp('badge_todo').replace('{n}', available); }
-          else               { btn.classList.add('done'); if (badge) badge.textContent = tApp('badge_done'); }
+          if (remaining > 0) {
+            btn.classList.add('due');
+            btn.style.setProperty('--p', Math.round(100 * doneN / total));
+            if (badge) badge.textContent = `${doneN} / ${total}`;
+          } else {
+            btn.classList.add('done');
+            btn.style.setProperty('--p', 100);
+            if (badge) badge.textContent = total ? `✓ ${doneN} / ${total}` : tApp('badge_done');
+          }
         } catch (e) { /* hors-ligne / non connecté : pas de badge */ }
       }));
     }
@@ -6619,7 +6647,7 @@ Write all scenarios and explanations in ${langName}.`;
     // tirage non plus, sinon deux allers-retours entre modes mangeraient la
     // journée sans qu'un seul mot ait été vu. Le préfixe `vocab_today_new_` est
     // déjà exclu de la synchronisation des réglages.
-    function newServedKey()   { return `vocab_today_new_served_${currentLang}_${todayStrLocal()}`; }
+    function newServedKey(lang)   { return `vocab_today_new_served_${lang || currentLang}_${todayStrLocal()}`; }
     function markNewServed(word) {
         if (!isNewWord(word)) return;
         localStorage.setItem(newServedKey(), newServedToday() + 1);
@@ -6640,8 +6668,8 @@ Write all scenarios and explanations in ${langName}.`;
 
     // Mots réellement travaillés aujourd'hui, toutes manches confondues : quatre le
     // matin et quatre le soir font huit, et non deux barres reparties de zéro.
-    function doneKey()        { return `vocab_today_done_${currentLang}_${todayStrLocal()}`; }
-    function doneToday()      { return parseInt(localStorage.getItem(doneKey())) || 0; }
+    function doneKey(lang)        { return `vocab_today_done_${lang || currentLang}_${todayStrLocal()}`; }
+    function doneToday(lang)      { return parseInt(localStorage.getItem(doneKey(lang))) || 0; }
     function markDone()       { localStorage.setItem(doneKey(), doneToday() + 1); }
 
     // Ce qu'il reste : les mots de la manche encore à passer, les rappels dus qui
@@ -6662,7 +6690,7 @@ Write all scenarios and explanations in ${langName}.`;
       const newExtra = Math.max(0, newQuota() - unservedNew);
       return { done, total: done + left.size + dueLeft + newExtra };
     }
-    function newServedToday() { return parseInt(localStorage.getItem(newServedKey())) || 0; }
+    function newServedToday(lang) { return parseInt(localStorage.getItem(newServedKey(lang))) || 0; }
     let sessionExtraNew = 0; // mots neufs ouverts à la demande, au-delà du quota
     // Aide autorisée sur le mot à l'écran (définition, traduction, image) : vraie
     // sur un mot neuf, et sur un rappel seulement une fois la réponse donnée.
