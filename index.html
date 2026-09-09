@@ -9022,6 +9022,14 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     // Ouvre le menu (Modifier / Supprimer) près du bouton ⋯ cliqué
     function openWordMenu(word, ev) {
       ev.stopPropagation();
+      // Second appui sur le MÊME ⋯ : on referme. Le clic-dehors ne suffisait pas,
+      // le bouton arrêtant la propagation — on rouvrait ce qu'on voulait fermer.
+      // Sur le ⋯ d'un autre mot, on bascule vers lui au lieu de fermer.
+      const menu = document.getElementById('word-ctx-menu');
+      if (menu.classList.contains('visible') && _ctxWord === word) {
+        closeWordContextMenu();
+        return;
+      }
       const r = ev.currentTarget.getBoundingClientRect();
       showWordContextMenu(word, r.right - 4, r.bottom + 4);
     }
