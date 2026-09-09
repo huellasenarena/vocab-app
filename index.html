@@ -1175,6 +1175,10 @@
       padding: 0.35rem 0;
       min-width: 180px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      /* 38 groupes espagnols dépassaient la hauteur de l'écran, sans moyen d'aller
+         voir les derniers : le popup défile au lieu d'être coupé. */
+      max-height: 70vh;
+      overflow-y: auto;
       z-index: 10000;
       display: none;
       user-select: none;
@@ -1682,7 +1686,7 @@
       </label>
       <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
         <div style="display:flex; justify-content:space-between; width:100%;">
-          <span data-i18n="set_max_new">Nouveaux mots / jour (espacé)</span>
+          <span data-i18n="set_max_new">Nouveaux mots / jour</span>
           <span id="max-new-value" style="color: var(--accent); font-weight: 600;"></span>
         </div>
         <input type="range" id="max-new-slider" min="0" max="23" step="1"
@@ -2260,7 +2264,7 @@
       btn_confirm:      { en: `Confirm`, fr: `Valider`, es: `Confirmar`, el: `Επιβεβαίωση` },
       // — écran pratique (suit la langue pratiquée) —
       set_grammar:      { en: `Grammar forms ({lang})`, fr: `Formes grammaticales ({lang})`, es: `Formas gramaticales ({lang})`, el: `Γραμματικοί τύποι ({lang})` },
-      set_max_new:      { en: `New words / day (spaced)`, fr: `Nouveaux mots / jour (espacé)`, es: `Palabras nuevas / día (espaciada)`, el: `Νέες λέξεις / ημέρα (κατανεμημένη)` },
+      set_max_new:      { en: `New words / day`, fr: `Nouveaux mots / jour`, es: `Palabras nuevas / día`, el: `Νέες λέξεις / ημέρα` },
       modem_practice:   { en: `📝 Practice`, fr: `📝 Pratique`, es: `📝 Práctica`, el: `📝 Εξάσκηση` },
       modem_spaced:     { en: `📅 Spaced`, fr: `📅 Espacée`, es: `📅 Espaciada`, el: `📅 Κατανεμημένη` },
       modem_situation:  { en: `🎯 Situation`, fr: `🎯 Situation`, es: `🎯 Situación`, el: `🎯 Κατάσταση` },
@@ -2777,7 +2781,11 @@
           const prog  = {};
           (progR.progress || []).forEach(r => { prog[(r.word || '').toLowerCase()] = r.next_review || null; });
           const maxNew   = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + l.key)) || DEFAULT_NEW_PER_DAY;
-          const todayNew = sessR.count || 0;
+          // Le même « plus grand des deux compteurs » que la manche : sinon un mot
+          // servi mais raté rouvrait une place ici et la carte annonçait des mots
+          // que la séance, elle, ne donnait plus.
+          const served   = parseInt(localStorage.getItem(`vocab_today_new_served_${l.key}_${today}`)) || 0;
+          const todayNew = Math.max(sessR.count || 0, served);
           let due = 0, neverPrac = 0;
           for (const w of words) {
             const nr = prog[w.toLowerCase()];
@@ -5587,6 +5595,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (cached && Date.now() - cached.ts < 86400000) {
         hintTextEl.innerHTML = cached.html;
         hintBox.classList.add('visible');
+        revealSessionBox(hintBox);
         hintUsedWords.add(word.toLowerCase());
         if (currentWords.length === 1) {
           document.getElementById('hint-used-badge').classList.add('visible');
@@ -5621,6 +5630,7 @@ Respond entirely in ${langName}.`;
         // token peut être longue avec un modèle de raisonnement)
         hintTextEl.innerHTML = SPINNER_BOX;
         hintBox.classList.add('visible');
+        revealSessionBox(hintBox);
 
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         const scroller = startAutoScroll(hintBox);
@@ -5833,6 +5843,7 @@ Reply with ONLY this JSON object, nothing else:
         `${tPrac('label_definition')} — <span class="hint-word-in-label">${escapeHtml(lc(word))}</span>`;
       box.classList.remove('collapsed');
       box.classList.add('visible');
+      revealSessionBox(box);
       document.getElementById('hint-extra').style.display = '';
       showStudyOffer(word);
 
@@ -5855,6 +5866,7 @@ Reply with ONLY this JSON object, nothing else:
       const body = document.getElementById('word-image-body');
       document.getElementById('word-image-label').textContent = `🖼 ${lc(wordBase(word))}`;
       box.classList.add('visible');
+      revealSessionBox(box);
       body.innerHTML = SPINNER_BOX;
       try {
         const g = await wordGloss(word, currentLang);
@@ -6756,12 +6768,16 @@ Write all scenarios and explanations in ${langName}.`;
         total ? tApp('sess_progress').replace('{a}', seen).replace('{b}', total) : '';
       document.getElementById('session-fill').style.width = total ? (100 * seen / total) + '%' : '0%';
 
+      // Avant les sorties : une image ou une définition ouverte resterait sinon
+      // affichée sous la carte de fin de manche.
+      resetSessionBoxes(); // définition, traduction et image de l'item précédent
+      // Un nouvel item repart du haut : sinon on reste où la boîte précédente
+      // nous avait laissés, et il faut remonter à la main pour lire le mot.
+      window.scrollTo({ top: 0 });
+
       if (!sessionItems.length) return void (body.innerHTML =
         `<p class="session-note">${tApp('sess_empty')}</p>${sessionEndActions()}`);
       if (sessionIdx >= sessionItems.length) return renderSessionEnd();
-
-      const hb = document.getElementById('hint-box'); // définition d'un item précédent
-      if (hb) { hb.innerHTML = ''; hb.classList.remove('visible'); }
       const item = sessionItems[sessionIdx];
       if (item.kind === 'qcm') renderSessionQCM(item);
       else                     renderSessionCloze(item);
@@ -6788,6 +6804,27 @@ Write all scenarios and explanations in ${langName}.`;
       const left = dueWords().length;
       if (!left) return tApp('sess_clear');
       return left === 1 ? tApp('sess_pending_one') : tApp('sess_pending').replace('{n}', left);
+    }
+
+    // ⚠️ Vider `#hint-box.innerHTML` **détruit sa structure** (titre, corps, zone
+    // d'actions) : tout appel suivant à la définition ou à la traduction plantait
+    // sur un élément disparu, et le bouton semblait ne rien faire. On ne vide que
+    // les corps, jamais les conteneurs.
+    function resetSessionBoxes() {
+      const ht = document.getElementById('hint-text');        if (ht) ht.innerHTML = '';
+      const tr = document.getElementById('hint-translation'); if (tr) tr.innerHTML = '';
+      const hx = document.getElementById('hint-extra');       if (hx) hx.style.display = 'none';
+      const hb = document.getElementById('hint-box');         if (hb) hb.classList.remove('visible');
+      const ib = document.getElementById('word-image-box');   if (ib) ib.classList.remove('visible');
+      const iy = document.getElementById('word-image-body');  if (iy) iy.innerHTML = '';
+      _hintBoxWord = null;
+    }
+
+    // Ces boîtes vivent SOUS la zone de séance : ouvertes, elles tombent hors de
+    // l'écran derrière quatre réponses, et l'on croit que le bouton ne fait rien.
+    function revealSessionBox(el) {
+      if (practiceMode !== 'practice' || !el) return;
+      requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
 
     function renderSessionEnd() {
@@ -6913,26 +6950,47 @@ Write all scenarios and explanations in ${langName}.`;
       _sessionBusy = false;
     }
 
+    function sessionNext() { sessionIdx++; renderSession(); }
+
     function addSessionNextButton() {
       const wrap = document.createElement('div');
       wrap.className = 'session-actions';
       const b = document.createElement('button');
       b.className   = 'btn-secondary';
       b.textContent = tApp('sess_next');
-      b.onclick     = () => { sessionIdx++; renderSession(); };
+      b.onclick     = sessionNext;
       wrap.appendChild(b);
       document.getElementById('session-body').appendChild(wrap);
+
+      // Répondre demandait de descendre chercher « Suivant », puis de remonter
+      // pour le mot d'après : deux allers-retours par question. Un second appui
+      // sur la réponse avance aussi. ⚠️ Les boutons doivent être RÉACTIVÉS —
+      // un bouton désactivé n'émet aucun clic, donc aucun tap ne passerait. Le
+      // délai empêche le geste de la réponse d'avancer par rebond.
+      setTimeout(() => {
+        document.querySelectorAll('#session-choices .qcm-choice').forEach(btn => {
+          btn.disabled = false;
+          btn.onclick  = sessionNext;
+        });
+      }, 350);
+
+      // Le verdict tombe sous quatre réponses longues : on l'amène à l'écran.
+      const res = document.getElementById('session-result');
+      if (res) requestAnimationFrame(() => res.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
     }
 
-    // Mêmes règles que le mode espacé : un mot neuf réussi sort du pool sans
-    // toucher aux étoiles ; un mot neuf raté ne compte pas contre lui.
+    // Un mot neuf sort du pool et revient demain, réussi OU NON, sans toucher aux
+    // étoiles (le net reste à 0, donc aucune pénalité). ⚠️ Le mode espacé, lui,
+    // laisse un mot neuf raté intact — parce qu'y échouer, c'est ne pas avoir su
+    // l'employer dans une phrase, ce qui est normal la première fois. Ici on a
+    // montré sa définition et proposé un QCM : le laisser tel quel le renvoyait
+    // dans le sac des ~9 700 jamais pratiqués, d'où il ne ressortait jamais —
+    // l'échec faisait disparaître le mot au lieu de le ramener.
     async function recordSessionAnswer(word, ok) {
       if (isNewWord(word)) {
-        if (ok) {
-          await saveProgressNew(word);
-          todayNewCount++;
-          saveTodayCount(currentLang, todayNewCount);
-        }
+        await saveProgressNew(word);
+        todayNewCount++;
+        saveTodayCount(currentLang, todayNewCount);
       } else {
         await saveProgress(word, ok);
       }
