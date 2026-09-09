@@ -2281,6 +2281,7 @@
       sess_empty:       { en: `Nothing due today.`, fr: `Rien à faire aujourd'hui.`, es: `Nada para hoy.`, el: `Τίποτα για σήμερα.` },
       sess_score:       { en: `{a} of {b} correct`, fr: `{a} sur {b} justes`, es: `{a} de {b} correctas`, el: `{a} από {b} σωστά` },
       sess_inbase:      { en: `in your list: {w}`, fr: `dans ta liste : {w}`, es: `en tu lista: {w}`, el: `στη λίστα σου: {w}` },
+      sess_today:       { en: `{a} of {b} today`, fr: `{a} sur {b} aujourd'hui`, es: `{a} de {b} hoy`, el: `{a} από {b} σήμερα` },
       sess_pending_one: { en: `1 recall still waiting`, fr: `1 rappel encore en attente`, es: `1 repaso pendiente`, el: `1 επανάληψη σε εκκρεμότητα` },
       sess_pending:     { en: `{n} recalls still waiting`, fr: `{n} rappels encore en attente`, es: `{n} repasos pendientes`, el: `{n} επαναλήψεις σε εκκρεμότητα` },
       sess_again:       { en: `Another round →`, fr: `Une autre manche →`, es: `Otra ronda →`, el: `Άλλος γύρος →` },
@@ -3418,7 +3419,8 @@
     const _settingsDenylist = new Set([KEY_JWT, KEY_PWD_OK, KEY_OPENAI_KEY, KEY_GEMINI_KEY]);
     function _isSyncableSettingKey(k) {
       return k && k.startsWith('vocab_') && !_settingsDenylist.has(k)
-             && !k.startsWith('vocab_today_new_') && !k.startsWith(KEY_DRAFT + '_')
+             && !k.startsWith('vocab_today_new_') && !k.startsWith('vocab_today_done_')
+             && !k.startsWith(KEY_DRAFT + '_')
              && !k.startsWith(KEY_QCM_SEEN);
     }
     function collectSettings() {
@@ -3848,7 +3850,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('image-section').classList.toggle('visible', isImage);
       document.querySelector('.slider-section').style.display = (mode === 'situation' || isImage) ? 'none' : '';
       const rb = document.getElementById('revisions-bar');
-      if (rb) rb.style.display = (mode === 'spaced') ? '' : 'none';
+      // La pratique quotidienne s'appuie sur le même calendrier que l'espacé :
+      // les mots programmés et leurs étoiles s'y consultent pareil.
+      if (rb) rb.style.display = (mode === 'spaced' || mode === 'practice') ? '' : 'none';
       const mb = document.getElementById('mastered-bar');
       if (mb) mb.style.display = 'none'; // rallumée par pickWords s'il y a des ★★★
 
@@ -6616,7 +6620,6 @@ Write all scenarios and explanations in ${langName}.`;
     // journée sans qu'un seul mot ait été vu. Le préfixe `vocab_today_new_` est
     // déjà exclu de la synchronisation des réglages.
     function newServedKey()   { return `vocab_today_new_served_${currentLang}_${todayStrLocal()}`; }
-    function newServedToday() { return parseInt(localStorage.getItem(newServedKey())) || 0; }
     function markNewServed(word) {
         if (!isNewWord(word)) return;
         localStorage.setItem(newServedKey(), newServedToday() + 1);
@@ -6635,6 +6638,31 @@ Write all scenarios and explanations in ${langName}.`;
       localStorage.setItem(flag, '2026-09-09');
     })();
 
+    // Mots réellement travaillés aujourd'hui, toutes manches confondues : quatre le
+    // matin et quatre le soir font huit, et non deux barres reparties de zéro.
+    function doneKey()        { return `vocab_today_done_${currentLang}_${todayStrLocal()}`; }
+    function doneToday()      { return parseInt(localStorage.getItem(doneKey())) || 0; }
+    function markDone()       { localStorage.setItem(doneKey(), doneToday() + 1); }
+
+    // Ce qu'il reste : les mots de la manche encore à passer, les rappels dus qui
+    // n'y sont pas, et les mots neufs encore ouverts. Le total ne bouge donc pas
+    // d'une manche à l'autre — seulement si l'on ouvre des mots en plus.
+    function dayProgress() {
+      const done = doneToday();
+      const left = new Set();
+      let unservedNew = 0; // mots neufs déjà tirés dans la manche, pas encore montrés
+      sessionItems.slice(sessionIdx).forEach(it => {
+        if (it.kind === 'cloze') return it.words.forEach(w => left.add(lc(w)));
+        left.add(lc(it.word));
+        if (!it.served && isNewWord(it.word)) unservedNew++;
+      });
+      const dueLeft  = dueWords().filter(w => !left.has(lc(w))).length;
+      // Ces mots-là occupent déjà des places du quota : les recompter gonflait le
+      // total (15 au lieu de 8 sur une manche de huit neufs).
+      const newExtra = Math.max(0, newQuota() - unservedNew);
+      return { done, total: done + left.size + dueLeft + newExtra };
+    }
+    function newServedToday() { return parseInt(localStorage.getItem(newServedKey())) || 0; }
     let sessionExtraNew = 0; // mots neufs ouverts à la demande, au-delà du quota
     // Aide autorisée sur le mot à l'écran (définition, traduction, image) : vraie
     // sur un mot neuf, et sur un rappel seulement une fois la réponse donnée.
@@ -6768,19 +6796,14 @@ Write all scenarios and explanations in ${langName}.`;
     function sessionTotal() {
       return sessionItems.reduce((n, i) => n + (i.kind === 'cloze' ? i.words.length : 1), 0);
     }
-    function sessionSeen() {
-      return sessionItems.slice(0, sessionIdx).reduce((n, i) => n + (i.kind === 'cloze' ? i.words.length : 1), 0);
-    }
 
     function renderSession() {
-      const body  = document.getElementById('session-body');
-      const total = sessionTotal();
-      const seen  = sessionSeen();
+      const body = document.getElementById('session-body');
+      const { done, total } = dayProgress();
       document.getElementById('session-count').textContent =
-        total ? tApp('sess_progress').replace('{a}', seen).replace('{b}', total) : '';
-      document.getElementById('session-fill').style.width = total ? (100 * seen / total) + '%' : '0%';
-      // Une manche vide n'a rien à jauger : la barre restait seule au-dessus de
-      // « Rien à faire aujourd'hui ».
+        total ? tApp('sess_today').replace('{a}', done).replace('{b}', total) : '';
+      document.getElementById('session-fill').style.width = total ? (100 * done / total) + '%' : '0%';
+      // Rien à jauger : la barre restait seule au-dessus de « Rien à faire ».
       const head = document.querySelector('#session-section .session-head');
       if (head) head.style.display = total ? '' : 'none';
 
@@ -7035,6 +7058,7 @@ Write all scenarios and explanations in ${langName}.`;
       } else {
         await saveProgress(word, ok);
       }
+      markDone();
       saveHistory(word, ok);
     }
 
@@ -9420,6 +9444,27 @@ Reply with ONLY this JSON object, nothing else:
       }
     }
 
+    // Remplaçant d'un mot retiré : du même genre que lui si possible — un mot neuf
+    // pour un mot neuf (la place vient d'être rendue au quota), un rappel pour un
+    // rappel — et jamais un mot déjà présent dans la manche.
+    function pickRoundReplacement(excludeKey, prefer) {
+      const inRound = new Set([excludeKey]);
+      sessionItems.forEach(it => it.kind === 'qcm'
+        ? inRound.add(lc(it.word))
+        : it.words.forEach(w => inRound.add(lc(w))));
+
+      const freshOnes = () => newQuota() > 0
+        ? shuffleInPlace(allWords.filter(w => isNewWord(w) && !inRound.has(lc(w))))
+        : [];
+      const dueOnes = () => dueWords()
+        .filter(w => !inRound.has(lc(w)) && sessionLevel(w) === 'qcm')
+        .sort((a, b) => (progressMap[lc(a)].nextReview || '').localeCompare(progressMap[lc(b)].nextReview || ''));
+
+      const first  = prefer === 'new' ? freshOnes() : dueOnes();
+      const second = prefer === 'new' ? dueOnes()   : freshOnes();
+      return first[0] || second[0] || null;
+    }
+
     // Le mot quitte la manche en cours : ses QCM disparaissent, il sort des textes
     // à trous, et l'item courant cède la place au suivant.
     function dropWordFromRound(word, hadProgress) {
@@ -9435,6 +9480,14 @@ Reply with ONLY this JSON object, nothing else:
           saveTodayCount(currentLang, todayNewCount);
         }
       }
+      // Un mot pas encore passé est REMPLACÉ sur place : le jeter ne doit pas
+      // raccourcir la manche (ni la journée), il doit juste céder son tour.
+      const idx = sessionItems.findIndex(it => it.kind === 'qcm' && lc(it.word) === k);
+      if (idx >= sessionIdx) {
+        const repl = pickRoundReplacement(k, served ? 'new' : 'due');
+        if (repl) sessionItems[idx] = { kind: 'qcm', word: repl };
+      }
+
       let removedBefore = 0;
       sessionItems = sessionItems.filter((it, i) => {
         const hit = it.kind === 'qcm' && lc(it.word) === k;
