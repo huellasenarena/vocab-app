@@ -5853,6 +5853,9 @@ Reply with ONLY this JSON object, nothing else:
         const g = await wordGloss(word, currentLang);
         if (_hintBoxWord !== word) return; // changé de mot pendant l'appel
         el.innerHTML = `<div class="hint-translation"><span class="tr-word">${escapeHtml(lc(wordBase(word)))}</span> → ${escapeHtml(g.tr)}</div>`;
+        // Elle s'écrit en bas de la boîte, donc sous l'écran : le scroll d'ouverture
+        // a eu lieu AVANT qu'elle n'arrive, il ne pouvait pas la connaître.
+        revealSessionBox(el, 'center'); // une ligne : la centrer, pas la coller en haut
       } catch (e) {
         if (_hintBoxWord !== word) return;
         el.innerHTML = `<div class="hint-translation tr-err">${tPrac('err_prefix')} ${escapeHtml(e.message || '')}</div>`;
@@ -6771,11 +6774,12 @@ Write all scenarios and explanations in ${langName}.`;
       // Avant les sorties : une image ou une définition ouverte resterait sinon
       // affichée sous la carte de fin de manche.
       resetSessionBoxes(); // définition, traduction et image de l'item précédent
-      // Un nouvel item repart du haut : sinon on reste où la boîte précédente
-      // nous avait laissés, et il faut remonter à la main pour lire le mot.
+      // Un nouvel item s'aligne sur la barre de progression, PAS sur le haut de la
+      // page : remonter à 0 remettait le titre, le compteur de tokens et le nom du
+      // mode à l'écran, et il fallait redescendre pour voir les réponses.
       // (Seulement si la séance est à l'écran : un mot supprimé depuis « mes
       //  mots » re-rend la manche en arrière-plan et ferait sauter la liste.)
-      if (document.getElementById('screen-practice').classList.contains('active')) window.scrollTo({ top: 0 });
+      alignSessionTop();
 
       if (!sessionItems.length) return void (body.innerHTML =
         `<p class="session-note">${tApp('sess_empty')}</p>${sessionEndActions()}`);
@@ -6822,11 +6826,32 @@ Write all scenarios and explanations in ${langName}.`;
       _hintBoxWord = null;
     }
 
+    // Amène un élément juste sous le haut de l'écran (encoche comprise).
+    // ⚠️ `scrollIntoView({block:'start'})` colle l'élément au bord absolu : sous
+    // l'encoche en PWA, le premier titre passe dessous.
+    function scrollElToTop(el, smooth = true) {
+      const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
+      const top = el.getBoundingClientRect().top + window.scrollY - (safeTop + 8);
+      window.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
+    }
+
     // Ces boîtes vivent SOUS la zone de séance : ouvertes, elles tombent hors de
     // l'écran derrière quatre réponses, et l'on croit que le bouton ne fait rien.
-    function revealSessionBox(el) {
+    function revealSessionBox(el, block) {
       if (practiceMode !== 'practice' || !el) return;
-      requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      requestAnimationFrame(() => block
+        ? el.scrollIntoView({ behavior: 'smooth', block })
+        : scrollElToTop(el));
+    }
+
+    // Aligne la manche sur sa barre de progression. Rappelée APRÈS l'arrivée des
+    // réponses : au moment du rendu la page est encore courte (un spinner), donc
+    // le navigateur ne peut pas descendre jusqu'à la position visée.
+    function alignSessionTop(smooth = false) {
+      if (practiceMode !== 'practice') return;
+      if (!document.getElementById('screen-practice').classList.contains('active')) return;
+      const head = document.querySelector('#session-section .session-head');
+      if (head) scrollElToTop(head, smooth);
     }
 
     function renderSessionEnd() {
@@ -6895,6 +6920,7 @@ Write all scenarios and explanations in ${langName}.`;
         document.getElementById('session-choices').innerHTML =
           choices.map((c, i) => `<button class="qcm-choice" onclick="answerSessionQCM(this, ${i})">${c.text}</button>`).join('')
           + `<button class="btn-ghost" style="margin-top:0.5rem" onclick="sessionDunno()">${tPrac('sess_dunno')}</button>`;
+        requestAnimationFrame(alignSessionTop);
       } catch (err) {
         item.choicesPromise = null;
         document.getElementById('session-choices').innerHTML =
