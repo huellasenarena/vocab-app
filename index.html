@@ -6318,6 +6318,15 @@ of it, or if the scenario is a textbook illustration of "${qcmBase}", the distra
 replace it. The correct scenario must be the most prototypical use of "${qcmBase}"; a distractor
 must never be a BETTER example of it than the correct one.${avoid}
 
+FORM — the four scenarios must be indistinguishable by shape alone. A learner who
+does not know "${qcmBase}" must have NO formal clue as to which one is correct:
+- comparable length: same number of sentences, and no scenario more than ~20% longer
+  than the shortest one
+- same level of detail. Do NOT make the correct scenario richer, more specific, more
+  vivid or more carefully written than the distractors — this is the most common
+  giveaway, and it lets the word be found without knowing its meaning
+- same syntactic pattern and same register throughout
+
 Return ONLY a JSON array of 4 objects, no other text, no markdown:
 [
   {"text": "...", "correct": true, "explanation": "..."},
@@ -6770,6 +6779,10 @@ Write all scenarios and explanations in ${langName}.`;
       document.getElementById('session-count').textContent =
         total ? tApp('sess_progress').replace('{a}', seen).replace('{b}', total) : '';
       document.getElementById('session-fill').style.width = total ? (100 * seen / total) + '%' : '0%';
+      // Une manche vide n'a rien à jauger : la barre restait seule au-dessus de
+      // « Rien à faire aujourd'hui ».
+      const head = document.querySelector('#session-section .session-head');
+      if (head) head.style.display = total ? '' : 'none';
 
       // Avant les sorties : une image ou une définition ouverte resterait sinon
       // affichée sous la carte de fin de manche.
@@ -9026,6 +9039,10 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     function positionCtxMenu(x, y) {
       _ctxPos = { x, y };
       const menu = document.getElementById('word-ctx-menu');
+      // Les menus sans titre (modes, langues, pagination) laissaient le bandeau du
+      // mot, vide mais avec son gabarit et son filet : une bande blanche en haut.
+      const lab = document.getElementById('word-ctx-label');
+      if (lab) lab.style.display = lab.textContent.trim() ? '' : 'none';
       menu.style.left = '-9999px';
       menu.style.top  = '-9999px';
       menu.classList.add('visible');
