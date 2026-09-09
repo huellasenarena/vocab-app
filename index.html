@@ -2071,7 +2071,11 @@
     const GOOGLE_CLIENT_ID = "742808037031-fvn2quk75f541mtn5b9vlv9merkhie41.apps.googleusercontent.com";
 
     // Valeurs du slider "Nouveaux mots / jour" : fines de 1 à 5, puis pas de 5 jusqu'à 100
-    const MAX_NEW_VALUES = [1,2,3,4,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100];
+    // Pas de 1 jusqu'à 10 : depuis que la pratique quotidienne est le mode normal,
+    // le régime courant est ~8 mots neufs par jour, pas 60 — c'est le bas de
+    // l'échelle qui doit être fin.
+    const MAX_NEW_VALUES = [1,2,3,4,5,6,7,8,9,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100];
+    const DEFAULT_NEW_PER_DAY = 8;
     function maxNewToIndex(v) {
       const i = MAX_NEW_VALUES.indexOf(v);
       if (i >= 0) return i;
@@ -2772,7 +2776,7 @@
           const words = (wordsR.words || []).filter(w => w && w.trim());
           const prog  = {};
           (progR.progress || []).forEach(r => { prog[(r.word || '').toLowerCase()] = r.next_review || null; });
-          const maxNew   = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + l.key)) || 60;
+          const maxNew   = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + l.key)) || DEFAULT_NEW_PER_DAY;
           const todayNew = sessR.count || 0;
           let due = 0, neverPrac = 0;
           for (const w of words) {
@@ -3159,7 +3163,7 @@
       const _langWC = desiredWordCount(lang, practiceMode);
       document.getElementById('word-count-slider').value = _langWC;
       document.getElementById('slider-value').textContent = wordsLabel(_langWC);
-      maxNewPerDay = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + lang)) || 60;
+      maxNewPerDay = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + lang)) || DEFAULT_NEW_PER_DAY;
       document.getElementById('max-new-slider').value = maxNewToIndex(maxNewPerDay);
       document.getElementById('max-new-value').textContent = `${maxNewPerDay} ${tPrac('words_suffix')}`;
       // Grammaire : réglages propres à la langue qu'on ouvre
@@ -3437,7 +3441,7 @@
     function reloadSettingsVars() {
       appLang             = localStorage.getItem(KEY_APP_LANG) || appLang;
       grammarFormsEnabled = grammarEnabledFor(currentLang);
-      maxNewPerDay        = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + currentLang)) || 60;
+      maxNewPerDay        = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + currentLang)) || DEFAULT_NEW_PER_DAY;
       showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
       situationCounts     = localStorage.getItem(KEY_SITUATION_COUNTS) === 'true';
       situationWordCount  = parseInt(localStorage.getItem(KEY_SITUATION_WORDS)) || 1;
@@ -6570,7 +6574,10 @@ Write all scenarios and explanations in ${langName}.`;
     // les sert, les suivantes ne servent que des rappels. On rattrape donc son
     // retard autant qu'on veut sans s'endetter davantage — c'est la charge qui
     // grossit toute seule qui avait fait décrocher fin août 2026.
-    const NEW_PER_DAY         = 8;
+    // ⚠️ Le nombre vient du réglage ⚙️ (`maxNewPerDay`, défaut DEFAULT_NEW_PER_DAY) :
+    // une CONSTANTE du mode en plus du réglage donnait deux quotas concurrents, et
+    // le plus petit gagnait — une manche à 1 mot chez qui avait réglé « 1 nouveau
+    // par jour » du temps du mode espacé.
     const CLOZE_MAX           = 8;  // trous dans un texte
     const CLOZE_MIN           = 4;  // en dessous, on complète avec des mots plus avancés
     // Palier lu sur le NET (correct - incorrect), c'est-à-dire les étoiles : ★★☆ → trous.
@@ -6662,9 +6669,14 @@ Write all scenarios and explanations in ${langName}.`;
     // chaque manche —, puis les rappels les plus en retard. Les mots arrivés au
     // palier des trous partent ensemble dans UN texte, qui ne coûte qu'un exercice.
     function newQuota() {
+      // Deux compteurs disent « mots neufs du jour » : ceux qu'on a AFFICHÉS en
+      // séance (local) et ceux qui sont SORTIS du pool (D1, alimenté aussi par le
+      // mode espacé et par « étudier »). On retient le plus grand, sinon huit mots
+      // appris ailleurs ce matin en rouvriraient huit ce soir. ⚠️ Le supplément
+      // demandé (`sessionExtraNew`) s'ajoute au quota lui-même et non à l'un des
+      // termes : sur l'autre, « ouvrir des mots de plus » ne rendrait rien.
       return Math.max(0, Math.min(
-        NEW_PER_DAY + sessionExtraNew - newServedToday(),
-        maxNewPerDay - todayNewCount,
+        maxNewPerDay + sessionExtraNew - Math.max(newServedToday(), todayNewCount),
         ROUND_EXERCISES
       ));
     }
@@ -6767,7 +6779,7 @@ Write all scenarios and explanations in ${langName}.`;
                 </div>`;
       if (allWords.some(w => isNewWord(w)))
         return `<div class="session-actions">
-                  <button class="btn-secondary" onclick="openMoreNew()">${tApp('sess_more_new').replace('{n}', NEW_PER_DAY)}</button>
+                  <button class="btn-secondary" onclick="openMoreNew()">${tApp('sess_more_new').replace('{n}', maxNewPerDay)}</button>
                 </div>`;
       return '';
     }
@@ -6791,7 +6803,7 @@ Write all scenarios and explanations in ${langName}.`;
     }
 
     function nextRound()   { startSession(); }
-    function openMoreNew() { sessionExtraNew += NEW_PER_DAY; startSession(); }
+    function openMoreNew() { sessionExtraNew += maxNewPerDay; startSession(); }
 
     // ── QCM de séance ───────────────────────────────────────────────────
     async function fetchQCMChoices(word) {
