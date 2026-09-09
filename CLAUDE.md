@@ -259,6 +259,8 @@ Anti-abandon : quand plusieurs mots inconnus tombent le même jour, écrire une 
 - 📸 **Imagen** — photo Unsplash, description espagnol, `callAIVision`. Indépendant de la liste.
 - 📝 **Pratique quotidienne** (2026-09-08) — section dédiée plus bas.
 
+**Mode retenu par langue** (2026-09-09) : `vocab_mode_<Langue>` (`storedMode`, écrit par `setMode`, synchronisé comme les autres réglages), **défaut `practice`** — on ne rouvre plus le grec en mode espacé chaque matin. `selectLanguage` le pose **avant** tout ce qui en dépend (slider, écran) et se termine par `setMode(practiceMode)` : un seul endroit règle l'écran selon le mode, au lieu d'en répéter deux lignes et d'en oublier trois.
+
 **Sélecteur de mode** : la rangée de boutons a été remplacée par le **nom du mode en cours** (`#mode-current-btn`, `updateModeLabel()`), cliquable → `openModeMenu()` réutilise `#word-ctx-menu` comme les langues et les groupes. Cinq modes ne tenaient plus dans une rangée, et trois d'entre eux sont devenus rares.
 
 ---
@@ -276,10 +278,15 @@ Né du constat que l'utilisateur décrochait au bout de 2-3 jours : **98,6 % de 
 | ★★★ | écrire une phrase — *hors périmètre de l'essai, prévu en clôture de groupe* |
 
 - **Palier lu sur le NET** (`sessionLevel`, `CLOZE_AT_NET = 2`), pas sur `correct`. Un mot neuf réussi passe par `saveProgressNew` et laisse le net à 0 : le seuil 2 vaut donc **trois rencontres réussies**. Et comme un échec retire 1, un mot raté deux fois **redescend seul** au QCM — ⚠️ ne pas ajouter de compteur d'échecs, c'est déjà gratuit.
-- **Séance à budget fixe** (`SESSION_BUDGET = 12`) : rappels dus d'abord, puis **5 mots neufs au plus** (`SESSION_MAX_NEW`). ⚠️ Sans ce plafond la séance double en une semaine — un mot neuf coûte ~4 places de rappel sur 4 jours (SM-2 rend à +1 jour pendant 3-4 passages), donc 12 places absorbent **~3 neufs/jour**. C'est la charge croissante qui avait fait décrocher fin août.
+- **La séance est une MANCHE de 12 exercices** (`ROUND_EXERCISES`), et un exercice n'est pas un mot : un QCM en sert un, un texte à trous **jusqu'à huit d'un coup**. C'est ce regroupement qui rend **8 mots neufs par jour** (`NEW_PER_DAY`) tenable — comptés en mots, ils demanderaient ~25 items par jour.
+- **Les mots neufs sont un quota du JOUR, pas de la manche** : la première manche les sert, les suivantes ne servent **que des rappels**. On rattrape son retard autant qu'on veut sans s'endetter davantage. ⚠️ Version précédente (2026-09-08) : rappels d'abord dans un budget de 12 **mots**, 5 neufs pour la place restante — avec des centaines de mots en retard, les 12 places étaient prises et il ne restait **jamais** de place pour un neuf. Trois jours après le déploiement, le mode ne proposait plus rien à apprendre.
+- Quota compté sur les mots **réellement affichés** (`markNewServed` dans `renderSessionQCM`, clé `vocab_today_new_served_<Langue>_<date>`, préfixe déjà exclu de la sync). ⚠️ Ni sur les **réussis** (un mot neuf raté reste neuf et reviendrait à la manche suivante), ni sur le **tirage** (deux allers-retours entre modes mangeraient la journée sans qu'un mot ait été vu).
+- Rappels servis **du plus en retard au moins en retard**, et QCM neufs **mélangés** aux rappels : huit mots inconnus à la file font décrocher avant le premier rappel.
+- **Fin de manche** (`sessionEndActions`) : ce qui reste à rappeler (`dueWords()` recalculé — les mots servis ont tous reçu une nouvelle échéance, donc rien à mémoriser) + « une autre manche ». Quand plus rien n'est dû, **ouvrir des mots neufs au-delà du quota est un clic conscient** (`openMoreNew`, `sessionExtraNew`) : automatique, il doublerait la charge de demain sans qu'on l'ait demandé. Une manche vide offre la même sortie au lieu d'être un cul-de-sac.
 - Un mot n'apparaît **qu'une fois par séance** et ne monte **que d'un palier par séance**. La séance **se termine** (carte ✓ + score).
 - ⚠️ S'il n'y a pas assez de mots **dus** au palier trous, on complète avec des mots travaillés **non encore dus** (les plus proches de leur échéance) : réviser un peu en avance ne coûte rien, trois jours de QCM sans jamais voir un texte, si. Sans ça, un stock sans révision due ne produit aucun texte.
 - **Masquage** : `#screen-practice.session-mode` masque carte, chips, sliders, zone de phrase, `.action-row` **et** `#btn-next-below` (⚠️ deux boutons « Autre mot » distincts) ; `#hint-box` reste visible, la définition s'y affiche.
+- **Menu ⋯ et définition sur le mot à l'écran** (2026-09-09) : le mot du QCM porte son `⋯` (`openWordMenu`) et un bouton 📖 définition ; dans le texte à trous, **chaque mot corrigé** ouvre le sien (le seul endroit où on le voit est donc le seul d'où on peut le vérifier ou le jeter). ⚠️ **Anti-triche** : `_sessionHelpOpen` ouvre définition/traduction/image **d'emblée sur un mot neuf** (c'est ce qu'on vient apprendre) mais seulement **après la réponse** sur un rappel — et `renderSessionCloze` les **referme**, sinon le QCM précédent laissait la traduction accessible pendant le texte.
 
 ### Texte à trous
 `clozePrompt()` / `fetchCloze()` / `paintCloze()`. Un seul appel IA par séance, **la correction est locale** (l'app a placé les mots, elle connaît les réponses) : pas d'attente, pas de verdict à lire, une couleur par trou.
@@ -298,7 +305,9 @@ Prompt extrait en **`qcmPrompt(word)`**, partagé avec le QCM d'après-verdict.
 - **Préchargement** (`prefetchQCM`) : le QCM de l'item suivant part **avant** l'`await` du courant, la chaîne se propage. Mesuré en navigateur : 0,0 s d'attente dès le 2e item (seul le premier coûte ~10 s).
 
 ### Reste à faire
-Tirage par groupe au démarrage · lien « pourquoi ? » sur un trou raté · budget réglable dans ⚙️ · retrait des `console.log` `[Séance]` · plus tard : écriture en clôture de groupe, mémoire des QCM en D1.
+Tirage par groupe au démarrage · lien « pourquoi ? » sur un trou raté · budget de la manche et nombre de mots neufs réglables dans ⚙️ · **carte de langue de l'accueil** : elle additionne encore les mots dus + le quota de neufs, c'est-à-dire le pool du mode espacé, et annonce « 340 » quand la manche en sert 19 (page de test à faire avant de toucher au visuel) · **fondre le mode espacé dans le mode libre** (pool « à réviser aujourd'hui » à côté des groupes virtuels existants ; le calendrier des révisions se rattache au mode pratique) · retrait des `console.log` `[Séance]` · plus tard : écriture en clôture de groupe, mémoire des QCM en D1.
+
+> **Reset du 2026-09-09** : `progress`, `history` et `sessions` vidées en D1 (142 + 1409 + 99 lignes, sauvegarde JSON dans `~/Desktop/vocab-backup-2026-09-09/`, hors dépôt public) pour éprouver le mode depuis le premier jour. Mots, groupes, blacklist et formes intacts. ⚠️ Les compteurs « nouveaux du jour » vivent **aussi** en localStorage (`loadTodayCount` garde le maximum des deux) : d'où la purge unique au chargement (`purgeDayCountersOnce`, drapeau `vocab_today_new_reset_flag`) — sans elle, chaque appareil déjà ouvert croyait son quota du jour épuisé et ne servait plus un seul mot neuf.
 
 ---
 

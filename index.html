@@ -308,7 +308,8 @@
     .session-count { font-size: 0.82rem; color: var(--muted); }
     .session-track { height: 4px; border-radius: 3px; background: var(--surface); overflow: hidden; }
     .session-fill  { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.25s; }
-    .session-word  { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 0.3rem; }
+    .session-word  { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 0.3rem;
+                     display: flex; align-items: center; justify-content: center; gap: 0.3rem; }
     .session-def   { font-size: 0.92rem; color: var(--muted); text-align: center; margin-bottom: 1rem; }
     .session-q     { font-size: 0.95rem; margin-bottom: 1rem; text-align: center; color: var(--muted); }
     .session-actions { display: flex; justify-content: center; margin-top: 1.1rem; }
@@ -2272,6 +2273,11 @@
       sess_empty:       { en: `Nothing due today.`, fr: `Rien à faire aujourd'hui.`, es: `Nada para hoy.`, el: `Τίποτα για σήμερα.` },
       sess_score:       { en: `{a} of {b} correct`, fr: `{a} sur {b} justes`, es: `{a} de {b} correctas`, el: `{a} από {b} σωστά` },
       sess_inbase:      { en: `in your list: {w}`, fr: `dans ta liste : {w}`, es: `en tu lista: {w}`, el: `στη λίστα σου: {w}` },
+      sess_pending_one: { en: `1 recall still waiting`, fr: `1 rappel encore en attente`, es: `1 repaso pendiente`, el: `1 επανάληψη σε εκκρεμότητα` },
+      sess_pending:     { en: `{n} recalls still waiting`, fr: `{n} rappels encore en attente`, es: `{n} repasos pendientes`, el: `{n} επαναλήψεις σε εκκρεμότητα` },
+      sess_again:       { en: `Another round →`, fr: `Une autre manche →`, es: `Otra ronda →`, el: `Άλλος γύρος →` },
+      sess_clear:       { en: `Nothing left to recall today.`, fr: `Plus rien à rappeler aujourd'hui.`, es: `Nada más que repasar hoy.`, el: `Τίποτα άλλο για επανάληψη σήμερα.` },
+      sess_more_new:    { en: `Open {n} more new words`, fr: `Ouvrir {n} mots neufs de plus`, es: `Abrir {n} palabras nuevas más`, el: `Άνοιγμα {n} νέων λέξεων` },
       mode_spaced:      { en: `📅<br>Spaced`, fr: `📅<br>Espacée`, es: `📅<br>Espaciada`, el: `📅<br>Κατανεμημένη` },
       mode_situation:   { en: `🎯<br>Situation`, fr: `🎯<br>Situation`, es: `🎯<br>Situación`, el: `🎯<br>Περίσταση` },
       mode_free:        { en: `🎲<br>Free`, fr: `🎲<br>Libre`, es: `🎲<br>Libre`, el: `🎲<br>Ελεύθερη` },
@@ -2538,7 +2544,7 @@
       }
       return lines.length ? '\n\n' + lines.join('\n') : '';
     }
-    let practiceMode       = 'spaced';
+    let practiceMode       = 'practice'; // remplacé par le mode retenu pour la langue ouverte
     let grammarForms        = [];   // liste aplatie des formes grammaticales de la langue courante
     // Grammaire : réglages PAR LANGUE (clés suffixées `_<Langue>`). Repli sur
     // l'ancienne clé globale, qui portait les réglages espagnols d'avant la
@@ -3135,6 +3141,8 @@
       purgeOldDrafts();
       sessionFirstResult = {};
       currentLang = lang;
+      practiceMode = storedMode(lang); // avant tout ce qui en dépend (slider, écran)
+      sessionExtraNew = 0;             // les mots neufs ouverts en plus ne suivent pas d'une langue à l'autre
       previousWordsPool = [];
       // Une sélection manuelle (mode libre) référence les mots d'une langue → on la vide au changement.
       freeSelection = [];
@@ -3172,11 +3180,7 @@
       // (table `grammar_forms` par langue) — la section s'affiche s'il y en a.
       const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(lang), loadTodayTokens(), loadBlacklist(lang), loadGrammarForms() ];
       await Promise.all(loadFns);
-      updateModeLabel();
-      document.getElementById('screen-practice').classList.toggle('session-mode', practiceMode === 'practice');
-      document.getElementById('session-section').style.display = practiceMode === 'practice' ? '' : 'none';
-      if (practiceMode === 'practice') startSession(); else pickWords();
-      updateFreeSearchBar();
+      setMode(practiceMode);
     }
 
     // ── Session : compteur journalier dans Sheets ─────────────
@@ -3802,8 +3806,17 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     }
 
     // ── Mode de pratique ─────────────────────────────────────
+    // Retenu PAR LANGUE : on ne pratique pas le grec comme l'espagnol. La clé
+    // `vocab_mode_<Langue>` est ramassée par collectSettings() → elle suit sur les
+    // autres appareils comme les autres réglages.
+    function storedMode(lang) {
+      const m = localStorage.getItem('vocab_mode_' + lang);
+      return MODE_KEYS.includes(m) ? m : 'practice';
+    }
+
     function setMode(mode) {
       practiceMode = mode;
+      if (currentLang) localStorage.setItem('vocab_mode_' + currentLang, mode);
       // La sélection manuelle du mode libre ne survit pas à un changement de mode.
       freeSelection = [];
       freeCursor = 0;
@@ -6549,8 +6562,15 @@ Write all scenarios and explanations in ${langName}.`;
     //  on les demande. Les deux mécanismes s'ignorent.
     // ═══════════════════════════════════════════════════════════════════
 
-    const SESSION_BUDGET      = 12; // items par séance, rappels d'abord
-    const SESSION_MAX_NEW     = 5;  // plafond de mots neufs — lisse le démarrage
+    // Une MANCHE = 12 exercices, et un exercice n'est pas un mot : un QCM en sert
+    // un, un texte à trous jusqu'à huit d'un coup. C'est ce regroupement qui rend
+    // 8 mots neufs par jour tenable — comptés en mots, ils demanderaient 25 items.
+    const ROUND_EXERCISES     = 12;
+    // Les mots neufs sont un quota du JOUR, pas de la manche : la première manche
+    // les sert, les suivantes ne servent que des rappels. On rattrape donc son
+    // retard autant qu'on veut sans s'endetter davantage — c'est la charge qui
+    // grossit toute seule qui avait fait décrocher fin août 2026.
+    const NEW_PER_DAY         = 8;
     const CLOZE_MAX           = 8;  // trous dans un texte
     const CLOZE_MIN           = 4;  // en dessous, on complète avec des mots plus avancés
     // Palier lu sur le NET (correct - incorrect), c'est-à-dire les étoiles : ★★☆ → trous.
@@ -6558,6 +6578,42 @@ Write all scenarios and explanations in ${langName}.`;
     // vaut donc bien TROIS rencontres réussies. Et comme un échec retire 1, un mot raté
     // deux fois redescend tout seul au QCM : pas de compteur d'échecs à tenir.
     const CLOZE_AT_NET        = 2;
+
+    // Compté sur les mots réellement AFFICHÉS, pas sur les réussis : un mot neuf
+    // raté reste « neuf » et reviendrait sinon à la manche suivante. Pas sur le
+    // tirage non plus, sinon deux allers-retours entre modes mangeraient la
+    // journée sans qu'un seul mot ait été vu. Le préfixe `vocab_today_new_` est
+    // déjà exclu de la synchronisation des réglages.
+    function newServedKey()   { return `vocab_today_new_served_${currentLang}_${todayStrLocal()}`; }
+    function newServedToday() { return parseInt(localStorage.getItem(newServedKey())) || 0; }
+    function markNewServed(word) {
+        if (!isNewWord(word)) return;
+        localStorage.setItem(newServedKey(), newServedToday() + 1);
+    }
+    // La progression a été remise à zéro en base le 2026-09-09 pour éprouver ce
+    // mode depuis le premier jour. Les compteurs « nouveaux du jour » vivent AUSSI
+    // en localStorage (repli hors ligne, et loadTodayCount garde le maximum des
+    // deux) : sans cette purge, chaque appareil déjà ouvert croyait son quota du
+    // jour épuisé et ne servait plus un seul mot neuf.
+    (function purgeDayCountersOnce() {
+      const flag = 'vocab_today_new_reset_flag'; // ce préfixe est exclu de la sync
+      if (localStorage.getItem(flag)) return;
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('vocab_today_new_') && k !== flag)
+        .forEach(k => localStorage.removeItem(k));
+      localStorage.setItem(flag, '2026-09-09');
+    })();
+
+    let sessionExtraNew = 0; // mots neufs ouverts à la demande, au-delà du quota
+    // Aide autorisée sur le mot à l'écran (définition, traduction, image) : vraie
+    // sur un mot neuf, et sur un rappel seulement une fois la réponse donnée.
+    let _sessionHelpOpen = false;
+
+    function unlockSessionHelp() {
+      _sessionHelpOpen = true;
+      const h = document.getElementById('session-help');
+      if (h) h.style.display = '';
+    }
 
     let sessionItems   = [];
     let sessionIdx     = 0;
@@ -6602,24 +6658,37 @@ Write all scenarios and explanations in ${langName}.`;
       return net >= CLOZE_AT_NET ? 'cloze' : 'qcm';
     }
 
-    // Budget fixe : les rappels dus d'abord, les neufs seulement pour la place
-    // qui reste. Sans ce plafond la séance double en une semaine et on décroche.
-    function buildSessionItems() {
-      const due = shuffleInPlace(allWords.filter(w => {
+    // Une manche : les mots neufs du jour d'abord — leur quota ne se rouvre pas à
+    // chaque manche —, puis les rappels les plus en retard. Les mots arrivés au
+    // palier des trous partent ensemble dans UN texte, qui ne coûte qu'un exercice.
+    function newQuota() {
+      return Math.max(0, Math.min(
+        NEW_PER_DAY + sessionExtraNew - newServedToday(),
+        maxNewPerDay - todayNewCount,
+        ROUND_EXERCISES
+      ));
+    }
+
+    // Ce qui est encore dû après une manche est exactement ce qui reste à
+    // rattraper : les mots servis ont tous reçu une nouvelle échéance.
+    function dueWords() {
+      return allWords.filter(w => {
         const p = progressMap[lc(w)];
         return p && p.nextReview && isDue(w);
-      })).slice(0, SESSION_BUDGET);
+      });
+    }
 
-      const room = SESSION_BUDGET - due.length;
-      let fresh = [];
-      if (room > 0) {
-        const quota = Math.max(0, Math.min(SESSION_MAX_NEW, maxNewPerDay - todayNewCount, room));
-        fresh = shuffleInPlace(allWords.filter(w => isNewWord(w))).slice(0, quota);
-      }
+    function buildSessionItems() {
+      const quota = newQuota();
+      const fresh = quota > 0
+        ? shuffleInPlace(allWords.filter(w => isNewWord(w))).slice(0, quota)
+        : [];
 
-      const pool  = [...due, ...fresh];
-      const qcm   = pool.filter(w => sessionLevel(w) === 'qcm');
-      let   cloze = pool.filter(w => sessionLevel(w) === 'cloze').slice(0, CLOZE_MAX);
+      // Les plus en retard d'abord : c'est le seul ordre qui fasse fondre la dette.
+      const byDue = (a, b) => (progressMap[lc(a)].nextReview || '').localeCompare(progressMap[lc(b)].nextReview || '');
+      const due   = dueWords().sort(byDue);
+
+      let cloze = due.filter(w => sessionLevel(w) === 'cloze').slice(0, CLOZE_MAX);
 
       // Trop peu de mots dus au palier trous : on complète avec des mots déjà
       // travaillés, même s'ils ne sont pas encore dus. Réviser un mot un peu en
@@ -6628,14 +6697,19 @@ Write all scenarios and explanations in ${langName}.`;
       // plus proches de leur échéance pour déranger le calendrier au minimum.
       if (cloze.length < CLOZE_MIN) {
         const extra = allWords
-          .filter(w => !pool.includes(w) && sessionLevel(w) === 'cloze')
-          .sort((a, b) => (progressMap[lc(a)]?.nextReview || '') .localeCompare(progressMap[lc(b)]?.nextReview || ''))
+          .filter(w => !cloze.includes(w) && sessionLevel(w) === 'cloze')
+          .sort((a, b) => (progressMap[lc(a)]?.nextReview || '').localeCompare(progressMap[lc(b)]?.nextReview || ''))
           .slice(0, CLOZE_MIN - cloze.length);
         cloze = [...cloze, ...extra];
       }
 
-      const items = qcm.map(w => ({ kind: 'qcm', word: w }));
-      if (cloze.length >= 2) items.push({ kind: 'cloze', words: cloze });
+      const hasText = cloze.length >= 2;
+      const room    = Math.max(0, ROUND_EXERCISES - fresh.length - (hasText ? 1 : 0));
+      const qcmDue  = due.filter(w => sessionLevel(w) === 'qcm').slice(0, room);
+
+      // Mélangés : huit mots inconnus à la file font décrocher avant le 1er rappel.
+      const items = shuffleInPlace([...fresh, ...qcmDue]).map(w => ({ kind: 'qcm', word: w }));
+      if (hasText) items.push({ kind: 'cloze', words: cloze });
       return items;
     }
 
@@ -6670,7 +6744,8 @@ Write all scenarios and explanations in ${langName}.`;
         total ? tApp('sess_progress').replace('{a}', seen).replace('{b}', total) : '';
       document.getElementById('session-fill').style.width = total ? (100 * seen / total) + '%' : '0%';
 
-      if (!sessionItems.length)          return void (body.innerHTML = `<p class="session-note">${tApp('sess_empty')}</p>`);
+      if (!sessionItems.length) return void (body.innerHTML =
+        `<p class="session-note">${tApp('sess_empty')}</p>${sessionEndActions()}`);
       if (sessionIdx >= sessionItems.length) return renderSessionEnd();
 
       const hb = document.getElementById('hint-box'); // définition d'un item précédent
@@ -6680,6 +6755,29 @@ Write all scenarios and explanations in ${langName}.`;
       else                     renderSessionCloze(item);
     }
 
+    // Le bouton de sortie de manche. Tant qu'il reste des rappels en retard, on
+    // enchaîne ; quand il n'en reste plus, ouvrir des mots neufs au-delà du quota
+    // du jour est un clic CONSCIENT — jamais automatique, sinon la charge de demain
+    // double sans qu'on l'ait demandé.
+    function sessionEndActions() {
+      const left = dueWords().length;
+      if (left > 0 || newQuota() > 0)
+        return `<div class="session-actions">
+                  <button class="btn-secondary" onclick="nextRound()">${tApp('sess_again')}</button>
+                </div>`;
+      if (allWords.some(w => isNewWord(w)))
+        return `<div class="session-actions">
+                  <button class="btn-secondary" onclick="openMoreNew()">${tApp('sess_more_new').replace('{n}', NEW_PER_DAY)}</button>
+                </div>`;
+      return '';
+    }
+
+    function sessionPendingLine() {
+      const left = dueWords().length;
+      if (!left) return tApp('sess_clear');
+      return left === 1 ? tApp('sess_pending_one') : tApp('sess_pending').replace('{n}', left);
+    }
+
     function renderSessionEnd() {
       const total = sessionTotal();
       document.getElementById('session-body').innerHTML =
@@ -6687,8 +6785,13 @@ Write all scenarios and explanations in ${langName}.`;
            <span class="word-label">${tApp('sess_done')}</span>
            <span class="done-check">✓</span>
            <p class="session-note">${tApp('sess_score').replace('{a}', sessionOk).replace('{b}', total)}</p>
-         </div>`;
+           <p class="session-note">${sessionPendingLine()}</p>
+         </div>
+         ${sessionEndActions()}`;
     }
+
+    function nextRound()   { startSession(); }
+    function openMoreNew() { sessionExtraNew += NEW_PER_DAY; startSession(); }
 
     // ── QCM de séance ───────────────────────────────────────────────────
     async function fetchQCMChoices(word) {
@@ -6715,9 +6818,18 @@ Write all scenarios and explanations in ${langName}.`;
 
     async function renderSessionQCM(item) {
       const body = document.getElementById('session-body');
+      if (!item.served) { markNewServed(item.word); item.served = true; }
+      // La définition est offerte d'emblée sur un mot neuf — c'est justement ce
+      // qu'on vient apprendre — et seulement APRÈS la réponse sur un rappel, où
+      // elle donnerait le mot. Même règle que partout ailleurs dans l'app.
+      _sessionHelpOpen = isNewWord(item.word);
+      const esc = item.word.replace(/'/g, "\\'");
       body.innerHTML =
-        `<div class="session-word">${lc(wordBase(item.word))}</div>
+        `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">⋯</span></div>
          ${wordNote(item.word) ? `<div class="session-def">${wordNote(item.word)}</div>` : ''}
+         <div class="session-actions" id="session-help" style="margin-top:0${_sessionHelpOpen ? '' : ';display:none'}">
+           <button class="btn-ghost" onclick="fetchHint('${esc}')">📖 ${tPrac('sess_def')}</button>
+         </div>
          <p class="session-q">${tPrac('sess_which')}</p>
          <div id="session-choices"><div style="text-align:center;padding:0.6rem;color:var(--muted)"><span class="spinner"></span></div></div>
          <div id="session-result"></div>`;
@@ -6755,12 +6867,7 @@ Write all scenarios and explanations in ${langName}.`;
       const res = document.getElementById('session-result');
       res.className = 'qcm-result incorrect';
       res.innerHTML = right?.explanation ? `✓ ${right.explanation}` : '';
-      const d = document.createElement('button');
-      d.className = 'btn-secondary';
-      d.style.cssText = 'display:block;margin-top:0.75rem';
-      d.textContent = tPrac('sess_def');
-      d.onclick = () => fetchHint(item.word);
-      res.appendChild(d);
+      unlockSessionHelp();
       await recordSessionAnswer(item.word, false);
       addSessionNextButton();
       _sessionBusy = false;
@@ -6788,6 +6895,7 @@ Write all scenarios and explanations in ${langName}.`;
         ? `✓ ${chosen.explanation || ''}`
         : `✗ ${chosen.explanation || ''}` + (right?.explanation ? `<br>✓ ${right.explanation}` : '');
 
+      unlockSessionHelp();
       await recordSessionAnswer(item.word, isCorrect);
       addSessionNextButton();
       _sessionBusy = false;
@@ -6916,6 +7024,9 @@ Answer ONLY with JSON, no markdown fence:
 
     async function renderSessionCloze(item) {
       const body = document.getElementById('session-body');
+      // Le QCM précédent avait pu ouvrir l'aide : elle se referme tant que le
+      // texte n'est pas corrigé, sinon la traduction donnerait les réponses.
+      _sessionHelpOpen = !!(_clozeState && _clozeState.checked);
       if (!_clozeState) {
         body.innerHTML = `<p class="session-note"><span class="spinner"></span> ${tApp('sess_writing')}</p>`;
         try {
@@ -6949,8 +7060,12 @@ Answer ONLY with JSON, no markdown fence:
           return `<button class="cloze-blank ${val ? '' : 'empty'} ${st.active === i ? 'active' : ''}" onclick="clozeBlank(${i})">${val || '·····'}</button>`;
         }
         const ok = bl && val && lc(val) === lc(bl.entry);
-        return `<span class="cloze-blank ${ok ? 'ok' : 'ko'}">${ok ? bl.form : (val || '—')}</span>`
-             + (ok || !bl ? '' : ` <span class="cloze-fix">→ ${bl.form}</span>`);
+        // Le mot corrigé ouvre son menu ⋯ : c'est le seul endroit où on le voit,
+        // donc le seul endroit d'où on peut le vérifier, le corriger ou le jeter.
+        const esc = bl ? bl.entry.replace(/'/g, "\\'") : '';
+        const menu = bl ? ` onclick="openWordMenu('${esc}', event)" title="Options"` : '';
+        return `<span class="cloze-blank ${ok ? 'ok' : 'ko'}"${menu}>${ok ? bl.form : (val || '—')}</span>`
+             + (ok || !bl ? '' : ` <span class="cloze-fix"${menu}>→ ${bl.form}</span>`);
       });
 
       const used = new Set(Object.values(st.filled).map(lc));
@@ -6999,6 +7114,7 @@ Answer ONLY with JSON, no markdown fence:
       const st = _clozeState;
       if (st.checked) return;
       st.checked = true;
+      unlockSessionHelp(); // la correction est faite : définition et traduction s'ouvrent
       paintCloze();
       for (const b of st.blanks) {
         const ok = lc(st.filled[b.n] || '') === lc(b.entry);
@@ -8823,8 +8939,11 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       _ctxWord = word;
       document.getElementById('word-ctx-label').textContent = lc(word);
       // En Situation le mot est la réponse à trouver : ni traduction ni image.
+      // En séance, même règle avant d'avoir répondu sur un mot déjà vu.
+      const _hideGloss = practiceMode === 'situation'
+        || (practiceMode === 'practice' && !_sessionHelpOpen);
       document.querySelectorAll('.ctx-gloss-btn').forEach(b => {
-        b.style.display = practiceMode === 'situation' ? 'none' : '';
+        b.style.display = _hideGloss ? 'none' : '';
       });
       ctxMenuBack(); // toujours au premier niveau
       positionCtxMenu(x, y);
