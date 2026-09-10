@@ -250,17 +250,21 @@
       display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
       transition: border-color 0.2s, background 0.2s, transform 0.15s;
     }
-    .lang-btn:hover { border-color: var(--accent); background: #222; transform: translateY(-2px); }
+    .lang-btn:hover { border-color: var(--accent); background: #222; transform: translateY(-2px); --card-bg: #222; }
     .lang-btn .flag { font-size: 1.8rem; }
-    /* L'anneau porte l'avancement du jour : le fond du disque suit celui du bouton
-       (`inherit`), sinon il resterait sombre au survol. */
+    /* L'anneau porte l'avancement du jour. ⚠️ Le disque intérieur suit le fond du
+       BOUTON via `--card-bg`, et non `background: inherit` : `inherit` recopiait le
+       dégradé conique du parent, si bien qu'à 100 % la pastille devenait un rond
+       plein — l'anneau disparaissait au moment précis où il annonce une journée
+       faite. La variable règle aussi le survol, seule raison d'être de `inherit`. */
+    .lang-btn { --card-bg: var(--surface); }
     .lang-btn .flag-ring {
       display: grid; place-items: center; border-radius: 50%; padding: 3px;
       background: conic-gradient(var(--ring, var(--border)) calc(var(--p, 0) * 1%), var(--border) 0);
     }
     .lang-btn .flag-ring .flag {
       width: 2.9rem; height: 2.9rem; border-radius: 50%;
-      display: grid; place-items: center; background: inherit;
+      display: grid; place-items: center; background: var(--card-bg);
     }
     .lang-btn .lang-name { font-size: 0.85rem; color: var(--muted); }
     /* Journée finie = vert ; journée en cours = doré. Plus de rouge : à huit mots
@@ -275,6 +279,13 @@
     .lang-btn.due  .flag-ring  { --ring: var(--accent); }
     .lang-btn.done .lang-badge { color: var(--success); }
     .lang-btn.done .flag-ring  { --ring: var(--success); }
+    /* La pile en attente est nommée pour ce qu'elle est, SOUS la fraction : c'est
+       de l'avoir mise au dénominateur qui faisait passer une manche terminée pour
+       une journée à moitié faite. Elle reste grise dans les deux états. */
+    .lang-btn .lang-sub {
+      font-size: 0.6rem; font-family: 'DM Mono', monospace; color: var(--muted);
+      min-height: 0.7rem; font-variant-numeric: tabular-nums;
+    }
 
     /* ── Header pratique ── */
     .practice-header { width: 100%; display: flex; align-items: center; justify-content: space-between; }
@@ -2353,6 +2364,7 @@
       sess_waiting:     { en: `{n} recalls waiting`, fr: `{n} rappels en attente`, es: `{n} repasos pendientes`, el: `{n} επαναλήψεις σε αναμονή` },
       sess_waiting_one: { en: `1 recall waiting`, fr: `1 rappel en attente`, es: `1 repaso pendiente`, el: `1 επανάληψη σε αναμονή` },
       sess_waiting_no:  { en: `Nothing waiting`, fr: `Rien en attente`, es: `Nada pendiente`, el: `Τίποτα σε αναμονή` },
+      badge_waiting:    { en: `{n} waiting`, fr: `{n} en attente`, es: `{n} pendientes`, el: `{n} σε αναμονή` },
       sess_rev_one:     { en: `recall`, fr: `rappel`, es: `repaso`, el: `επανάληψη` },
       sess_rev_n:       { en: `recalls`, fr: `rappels`, es: `repasos`, el: `επαναλήψεις` },
       mode_spaced:      { en: `📅<br>Spaced`, fr: `📅<br>Espacée`, es: `📅<br>Espaciada`, el: `📅<br>Κατανεμημένη` },
@@ -2731,7 +2743,7 @@
         const l = LANGS.find(x => x.key === key);
         if (!l) return '';
         return `<button class="lang-btn" data-lang="${l.key}" onclick="selectLanguage('${l.key}')">
-          <span class="flag-ring"><span class="flag">${l.flag}</span></span><span class="lang-name">${l.name}</span><span class="lang-badge"></span>
+          <span class="flag-ring"><span class="flag">${l.flag}</span></span><span class="lang-name">${l.name}</span><span class="lang-badge"></span><span class="lang-sub"></span>
         </button>`;
       }).join('');
       // Tuile « ajouter » uniquement s'il reste des langues à ajouter
@@ -2858,25 +2870,39 @@
             if (!nr) neverPrac++;
             else if (nr <= today) due++;
           }
-          // La carte parle la même langue que la barre de la séance : ce qui est
-          // fait sur ce que la journée contient. Un nombre de mots RESTANTS ne
-          // décrivait plus rien — c'était le pool du mode espacé, « 340 » quand la
-          // manche en sert 19.
+          // ⚠️ L'objectif du jour est UNE MANCHE, pas la pile. L'anneau se remplissait
+          // sur tout ce qui était dû : une manche terminée le laissait à moitié vide,
+          // et la journée avait l'air inachevée alors que l'objectif était atteint.
+          // L'objectif ne dépasse jamais ce qui existe — une langue où il ne reste
+          // que trois mots est finie à trois, pas coincée à « 3 / 12 ».
           const remaining = due + Math.min(Math.max(0, maxNew - todayNew), neverPrac);
           const doneN     = doneToday(l.key);
-          const total     = doneN + remaining;
+          const goal      = Math.min(roundSizeFor(l.key), doneN + remaining);
+          const isDone    = doneN >= goal;
+          // Ce qui ne tient pas dans l'objectif du jour : le vrai retard. On retire
+          // à ce qui reste la place encore libre dans l'objectif. ⚠️ Pas
+          // `fait + reste − objectif` : baisser la taille de la manche après coup
+          // faisait alors compter les mots DÉJÀ FAITS en trop comme du retard
+          // (« ✓ 12 » et « 8 en attente » quand il n'en restait que 4).
+          const backlog   = Math.max(0, remaining - Math.max(0, goal - doneN));
+          const sub = btn.querySelector('.lang-sub');
           btn.classList.remove('due', 'done');
           btn.style.removeProperty('--p');
-          if (words.length === 0) { if (badge) badge.textContent = ''; return; }
-          if (remaining > 0) {
-            btn.classList.add('due');
-            btn.style.setProperty('--p', Math.round(100 * doneN / total));
-            if (badge) badge.textContent = `${doneN} / ${total}`;
-          } else {
+          if (badge) badge.textContent = '';
+          if (sub)   sub.textContent   = '';
+          if (words.length === 0) return;
+          if (isDone) {
             btn.classList.add('done');
             btn.style.setProperty('--p', 100);
-            if (badge) badge.textContent = total ? `✓ ${doneN} / ${total}` : tApp('badge_done');
+            // ⚠️ Le nombre RÉEL de mots faits, pas « objectif / objectif » : baisser
+            // la taille de la manche après coup ferait dire « 8 » à une journée de 12.
+            if (badge) badge.textContent = goal ? `✓ ${doneN}` : tApp('badge_done');
+          } else {
+            btn.classList.add('due');
+            btn.style.setProperty('--p', Math.round(100 * doneN / goal));
+            if (badge) badge.textContent = `${doneN} / ${goal}`;
           }
+          if (sub && backlog > 0) sub.textContent = tApp('badge_waiting').replace('{n}', backlog);
         } catch (e) { /* hors-ligne / non connecté : pas de badge */ }
       }));
     }
@@ -6685,10 +6711,11 @@ Write all scenarios and explanations in ${langName}.`;
     // soit l'exercice qui sert les mots.
     const DEFAULT_ROUND_SIZE  = 12;
     const ROUND_SIZE_VALUES   = [4,6,8,10,12,14,16,18,20,25,30];
-    function roundSize() {
-      const v = parseInt(localStorage.getItem(KEY_ROUND_SIZE + '_' + currentLang));
+    function roundSizeFor(lang) {
+      const v = parseInt(localStorage.getItem(KEY_ROUND_SIZE + '_' + lang));
       return Number.isFinite(v) && v > 0 ? v : DEFAULT_ROUND_SIZE;
     }
+    function roundSize() { return roundSizeFor(currentLang); }
     // Les mots neufs sont un quota du JOUR, pas de la manche : la première manche
     // les sert, les suivantes ne servent que des rappels. On rattrape donc son
     // retard autant qu'on veut sans s'endetter davantage — c'est la charge qui
