@@ -2464,6 +2464,7 @@
       verify_checking:  { en: `Checking…`, fr: `Vérification…`, es: `Comprobando…`, el: `Έλεγχος…` },
       verify_suggestion:{ en: `Suggested spelling:`, fr: `Correction proposée :`, es: `Corrección propuesta:`, el: `Προτεινόμενη διόρθωση:` },
       verify_fix:       { en: `✏️ Fix`, fr: `✏️ Corriger`, es: `✏️ Corregir`, el: `✏️ Διόρθωση` },
+      verify_fuller:    { en: `Fuller form:`, fr: `Forme plus complète :`, es: `Forma más completa:`, el: `Πληρέστερη μορφή:` },
       verify_close:     { en: `Close`, fr: `Fermer`, es: `Cerrar`, el: `Κλείσιμο` },
       title_verify:     { en: `Check this word`, fr: `Vérifier le mot`, es: `Comprobar la palabra`, el: `Έλεγχος της λέξης` },
       move_to:          { en: `Move to…`, fr: `Déplacer vers…`, es: `Mover a…`, el: `Μετακίνηση σε…` },
@@ -9643,6 +9644,18 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     // toute façon pas exposé pour un mot déjà en base.
     // Le verdict PROPOSE, il ne supprime jamais tout seul : sur un régionalisme ou
     // un mot rare, c'est l'IA qui a tort (cf. la validité IA retirée de l'import Kindle).
+    // Jumeau de `cleanSuggestion()` du Worker, qui garde l'entonnoir d'ajout depuis
+    // toujours mais n'avait jamais été appliqué ici : le modèle, faute de mieux à
+    // proposer, recopiait le mot — et le bouton « Corriger » pré-remplissait alors
+    // exactement le mot qu'il prétendait corriger.
+    function cleanSuggestion(raw, word) {
+      const s = String(raw || '').trim().replace(/^["'«»\s]+|["'«».\s]+$/g, '');
+      if (!s || s.length > 80) return '';
+      if (/^(none|aucun|n\/a|-)$/i.test(s)) return '';
+      if (lc(s) === lc(String(word || '').trim())) return '';
+      return s;
+    }
+
     async function verifyWordSense(word, lang) {
       const info     = LANGS.find(l => l.key === lang) || getLang();
       const langName = info.mistralName;
@@ -9654,8 +9667,10 @@ Decide whether this entry is a real word or expression in ${langName}: "${lc(wor
 Rules:
 - Archaic, obsolete, literary, dialectal, regional, colloquial, vulgar, technical and rare items ARE valid. Never reject something just because it is uncommon or not in a standard dictionary.
 - Inflected forms and fixed expressions ARE valid.
-- Mark it invalid ONLY if it is a typo, a garbled or truncated string, a word from another language, or something that simply does not exist in ${langName}.
-- If it is invalid but you can tell what was meant, put the corrected entry alone in "suggestion" (no explanation, no quotes). Otherwise leave "suggestion" empty.
+- SENTENCE FRAGMENTS AND PATTERNS ARE VALID. The learner collects constructions and collocations, not only whole words: a piece lifted out of a sentence ("cabe inferir, aunque el texto no lo dice, que...", "futé de + infinitif") is a legitimate entry. Being incomplete on its own is NEVER a reason to mark it invalid, and such an entry is not a "truncated string".
+- Mark it invalid ONLY if it is a typo, a word garbled or cut mid-word, a word from another language, or something that simply does not exist in ${langName}.
+- If the entry would work better with a missing piece added (an auxiliary, a determiner, a governing verb), it is still VALID: say so in "note", and put the fuller form in "suggestion".
+- Put something in "suggestion" ONLY if it DIFFERS from the entry. If you have nothing better to propose, leave it empty.
 - "note": ONE short sentence (20 words max) in ${respLang} — if valid, what it means; if invalid, what is wrong with it.
 
 Reply with ONLY this JSON object, nothing else:
@@ -9671,7 +9686,7 @@ Reply with ONLY this JSON object, nothing else:
       return {
         valid:      data.valid === true || data.valid === 'true',
         note:       String(data.note || '').trim(),
-        suggestion: String(data.suggestion || '').trim(),
+        suggestion: cleanSuggestion(data.suggestion, wordBase(word)),
       };
     }
 
@@ -9712,10 +9727,16 @@ Reply with ONLY this JSON object, nothing else:
         if (_ctxWord !== word) return; // popup refermé ou changé de mot entre-temps
         _verifySuggest = v.suggestion;
         html = `<div class="ctx-verify-body ${v.valid ? 'ok' : 'ko'}">${v.valid ? '✓' : '✗'} ${escapeHtml(v.note)}</div>`;
-        if (!v.valid && v.suggestion)
-          html += `<div class="ctx-verify-sug">${t('verify_suggestion')} <strong>${escapeHtml(v.suggestion)}</strong></div>`;
+        // La suggestion s'affiche aussi sur une entrée VALIDE : depuis que le prompt
+        // accepte les fragments, il peut proposer la forme plus complète (« futé de
+        // + infinitif ») sans pour autant déclarer l'entrée fausse.
+        if (v.suggestion)
+          html += `<div class="ctx-verify-sug">${t(v.valid ? 'verify_fuller' : 'verify_suggestion')} <strong>${escapeHtml(v.suggestion)}</strong></div>`;
+        // ⚠️ « Supprimer » ne paraît que sur un verdict négatif : une bonne entrée
+        // ne doit jamais se voir offrir la poubelle parce qu'on peut l'améliorer.
         html += v.valid
-          ? `<button class="ctx-menu-btn" onclick="closeWordContextMenu()">${t('verify_close')}</button>`
+          ? (v.suggestion ? `<button class="ctx-menu-btn" onclick="verifyAction('fix')">${t('ctx_edit')}</button>` : '')
+            + `<button class="ctx-menu-btn" onclick="closeWordContextMenu()">${t('verify_close')}</button>`
           : `<button class="ctx-menu-btn" onclick="verifyAction('fix')">${t('verify_fix')}</button>
              <button class="ctx-menu-btn danger" onclick="verifyAction('del')">${t('ctx_delete')}</button>
              <button class="ctx-menu-btn" onclick="closeWordContextMenu()">${t('verify_close')}</button>`;
