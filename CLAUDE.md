@@ -373,9 +373,18 @@ Prompt anglais, réponse espagnol. Sections : `## Precisión`, `## Análisis lin
 
 ### Carte de langue (accueil) — 2026-09-09
 
-`updateLangBadges` annonçait le **pool du mode espacé** (mots dus + quota de neufs) : « 340 » quand la manche en sert 19. Elle parle désormais la même langue que la barre de la séance — **ce qui est fait sur ce que la journée contient** (`doneToday(lang)` / `+ dus + neufs restants`), avec le **même « plus grand des deux compteurs »** que la manche (sinon un mot servi mais raté rouvrait une place ici).
+**L'objectif du jour est UNE MANCHE, pas la pile** (2026-09-10) : `goal = min(roundSizeFor(lang), fait + reste)`. ⚠️ L'anneau se remplissait sur tout ce qui était dû — une manche terminée le laissait à moitié vide et la journée avait l'air inachevée alors que l'objectif était atteint. L'objectif ne dépasse jamais ce qui existe (une langue où il ne reste que 3 mots est finie à 3, pas coincée à « 3 / 12 »).
+- **Journée faite** → `✓ <mots faits>`, anneau vert plein. ⚠️ Le nombre **réel**, pas « objectif / objectif » : baisser la taille de la manche après coup ferait dire « 8 » à une journée de 12 mots.
+- **Journée en cours** → `fait / objectif`, arc doré.
+- **La pile passe SOUS la fraction** (`.lang-sub`, « 14 en attente ») et ne pèse plus sur l'anneau. Retard = `reste − place encore libre dans l'objectif` ; ⚠️ pas `fait + reste − objectif`, qui comptait les mots **déjà faits en trop** comme du retard après une baisse du curseur.
+- ⚠️ Le disque intérieur de l'anneau prend **`--card-bg`** et non `background: inherit` : `inherit` recopiait le **dégradé conique** du parent, donc à 100 % la pastille devenait un rond plein — l'anneau disparaissait au moment précis où il annonce une journée faite. La variable couvre aussi le survol, seule raison d'être de `inherit`.
+- `roundSizeFor(lang)` : la taille de la manche est **par langue**, et la carte parcourt les quatre.
+
+`updateLangBadges` annonçait auparavant le **pool du mode espacé** (mots dus + quota de neufs) : « 340 » quand la manche en sert 19.
 
 ⚠️ Depuis le 2026-09-10 `doneToday` vient de la **base** : la carte dit donc la même chose sur tous les appareils, et le « plus grand des deux compteurs » a disparu avec le compteur local.
+
+Combinaison retenue sur page de test (https://claude.ai/code/artifact/7d5c8f21-095e-440b-8253-1111b1eddefd) : **anneau = la manche du jour · pile en ligne dessous · coche verte**.
 
 Forme arrêtée sur page de test (https://claude.ai/code/artifact/2cbeb644-6fb3-454a-b2d5-fa0a7445fbd0), variantes combinables — **fraction** (« 8 / 20 », « ✓ 8 / 8 » quand c'est fini) + **anneau autour du drapeau** (`conic-gradient` sur `.flag-ring`, `--p` posé sur le bouton) + **doré et vert**. ⚠️ Le **rouge a disparu** : à 8 mots neufs par jour, une carte rouge tous les matins ne veut plus rien dire. ⚠️ Le disque intérieur de l'anneau prend `background: inherit` — en `var(--surface)` il restait sombre au survol du bouton. `badge_todo` (« N à faire ») n'a plus d'emploi et a été retiré.
 
