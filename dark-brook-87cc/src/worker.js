@@ -1062,7 +1062,21 @@ export default {
           const row = await env.DB.prepare(
             'SELECT new_count FROM sessions WHERE user_id = ? AND date = ? AND language = ?'
           ).bind(auth.uid, params.get('date'), params.get('lang')).first();
-          return json({ count: row ? row.new_count : 0 });
+          // Mots travaillés aujourd'hui : comptés dans `history`, pas dans un
+          // compteur à part. Chaque réponse y écrit déjà une ligne — un second
+          // compteur en aurait été le doublon, et c'est le doublon local qui
+          // faisait diverger l'iPhone et l'iPad.
+          // ⚠️ `history.date` est un horodatage UTC : le client envoie SON minuit
+          // local en `from`, sinon la journée bascule à la mauvaise heure.
+          let done = 0;
+          const from = params.get('from');
+          if (from) {
+            const d = await env.DB.prepare(
+              'SELECT COUNT(DISTINCT word) AS n FROM history WHERE user_id = ? AND language = ? AND date >= ?'
+            ).bind(auth.uid, params.get('lang'), from).first();
+            done = d ? d.n : 0;
+          }
+          return json({ count: row ? row.new_count : 0, done });
         }
         if (request.method === 'POST') {
           const { lang, date, count } = await request.json();

@@ -318,6 +318,19 @@
 
     /* ── Séance (mode pratique) ── */
     #session-section { width: 100%; }
+    .round-dials { display: flex; flex-direction: column; gap: 1.1rem; margin-bottom: 1.6rem; }
+    .round-dial  { display: flex; flex-direction: column; gap: 0.4rem; }
+    .round-dial-head { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--muted); }
+    .round-dial-head span:last-child { color: var(--accent); font-weight: 600; }
+    .round-dial input[type=range] { width: 100%; accent-color: var(--accent); }
+    .round-derived { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+    /* Les curseurs restent VISIBLES pendant la manche — les masquer ferait sauter
+       l'écran —, mais inertes : on change le nombre en repartant d'une manche. */
+    .round-dials.locked { opacity: 0.4; pointer-events: none; }
+    /* Les boutons de départ s'empilent : côte à côte, « que des rappels » se faisait
+       écraser par « commencer » et passait à la ligne en deux mots. */
+    #session-start .session-actions { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+    #session-start .session-actions button { width: 100%; }
     .session-head { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.4rem; }
     #session-choices { display: flex; flex-direction: column; gap: 0.6rem; }
     #session-result:not(:empty) { margin-top: 0.9rem; }
@@ -1787,6 +1800,34 @@
         <span class="session-count" id="session-count"></span>
         <div class="session-track"><div class="session-fill" id="session-fill"></div></div>
       </div>
+      <!-- Écran de départ : les réglages de la manche, puis le clic qui lance
+           les appels. Verrouillé pendant la manche (cf. lockRoundDials). -->
+      <div id="session-start" style="display:none;">
+        <div class="round-dials">
+          <div class="round-dial">
+            <div class="round-dial-head">
+              <span id="round-size-label"></span>
+              <span id="round-size-value"></span>
+            </div>
+            <input type="range" id="round-size-slider" min="0" max="10" step="1"
+              oninput="setRoundSize(ROUND_SIZE_VALUES[+this.value])">
+          </div>
+          <div class="round-dial">
+            <div class="round-dial-head">
+              <span id="round-new-label"></span>
+              <span id="round-new-value"></span>
+            </div>
+            <input type="range" id="round-new-slider" min="0" max="23" step="1"
+              oninput="setMaxNewPerDay(MAX_NEW_VALUES[+this.value])">
+          </div>
+          <div class="round-derived"><span id="round-derived-line"></span><span id="session-waiting"></span></div>
+        </div>
+        <div class="session-actions">
+          <button class="btn-secondary" id="btn-session-resume" onclick="resumeRound()" style="display:none;"></button>
+          <button class="btn-secondary" id="btn-session-start" onclick="beginRound(false)"></button>
+          <button class="btn-ghost" id="btn-session-reviews" onclick="beginRound(true)"></button>
+        </div>
+      </div>
       <div id="session-body"></div>
     </div>
 
@@ -2108,6 +2149,7 @@
     const KEY_JWT              = "vocab_jwt";
     const KEY_GRAMMAR          = "vocab_grammar_enabled";
     const KEY_MAX_NEW          = "vocab_max_new_per_day";
+    const KEY_ROUND_SIZE       = "vocab_round_size";  // mots par manche, par langue
     const KEY_SHOW_TOKENS      = "vocab_show_tokens";
     const KEY_SITUATION_COUNTS = "vocab_situation_counts"; // mode situation affecte-t-il la progression ?
     const KEY_SITUATION_WORDS  = "vocab_situation_words";  // nombre de mots en mode situation (1-5)
@@ -2302,6 +2344,17 @@
       sess_again:       { en: `Another round →`, fr: `Une autre manche →`, es: `Otra ronda →`, el: `Άλλος γύρος →` },
       sess_clear:       { en: `Nothing left to recall today.`, fr: `Plus rien à rappeler aujourd'hui.`, es: `Nada más que repasar hoy.`, el: `Τίποτα άλλο για επανάληψη σήμερα.` },
       sess_more_new:    { en: `Open {n} more new words`, fr: `Ouvrir {n} mots neufs de plus`, es: `Abrir {n} palabras nuevas más`, el: `Άνοιγμα {n} νέων λέξεων` },
+      sess_start:       { en: `Start →`, fr: `Commencer →`, es: `Empezar →`, el: `Έναρξη →` },
+      sess_only_rev:    { en: `Recalls only`, fr: `Que des rappels`, es: `Solo repasos`, el: `Μόνο επαναλήψεις` },
+      sess_resume:      { en: `Resume ({n} words) →`, fr: `Reprendre ({n} mots) →`, es: `Continuar ({n} palabras) →`, el: `Συνέχεια ({n} λέξεις) →` },
+      sess_new_round:   { en: `New round`, fr: `Nouvelle manche`, es: `Ronda nueva`, el: `Νέος γύρος` },
+      sess_set_size:    { en: `Words per round`, fr: `Mots par manche`, es: `Palabras por ronda`, el: `Λέξεις ανά γύρο` },
+      sess_set_new:     { en: `New words among them`, fr: `Dont mots neufs`, es: `De ellas, nuevas`, el: `Από αυτές, νέες` },
+      sess_waiting:     { en: `{n} recalls waiting`, fr: `{n} rappels en attente`, es: `{n} repasos pendientes`, el: `{n} επαναλήψεις σε αναμονή` },
+      sess_waiting_one: { en: `1 recall waiting`, fr: `1 rappel en attente`, es: `1 repaso pendiente`, el: `1 επανάληψη σε αναμονή` },
+      sess_waiting_no:  { en: `Nothing waiting`, fr: `Rien en attente`, es: `Nada pendiente`, el: `Τίποτα σε αναμονή` },
+      sess_rev_one:     { en: `recall`, fr: `rappel`, es: `repaso`, el: `επανάληψη` },
+      sess_rev_n:       { en: `recalls`, fr: `rappels`, es: `repasos`, el: `επαναλήψεις` },
       mode_spaced:      { en: `📅<br>Spaced`, fr: `📅<br>Espacée`, es: `📅<br>Espaciada`, el: `📅<br>Κατανεμημένη` },
       mode_situation:   { en: `🎯<br>Situation`, fr: `🎯<br>Situation`, es: `🎯<br>Situación`, el: `🎯<br>Περίσταση` },
       mode_free:        { en: `🎲<br>Free`, fr: `🎲<br>Libre`, es: `🎲<br>Libre`, el: `🎲<br>Ελεύθερη` },
@@ -2791,16 +2844,14 @@
           const [wordsR, progR, sessR] = await Promise.all([
             authFetch(`/api/words?lang=${encodeURIComponent(l.key)}`).then(r => r.json()),
             authFetch(`/api/progress?lang=${encodeURIComponent(l.key)}`).then(r => r.json()),
-            authFetch(`/api/session?lang=${encodeURIComponent(l.key)}&date=${today}`).then(r => r.json()),
+            authFetch(`/api/session?lang=${encodeURIComponent(l.key)}&date=${today}&from=${encodeURIComponent(localMidnightISO())}`).then(r => r.json()),
           ]);
           const words = (wordsR.words || []).filter(w => w && w.trim());
           const prog  = {};
           (progR.progress || []).forEach(r => { prog[(r.word || '').toLowerCase()] = r.next_review || null; });
           const maxNew   = parseInt(localStorage.getItem(KEY_MAX_NEW + '_' + l.key)) || DEFAULT_NEW_PER_DAY;
-          // Le même « plus grand des deux compteurs » que la manche : sinon un mot
-          // servi mais raté rouvrait une place ici et la carte annonçait des mots
-          // que la séance, elle, ne donnait plus.
-          const todayNew = Math.max(sessR.count || 0, newServedToday(l.key));
+          const todayNew = sessR.count || 0;
+          doneTodayMap[l.key] = sessR.done || 0;
           let due = 0, neverPrac = 0;
           for (const w of words) {
             const nr = prog[w.toLowerCase()];
@@ -3241,10 +3292,12 @@
       const localKey = `vocab_today_new_${lang}_${today}`;
       const localVal = parseInt(localStorage.getItem(localKey)) || 0;
       try {
-        const res  = await authFetch(`/api/session?lang=${encodeURIComponent(lang)}&date=${today}`);
+        const res  = await authFetch(`/api/session?lang=${encodeURIComponent(lang)}&date=${today}&from=${encodeURIComponent(localMidnightISO())}`);
         const data = await res.json();
         todayNewCount = Math.max(data.count || 0, localVal);
         localStorage.setItem(localKey, todayNewCount);
+        // Mots faits aujourd'hui : la base fait foi, sur tous les appareils.
+        doneTodayMap[lang] = data.done || 0;
         sessionNewPracticed = new Set();
       } catch (e) {
         todayNewCount = localVal;
@@ -3449,6 +3502,7 @@
       return k && k.startsWith('vocab_') && !_settingsDenylist.has(k)
              && !k.startsWith('vocab_today_new_') && !k.startsWith('vocab_today_done_')
              && !k.startsWith(KEY_DRAFT + '_')
+             && !k.startsWith(KEY_ROUND_STATE)
              && !k.startsWith(KEY_QCM_SEEN);
     }
     function collectSettings() {
@@ -3910,7 +3964,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       lastSubmittedSentence = '';
 
       if (isImage)                 newPracticePhoto();
-      else if (mode === 'practice') startSession();
+      else if (mode === 'practice') showSessionStart();
       else                          pickWords();
       updateFreeSearchBar();
     }
@@ -4845,6 +4899,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // page, d'où keepalive (sendBeacon ne permettrait pas l'en-tête JWT).
     window.addEventListener('pagehide', () => {
       saveDraft(); // filet : le débounce de 300 ms peut ne pas avoir encore tiré
+      saveRound(); // idem pour la manche en cours (un crash, lui, ne passe pas ici)
       const toBlacklist = _relatedWordsShown.filter(w => !_relatedWordsAdded.has(w.toLowerCase()));
       if (!toBlacklist.length || !currentLang || !getJWT()) return;
       _relatedWordsShown = [];
@@ -4932,6 +4987,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       saveSettingsToServer();
       document.getElementById('max-new-value').textContent = `${val} ${tPrac('words_suffix')}`;
       document.getElementById('max-new-slider').value = maxNewToIndex(val);
+      syncRoundDials(); // le même réglage a son curseur sur l'écran de départ
       if (practiceMode === 'spaced' && allWords.length > 0) {
         const trulyDue     = allWords.filter(w => { const p = progressMap[w.toLowerCase()]; return p && p.nextReview && isDue(w); });
         const neverPrac    = allWords.filter(w => isNewWord(w));
@@ -6622,10 +6678,17 @@ Write all scenarios and explanations in ${langName}.`;
     //  on les demande. Les deux mécanismes s'ignorent.
     // ═══════════════════════════════════════════════════════════════════
 
-    // Une MANCHE = 12 exercices, et un exercice n'est pas un mot : un QCM en sert
-    // un, un texte à trous jusqu'à huit d'un coup. C'est ce regroupement qui rend
-    // 8 mots neufs par jour tenable — comptés en mots, ils demanderaient 25 items.
-    const ROUND_EXERCISES     = 12;
+    // Une MANCHE se compte en MOTS, et le nombre est réglable (`vocab_round_size`).
+    // Elle se comptait en EXERCICES, où un texte à trous de huit mots n'en valait
+    // qu'un : deux unités dans le même écran — le budget disait douze, le score de
+    // fin disait dix-neuf. La manche fait maintenant le nombre affiché, quel que
+    // soit l'exercice qui sert les mots.
+    const DEFAULT_ROUND_SIZE  = 12;
+    const ROUND_SIZE_VALUES   = [4,6,8,10,12,14,16,18,20,25,30];
+    function roundSize() {
+      const v = parseInt(localStorage.getItem(KEY_ROUND_SIZE + '_' + currentLang));
+      return Number.isFinite(v) && v > 0 ? v : DEFAULT_ROUND_SIZE;
+    }
     // Les mots neufs sont un quota du JOUR, pas de la manche : la première manche
     // les sert, les suivantes ne servent que des rappels. On rattrape donc son
     // retard autant qu'on veut sans s'endetter davantage — c'est la charge qui
@@ -6642,16 +6705,11 @@ Write all scenarios and explanations in ${langName}.`;
     // deux fois redescend tout seul au QCM : pas de compteur d'échecs à tenir.
     const CLOZE_AT_NET        = 2;
 
-    // Compté sur les mots réellement AFFICHÉS, pas sur les réussis : un mot neuf
-    // raté reste « neuf » et reviendrait sinon à la manche suivante. Pas sur le
-    // tirage non plus, sinon deux allers-retours entre modes mangeraient la
-    // journée sans qu'un seul mot ait été vu. Le préfixe `vocab_today_new_` est
-    // déjà exclu de la synchronisation des réglages.
-    function newServedKey(lang)   { return `vocab_today_new_served_${lang || currentLang}_${todayStrLocal()}`; }
-    function markNewServed(word) {
-        if (!isNewWord(word)) return;
-        localStorage.setItem(newServedKey(), newServedToday() + 1);
-    }
+    // Le compteur des mots neufs AFFICHÉS mais pas répondus a été retiré avec le
+    // compteur local des mots faits : c'était le dernier chiffre de la journée à ne
+    // pas voyager d'un appareil à l'autre, et il ne servait qu'à empêcher un mot
+    // entrevu puis abandonné de rouvrir sa place. Un mot vu mais pas répondu n'a
+    // pas été fait — il peut revenir. Seul `todayNewCount` (en base) fait foi.
     // La progression a été remise à zéro en base le 2026-09-09 pour éprouver ce
     // mode depuis le premier jour. Les compteurs « nouveaux du jour » vivent AUSSI
     // en localStorage (repli hors ligne, et loadTodayCount garde le maximum des
@@ -6659,18 +6717,38 @@ Write all scenarios and explanations in ${langName}.`;
     // jour épuisé et ne servait plus un seul mot neuf.
     (function purgeDayCountersOnce() {
       const flag = 'vocab_today_new_reset_flag'; // ce préfixe est exclu de la sync
-      if (localStorage.getItem(flag)) return;
+      // Deux purges successives, distinguées par la valeur du drapeau : celle du
+      // 2026-09-09 (remise à zéro de la progression) et celle du 2026-09-10, qui
+      // balaie les compteurs devenus morts — « mots faits » et « neufs affichés »
+      // vivent maintenant en base. Sans elle ils resteraient à traîner par date.
+      if (localStorage.getItem(flag) === '2026-09-10') return;
       Object.keys(localStorage)
-        .filter(k => k.startsWith('vocab_today_new_') && k !== flag)
+        .filter(k => (k.startsWith('vocab_today_new_') || k.startsWith('vocab_today_done_')) && k !== flag)
         .forEach(k => localStorage.removeItem(k));
-      localStorage.setItem(flag, '2026-09-09');
+      localStorage.setItem(flag, '2026-09-10');
     })();
 
     // Mots réellement travaillés aujourd'hui, toutes manches confondues : quatre le
     // matin et quatre le soir font huit, et non deux barres reparties de zéro.
-    function doneKey(lang)        { return `vocab_today_done_${lang || currentLang}_${todayStrLocal()}`; }
-    function doneToday(lang)      { return parseInt(localStorage.getItem(doneKey(lang))) || 0; }
-    function markDone()       { localStorage.setItem(doneKey(), doneToday() + 1); }
+    // ⚠️ La valeur vient de la BASE, comptée dans `history` (une ligne par réponse).
+    // Elle a longtemps vécu en localStorage, exclue de la synchronisation : c'est ce
+    // doublon qui faisait dire « 12 sur 16 » à l'iPhone et « 0 sur 4 » à l'iPad le
+    // même matin. Un compteur qui bouge à chaque réponse n'avait rien à faire dans le
+    // blob des réglages — mais il avait sa place dans une table qui existait déjà.
+    // Bénéfice au passage : un mot travaillé en mode libre ou espacé compte lui aussi.
+    let doneTodayMap = {};   // Langue -> mots faits aujourd'hui (cache de la base)
+    function doneToday(lang) { return doneTodayMap[lang || currentLang] || 0; }
+    // Avance optimiste : la ligne d'historique qui la justifie part au même instant
+    // (`recordSessionAnswer`), et la valeur sera relue de la base au prochain chargement.
+    function markDone()      { doneTodayMap[currentLang] = doneToday() + 1; }
+
+    // Minuit LOCAL en horodatage UTC : `history.date` est un ISO UTC, donc c'est la
+    // seule borne qui découpe la journée là où l'utilisateur la voit.
+    function localMidnightISO() {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d.toISOString();
+    }
 
     // Ce qu'il reste : les mots de la manche encore à passer, les rappels dus qui
     // n'y sont pas, et les mots neufs encore ouverts. Le total ne bouge donc pas
@@ -6690,7 +6768,6 @@ Write all scenarios and explanations in ${langName}.`;
       const newExtra = Math.max(0, newQuota() - unservedNew);
       return { done, total: done + left.size + dueLeft + newExtra };
     }
-    function newServedToday(lang) { return parseInt(localStorage.getItem(newServedKey(lang))) || 0; }
     let sessionExtraNew = 0; // mots neufs ouverts à la demande, au-delà du quota
     // Aide autorisée sur le mot à l'écran (définition, traduction, image) : vraie
     // sur un mot neuf, et sur un rappel seulement une fois la réponse donnée.
@@ -6756,8 +6833,8 @@ Write all scenarios and explanations in ${langName}.`;
       // demandé (`sessionExtraNew`) s'ajoute au quota lui-même et non à l'un des
       // termes : sur l'autre, « ouvrir des mots de plus » ne rendrait rien.
       return Math.max(0, Math.min(
-        maxNewPerDay + sessionExtraNew - Math.max(newServedToday(), todayNewCount),
-        ROUND_EXERCISES
+        maxNewPerDay + sessionExtraNew - todayNewCount,
+        roundSize()
       ));
     }
 
@@ -6770,34 +6847,65 @@ Write all scenarios and explanations in ${langName}.`;
       });
     }
 
-    function buildSessionItems() {
-      const quota = newQuota();
-      const fresh = quota > 0
-        ? shuffleInPlace(allWords.filter(w => isNewWord(w))).slice(0, quota)
-        : [];
+    // La manche se remplit en deux temps. Les rappels d'abord, dans la limite des
+    // places que le curseur des mots neufs leur laisse ; les mots neufs ensuite,
+    // pour TOUT ce qui reste. Le curseur des neufs réserve donc des places, il ne
+    // plafonne pas la journée : trois rappels en attente le soir, et la manche sert
+    // neuf mots neufs plutôt que de faire trois mots.
+    // `reviewsOnly` = le bouton « que des rappels » : il met la réserve à zéro pour
+    // cette manche seulement, sans toucher au réglage.
+    function buildSessionItems(reviewsOnly) {
+      const size    = roundSize();
+      const reserve = reviewsOnly ? 0 : Math.min(newQuota(), size);
+      const budget  = Math.max(0, size - reserve);  // places offertes aux rappels
 
       // Les plus en retard d'abord : c'est le seul ordre qui fasse fondre la dette.
-      const byDue = (a, b) => (progressMap[lc(a)].nextReview || '').localeCompare(progressMap[lc(b)].nextReview || '');
+      const byDue = (a, b) => (progressMap[lc(a)]?.nextReview || '').localeCompare(progressMap[lc(b)]?.nextReview || '');
       const due   = dueWords().sort(byDue);
 
-      let cloze = due.filter(w => sessionLevel(w) === 'cloze').slice(0, CLOZE_MAX);
+      // ⚠️ On prend les rappels dans l'ORDRE DES ÉCHÉANCES, sans regarder leur
+      // palier. Prendre d'abord les mots au palier des trous, comme avant, était
+      // sans conséquence tant que le budget valait douze exercices ; avec quatre
+      // places, un texte les mangeait toutes et les mots à zéro ou une étoile —
+      // l'essentiel du retard — n'étaient plus jamais rappelés.
+      let picked = due.slice(0, budget);
 
-      // Trop peu de mots dus au palier trous : on complète avec des mots déjà
-      // travaillés, même s'ils ne sont pas encore dus. Réviser un mot un peu en
-      // avance ne coûte rien ; commencer par trois jours de QCM sans jamais voir
-      // un texte, si — c'est l'exercice qui donne envie de revenir. On prend les
-      // plus proches de leur échéance pour déranger le calendrier au minimum.
-      if (cloze.length < CLOZE_MIN) {
+      // Pas assez de mots au palier des trous parmi les rappels retenus : on en fait
+      // venir d'autres, déjà travaillés mais pas encore dus. Réviser un peu en avance
+      // ne coûte rien ; trois jours de QCM sans jamais voir un texte, si — c'est
+      // l'exercice qui fait revenir.
+      // ⚠️ Uniquement dans les places que les rappels dus n'ont PAS remplies. Servi
+      // en évinçant les rappels les moins en retard, ce complément vidait la manche
+      // de ses vrais rappels dès que le budget était court : quatre places, quatre
+      // mots en retard, et le texte les remplaçait tous les quatre. Rien ne passe
+      // avant l'ordre des échéances.
+      let cloze = picked.filter(w => sessionLevel(w) === 'cloze');
+      const spare = budget - picked.length;
+      if (cloze.length < CLOZE_MIN && spare > 0) {
+        const inRound = new Set(picked.map(w => lc(w)));
         const extra = allWords
-          .filter(w => !cloze.includes(w) && sessionLevel(w) === 'cloze')
-          .sort((a, b) => (progressMap[lc(a)]?.nextReview || '').localeCompare(progressMap[lc(b)]?.nextReview || ''))
-          .slice(0, CLOZE_MIN - cloze.length);
-        cloze = [...cloze, ...extra];
+          .filter(w => !inRound.has(lc(w)) && !isNewWord(w) && sessionLevel(w) === 'cloze')
+          .sort(byDue)
+          .slice(0, Math.min(spare, CLOZE_MIN - cloze.length));
+        // Un seul mot ne fait pas un texte : la place vaut mieux à un mot neuf.
+        if (cloze.length + extra.length >= 2) {
+          picked = [...picked, ...extra];
+          cloze  = picked.filter(w => sessionLevel(w) === 'cloze');
+        }
       }
+      cloze = cloze.slice(0, CLOZE_MAX);
 
+      // Moins de deux mots au palier : pas de texte, ils repassent tous en QCM.
       const hasText = cloze.length >= 2;
-      const room    = Math.max(0, ROUND_EXERCISES - fresh.length - (hasText ? 1 : 0));
-      const qcmDue  = due.filter(w => sessionLevel(w) === 'qcm').slice(0, room);
+      const inText  = hasText ? new Set(cloze.map(w => lc(w))) : new Set();
+      const qcmDue  = picked.filter(w => !inText.has(lc(w)));
+
+      // Les mots neufs prennent ce qui reste : leurs places réservées, plus celles
+      // que les rappels n'ont pas remplies.
+      const room  = Math.max(0, size - picked.length);
+      const fresh = room > 0
+        ? shuffleInPlace(allWords.filter(w => isNewWord(w))).slice(0, room)
+        : [];
 
       // Mélangés : huit mots inconnus à la file font décrocher avant le 1er rappel.
       const items = shuffleInPlace([...fresh, ...qcmDue]).map(w => ({ kind: 'qcm', word: w }));
@@ -6805,19 +6913,192 @@ Write all scenarios and explanations in ${langName}.`;
       return items;
     }
 
-    async function startSession() {
+    // ── Manche interrompue : on la reprend au lieu de la refaire ────────
+    // Ce qui coûte, c'est le texte à trous (une minute et le gros des tokens) ; le
+    // reste tient en quelques lignes. ⚠️ Préfixe exclu de la synchronisation : une
+    // manche appartient à l'appareil où elle a commencé — l'autre en reconstruit
+    // une avec ce qui reste, et n'a donc rien à recevoir.
+    const KEY_ROUND_STATE = 'vocab_round_state_';
+    function roundStateKey(lang) { return KEY_ROUND_STATE + (lang || currentLang); }
+    function nrOf(w) { return progressMap[lc(w)]?.nextReview || null; }
+
+    function saveRound() {
+      if (!sessionRunning || !currentLang) return;
+      try {
+        localStorage.setItem(roundStateKey(), JSON.stringify({
+          date:  todayStrLocal(),
+          idx:   sessionIdx,
+          ok:    sessionOk,
+          cloze: _clozeState,
+          // L'échéance de chaque mot est notée telle qu'elle est AVANT sa réponse :
+          // c'est elle qui dira, à la reprise, si le mot a été fait entre-temps.
+          items: sessionItems.map(it => it.kind === 'cloze'
+            ? { kind: 'cloze', words: it.words, nr: it.words.map(nrOf) }
+            : { kind: 'qcm', word: it.word, served: !!it.served, wasNew: !!it.wasNew, nr: nrOf(it.word) }),
+        }));
+      } catch { /* stockage plein : la manche se refera, rien de perdu en base */ }
+    }
+
+    function clearSavedRound() {
+      if (currentLang) localStorage.removeItem(roundStateKey());
+    }
+
+    // À la reprise, on garde la liste mais on revérifie chaque mot restant contre la
+    // base, et on retire ceux qui ont déjà été faits. Cette règle seule couvre les
+    // trois cas limites : le crash juste après l'enregistrement d'une réponse (le mot
+    // ne serait pas reservi), l'iPhone puis l'iPad (la manche restée sur le premier
+    // appareil se vide d'elle-même au lieu de redonner des mots déjà faits), et
+    // minuit au milieu d'une manche (la date ne colle plus, la manche est jetée).
+    function savedRound() {
+      if (!currentLang) return null;
+      let d;
+      try { d = JSON.parse(localStorage.getItem(roundStateKey()) || 'null'); } catch { d = null; }
+      if (!d || d.date !== todayStrLocal() || !Array.isArray(d.items)) return null;
+
+      const known = new Set(allWords.map(w => lc(w)));
+      // Un mot supprimé, renommé ou changé de langue entre-temps quitte simplement
+      // la manche : elle fait un mot de moins. Lui chercher un remplaçant en pleine
+      // reprise reviendrait à tirer un mot que l'utilisateur n'a jamais vu arriver.
+      const alive    = w => known.has(lc(w));
+      const untouched = (w, nr) => nrOf(w) === (nr || null);
+      const rest = d.items.slice(d.idx || 0).filter(it => it.kind === 'cloze'
+        // Un seul mot du texte déjà fait ailleurs et le texte entier tombe : ses
+        // trous sont écrits, on ne peut pas en retirer un sans casser la phrase.
+        ? it.words.every(alive) && it.words.every((w, i) => untouched(w, (it.nr || [])[i]))
+        : alive(it.word) && untouched(it.word, it.nr));
+      if (!rest.length) return null;
+      const left = rest.reduce((n, it) => n + (it.kind === 'cloze' ? it.words.length : 1), 0);
+      return { data: d, rest, left };
+    }
+
+    function resumeRound() {
+      const saved = savedRound();
+      if (!saved) return void showSessionStart();
+      sessionItems = saved.rest.map(it => it.kind === 'cloze'
+        ? { kind: 'cloze', words: it.words }
+        : { kind: 'qcm', word: it.word, served: it.served, wasNew: it.wasNew });
+      sessionIdx = 0;
+      sessionOk  = saved.data.ok || 0;
+      // Le texte à trous repart tel quel, avec les trous déjà remplis : c'est tout
+      // l'intérêt de la reprise, et `launchRound` ne le redemandera pas.
+      _clozeState   = sessionItems.some(i => i.kind === 'cloze') ? (saved.data.cloze || null) : null;
+      _clozePromise = null;
+      launchRound();
+    }
+
+    // ── Les deux curseurs ───────────────────────────────────────────────
+    // Le nombre de rappels ne se règle pas, il se déduit : les régler tous les trois
+    // recréerait deux quotas concurrents où le plus petit gagne (bug du 2026-09-09).
+    function setRoundSize(val) {
+      localStorage.setItem(KEY_ROUND_SIZE + '_' + currentLang, val);
+      saveSettingsToServer();
+      syncRoundDials();
+    }
+
+    function syncRoundDials() {
+      const size = roundSize();
+      const ss = document.getElementById('round-size-slider');
+      const sv = document.getElementById('round-size-value');
+      const ns = document.getElementById('round-new-slider');
+      const nv = document.getElementById('round-new-value');
+      if (!ss) return;
+      let si = ROUND_SIZE_VALUES.indexOf(size);
+      if (si === -1) { si = 0; ROUND_SIZE_VALUES.forEach((v, k) => { if (v <= size) si = k; }); }
+      // ⚠️ Tout le panneau en langue de l'APPLI (`tApp`), comme le reste de la
+      // séance. `screen-practice` est par ailleurs traduit dans la langue PRATIQUÉE :
+      // un `data-i18n` ici aurait posé deux libellés espagnols au milieu du français.
+      const nw = w => w === 1 ? tApp('one_word') : `${w} ${tApp('words_suffix')}`; // 'one_word' porte déjà le chiffre
+      document.getElementById('round-size-label').textContent = tApp('sess_set_size');
+      document.getElementById('round-new-label').textContent  = tApp('sess_set_new');
+      ss.value = si;
+      sv.textContent = nw(size);
+      ns.value = maxNewToIndex(maxNewPerDay);
+      nv.textContent = nw(Math.min(maxNewPerDay, size));
+      const line = document.getElementById('round-derived-line');
+      if (line) {
+        const rev = Math.max(0, size - Math.min(maxNewPerDay, size));
+        line.textContent = `→ ${rev} ${tApp(rev === 1 ? 'sess_rev_one' : 'sess_rev_n')}`;
+      }
+    }
+
+    function lockRoundDials() {
+      const d = document.querySelector('.round-dials');
+      if (d) d.classList.add('locked');
+    }
+
+    // ── Écran de départ : rien ne part avant le clic ────────────────────
+    // Entrer dans le mode lançait trois appels, dont le texte à trous — une minute
+    // d'attente et le gros du coût — avant même qu'on ait pu regarder les réglages.
+    // Le mode Situation a ce bouton depuis sa refonte, pour cette raison exacte.
+    let sessionRunning = false;
+
+    function showSessionStart() {
+      sessionRunning = false;
+      sessionItems   = [];
+      sessionIdx     = 0;
+      sessionOk      = 0;
+      _clozeState    = null;
+      _clozePromise  = null;
+      renderSessionStart();
+    }
+
+    function renderSessionStart() {
+      if (!currentLang) return;
+      const start = document.getElementById('session-start');
+      const body  = document.getElementById('session-body');
+      const head  = document.querySelector('#session-section .session-head');
+      if (!start) return;
+      start.style.display = '';
+      body.innerHTML      = '';
+      if (head) head.style.display = 'none';   // rien à jauger avant de commencer
+
+      const dials = document.querySelector('.round-dials');
+      if (dials) dials.classList.remove('locked'); // aucune manche en cours : on règle
+      syncRoundDials();
+
+      const saved = savedRound();
+      const left  = dueWords().length;
+      document.getElementById('session-waiting').textContent =
+        left === 0 ? tApp('sess_waiting_no')
+                   : (left === 1 ? tApp('sess_waiting_one') : tApp('sess_waiting').replace('{n}', left));
+
+      // Une manche laissée en plan se reprend, et c'est aussi la seule sortie : sans
+      // ce choix, des curseurs verrouillés par une manche qu'on ne veut pas finir
+      // n'auraient plus aucun moyen d'être débloqués.
+      const resume = document.getElementById('btn-session-resume');
+      resume.style.display = saved ? '' : 'none';
+      if (saved) resume.textContent = tApp('sess_resume').replace('{n}', saved.left);
+      document.getElementById('btn-session-start').textContent =
+        saved ? tApp('sess_new_round') : tApp('sess_start');
+      document.getElementById('btn-session-reviews').textContent = tApp('sess_only_rev');
+      alignSessionTop();
+    }
+
+    function beginRound(reviewsOnly) {
       if (!currentLang || !allWords.length) return;
-      sessionItems = buildSessionItems();
+      clearSavedRound();                    // on repart de zéro : l'ancienne est jetée
+      sessionItems = buildSessionItems(reviewsOnly);
       sessionIdx   = 0;
       sessionOk    = 0;
       _clozeState  = null;
       _clozePromise = null;
+      launchRound();
+    }
+
+    // Départ commun à une manche neuve et à une manche reprise : c'est ici, et
+    // seulement ici, que partent les appels.
+    function launchRound() {
+      sessionRunning = true;
+      const start = document.getElementById('session-start');
+      if (start) start.style.display = 'none';
+      lockRoundDials();
 
       // Le texte à trous met 20 à 50 s à venir. On le lance MAINTENANT : il se
       // prépare pendant les QCM et il est là quand on y arrive.
       const clozeItem = sessionItems.find(i => i.kind === 'cloze');
-      if (clozeItem) _clozePromise = fetchCloze(clozeItem.words).catch(e => ({ error: e.message }));
-      prefetchQCM(0); prefetchQCM(1);
+      if (clozeItem && !_clozeState) _clozePromise = fetchCloze(clozeItem.words).catch(e => ({ error: e.message }));
+      prefetchQCM(sessionIdx); prefetchQCM(sessionIdx + 1);
+      saveRound();
       renderSession();
     }
 
@@ -6826,6 +7107,11 @@ Write all scenarios and explanations in ${langName}.`;
     }
 
     function renderSession() {
+      // Une suppression de mot depuis « mes mots » re-rend la manche en arrière-plan :
+      // sans cette garde, elle écraserait l'écran de départ par un item vide.
+      if (!sessionRunning) return void renderSessionStart();
+      const start = document.getElementById('session-start');
+      if (start) start.style.display = 'none';
       const body = document.getElementById('session-body');
       const { done, total } = dayProgress();
       document.getElementById('session-count').textContent =
@@ -6919,6 +7205,8 @@ Write all scenarios and explanations in ${langName}.`;
     }
 
     function renderSessionEnd() {
+      sessionRunning = false;
+      clearSavedRound(); // manche finie : plus rien à reprendre
       const total = sessionTotal();
       document.getElementById('session-body').innerHTML =
         `<div class="word-card" style="text-align:center">
@@ -6930,8 +7218,10 @@ Write all scenarios and explanations in ${langName}.`;
          ${sessionEndActions()}`;
     }
 
-    function nextRound()   { startSession(); }
-    function openMoreNew() { sessionExtraNew += maxNewPerDay; startSession(); }
+    // Une manche finie renvoie au CHOIX, pas à une manche identique : c'est là que
+    // se décide « je rattrape du retard » ou « je découvre des mots ».
+    function nextRound()   { clearSavedRound(); showSessionStart(); }
+    function openMoreNew() { sessionExtraNew += maxNewPerDay; beginRound(false); }
 
     // ── QCM de séance ───────────────────────────────────────────────────
     async function fetchQCMChoices(word) {
@@ -6958,7 +7248,7 @@ Write all scenarios and explanations in ${langName}.`;
 
     async function renderSessionQCM(item) {
       const body = document.getElementById('session-body');
-      if (!item.served) { item.wasNew = isNewWord(item.word); markNewServed(item.word); item.served = true; }
+      if (!item.served) { item.wasNew = isNewWord(item.word); item.served = true; }
       // La définition est offerte d'emblée sur un mot neuf — c'est justement ce
       // qu'on vient apprendre — et seulement APRÈS la réponse sur un rappel, où
       // elle donnerait le mot. Même règle que partout ailleurs dans l'app.
@@ -7042,7 +7332,7 @@ Write all scenarios and explanations in ${langName}.`;
       _sessionBusy = false;
     }
 
-    function sessionNext() { sessionIdx++; renderSession(); }
+    function sessionNext() { sessionIdx++; saveRound(); renderSession(); }
 
     function addSessionNextButton() {
       const wrap = document.createElement('div');
@@ -7087,6 +7377,7 @@ Write all scenarios and explanations in ${langName}.`;
         await saveProgress(word, ok);
       }
       markDone();
+      saveRound(); // l'échéance du mot vient de changer : la reprise doit le savoir
       saveHistory(word, ok);
     }
 
@@ -9500,16 +9791,16 @@ Reply with ONLY this JSON object, nothing else:
       // Un mot qu'on jette n'a pas été appris : il rend la place qu'il occupait
       // dans la journée, sinon supprimer sa séance en fermait le quota pour rien.
       const served = sessionItems.find(it => it.kind === 'qcm' && lc(it.word) === k && it.served && it.wasNew);
-      if (served) {
-        localStorage.setItem(newServedKey(), Math.max(0, newServedToday() - 1));
-        // Le compteur partagé n'a bougé que si le mot avait reçu une réponse.
-        if (hadProgress && todayNewCount > 0) {
-          todayNewCount--;
-          saveTodayCount(currentLang, todayNewCount);
-        }
+      // Le quota n'a bougé que si le mot avait reçu une réponse : un mot seulement
+      // entrevu n'occupait déjà plus de place depuis que le compteur des « affichés »
+      // a disparu.
+      if (served && hadProgress && todayNewCount > 0) {
+        todayNewCount--;
+        saveTodayCount(currentLang, todayNewCount);
       }
       // Un mot pas encore passé est REMPLACÉ sur place : le jeter ne doit pas
       // raccourcir la manche (ni la journée), il doit juste céder son tour.
+      // (La manche sauvegardée est renotée en fin de fonction.)
       const idx = sessionItems.findIndex(it => it.kind === 'qcm' && lc(it.word) === k);
       if (idx >= sessionIdx) {
         const repl = pickRoundReplacement(k, served ? 'new' : 'due');
@@ -9528,6 +9819,7 @@ Reply with ONLY this JSON object, nothing else:
       // Un texte tombé sous deux mots n'a plus de sens.
       sessionItems = sessionItems.filter(it => it.kind !== 'cloze' || it.words.length >= 2);
       sessionIdx = Math.max(0, sessionIdx - removedBefore);
+      saveRound();
       renderSession();
     }
 
@@ -9564,6 +9856,7 @@ Reply with ONLY this JSON object, nothing else:
             if (it.kind === 'qcm' && it.word === word) it.word = newWord;
             if (it.kind === 'cloze') it.words = it.words.map(w => w === word ? newWord : w);
           });
+          saveRound(); // sinon la reprise chercherait encore l'ancienne graphie
           renderSession();
           return;
         }
