@@ -311,6 +311,13 @@ Entrer dans le mode lançait **trois appels** — dont le texte à trous, une mi
 - **La sortie du verrou, c'est l'écran de départ lui-même** : « reprendre » ou « nouvelle manche ». Sans ce choix, une manche qu'on ne veut pas finir verrouillerait les curseurs pour toujours.
 - `nextRound()` renvoie au **choix**, pas à une manche identique : c'est là que se décide « je rattrape » ou « je découvre ».
 
+### Étoiles en séance (2026-09-10)
+
+Les étoiles disent où en est le mot, et donc **pourquoi** l'app propose tel exercice : QCM en dessous de deux étoiles, texte à trous au-dessus. Elles manquaient depuis que le mode espacé n'était plus le mode par défaut.
+- **QCM** : `starsHtml(word)` sous le mot (`#session-stars`), **recalé après la réponse** — la progression vient de bouger, le mot montre son nouvel état tout de suite.
+- **Texte à trous** : récapitulatif de **tous** les mots visés sous le score (`.cloze-recap`), chacun avec ✓/✗, la forme employée, l'écart de flexion s'il y en a un, et ses étoiles. Il remplace les seules lignes « dans ta liste : … », qui ne couvraient que les mots fléchis.
+- ⚠️ `checkCloze` peint **avant** d'écrire la progression : un **second `paintCloze()`** après la boucle, sinon le récapitulatif montre les étoiles d'avant la réponse.
+
 ### Texte à trous
 `clozePrompt()` / `fetchCloze()` / `paintCloze()`. Un seul appel IA par séance, **la correction est locale** (l'app a placé les mots, elle connaît les réponses) : pas d'attente, pas de verdict à lire, une couleur par trou.
 - **Flexion libre** : le texte emploie la forme que la phrase demande, pas celle stockée ; le modèle renvoie l'**entrée d'origine** *et* la **forme employée**, l'app insère la seconde et montre l'écart (« εκστρατεία — dans ta liste : εκστρατείας »). ⚠️ C'est le cœur pédagogique : on apprend le **mot**, plus la forme où on l'a rencontré. Une expression **verbale** se conjugue, une expression **nominale** ne change que de cas.

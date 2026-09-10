@@ -351,6 +351,17 @@
     .session-word  { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 0.3rem;
                      display: flex; align-items: center; justify-content: center; gap: 0.3rem; }
     .session-def   { font-size: 0.92rem; color: var(--muted); text-align: center; margin-bottom: 1rem; }
+    /* Les étoiles disent où en est le mot — c'est ce qui donne son sens à l'exercice
+       proposé : le QCM sert les mots qui n'en ont pas encore deux, le texte à trous
+       les autres. Reprises du mode espacé, mêmes classes de couleur. */
+    .session-stars { text-align: center; margin-bottom: 0.7rem; }
+    .cloze-recap     { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.9rem; }
+    .cloze-recap-row { display: grid; grid-template-columns: 1rem 1fr auto; align-items: baseline;
+                       gap: 0.5rem; font-size: 0.92rem; text-align: left; }
+    .cloze-recap-row .rc-mark.ok { color: var(--success); }
+    .cloze-recap-row .rc-mark.ko { color: #e05a5a; }
+    .cloze-recap-row .rc-flex    { display: block; font-size: 0.78rem; color: var(--muted); }
+    .cloze-recap-row .stars      { font-size: 0.85rem; }
     .session-q     { font-size: 0.95rem; margin-bottom: 1rem; text-align: center; color: var(--muted); }
     .session-actions { display: flex; justify-content: center; margin-top: 1.1rem; }
     .session-note  { font-size: 0.85rem; color: var(--muted); margin-top: 0.8rem; text-align: center; }
@@ -5364,6 +5375,13 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       return starsFromNet(prog ? (prog.correct - prog.incorrect) : 0);
     }
 
+    // Étoiles d'un mot en une balise, pour les endroits qui composent du HTML
+    // (séance) plutôt que d'écrire dans un élément fixe (carte du mode espacé).
+    function starsHtml(word) {
+      const info = getStarsInfo(word);
+      return `<span class="stars ${info.cls}">${info.str}</span>`;
+    }
+
     function updateStars(word) {
       const info    = getStarsInfo(word);
       const starsEl = document.getElementById('word-stars');
@@ -7279,6 +7297,7 @@ Write all scenarios and explanations in ${langName}.`;
       const esc = item.word.replace(/'/g, "\\'");
       body.innerHTML =
         `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">⋯</span></div>
+         <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
          ${wordNote(item.word) ? `<div class="session-def">${wordNote(item.word)}</div>` : ''}
          <div class="session-actions" id="session-help" style="margin-top:0${_sessionHelpOpen ? '' : ';display:none'}">
            <button class="btn-ghost" onclick="fetchHint('${esc}')">📖 ${tPrac('sess_def')}</button>
@@ -7351,6 +7370,9 @@ Write all scenarios and explanations in ${langName}.`;
 
       unlockSessionHelp();
       await recordSessionAnswer(item.word, isCorrect);
+      // La progression vient de bouger : le mot montre son nouvel état tout de suite.
+      const st = document.getElementById('session-stars');
+      if (st) st.innerHTML = starsHtml(item.word);
       addSessionNextButton();
       _sessionBusy = false;
     }
@@ -7552,10 +7574,22 @@ Answer ONLY with JSON, no markdown fence:
 
       let tail = '';
       if (st.checked) {
-        const n  = st.blanks.filter(b => lc(st.filled[b.n] || '') === lc(b.entry)).length;
-        const fx = st.blanks.filter(b => lc(st.filled[b.n] || '') === lc(b.entry) && lc(b.form) !== lc(b.entry));
+        const n = st.blanks.filter(b => lc(st.filled[b.n] || '') === lc(b.entry)).length;
+        // Récapitulatif de TOUS les mots visés, pas seulement de ceux dont la forme
+        // employée différait de l'entrée : c'est le seul endroit du texte à trous où
+        // l'on voit où en est chaque mot, et donc pourquoi il tombera en QCM ou en
+        // texte la prochaine fois.
         tail = `<p class="session-note"><strong>${n} / ${st.blanks.length}</strong></p>`
-             + fx.map(b => `<p class="session-note">${lc(b.form)} — ${tApp('sess_inbase').replace('{w}', lc(b.entry))}</p>`).join('');
+             + `<div class="cloze-recap">${st.blanks.map(b => {
+                 const okB  = lc(st.filled[b.n] || '') === lc(b.entry);
+                 const flex = lc(b.form) !== lc(b.entry)
+                   ? `<span class="rc-flex">${tApp('sess_inbase').replace('{w}', lc(b.entry))}</span>` : '';
+                 return `<div class="cloze-recap-row">
+                           <span class="rc-mark ${okB ? 'ok' : 'ko'}">${okB ? '✓' : '✗'}</span>
+                           <span>${lc(b.form)}${flex}</span>
+                           ${starsHtml(b.entry)}
+                         </div>`;
+               }).join('')}</div>`;
       } else {
         tail = `<div class="session-actions"><button class="btn-secondary" onclick="checkCloze()">${tApp('sess_check')}</button></div>`;
       }
@@ -7600,6 +7634,9 @@ Answer ONLY with JSON, no markdown fence:
         if (!allWords.some(w => lc(w) === lc(b.entry))) continue;
         await recordSessionAnswer(b.entry, ok);
       }
+      // ⚠️ Le premier `paintCloze()` a lieu AVANT ces écritures : sans ce second
+      // rendu, le récapitulatif montrerait les étoiles d'avant la réponse.
+      paintCloze();
     }
 
     async function saveHistory(word, isCorrect) {
