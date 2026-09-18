@@ -702,6 +702,43 @@ export default {
       return json({ error: { message: 'méthode non supportée' } }, 405);
     }
 
+    // Manche de pratique en cours — pour la reprendre sur un autre appareil.
+    // ⚠️ Ce n'est PAS un réglage : elle change à chaque réponse et n'a donc rien à
+    // faire dans le blob `users.settings` (débouncé, ramassé en bloc). Le dernier
+    // écrivain gagne, et c'est sans danger : à la reprise, le client revérifie
+    // chaque mot restant contre la base et retire ceux déjà faits — une manche
+    // périmée se vide d'elle-même au lieu de reservir du déjà-fait.
+    if (path === '/api/round') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      try {
+        if (request.method === 'GET') {
+          const lang = new URL(request.url).searchParams.get('lang') || '';
+          const row = await env.DB.prepare('SELECT state, updated_at FROM rounds WHERE user_id = ? AND language = ?')
+            .bind(auth.uid, lang).first();
+          return json({ round: row ? { state: row.state, updatedAt: row.updated_at } : null });
+        }
+        if (request.method === 'POST') {
+          const { lang, state } = await request.json();
+          if (!lang || !state) return json({ error: { message: 'lang et state requis' } }, 400);
+          await env.DB.prepare(
+            `INSERT INTO rounds (user_id, language, state, updated_at) VALUES (?, ?, ?, ?)
+             ON CONFLICT(user_id, language) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at`
+          ).bind(auth.uid, lang, JSON.stringify(state), Date.now()).run();
+          return json({ ok: true });
+        }
+        if (request.method === 'DELETE') {
+          const { lang } = await request.json();
+          await env.DB.prepare('DELETE FROM rounds WHERE user_id = ? AND language = ?')
+            .bind(auth.uid, lang || '').run();
+          return json({ ok: true });
+        }
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+      return json({ error: { message: 'méthode non supportée' } }, 405);
+    }
+
     // BYOK : sync des clés IA entre appareils (stockées en D1)
     if (path === '/api/keys') {
       const auth = await requireAuth(request, env);
