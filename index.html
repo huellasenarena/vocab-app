@@ -343,6 +343,16 @@
     #session-start .session-actions { flex-direction: column; align-items: stretch; gap: 0.6rem; }
     #session-start .session-actions button { width: 100%; }
     .session-head { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.4rem; }
+    .session-headline { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+    /* Quitter une manche n'annule rien : les réponses sont déjà enregistrées et la
+       manche reste reprenable. Sans cette sortie, une manche qu'on ne veut pas finir
+       gardait les curseurs verrouillés pour de bon. */
+    .session-quit { background: none; border: none; color: var(--muted); cursor: pointer;
+                    font-family: 'DM Mono', monospace; font-size: 0.72rem; padding: 0.1rem 0.2rem; }
+    .session-quit:active { opacity: 0.6; }
+    /* La prochaine échéance, dite en délai plutôt qu'en date : elle se lit sans
+       compter, et elle explique pourquoi le mot ne reviendra pas demain. */
+    .session-due { font-family: 'DM Mono', monospace; font-size: 0.7rem; opacity: 0.75; margin-left: 0.45rem; }
     #session-choices { display: flex; flex-direction: column; gap: 0.6rem; }
     #session-result:not(:empty) { margin-top: 0.9rem; }
     .session-count { font-size: 0.82rem; color: var(--muted); }
@@ -361,6 +371,8 @@
     .cloze-recap-row .rc-mark.ok { color: var(--success); }
     .cloze-recap-row .rc-mark.ko { color: #e05a5a; }
     .cloze-recap-row .rc-flex    { display: block; font-size: 0.78rem; color: var(--muted); }
+    .cloze-recap-row .rc-due     { display: block; font-family: 'DM Mono', monospace;
+                                   font-size: 0.7rem; color: var(--muted); opacity: 0.8; }
     .cloze-recap-row .stars      { font-size: 0.85rem; }
     .session-q     { font-size: 0.95rem; margin-bottom: 1rem; text-align: center; color: var(--muted); }
     .session-actions { display: flex; justify-content: center; margin-top: 1.1rem; }
@@ -1001,7 +1013,13 @@
       transition: border-color 0.2s, background 0.2s;
       line-height: 1.5;
     }
-    .qcm-choice:hover:not(:disabled)    { border-color: var(--accent); }
+    /* ⚠️ Sous `@media (hover: hover)` : un écran tactile n'a pas de survol, mais
+       iOS garde le dernier appui « collé ». L'écran suivant se redessinait et le
+       bouton qui arrivait à cet endroit héritait de la bordure dorée — une réponse
+       paraissait déjà choisie sur la carte suivante. */
+    @media (hover: hover) and (pointer: fine) {
+      .qcm-choice:hover:not(:disabled)  { border-color: var(--accent); }
+    }
     .qcm-choice:disabled                { cursor: default; }
     .qcm-choice.correct-answer          { border-color: var(--success); background: #0e2018; color: var(--success); }
     .qcm-choice.wrong-answer            { border-color: var(--error);   background: #200e0e; color: var(--error); }
@@ -1819,7 +1837,10 @@
     <!-- Mode pratique quotidienne -->
     <div id="session-section" style="display:none;">
       <div class="session-head">
-        <span class="session-count" id="session-count"></span>
+        <div class="session-headline">
+          <span class="session-count" id="session-count"></span>
+          <button class="session-quit" id="session-quit" onclick="quitRound()" style="display:none"></button>
+        </div>
         <div class="session-track"><div class="session-fill" id="session-fill"></div></div>
       </div>
       <!-- Écran de départ : les réglages de la manche, puis le clic qui lance
@@ -2369,6 +2390,7 @@
       sess_start:       { en: `Start →`, fr: `Commencer →`, es: `Empezar →`, el: `Έναρξη →` },
       sess_only_rev:    { en: `Recalls only`, fr: `Que des rappels`, es: `Solo repasos`, el: `Μόνο επαναλήψεις` },
       sess_resume:      { en: `Resume ({n} words) →`, fr: `Reprendre ({n} mots) →`, es: `Continuar ({n} palabras) →`, el: `Συνέχεια ({n} λέξεις) →` },
+      sess_resume_other:{ en: `Resume ({n} words, other device) →`, fr: `Reprendre ({n} mots, autre appareil) →`, es: `Continuar ({n} palabras, otro aparato) →`, el: `Συνέχεια ({n} λέξεις, άλλη συσκευή) →` },
       sess_new_round:   { en: `New round`, fr: `Nouvelle manche`, es: `Ronda nueva`, el: `Νέος γύρος` },
       sess_set_size:    { en: `Words per round`, fr: `Mots par manche`, es: `Palabras por ronda`, el: `Λέξεις ανά γύρο` },
       sess_set_new:     { en: `New words among them`, fr: `Dont mots neufs`, es: `De ellas, nuevas`, el: `Από αυτές, νέες` },
@@ -2378,6 +2400,11 @@
       badge_waiting:    { en: `{n} waiting`, fr: `{n} en attente`, es: `{n} pendientes`, el: `{n} σε αναμονή` },
       sess_rev_one:     { en: `recall`, fr: `rappel`, es: `repaso`, el: `επανάληψη` },
       sess_rev_n:       { en: `recalls`, fr: `rappels`, es: `repasos`, el: `επαναλήψεις` },
+      sess_new_done:    { en: `{n} new already done`, fr: `{n} neufs déjà faits`, es: `{n} nuevas ya hechas`, el: `{n} νέες ήδη έγιναν` },
+      sess_quit:        { en: `✕ leave round`, fr: `✕ quitter la manche`, es: `✕ salir de la ronda`, el: `✕ έξοδος από τον γύρο` },
+      qcm_regen:        { en: `Another question`, fr: `Autre question`, es: `Otra pregunta`, el: `Άλλη ερώτηση` },
+      qcm_unknown:      { en: `The model does not reliably know this word, and says so rather than inventing a meaning.`, fr: `Le modèle ne connaît pas ce mot de façon sûre, et le dit plutôt que d'inventer un sens.`, es: `El modelo no conoce bien esta palabra, y lo dice en vez de inventar un significado.`, el: `Το μοντέλο δεν γνωρίζει με βεβαιότητα αυτή τη λέξη, και το λέει αντί να επινοήσει σημασία.` },
+      qcm_add_sense:    { en: `write its meaning in brackets`, fr: `écrire son sens entre parenthèses`, es: `escribir su sentido entre paréntesis`, el: `γράψε τη σημασία σε παρένθεση` },
       mode_spaced:      { en: `📅<br>Spaced`, fr: `📅<br>Espacée`, es: `📅<br>Espaciada`, el: `📅<br>Κατανεμημένη` },
       mode_situation:   { en: `🎯<br>Situation`, fr: `🎯<br>Situation`, es: `🎯<br>Situación`, el: `🎯<br>Περίσταση` },
       mode_free:        { en: `🎲<br>Free`, fr: `🎲<br>Libre`, es: `🎲<br>Libre`, el: `🎲<br>Ελεύθερη` },
@@ -2891,12 +2918,11 @@
           const doneN     = doneToday(l.key);
           const goal      = Math.min(roundSizeFor(l.key), doneN + remaining);
           const isDone    = doneN >= goal;
-          // Ce qui ne tient pas dans l'objectif du jour : le vrai retard. On retire
-          // à ce qui reste la place encore libre dans l'objectif. ⚠️ Pas
-          // `fait + reste − objectif` : baisser la taille de la manche après coup
-          // faisait alors compter les mots DÉJÀ FAITS en trop comme du retard
-          // (« ✓ 12 » et « 8 en attente » quand il n'en restait que 4).
-          const backlog   = Math.max(0, remaining - Math.max(0, goal - doneN));
+          // ⚠️ La pile annoncée est le nombre de RAPPELS DUS, tel quel — le même que
+          // l'écran de départ du mode. Elle disait auparavant « ce qui ne tient pas
+          // dans l'objectif du jour » (rappels + neufs − la manche) : 26 sur
+          // l'accueil contre 36 dans le mode, deux nombres sous le même mot. La
+          // fraction porte déjà la manche, le sous-titre n'a pas à la reporter.
           const sub = btn.querySelector('.lang-sub');
           btn.classList.remove('due', 'done');
           btn.style.removeProperty('--p');
@@ -2914,7 +2940,7 @@
             btn.style.setProperty('--p', Math.round(100 * doneN / goal));
             if (badge) badge.textContent = `${doneN} / ${goal}`;
           }
-          if (sub && backlog > 0) sub.textContent = tApp('badge_waiting').replace('{n}', backlog);
+          if (sub && due > 0) sub.textContent = tApp('badge_waiting').replace('{n}', due);
         } catch (e) { /* hors-ligne / non connecté : pas de badge */ }
       }));
     }
@@ -3541,7 +3567,9 @@
              && !k.startsWith('vocab_today_new_') && !k.startsWith('vocab_today_done_')
              && !k.startsWith(KEY_DRAFT + '_')
              && !k.startsWith(KEY_ROUND_STATE)
-             && !k.startsWith(KEY_QCM_SEEN);
+             && !k.startsWith(KEY_QCM_SEEN)
+             && !k.startsWith(KEY_QCM_UNKNOWN)
+             && k !== KEY_DEVICE_ID;
     }
     function collectSettings() {
       const o = {};
@@ -4937,7 +4965,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // page, d'où keepalive (sendBeacon ne permettrait pas l'en-tête JWT).
     window.addEventListener('pagehide', () => {
       saveDraft(); // filet : le débounce de 300 ms peut ne pas avoir encore tiré
-      saveRound(); // idem pour la manche en cours (un crash, lui, ne passe pas ici)
+      saveRound(true); // idem pour la manche en cours (un crash, lui, ne passe pas ici)
       const toBlacklist = _relatedWordsShown.filter(w => !_relatedWordsAdded.has(w.toLowerCase()));
       if (!toBlacklist.length || !currentLang || !getJWT()) return;
       _relatedWordsShown = [];
@@ -6437,13 +6465,18 @@ ${seen.map(t => '- ' + t).join('\n')}\n`
         : '';
       return `You are a vocabulary teacher creating a challenging multiple-choice quiz in ${langName}.
 
-The word to test is: "${qcmBase}"${entryContext(qcmWord)}
+The word to test is: "${qcmBase}"${entryContext(word)}
 
 Generate exactly 4 short scenarios (1-2 sentences each):
 - 1 scenario where "${qcmBase}" is the natural, correct word to use
 - 3 distractor scenarios: situations that sound plausible but where "${qcmBase}" would be wrong or unnatural — use semantically close contexts that could genuinely fool a learner who doesn't know the word well
 
 CRITICAL: Do NOT include the word "${qcmBase}" (or any of its inflected forms) in any of the 4 scenarios. The learner must identify the correct context without seeing the word.
+
+CRITICAL — DO NOT LEAVE A HOLE WHERE THE WORD WOULD BE. Never replace it with a gap, a dash,
+or a bare modifier left hanging ("they rented a small ___ to go to the island"). Describe the
+situation so that the word is simply not needed: every scenario must be a complete, natural
+sentence a native speaker would actually write.
 
 CRITICAL — ONLY ONE SCENARIO MAY BE AN EXAMPLE OF THE WORD. Before you answer, test each
 distractor: name the word that would actually fit it. If that word is "${qcmBase}", a synonym
@@ -6458,9 +6491,21 @@ does not know "${qcmBase}" must have NO formal clue as to which one is correct:
 - same level of detail. Do NOT make the correct scenario richer, more specific, more
   vivid or more carefully written than the distractors — this is the most common
   giveaway, and it lets the word be found without knowing its meaning
-- same syntactic pattern and same register throughout
+- same register throughout
+- FOUR GENUINELY DIFFERENT SITUATIONS: different people, different places, different
+  actions. Never write one sentence four times with a single element swapped — the
+  learner then compares the swapped elements instead of weighing what the word means.
 
-Return ONLY a JSON array of 4 objects, no other text, no markdown:
+DO YOU ACTUALLY KNOW THIS WORD? Rare regional slang, dialect and coinages are the danger:
+faced with one it has never read, a model reconstructs a meaning from the parts of the word
+and states it with full confidence. If you are not genuinely confident about what
+"${qcmBase}" means in real usage, do NOT guess and do NOT derive a meaning from its
+components. Answer instead with exactly this object and nothing else:
+{"unknown": true, "why": "<one short sentence in ${langName}>"}
+Admitting ignorance costs one exercise; inventing a sense teaches the learner a word that
+does not exist. The learner's note above, when there is one, is evidence — use it.
+
+Otherwise return ONLY a JSON array of 4 objects, no other text, no markdown:
 [
   {"text": "...", "correct": true, "explanation": "..."},
   {"text": "...", "correct": false, "explanation": "..."},
@@ -6815,6 +6860,27 @@ Write all scenarios and explanations in ${langName}.`;
     // sur un mot neuf, et sur un rappel seulement une fois la réponse donnée.
     let _sessionHelpOpen = false;
 
+    // ── La prochaine échéance, dès la réponse ──────────────────────────
+    // La date est déjà calculée au moment où l'on répond : l'afficher tout de suite
+    // dit POURQUOI le mot ne reviendra pas demain. En délai plutôt qu'en date, ça se
+    // lit sans compter. ⚠️ En langue de l'APPLI (`tApp`), comme tout le panneau de
+    // séance — `reviewLabel` est son jumeau en langue pratiquée, pour le mode espacé.
+    function sessionDueLabel(word) {
+      const nr = progressMap[lc(word)]?.nextReview;
+      if (!nr) return '';
+      const today = todayStrLocal();
+      if (nr <= today) return tApp('to_review');
+      const d2 = new Date(nr + 'T00:00:00');
+      const days = Math.round((d2 - new Date(today + 'T00:00:00')) / 86400000);
+      if (days === 1) return tApp('rev_tomorrow');
+      if (days <= 7)  return tApp('rev_in_days').replace('{n}', days);
+      return d2.toLocaleDateString(UI_LOCALE[appLang], { day: 'numeric', month: 'short' });
+    }
+    function sessionDueSuffix(word) {
+      const lab = sessionDueLabel(word);
+      return lab ? `<span class="session-due">📅 ${lab}</span>` : '';
+    }
+
     function unlockSessionHelp() {
       _sessionHelpOpen = true;
       const h = document.getElementById('session-help');
@@ -6957,18 +7023,75 @@ Write all scenarios and explanations in ${langName}.`;
 
     // ── Manche interrompue : on la reprend au lieu de la refaire ────────
     // Ce qui coûte, c'est le texte à trous (une minute et le gros des tokens) ; le
-    // reste tient en quelques lignes. ⚠️ Préfixe exclu de la synchronisation : une
-    // manche appartient à l'appareil où elle a commencé — l'autre en reconstruit
-    // une avec ce qui reste, et n'a donc rien à recevoir.
+    // reste tient en quelques lignes. Écrite en localStorage d'abord — un crash ne
+    // prévient pas — puis recopiée en D1 (`/api/round`) pour qu'une manche commencée
+    // sur un appareil se reprenne sur l'autre.
     const KEY_ROUND_STATE = 'vocab_round_state_';
     function roundStateKey(lang) { return KEY_ROUND_STATE + (lang || currentLang); }
+
+    // ⚠️ Le préfixe reste hors de `collectSettings()` : une manche change à chaque
+    // réponse et n'a rien à faire dans le blob des réglages (débouncé, ramassé en
+    // bloc). Elle a sa propre table et sa propre route, `/api/round`.
+    // Identifiant d'appareil : il ne sert qu'à dire « commencée ailleurs » dans le
+    // libellé de reprise — jamais à arbitrer, c'est l'horodatage qui tranche.
+    const KEY_DEVICE_ID = 'vocab_device_id';
+    function deviceId() {
+      let d = localStorage.getItem(KEY_DEVICE_ID);
+      if (!d) { d = Math.random().toString(36).slice(2, 10); localStorage.setItem(KEY_DEVICE_ID, d); }
+      return d;
+    }
+
+    // La sauvegarde locale est immédiate (un crash ne prévient pas) ; la copie en
+    // base part groupée — une manche de douze mots, c'est une quinzaine d'écritures.
+    let _pushRoundTimer = null;
+    function pushRoundToServer(state, lang, now) {
+      if (!localStorage.getItem(KEY_JWT)) return;
+      clearTimeout(_pushRoundTimer);
+      // Fermeture de l'app : le débounce n'aurait jamais tiré, et la requête doit
+      // survivre à la page — même `keepalive` que la blacklist.
+      if (now) {
+        try { authFetch('/api/round', { method: 'POST', keepalive: true, body: JSON.stringify({ lang, state }) }); }
+        catch (e) { /* la page part : rien à rattraper */ }
+        return;
+      }
+      _pushRoundTimer = setTimeout(() => {
+        authFetch('/api/round', { method: 'POST', body: JSON.stringify({ lang, state }) }).catch(() => {});
+      }, 1200);
+    }
+    function dropRoundOnServer(lang) {
+      if (!localStorage.getItem(KEY_JWT)) return;
+      clearTimeout(_pushRoundTimer);
+      authFetch('/api/round', { method: 'DELETE', body: JSON.stringify({ lang }) }).catch(() => {});
+    }
+
+    // Va chercher la manche en base et l'adopte si elle est PLUS RÉCENTE que celle
+    // d'ici. Rien d'autre à arbitrer : `savedRound()` revérifie ensuite chaque mot
+    // contre la base, donc une manche déjà finie ailleurs arrive vide et disparaît.
+    async function adoptRemoteRound(lang) {
+      if (!localStorage.getItem(KEY_JWT) || !lang) return false;
+      try {
+        const r = await authFetch(`/api/round?lang=${encodeURIComponent(lang)}`);
+        const d = await r.json();
+        if (!d.round || !d.round.state) return false;
+        const remote = JSON.parse(d.round.state);
+        if (!remote || remote.date !== todayStrLocal()) return false;
+        let local = null;
+        try { local = JSON.parse(localStorage.getItem(roundStateKey(lang)) || 'null'); } catch {}
+        if (local && (local.ts || 0) >= (remote.ts || 0)) return false;
+        localStorage.setItem(roundStateKey(lang), JSON.stringify(remote));
+        return true;
+      } catch { return false; }
+    }
     function nrOf(w) { return progressMap[lc(w)]?.nextReview || null; }
 
-    function saveRound() {
+    function saveRound(now) {
       if (!sessionRunning || !currentLang) return;
+      const lang = currentLang;
       try {
-        localStorage.setItem(roundStateKey(), JSON.stringify({
+        const state = {
           date:  todayStrLocal(),
+          ts:    Date.now(),
+          dev:   deviceId(),
           idx:   sessionIdx,
           ok:    sessionOk,
           cloze: _clozeState,
@@ -6977,12 +7100,16 @@ Write all scenarios and explanations in ${langName}.`;
           items: sessionItems.map(it => it.kind === 'cloze'
             ? { kind: 'cloze', words: it.words, nr: it.words.map(nrOf) }
             : { kind: 'qcm', word: it.word, served: !!it.served, wasNew: !!it.wasNew, nr: nrOf(it.word) }),
-        }));
+        };
+        localStorage.setItem(roundStateKey(lang), JSON.stringify(state));
+        pushRoundToServer(state, lang, now);
       } catch { /* stockage plein : la manche se refera, rien de perdu en base */ }
     }
 
     function clearSavedRound() {
-      if (currentLang) localStorage.removeItem(roundStateKey());
+      if (!currentLang) return;
+      localStorage.removeItem(roundStateKey());
+      dropRoundOnServer(currentLang);
     }
 
     // À la reprise, on garde la liste mais on revérifie chaque mot restant contre la
@@ -7010,7 +7137,7 @@ Write all scenarios and explanations in ${langName}.`;
         : alive(it.word) && untouched(it.word, it.nr));
       if (!rest.length) return null;
       const left = rest.reduce((n, it) => n + (it.kind === 'cloze' ? it.words.length : 1), 0);
-      return { data: d, rest, left };
+      return { data: d, rest, left, elsewhere: !!d.dev && d.dev !== deviceId() };
     }
 
     function resumeRound() {
@@ -7058,8 +7185,15 @@ Write all scenarios and explanations in ${langName}.`;
       nv.textContent = nw(Math.min(maxNewPerDay, size));
       const line = document.getElementById('round-derived-line');
       if (line) {
-        const rev = Math.max(0, size - Math.min(maxNewPerDay, size));
-        line.textContent = `→ ${rev} ${tApp(rev === 1 ? 'sess_rev_one' : 'sess_rev_n')}`;
+        // ⚠️ Ce qui va VRAIMENT arriver, pas le réglage. Le curseur des neufs est un
+        // quota du JOUR : si les mots neufs ont déjà été servis ce matin, il n'en
+        // reste aucun à réserver et les rappels prennent toutes les places. La ligne
+        // annonçait « 2 rappels » et la manche en servait 4.
+        const wish = Math.min(maxNewPerDay, size);
+        const left = Math.max(0, Math.min(maxNewPerDay - todayNewCount, size));
+        const rev  = Math.max(0, size - left);
+        line.textContent = `→ ${rev} ${tApp(rev === 1 ? 'sess_rev_one' : 'sess_rev_n')}`
+          + (left < wish ? ` · ${tApp('sess_new_done').replace('{n}', wish - left)}` : '');
       }
     }
 
@@ -7084,7 +7218,7 @@ Write all scenarios and explanations in ${langName}.`;
       renderSessionStart();
     }
 
-    function renderSessionStart() {
+    function renderSessionStart(skipRemote) {
       if (!currentLang) return;
       const start = document.getElementById('session-start');
       const body  = document.getElementById('session-body');
@@ -7109,11 +7243,23 @@ Write all scenarios and explanations in ${langName}.`;
       // n'auraient plus aucun moyen d'être débloqués.
       const resume = document.getElementById('btn-session-resume');
       resume.style.display = saved ? '' : 'none';
-      if (saved) resume.textContent = tApp('sess_resume').replace('{n}', saved.left);
+      if (saved) resume.textContent =
+        tApp(saved.elsewhere ? 'sess_resume_other' : 'sess_resume').replace('{n}', saved.left);
       document.getElementById('btn-session-start').textContent =
         saved ? tApp('sess_new_round') : tApp('sess_start');
       document.getElementById('btn-session-reviews').textContent = tApp('sess_only_rev');
       alignSessionTop();
+
+      // La manche commencée sur l'autre appareil arrive après coup : l'écran est
+      // déjà utilisable, et il se recale tout seul si elle est plus récente que
+      // celle d'ici. ⚠️ Le re-rendu passe `skipRemote` — sans quoi il redemanderait
+      // la manche à chaque fois qu'il se dessine.
+      if (!skipRemote) {
+        const lang = currentLang;
+        adoptRemoteRound(lang).then(got => {
+          if (got && currentLang === lang && !sessionRunning) renderSessionStart(true);
+        });
+      }
     }
 
     function beginRound(reviewsOnly) {
@@ -7162,6 +7308,11 @@ Write all scenarios and explanations in ${langName}.`;
       // Rien à jauger : la barre restait seule au-dessus de « Rien à faire ».
       const head = document.querySelector('#session-section .session-head');
       if (head) head.style.display = total ? '' : 'none';
+      const quit = document.getElementById('session-quit');
+      if (quit) {
+        quit.textContent   = tApp('sess_quit');
+        quit.style.display = sessionIdx < sessionItems.length ? '' : 'none';
+      }
 
       // Avant les sorties : une image ou une définition ouverte resterait sinon
       // affichée sous la carte de fin de manche.
@@ -7260,18 +7411,60 @@ Write all scenarios and explanations in ${langName}.`;
          ${sessionEndActions()}`;
     }
 
+    // Quitter une manche en cours. ⚠️ Rien n'est annulé — les réponses déjà données
+    // sont enregistrées au fur et à mesure — et la manche reste REPRENABLE : on la
+    // sauvegarde avant de rendre la main à l'écran de départ, où « reprendre » et
+    // « nouvelle manche » sont côte à côte. D'où le libellé « quitter », jamais
+    // « annuler » : on ne perd pas ce qu'on vient de faire.
+    function quitRound() {
+      saveRound();
+      showSessionStart();
+    }
+
     // Une manche finie renvoie au CHOIX, pas à une manche identique : c'est là que
     // se décide « je rattrape du retard » ou « je découvre des mots ».
     function nextRound()   { clearSavedRound(); showSessionStart(); }
     function openMoreNew() { sessionExtraNew += maxNewPerDay; beginRound(false); }
 
-    // ── QCM de séance ───────────────────────────────────────────────────
+    // ── QCM de séance : mots que le modèle avoue ne pas connaître ──────
+    // Devant un mot jamais lu — argot régional, dialecte — un modèle reconstruit un
+    // sens à partir des morceaux du mot et l'affirme sans réserve : « dañaparche »
+    // devenait une rustine ratée. Le prompt lui offre donc d'avouer. On retient son
+    // aveu pour ne pas repayer dix secondes à chaque manche.
+    // ⚠️ La clé porte l'ENTRÉE COMPLÈTE : écrire le sens entre parenthèses change
+    // l'entrée, donc la clé, donc le mot est réessayé — exactement ce qu'on veut.
+    const KEY_QCM_UNKNOWN = 'vocab_qcm_unknown';
+    function _unknownAll() {
+      try { return JSON.parse(localStorage.getItem(KEY_QCM_UNKNOWN + '_' + currentLang) || '{}'); }
+      catch { return {}; }
+    }
+    function _unknownSave(all) {
+      try { localStorage.setItem(KEY_QCM_UNKNOWN + '_' + currentLang, JSON.stringify(all)); } catch (e) {}
+    }
+    function unknownWhy(word)   { const a = _unknownAll(); return lc(word) in a ? (a[lc(word)] || '') : null; }
+    function rememberUnknown(word, why) { const a = _unknownAll(); a[lc(word)] = why || ''; _unknownSave(a); }
+    function forgetUnknown(word)        { const a = _unknownAll(); delete a[lc(word)]; _unknownSave(a); }
+
     async function fetchQCMChoices(word) {
       const reply    = await callAI(qcmPrompt(word), isGemini() ? 1500 : 16000);
       const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
       const a = stripped.search(/\[\s*\{/), b = stripped.lastIndexOf(']');
-      if (a === -1 || b <= a) throw new Error('Format inattendu');
+      if (a === -1 || b <= a) {
+        // Avouer n'est pas échouer : l'aveu est une réponse valide, pas un format cassé.
+        const o = stripped.indexOf('{'), c = stripped.lastIndexOf('}');
+        if (o !== -1 && c > o) {
+          let d = null;
+          try { d = JSON.parse(stripped.slice(o, c + 1)); } catch (e) {}
+          if (d && d.unknown) {
+            const why = String(d.why || '').slice(0, 300);
+            rememberUnknown(word, why);
+            return { unknown: true, why };
+          }
+        }
+        throw new Error('Format inattendu');
+      }
       const parsed = JSON.parse(stripped.slice(a, b + 1));
+      forgetUnknown(word); // il le connaît finalement : on lève l'aveu précédent
       rememberQCM(word, parsed);
       return shuffleInPlace(parsed);
     }
@@ -7281,6 +7474,8 @@ Write all scenarios and explanations in ${langName}.`;
     function prefetchQCM(i) {
       const it = sessionItems[i];
       if (!it || it.kind !== 'qcm' || it.choicesPromise) return;
+      const why = unknownWhy(it.word);
+      if (why !== null) { it.choicesPromise = Promise.resolve({ unknown: true, why }); return; }
       console.log(`[Séance] QCM ${i + 1} lancé en avance : ${it.word}`);
       const t0 = Date.now();
       it.choicesPromise = fetchQCMChoices(it.word)
@@ -7297,15 +7492,15 @@ Write all scenarios and explanations in ${langName}.`;
       _sessionHelpOpen = isNewWord(item.word);
       const esc = item.word.replace(/'/g, "\\'");
       body.innerHTML =
-        `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">⋯</span></div>
+        `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn" id="qcm-regen" title="${tPrac('qcm_regen')}" onclick="regenQCM()">↻</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">⋯</span></div>
          <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
          ${wordNote(item.word) ? `<div class="session-def">${wordNote(item.word)}</div>` : ''}
-         <div class="session-actions" id="session-help" style="margin-top:0${_sessionHelpOpen ? '' : ';display:none'}">
-           <button class="btn-ghost" onclick="fetchHint('${esc}')">📖 ${tPrac('sess_def')}</button>
-         </div>
          <p class="session-q">${tPrac('sess_which')}</p>
          <div id="session-choices"><div style="text-align:center;padding:0.6rem;color:var(--muted)"><span class="spinner"></span></div></div>
-         <div id="session-result"></div>`;
+         <div id="session-result"></div>
+         <div class="session-actions" id="session-help"${_sessionHelpOpen ? '' : ' style="display:none"'}>
+           <button class="btn-ghost" onclick="fetchHint('${esc}')">📖 ${tPrac('sess_def')}</button>
+         </div>`;
       prefetchQCM(sessionIdx + 1);
       try {
         if (!item.choicesPromise) prefetchQCM(sessionIdx);
@@ -7313,6 +7508,11 @@ Write all scenarios and explanations in ${langName}.`;
         const choices = await item.choicesPromise;
         console.log(`[Séance] attente à l'écran : ${((Date.now() - _tWait) / 1000).toFixed(1)}s`);
         if (choices && choices.error) throw new Error(choices.error);
+        // Le modèle ne connaît pas le mot : pas d'exercice, et surtout AUCUNE
+        // progression écrite — le mot n'a pas été testé, il reste dû. On propose
+        // d'écrire son sens entre parenthèses : la note repart dans tous les
+        // prompts, et l'entrée changée est réessayée d'elle-même.
+        if (choices && choices.unknown) return renderSessionUnknown(item, choices.why);
         item.choices = choices;
         document.getElementById('session-choices').innerHTML =
           choices.map((c, i) => `<button class="qcm-choice" onclick="answerSessionQCM(this, ${i})">${c.text}</button>`).join('')
@@ -7324,6 +7524,37 @@ Write all scenarios and explanations in ${langName}.`;
           `<p style="color:var(--error)">${tPrac('err_prefix')} ${err.message}</p>
            <button class="btn-secondary" style="margin-top:0.5rem" onclick="renderSession()">${tPrac('retry')}</button>`;
       }
+    }
+
+    // Le modèle a préféré avouer. On le dit tel quel : mieux vaut une carte sautée
+    // qu'un sens inventé appris par cœur. ⚠️ Rien n'est enregistré — le mot reste dû
+    // et reviendra, cette fois sans nouvel appel (l'aveu est mémorisé).
+    function renderSessionUnknown(item, why) {
+      const esc = item.word.replace(/'/g, "\\'");
+      const fix = hasNote(item.word) ? item.word : `${wordBase(item.word)} ()`;
+      document.getElementById('session-choices').innerHTML =
+        `<p class="session-note">${tPrac('qcm_unknown')}</p>` +
+        (why ? `<p class="session-note" style="font-style:italic">${escapeHtml(why)}</p>` : '') +
+        `<div class="session-actions" style="gap:0.6rem">
+           <button class="btn-ghost" onclick="editWordOnCard('${esc}', '${escapeJs(fix)}')">✏️ ${tPrac('qcm_add_sense')}</button>
+         </div>`;
+      // ↻ reste offert : c'est la seule façon de redemander un vrai exercice si l'on
+      // pense que le modèle se sous-estime. Écrire le sens entre parenthèses, lui,
+      // change l'entrée — donc la clé de l'aveu — et relance tout seul.
+      addSessionNextButton();
+    }
+
+    // Une question visiblement mauvaise — ou écrite avant qu'on ne renomme le mot —
+    // se refait à la demande. ⚠️ Jamais automatique après un renommage : dix secondes
+    // d'attente qu'on n'a pas demandées. La question rejetée est déjà dans la mémoire
+    // des QCM servis, donc la suivante ne lui ressemblera pas.
+    function regenQCM() {
+      const item = sessionItems[sessionIdx];
+      if (!item || item.kind !== 'qcm' || _sessionBusy) return;
+      item.choices        = null;
+      item.choicesPromise = null;
+      forgetUnknown(item.word);
+      renderSessionQCM(item);
     }
 
     // « Je ne sais pas » : compte ✗ comme une mauvaise réponse, révèle la bonne
@@ -7341,8 +7572,11 @@ Write all scenarios and explanations in ${langName}.`;
       const res = document.getElementById('session-result');
       res.className = 'qcm-result incorrect';
       res.innerHTML = right?.explanation ? `✓ ${right.explanation}` : '';
+      const rg = document.getElementById('qcm-regen'); if (rg) rg.style.display = 'none';
       unlockSessionHelp();
       await recordSessionAnswer(item.word, false);
+      const stD = document.getElementById('session-stars');
+      if (stD) stD.innerHTML = starsHtml(item.word) + sessionDueSuffix(item.word);
       addSessionNextButton();
       _sessionBusy = false;
     }
@@ -7369,11 +7603,13 @@ Write all scenarios and explanations in ${langName}.`;
         ? `✓ ${chosen.explanation || ''}`
         : `✗ ${chosen.explanation || ''}` + (right?.explanation ? `<br>✓ ${right.explanation}` : '');
 
+      const rg = document.getElementById('qcm-regen'); if (rg) rg.style.display = 'none';
       unlockSessionHelp();
       await recordSessionAnswer(item.word, isCorrect);
-      // La progression vient de bouger : le mot montre son nouvel état tout de suite.
+      // La progression vient de bouger : le mot montre son nouvel état tout de suite,
+      // étoiles ET prochaine échéance.
       const st = document.getElementById('session-stars');
-      if (st) st.innerHTML = starsHtml(item.word);
+      if (st) st.innerHTML = starsHtml(item.word) + sessionDueSuffix(item.word);
       addSessionNextButton();
       _sessionBusy = false;
     }
@@ -7458,8 +7694,10 @@ but semantically wrong there. A decoy the learner can rule out by agreement alon
 nothing: it lets them pick the right word without knowing what it means. That is the single
 most important thing to get right.
 
-Write ONE coherent ${langName} paragraph, 60-120 words, on a single situation that naturally
-involves all the target entries.
+Write 80-150 words of ${langName}. It does NOT have to be one single situation: you may
+write two or three short connected moments (same narrator, same day) so that each target
+lands where it naturally belongs. Cramming unrelated words into one scene is the main
+cause of contorted sentences — never do it.
 
 FORM: write it as ${setting}. Keep that register throughout. If the target words really
 cannot live in it, pick another everyday setting — but never default to a hearing,
@@ -7478,11 +7716,26 @@ RULES
    ONE of them and leave the other out of the text entirely. A blank that two targets both
    fit is unfair, and no context can reliably separate them. List what you left out in
    "dropped" — never force a word in.
+3c. MORE GENERALLY, YOU MAY DROP ANY TARGET you cannot place in a sentence a native speaker
+   would actually write. List it in "dropped". A dropped word costs nothing — it comes back
+   another day; a contorted sentence teaches wrong ${langName}.
 4. NEVER two adjacent blanks, and at least four ordinary words between two blanks.
+4b. THE BANK MUST NOT GIVE A BLANK AWAY BY AGREEMENT. The learner sees ONE single bank
+   holding every target and every decoy. For each blank, at least TWO OTHER bank entries
+   must match it in part of speech and, where the language marks them, in gender and number.
+   If you cannot manage that for some blank, rewrite its sentence so that nothing around it
+   marks agreement — or apply 4c. A blank solvable by agreement alone is solvable without
+   knowing a single meaning, and the whole exercise is then worthless.
+4c. WHEN THE TARGET IS A NOUN, PUT ITS ARTICLE INSIDE THE BLANK whenever an article precedes
+   it: write "... quiso besar {3} que había saltado al jardín" with form "una rana",
+   never "... besar una {3}". A visible article in front of a blank hands over the gender.
 5. The surrounding text must be natural, correct ${langName}. Never write a clumsy sentence
    just to accommodate a word.
 6. Give enough context to identify each missing word, without naming it or an obvious synonym.
 7. Name people and places concretely, and do not reuse the opening of a typical news lede.
+
+LAST STEP, before you answer: reread the whole text as a native speaker. Any sentence you
+would not write yourself — fix it, or drop the target that forced it into "dropped".
 
 Answer ONLY with JSON, no markdown fence:
 {"text": "…paragraph with {1} … {n} markers…",
@@ -7585,9 +7838,10 @@ Answer ONLY with JSON, no markdown fence:
                  const okB  = lc(st.filled[b.n] || '') === lc(b.entry);
                  const flex = lc(b.form) !== lc(b.entry)
                    ? `<span class="rc-flex">${tApp('sess_inbase').replace('{w}', lc(b.entry))}</span>` : '';
+                 const due = sessionDueLabel(b.entry);
                  return `<div class="cloze-recap-row">
                            <span class="rc-mark ${okB ? 'ok' : 'ko'}">${okB ? '✓' : '✗'}</span>
-                           <span>${lc(b.form)}${flex}</span>
+                           <span>${lc(b.form)}${flex}${due ? `<span class="rc-due">📅 ${due}</span>` : ''}</span>
                            ${starsHtml(b.entry)}
                          </div>`;
                }).join('')}</div>`;
