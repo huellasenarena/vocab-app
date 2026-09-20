@@ -334,10 +334,15 @@
     .round-dial-head { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--muted); }
     .round-dial-head span:last-child { color: var(--accent); font-weight: 600; }
     .round-dial input[type=range] { width: 100%; accent-color: var(--accent); }
-    .round-derived { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+    /* Deux bouts de phrase dont l'un peut être long (« → 6 rappels + 1 neuf · 2
+       neufs déjà faits ») : ils passent à la ligne au lieu de se comprimer. */
+    .round-derived { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.2rem 0.8rem; font-size: 0.82rem; color: var(--muted); }
     /* Les curseurs restent VISIBLES pendant la manche — les masquer ferait sauter
        l'écran —, mais inertes : on change le nombre en repartant d'une manche. */
     .round-dials.locked { opacity: 0.4; pointer-events: none; }
+    /* Quota du jour épuisé : le curseur des neufs se grise, mais reste manœuvrable
+       (le monter rouvre des places pour aujourd'hui). */
+    .round-dial.dial-spent { opacity: 0.5; }
     /* Les boutons de départ s'empilent : côte à côte, « que des rappels » se faisait
        écraser par « commencer » et passait à la ligne en deux mots. */
     #session-start .session-actions { flex-direction: column; align-items: stretch; gap: 0.6rem; }
@@ -2401,6 +2406,9 @@
       sess_rev_one:     { en: `recall`, fr: `rappel`, es: `repaso`, el: `επανάληψη` },
       sess_rev_n:       { en: `recalls`, fr: `rappels`, es: `repasos`, el: `επαναλήψεις` },
       sess_new_done:    { en: `{n} new already done`, fr: `{n} neufs déjà faits`, es: `{n} nuevas ya hechas`, el: `{n} νέες ήδη έγιναν` },
+      sess_new_done_one:{ en: `1 new already done`, fr: `1 neuf déjà fait`, es: `1 nueva ya hecha`, el: `1 νέα ήδη έγινε` },
+      sess_new_one:     { en: `new`, fr: `neuf`, es: `nueva`, el: `νέα` },
+      sess_new_n:       { en: `new`, fr: `neufs`, es: `nuevas`, el: `νέες` },
       sess_quit:        { en: `✕ leave round`, fr: `✕ quitter la manche`, es: `✕ salir de la ronda`, el: `✕ έξοδος από τον γύρο` },
       qcm_regen:        { en: `Another question`, fr: `Autre question`, es: `Otra pregunta`, el: `Άλλη ερώτηση` },
       qcm_unknown:      { en: `The model does not reliably know this word, and says so rather than inventing a meaning.`, fr: `Le modèle ne connaît pas ce mot de façon sûre, et le dit plutôt que d'inventer un sens.`, es: `El modelo no conoce bien esta palabra, y lo dice en vez de inventar un significado.`, el: `Το μοντέλο δεν γνωρίζει με βεβαιότητα αυτή τη λέξη, και το λέει αντί να επινοήσει σημασία.` },
@@ -6496,14 +6504,21 @@ does not know "${qcmBase}" must have NO formal clue as to which one is correct:
   actions. Never write one sentence four times with a single element swapped — the
   learner then compares the swapped elements instead of weighing what the word means.
 
-DO YOU ACTUALLY KNOW THIS WORD? Rare regional slang, dialect and coinages are the danger:
-faced with one it has never read, a model reconstructs a meaning from the parts of the word
-and states it with full confidence. If you are not genuinely confident about what
-"${qcmBase}" means in real usage, do NOT guess and do NOT derive a meaning from its
-components. Answer instead with exactly this object and nothing else:
+DO YOU ACTUALLY KNOW THIS ITEM? The danger is the rare SINGLE WORD you have never actually
+read — regional slang, dialect, a coinage: faced with one, a model reconstructs a meaning
+out of the word's parts and states it with full confidence. If that is the case here, do NOT
+guess and do NOT derive a meaning from its morphemes. Answer instead with exactly this
+object and nothing else:
 {"unknown": true, "why": "<one short sentence in ${langName}>"}
 Admitting ignorance costs one exercise; inventing a sense teaches the learner a word that
 does not exist. The learner's note above, when there is one, is evidence — use it.
+
+THIS DOES NOT APPLY TO A TRANSPARENT PHRASE whose meaning is simply the sum of its words.
+Such an entry does NOT have to be an established idiom with a fixed, dictionary sense: the
+learner collects ordinary combinations too. Build the quiz on its plain, compositional
+meaning, and test the situations where a native speaker would naturally use that
+combination rather than another. Not being a set expression is never a reason to admit
+ignorance — only genuinely not knowing what the item means is.
 
 Otherwise return ONLY a JSON array of 4 objects, no other text, no markdown:
 [
@@ -6955,16 +6970,38 @@ Write all scenarios and explanations in ${langName}.`;
       });
     }
 
-    // La manche se remplit en deux temps. Les rappels d'abord, dans la limite des
-    // places que le curseur des mots neufs leur laisse ; les mots neufs ensuite,
-    // pour TOUT ce qui reste. Le curseur des neufs réserve donc des places, il ne
-    // plafonne pas la journée : trois rappels en attente le soir, et la manche sert
-    // neuf mots neufs plutôt que de faire trois mots.
+    // La manche se remplit en deux temps. Les rappels d'abord, dans les places que
+    // le curseur des mots neufs ne leur prend pas ; les mots neufs ensuite, dans
+    // leurs places réservées et pas au-delà. Les deux curseurs sont donc des
+    // PLAFONDS, l'un sur la manche, l'autre sur la journée : une manche peut faire
+    // moins que sa taille, jamais plus de mots neufs que son chiffre.
     // `reviewsOnly` = le bouton « que des rappels » : il met la réserve à zéro pour
     // cette manche seulement, sans toucher au réglage.
-    function buildSessionItems(reviewsOnly) {
-      const size    = roundSize();
-      const reserve = reviewsOnly ? 0 : Math.min(newQuota(), size);
+    // ⚠️ UNE SEULE fonction décide de la composition d'une manche, et la ligne
+    // « → 6 rappels + 1 neuf » de l'écran de départ lit SON résultat. Elle refaisait
+    // le calcul de son côté (« taille − quota restant ») : elle annonçait dix
+    // rappels là où la manche en servait huit plus deux mots neufs, et collait le
+    // mot « rappel » à un nombre qui n'en était pas un — c'étaient des PLACES.
+    // `countOnly` : la ligne de l'écran de départ n'a besoin que des NOMBRES, et
+    // elle se redessine à chaque mouvement de curseur. Mélanger dix mille mots
+    // soixante fois par seconde rendrait le curseur injouable — même piège que le
+    // slider du mode libre. On se contente alors de compter, en s'arrêtant net.
+    function planRound(reviewsOnly, countOnly) {
+      const size   = roundSize();
+      const wanted = reviewsOnly ? 0 : Math.min(newQuota(), size);
+
+      // ⚠️ On ne réserve que ce que le stock peut tenir : une place gardée pour un
+      // mot neuf qui n'existe pas est une place perdue — vingt rappels en retard et
+      // une manche de quatre mots. Le mélange n'a lieu que si l'on sert vraiment
+      // la manche ; la ligne de l'écran de départ se contente de compter.
+      let newPool = null, avail = 0;
+      if (wanted > 0 && countOnly) {
+        for (const w of allWords) { if (isNewWord(w) && ++avail >= wanted) break; }
+      } else if (wanted > 0) {
+        newPool = shuffleInPlace(allWords.filter(w => isNewWord(w)));
+        avail   = newPool.length;
+      }
+      const reserve = Math.min(wanted, avail);
       const budget  = Math.max(0, size - reserve);  // places offertes aux rappels
 
       // Les plus en retard d'abord : c'est le seul ordre qui fasse fondre la dette.
@@ -7003,17 +7040,25 @@ Write all scenarios and explanations in ${langName}.`;
       }
       cloze = cloze.slice(0, CLOZE_MAX);
 
+      // ⚠️ Les mots neufs ne prennent QUE les places que le curseur leur réserve.
+      // Ils prenaient tout ce que les rappels laissaient libre : réglé sur « 1 mot
+      // neuf », on en recevait cinq dès que le retard était court, et le quota du
+      // jour sautait avec. Une manche plus courte est la bonne réponse — la carte
+      // de fin propose d'ouvrir des mots neufs en plus, et c'est un clic conscient.
+      const room  = Math.max(0, Math.min(reserve, size - picked.length));
+      const fresh = newPool ? newPool.slice(0, room) : [];
+      const freshCount = newPool ? fresh.length : Math.min(room, avail);
+
+      return { picked, cloze, fresh, freshCount };
+    }
+
+    function buildSessionItems(reviewsOnly) {
+      const { picked, cloze, fresh } = planRound(reviewsOnly);
+
       // Moins de deux mots au palier : pas de texte, ils repassent tous en QCM.
       const hasText = cloze.length >= 2;
       const inText  = hasText ? new Set(cloze.map(w => lc(w))) : new Set();
       const qcmDue  = picked.filter(w => !inText.has(lc(w)));
-
-      // Les mots neufs prennent ce qui reste : leurs places réservées, plus celles
-      // que les rappels n'ont pas remplies.
-      const room  = Math.max(0, size - picked.length);
-      const fresh = room > 0
-        ? shuffleInPlace(allWords.filter(w => isNewWord(w))).slice(0, room)
-        : [];
 
       // Mélangés : huit mots inconnus à la file font décrocher avant le 1er rappel.
       const items = shuffleInPlace([...fresh, ...qcmDue]).map(w => ({ kind: 'qcm', word: w }));
@@ -7185,16 +7230,25 @@ Write all scenarios and explanations in ${langName}.`;
       nv.textContent = nw(Math.min(maxNewPerDay, size));
       const line = document.getElementById('round-derived-line');
       if (line) {
-        // ⚠️ Ce qui va VRAIMENT arriver, pas le réglage. Le curseur des neufs est un
-        // quota du JOUR : si les mots neufs ont déjà été servis ce matin, il n'en
-        // reste aucun à réserver et les rappels prennent toutes les places. La ligne
-        // annonçait « 2 rappels » et la manche en servait 4.
-        const wish = Math.min(maxNewPerDay, size);
-        const left = Math.max(0, Math.min(maxNewPerDay - todayNewCount, size));
-        const rev  = Math.max(0, size - left);
-        line.textContent = `→ ${rev} ${tApp(rev === 1 ? 'sess_rev_one' : 'sess_rev_n')}`
-          + (left < wish ? ` · ${tApp('sess_new_done').replace('{n}', wish - left)}` : '');
+        // ⚠️ Ce que la manche va VRAIMENT servir : on LIT le plan, on ne le refait
+        // pas — c'est le seul moyen que la ligne et la manche ne se contredisent
+        // jamais. Et on nomme les deux : un mot neuf n'est pas un rappel.
+        const plan = planRound(false, true);
+        const rev  = plan.picked.length;
+        const neu  = plan.freshCount; // pas `nw` : l'abréviation au-dessus est une fonction
+        const done = Math.min(todayNewCount, Math.min(maxNewPerDay, size));
+        line.textContent =
+          `→ ${rev} ${tApp(rev === 1 ? 'sess_rev_one' : 'sess_rev_n')}`
+          + ` + ${neu} ${tApp(neu === 1 ? 'sess_new_one' : 'sess_new_n')}`
+          // « déjà faits » seulement quand il n'y a PLUS de neuf à servir : c'est
+          // le seul moment où l'on se demande pourquoi la manche n'en propose pas.
+          + (neu === 0 && done > 0
+             ? ` · ${tApp(done === 1 ? 'sess_new_done_one' : 'sess_new_done').replace('{n}', done)}` : '');
       }
+      // Quota du jour épuisé : le curseur n'a plus rien à réserver. Il se grise pour
+      // le dire, mais reste manœuvrable — le monter rouvre des places aujourd'hui.
+      const nrow = ns.closest('.round-dial');
+      if (nrow) nrow.classList.toggle('dial-spent', newQuota() === 0);
     }
 
     function lockRoundDials() {
@@ -7434,6 +7488,18 @@ Write all scenarios and explanations in ${langName}.`;
     // ⚠️ La clé porte l'ENTRÉE COMPLÈTE : écrire le sens entre parenthèses change
     // l'entrée, donc la clé, donc le mot est réessayé — exactement ce qu'on veut.
     const KEY_QCM_UNKNOWN = 'vocab_qcm_unknown';
+    // ⚠️ Purge unique des aveux rendus sous l'ANCIENNE règle : elle faisait avouer
+    // le modèle devant toute tournure sans sens figé (« crianza ausente »), alors
+    // qu'il la comprend parfaitement mot à mot. Le critère a changé, ces aveux-là
+    // ne valent plus — et mémorisés, ils n'auraient jamais été réessayés.
+    (function purgeUnknownOnce() {
+      const flag = KEY_QCM_UNKNOWN + '_reset_flag'; // ce préfixe est exclu de la sync
+      if (localStorage.getItem(flag) === '2026-09-20') return;
+      Object.keys(localStorage)
+        .filter(k => k.startsWith(KEY_QCM_UNKNOWN + '_') && k !== flag)
+        .forEach(k => localStorage.removeItem(k));
+      localStorage.setItem(flag, '2026-09-20');
+    })();
     function _unknownAll() {
       try { return JSON.parse(localStorage.getItem(KEY_QCM_UNKNOWN + '_' + currentLang) || '{}'); }
       catch { return {}; }
@@ -7631,7 +7697,13 @@ Write all scenarios and explanations in ${langName}.`;
       // sur la réponse avance aussi. ⚠️ Les boutons doivent être RÉACTIVÉS —
       // un bouton désactivé n'émet aucun clic, donc aucun tap ne passerait. Le
       // délai empêche le geste de la réponse d'avancer par rebond.
+      // ⚠️ Le minuteur appartient à SA question : sans cette garde, avancer en
+      // moins de 350 ms le faisait tomber sur les boutons de la question SUIVANTE
+      // et les transformait en « avancer » — un appui sur une réponse la sautait
+      // alors sans rien enregistrer.
+      const mine = sessionItems[sessionIdx];
       setTimeout(() => {
+        if (sessionItems[sessionIdx] !== mine) return;
         document.querySelectorAll('#session-choices .qcm-choice').forEach(btn => {
           btn.disabled = false;
           btn.onclick  = sessionNext;
@@ -7879,6 +7951,7 @@ Answer ONLY with JSON, no markdown fence:
     async function checkCloze() {
       const st = _clozeState;
       if (st.checked) return;
+      const item = sessionItems[sessionIdx]; // l'item auquel ce texte appartient
       st.checked = true;
       unlockSessionHelp(); // la correction est faite : définition et traduction s'ouvrent
       paintCloze();
@@ -7891,7 +7964,11 @@ Answer ONLY with JSON, no markdown fence:
       }
       // ⚠️ Le premier `paintCloze()` a lieu AVANT ces écritures : sans ce second
       // rendu, le récapitulatif montrerait les étoiles d'avant la réponse.
-      paintCloze();
+      // ⚠️ Mais ces écritures prennent une seconde, et « Suivant » est déjà à
+      // l'écran : le texte à trous étant TOUJOURS le dernier item de la manche,
+      // appuyer pendant ce temps affichait la carte « terminé »… que ce second
+      // rendu écrasait aussitôt par le texte. On ne repeint que si l'on y est encore.
+      if (sessionRunning && sessionItems[sessionIdx] === item) paintCloze();
     }
 
     async function saveHistory(word, isCorrect) {
