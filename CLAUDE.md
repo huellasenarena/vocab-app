@@ -616,6 +616,11 @@ Retenu après essai comparatif : **cartes** (inchangé) · **sélection à la li
 - **Sécurité/scalabilité** : OK pour des centaines d'utilisateurs ; 1ers plafonds = quotas D1 gratuits (~100K écritures/j) + clé `/add` du propriétaire.
 - **PWA** : service worker (offline) · **App Store** via Capacitor (Apple Dev $99/an).
 - **Gérer mes langues** : pouvoir retirer une langue quand on a les 4.
+- **File d'attente hors ligne pour le raccourci iPhone** (conçu le 2026-09-23, pas implémenté) : le mot est perdu quand le téléphone n'a pas de réseau au moment du partage.
+  - ⚠️ **Raccourcis n'a pas de « essayer / sinon »** : quand « Obtenir le contenu de l'URL » échoue, le raccourci s'arrête net et aucune action suivante ne tourne. On ne peut donc pas rattraper l'échec après coup — il faut **écrire avant de risquer**, donc faire passer **tout** mot par la file, connecté ou non.
+  - Déroulé : (1) récupérer le mot comme aujourd'hui · (2) lire `vocab-en-attente.txt` (iCloud Drive, case **« erreur si introuvable » décochée**) · (3) y ajouter le mot et réenregistrer · (4) **Répéter pour chaque ligne** → c'est là que vivent l'appel `/add` et les alertes INVALID / SIMILAR existantes · (5) la boucle finie, écraser le fichier avec du vide · (6) notification « N mots ajoutés ».
+  - Le fichier n'est vidé **qu'à la fin, en bloc** : une coupure en plein milieu fait repartir des mots déjà envoyés au coup suivant, et le Worker répond « Doublon » — inoffensif, et ça évite une comptabilité fragile. ⚠️ Un mot auquel on répond « non » à l'alerte INVALID **bloque la file** jusqu'à ce qu'on l'accepte ou qu'on édite le fichier.
+  - Hors ligne, l'alerte d'erreur iOS reste (inévitable) mais le mot est déjà sauvé. Option : automatisation personnelle « à la connexion au Wi-Fi → exécuter le raccourci » pour vider la file sans y penser.
 
 > Case study portfolio : `~/Desktop/vocab-app/portfolio-case-study.md` (ES+EN).
 
