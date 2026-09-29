@@ -265,6 +265,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       padding: 1.6rem var(--margen) 2rem;
       width: 100%;
       max-width: 480px;
+      margin: 0 auto;
     }
     .screen.active { display: flex; }
 
@@ -1819,9 +1820,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     <!-- Recherche d'un mot précis (mode libre uniquement) -->
     <div id="free-search-bar" style="display:none; margin-bottom:0.6rem;">
-      <button class="btn-ghost" id="groups-open" onclick="openGroupsPicker()">groupes</button>
-      <button class="btn-ghost" id="free-search-open" onclick="openFreeSearch()">chercher un mot</button>
-      <button class="btn-ghost" id="free-peek" onclick="peekFreePool()">voir les mots</button>
+      <button class="btn-ghost" id="groups-open" onclick="openGroupsPicker()" data-i18n="act_groups">groupes</button>
+      <button class="btn-ghost" id="free-search-open" onclick="openFreeSearch()" data-i18n="fs_search">chercher un mot</button>
+      <button class="btn-ghost" id="free-peek" onclick="peekFreePool()" data-i18n="fs_peek">voir les mots</button>
       <button class="btn-ghost" id="free-queue-exit" style="display:none;" onclick="exitFreeQueue()">quitter la file</button>
     </div>
 
@@ -2401,6 +2402,35 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_def:         { en: `Definition`, fr: `Définition`, es: `Definición`, el: `Ορισμός` },
       sess_next:        { en: `Next`, fr: `Suivant`, es: `Siguiente`, el: `Επόμενο` },
       sess_check:       { en: `Check`, fr: `Vérifier`, es: `Comprobar`, el: `Έλεγχος` },
+      // Mode libre : barre de choix des mots, « Mes groupes », « Chercher un mot » (en langue pratiquée)
+      fs_search:        { en: `search a word`, fr: `chercher un mot`, es: `buscar una palabra`, el: `αναζήτηση λέξης` },
+      fs_peek:          { en: `see the words`, fr: `voir les mots`, es: `ver las palabras`, el: `δες τις λέξεις` },
+      fs_exit_queue:    { en: `leave the list`, fr: `quitter la file`, es: `salir de la lista`, el: `έξοδος από τη λίστα` },
+      fs_exit_group:    { en: `leave the group`, fr: `quitter le groupe`, es: `salir del grupo`, el: `έξοδος από την ομάδα` },
+      fs_selection:     { en: `selection`, fr: `sélection`, es: `selección`, el: `επιλογή` },
+      fs_lap:           { en: `round {n}`, fr: `tour {n}`, es: `vuelta {n}`, el: `γύρος {n}` },
+      fs_shown:         { en: `shown`, fr: `affiché(s)`, es: `mostradas`, el: `εμφανίζονται` },
+      fs_queued:        { en: `waiting`, fr: `en file`, es: `en cola`, el: `σε αναμονή` },
+      fs_probable:      { en: `most likely words`, fr: `mots les plus probables`, es: `palabras más probables`, el: `πιο πιθανές λέξεις` },
+      gp_title:         { en: `My groups`, fr: `Mes groupes`, es: `Mis grupos`, el: `Οι ομάδες μου` },
+      gp_intro:         { en: `Tick one or more groups, then choose how many words to practise.`, fr: `Coche un ou plusieurs groupes, puis choisis combien de mots pratiquer.`, es: `Marca uno o varios grupos y elige cuántas palabras practicar.`, el: `Διάλεξε μία ή περισσότερες ομάδες και πόσες λέξεις θα εξασκήσεις.` },
+      gp_manage:        { en: `manage my groups`, fr: `gérer mes groupes`, es: `gestionar mis grupos`, el: `διαχείριση ομάδων` },
+      gp_all:           { en: `all`, fr: `tous`, es: `todas`, el: `όλες` },
+      gp_random:        { en: `at random`, fr: `au hasard`, es: `al azar`, el: `τυχαία` },
+      gp_manual:        { en: `by hand`, fr: `à la main`, es: `a mano`, el: `με το χέρι` },
+      gp_howmany:       { en: `How many words`, fr: `Combien de mots`, es: `Cuántas palabras`, el: `Πόσες λέξεις` },
+      gp_pick_among:    { en: `Choose among {n}`, fr: `Choisir parmi {n}`, es: `Elegir entre {n}`, el: `Διάλεξε ανάμεσα σε {n}` },
+      gp_none:          { en: `No theme group for this language.`, fr: `Aucun groupe thématique pour cette langue.`, es: `Ningún grupo temático para este idioma.`, el: `Καμία θεματική ομάδα για αυτή τη γλώσσα.` },
+      gp_load_err:      { en: `Loading error.`, fr: `Erreur de chargement.`, es: `Error de carga.`, el: `Σφάλμα φόρτωσης.` },
+      vg_mastered:      { en: `★★★ mastered`, fr: `★★★ maîtrisés`, es: `★★★ dominadas`, el: `★★★ κατακτημένες` },
+      vg_todo:          { en: `to work on`, fr: `à travailler`, es: `por trabajar`, el: `για δουλειά` },
+      vg_nogroup:       { en: `no group`, fr: `sans groupe`, es: `sin grupo`, el: `χωρίς ομάδα` },
+      sf_title:         { en: `Search a word`, fr: `Chercher un mot`, es: `Buscar una palabra`, el: `Αναζήτηση λέξης` },
+      sf_intro:         { en: `Tick one or more words to practise (in the order chosen), then “start”.`, fr: `Coche un ou plusieurs mots à pratiquer (dans l'ordre choisi), puis « commencer ».`, es: `Marca una o varias palabras para practicar (en el orden elegido) y luego «empezar».`, el: `Διάλεξε μία ή περισσότερες λέξεις (με τη σειρά που θες) και μετά «έναρξη».` },
+      sf_filter:        { en: `filter…`, fr: `filtrer…`, es: `filtrar…`, el: `φιλτράρισμα…` },
+      sf_recent:        { en: `seen recently`, fr: `vus récemment`, es: `vistas hace poco`, el: `πρόσφατες` },
+      sf_old:           { en: `oldest`, fr: `les plus anciens`, es: `las más antiguas`, el: `οι πιο παλιές` },
+      sf_never:         { en: `never seen`, fr: `jamais vus`, es: `nunca vistas`, el: `ποτέ` },
       // Mots à la place des emojis et des symboles (migration vers le style commun, 2026-09-29)
       btn_options:      { en: `options`, fr: `options`, es: `opciones`, el: `επιλογές` },
       mode_prefix:      { en: `mode:`, fr: `mode :`, es: `modo:`, el: `λειτουργία:` },
@@ -2478,6 +2508,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       btn_hide:         { en: `Hide`, fr: `Cacher`, es: `Ocultar`, el: `Απόκρυψη` },
       btn_show:         { en: `Show`, fr: `Montrer`, es: `Mostrar`, el: `Εμφάνιση` },
       btn_next_word:    { en: `Another word`, fr: `Autre mot`, es: `Otra palabra`, el: `Άλλη λέξη` },
+      btn_next_words:   { en: `Other words`, fr: `Autres mots`, es: `Otras palabras`, el: `Άλλες λέξεις` },
       label_definition: { en: `Definition`, fr: `Définition`, es: `Definición`, el: `Ορισμός` },
       sentence_ph:      { en: `Write your sentence here…`, fr: `Écris ta phrase ici…`, es: `Escribe tu frase aquí…`, el: `Γράψε την πρότασή σου εδώ…` },
       btn_start:        { en: `Start`, fr: `Commencer`, es: `Empezar`, el: `Ξεκίνα` },
@@ -2626,7 +2657,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     }
     function applyPracticeLangUI() {
       const code = pracCode();
-      ['screen-practice', 'screen-revisions', 'word-ctx-menu'].forEach(id => {
+      ['screen-practice', 'screen-revisions', 'word-ctx-menu', 'groups-modal', 'free-search-modal'].forEach(id => {
         const el = document.getElementById(id);
         if (el) applyI18n(el, code);
       });
@@ -2750,9 +2781,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     // évitent un mode « pratiquer les maîtrisés » et une pilule « sans groupe »
     // séparés. Ids négatifs pour ne jamais collisionner avec ceux de la base.
     const VGROUPS = [
-      { id: -1, name: '★★★ maîtrisés',  test: w => netOf(w) >= 3 },
-      { id: -2, name: 'à travailler',   test: w => netOf(w) < 3 },
-      { id: -3, name: 'sans groupe',    test: null }, // vient du serveur
+      { id: -1, key: 'vg_mastered', test: w => netOf(w) >= 3 },
+      { id: -2, key: 'vg_todo',     test: w => netOf(w) < 3 },
+      { id: -3, key: 'vg_nogroup',  test: null }, // vient du serveur
     ];
     function netOf(w) {
       const p = progressMap[w.toLowerCase()];
@@ -3373,7 +3404,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       document.getElementById('grammar-count-slider').value = _langGC;
       document.getElementById('grammar-slider-value').textContent = formsLabel(_langGC);
       const langInfo = getLang();
-      document.getElementById('lang-tag').textContent                  = langInfo.name;
+      document.getElementById('lang-tag').textContent                  = `← ${langInfo.name}`;
       document.getElementById('qcm-question').textContent              = langInfo.qcmQuestion;
       showScreen('screen-practice');
       resetPracticeUI();
@@ -4239,7 +4270,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         await loadGroups(currentLang);
         const r = await authFetch(`/api/word-groups?ungrouped=1&lang=${encodeURIComponent(currentLang)}`);
         _ungroupedCache = (await r.json()).words || [];
-      } catch { list.innerHTML = '<div id="free-search-empty">Erreur de chargement.</div>'; return; }
+      } catch { list.innerHTML = `<div id="free-search-empty">${tPrac('gp_load_err')}</div>`; return; }
       renderGroupsList();
     }
     // Effectif d'un groupe virtuel, calculé sur la langue courante.
@@ -4262,11 +4293,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         </div>`;
       };
       // Les virtuels d'abord, séparés : ce sont des FILTRES, pas des thèmes.
-      let html = VGROUPS.map(v => row(v.id, escapeHtml(v.name), vgroupWords(v.id).length)).join('');
+      let html = VGROUPS.map(v => row(v.id, escapeHtml(tPrac(v.key)), vgroupWords(v.id).length)).join('');
       html += real.length
         ? `<div style="height:1px;background:var(--linea);margin:0.5rem 0"></div>` +
-          real.map(g => row(g.id, escapeHtml(g.name) + (g.kind === 'lot' ? ' ' + tApp('lot_suffix') : ''), `${g.mastered}/${g.n} ★★★`)).join('')
-        : '<div id="free-search-empty">Aucun groupe thématique pour cette langue.</div>';
+          real.map(g => row(g.id, escapeHtml(g.name) + (g.kind === 'lot' ? ' ' + tPrac('lot_suffix') : ''), `${g.mastered}/${g.n} ★★★`)).join('')
+        : `<div id="free-search-empty">${tPrac('gp_none')}</div>`;
       list.innerHTML = html;
     }
 
@@ -4294,7 +4325,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const names = [];
       for (const id of _groupPick) {
         const v = VGROUPS.find(g => g.id === id);
-        if (v) { names.push(v.name); continue; }
+        if (v) { names.push(tPrac(v.key)); continue; }
         const g = (groupsCache[currentLang] || []).find(x => x.id === id);
         if (g) names.push(g.name);
       }
@@ -4337,12 +4368,12 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const btn = document.getElementById('groups-start');
       const total = groupPickTotal();
       btn.disabled = _groupPick.size === 0;
-      if (_groupPick.size === 0) { btn.textContent = 'Commencer'; return; }
-      if (_groupSubset === 'manual') { btn.textContent = `Choisir parmi ${total}`; return; }
+      if (_groupPick.size === 0) { btn.textContent = tPrac('sess_start'); return; }
+      if (_groupSubset === 'manual') { btn.textContent = tPrac('gp_pick_among').replace('{n}', total); return; }
       const n = _groupSubset === 'random'
         ? Math.min(parseInt(document.getElementById('groups-random-slider').value), total)
         : total;
-      btn.textContent = `Commencer (${n})`;
+      btn.textContent = `${tPrac('sess_start')} (${n})`;
     }
 
     async function startGroupQueue() {
@@ -4402,7 +4433,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         return d !== 0 ? d : lc(a).localeCompare(lc(b));
       });
       openWordListScreen('group', {
-        title: (practiceMode === 'situation' ? _sitGroupLabel : freeQueueLabel) || 'mots les plus probables',
+        title: (practiceMode === 'situation' ? _sitGroupLabel : freeQueueLabel) || tPrac('fs_probable'),
         words: sorted,
         keepOrder: true,
       });
@@ -4735,7 +4766,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const btn = document.getElementById('free-search-start');
       const n = _freePickOrder.length;
       btn.disabled = n === 0;
-      btn.textContent = n > 1 ? `Commencer (${n})` : 'Commencer';
+      btn.textContent = n > 1 ? `${tPrac('sess_start')} (${n})` : tPrac('sess_start');
     }
     function startFreeQueue() {
       if (_freePickOrder.length === 0) return;
@@ -4795,7 +4826,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (pk) pk.style.display = (inFree || inSit) ? '' : 'none';
       const exitBtn = document.getElementById('free-queue-exit');
       exitBtn.style.display = ((inFree && freeQueueActive) || (inSit && _sitGroupWords)) ? '' : 'none';
-      exitBtn.textContent = inSit ? 'quitter le groupe' : 'quitter la file';
+      exitBtn.textContent = tPrac(inSit ? 'fs_exit_group' : 'fs_exit_queue');
       // Le curseur de mélange vit maintenant dans ⚙ (réglage PAR LANGUE, à côté
       // des nouveaux mots/jour et des formes grammaticales).
       document.getElementById('free-mix-slider').value = freeMix;
@@ -4804,10 +4835,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // Sélection manuelle (mode libre) : construit le batch courant depuis
     // freeSelection[freeCursor…] ; taille = valeur du slider, le reste = file en attente.
     function freeCountLabel(shown, left) {
-      const head = (freeQueueLabel ? escapeHtml(freeQueueLabel) : 'sélection') +
-        (freeLap > 1 ? ` <span style="color:var(--gris)">· tour ${freeLap}</span>` : '');
+      const head = (freeQueueLabel ? escapeHtml(freeQueueLabel) : tPrac('fs_selection')) +
+        (freeLap > 1 ? ` <span style="color:var(--gris)">· ${tPrac('fs_lap').replace('{n}', freeLap)}</span>` : '');
       return left > 0
-        ? `${head} · <span class="highlight">${shown}</span> affiché(s) · <span class="highlight">${left}</span> en file`
+        ? `${head} · <span class="highlight">${shown}</span> ${tPrac('fs_shown')} · <span class="highlight">${left}</span> ${tPrac('fs_queued')}`
         : `${head} · <span class="highlight">${shown}</span> ${tPrac(shown > 1 ? 'practice_pl' : 'practice_sg')}`;
     }
 
@@ -5398,6 +5429,13 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const n = currentWords.length;
       const single = document.getElementById('single-word-card');
       const multi  = document.getElementById('multi-word-chips');
+      // « Autre mot » / « Autres mots » selon le nombre de mots tirés. La clé est
+      // posée sur l'attribut : applyI18n la reprend telle quelle au changement de langue.
+      const nextKey = n > 1 ? 'btn_next_words' : 'btn_next_word';
+      document.querySelectorAll('[data-i18n="btn_next_word"], [data-i18n="btn_next_words"]').forEach(b => {
+        b.dataset.i18n = nextKey;
+        b.textContent  = tPrac(nextKey);
+      });
 
       if (n === 1) {
         single.style.display = '';
@@ -6946,11 +6984,11 @@ Write all scenarios and explanations in ${langName}.`;
       const nr = progressMap[lc(word)]?.nextReview;
       if (!nr) return '';
       const today = todayStrLocal();
-      if (nr <= today) return tApp('to_review');
+      if (nr <= today) return tPrac('to_review');
       const d2 = new Date(nr + 'T00:00:00');
       const days = Math.round((d2 - new Date(today + 'T00:00:00')) / 86400000);
-      if (days === 1) return tApp('rev_tomorrow');
-      if (days <= 7)  return tApp('rev_in_days').replace('{n}', days);
+      if (days === 1) return tPrac('rev_tomorrow');
+      if (days <= 7)  return tPrac('rev_in_days').replace('{n}', days);
       return d2.toLocaleDateString(UI_LOCALE[appLang], { day: 'numeric', month: 'short' });
     }
     function sessionDueSuffix(word) {
@@ -6975,7 +7013,7 @@ Write all scenarios and explanations in ${langName}.`;
 
     function updateModeLabel() {
       const el = document.getElementById('mode-current-label');
-      if (el) el.innerHTML = `${tApp('mode_prefix')} ${tApp('modem_' + practiceMode).toLowerCase()}`;
+      if (el) el.innerHTML = `${tPrac('mode_prefix')} ${tPrac('modem_' + practiceMode).toLowerCase()}`;
     }
 
     function openModeMenu(ev) {
@@ -6983,7 +7021,7 @@ Write all scenarios and explanations in ${langName}.`;
       _ctxWord = null;
       document.getElementById('word-ctx-label').textContent = '';
       document.getElementById('ctx-langs').innerHTML = MODE_KEYS.map(k =>
-        `<button class="ctx-menu-btn${k === practiceMode ? ' on' : ''}" onclick="pickMode('${k}')">${tApp('modem_' + k)}</button>`
+        `<button class="ctx-menu-btn${k === practiceMode ? ' on' : ''}" onclick="pickMode('${k}')">${tPrac('modem_' + k)}</button>`
       ).join('');
       document.getElementById('ctx-main').style.display  = 'none';
       document.getElementById('ctx-langs').style.display = '';
@@ -7283,9 +7321,9 @@ Write all scenarios and explanations in ${langName}.`;
       // ⚠️ Tout le panneau en langue de l'APPLI (`tApp`), comme le reste de la
       // séance. `screen-practice` est par ailleurs traduit dans la langue PRATIQUÉE :
       // un `data-i18n` ici aurait posé deux libellés espagnols au milieu du français.
-      const nw = w => w === 1 ? tApp('one_word') : `${w} ${tApp('words_suffix')}`; // 'one_word' porte déjà le chiffre
-      document.getElementById('round-size-label').textContent = tApp('sess_set_size');
-      document.getElementById('round-new-label').textContent  = tApp('sess_set_new');
+      const nw = w => w === 1 ? tPrac('one_word') : `${w} ${tPrac('words_suffix')}`; // 'one_word' porte déjà le chiffre
+      document.getElementById('round-size-label').textContent = tPrac('sess_set_size');
+      document.getElementById('round-new-label').textContent  = tPrac('sess_set_new');
       ss.value = si;
       ns.value = ni;
       document.getElementById('round-size-value').textContent = nw(size);
@@ -7300,24 +7338,24 @@ Write all scenarios and explanations in ${langName}.`;
       const neu  = plan.freshCount; // pas `nw` : l'abréviation au-dessus est une fonction
       const line = document.getElementById('round-derived-line');
       if (line) line.textContent =
-        `→ ${rap} ${tApp(rap === 1 ? 'sess_rev_one' : 'sess_rev_n')}`
-        + ` + ${neu} ${tApp(neu === 1 ? 'sess_new_one' : 'sess_new_n')}`;
+        `→ ${rap} ${tPrac(rap === 1 ? 'sess_rev_one' : 'sess_rev_n')}`
+        + ` + ${neu} ${tPrac(neu === 1 ? 'sess_new_one' : 'sess_new_n')}`;
 
       const sub = document.getElementById('round-derived-sub');
       if (sub) sub.textContent = plan.aheadCount
-        ? tApp(plan.aheadCount === 1 ? 'sess_ahead_one' : 'sess_ahead').replace('{n}', plan.aheadCount) : '';
+        ? tPrac(plan.aheadCount === 1 ? 'sess_ahead_one' : 'sess_ahead').replace('{n}', plan.aheadCount) : '';
 
       // Le miroir du jour : il ne bloque rien, il dit ce qu'on a ouvert. C'est ce
       // qui remplace le quota — on décide en connaissance de cause, sans réglage.
       const mir = document.getElementById('round-day-mirror');
       if (mir) mir.textContent = todayNewCount
-        ? tApp(todayNewCount === 1 ? 'sess_mirror_one' : 'sess_mirror').replace('{n}', todayNewCount) : '';
+        ? tPrac(todayNewCount === 1 ? 'sess_mirror_one' : 'sess_mirror').replace('{n}', todayNewCount) : '';
 
       // Ce que cette manche laisse en retard derrière elle.
       const wait = document.getElementById('session-waiting');
       if (wait) wait.textContent = !plan.waiting
-        ? tApp('sess_waiting_no')
-        : (plan.waiting === 1 ? tApp('sess_waiting_one') : tApp('sess_waiting').replace('{n}', plan.waiting));
+        ? tPrac('sess_waiting_no')
+        : (plan.waiting === 1 ? tPrac('sess_waiting_one') : tPrac('sess_waiting').replace('{n}', plan.waiting));
     }
 
     function lockRoundDials() {
@@ -7363,9 +7401,9 @@ Write all scenarios and explanations in ${langName}.`;
       const resume = document.getElementById('btn-session-resume');
       resume.style.display = saved ? '' : 'none';
       if (saved) resume.textContent =
-        tApp(saved.elsewhere ? 'sess_resume_other' : 'sess_resume').replace('{n}', saved.left);
+        tPrac(saved.elsewhere ? 'sess_resume_other' : 'sess_resume').replace('{n}', saved.left);
       document.getElementById('btn-session-start').textContent =
-        saved ? tApp('sess_new_round') : tApp('sess_start');
+        saved ? tPrac('sess_new_round') : tPrac('sess_start');
       alignSessionTop();
 
       // La manche commencée sur l'autre appareil arrive après coup : l'écran est
@@ -7421,14 +7459,14 @@ Write all scenarios and explanations in ${langName}.`;
       const body = document.getElementById('session-body');
       const { done, total } = roundProgress();
       document.getElementById('session-count').textContent =
-        total ? tApp('sess_round').replace('{a}', done).replace('{b}', total) : '';
+        total ? tPrac('sess_round').replace('{a}', done).replace('{b}', total) : '';
       document.getElementById('session-fill').style.width = total ? (100 * done / total) + '%' : '0%';
       // Rien à jauger : la barre restait seule au-dessus de « Rien à faire ».
       const head = document.querySelector('#session-section .session-head');
       if (head) head.style.display = total ? '' : 'none';
       const quit = document.getElementById('session-quit');
       if (quit) {
-        quit.textContent   = tApp('sess_quit');
+        quit.textContent   = tPrac('sess_quit');
         quit.style.display = sessionIdx < sessionItems.length ? '' : 'none';
       }
 
@@ -7443,7 +7481,7 @@ Write all scenarios and explanations in ${langName}.`;
       alignSessionTop();
 
       if (!sessionItems.length) return void (body.innerHTML =
-        `<p class="session-note">${tApp('sess_empty')}</p>${sessionEndActions()}`);
+        `<p class="session-note">${tPrac('sess_empty')}</p>${sessionEndActions()}`);
       if (sessionIdx >= sessionItems.length) return renderSessionEnd();
       const item = sessionItems[sessionIdx];
       if (item.kind === 'qcm') renderSessionQCM(item);
@@ -7459,14 +7497,14 @@ Write all scenarios and explanations in ${langName}.`;
     function sessionEndActions() {
       if (!dueWords().length && !allWords.some(w => isNewWord(w))) return '';
       return `<div class="session-actions">
-                <button class="btn-secondary" onclick="nextRound()">${tApp('sess_again')}</button>
+                <button class="btn-secondary" onclick="nextRound()">${tPrac('sess_again')}</button>
               </div>`;
     }
 
     function sessionPendingLine() {
       const left = dueWords().length;
-      if (!left) return tApp('sess_clear');
-      return left === 1 ? tApp('sess_pending_one') : tApp('sess_pending').replace('{n}', left);
+      if (!left) return tPrac('sess_clear');
+      return left === 1 ? tPrac('sess_pending_one') : tPrac('sess_pending').replace('{n}', left);
     }
 
     // ⚠️ Vider `#hint-box.innerHTML` **détruit sa structure** (titre, corps, zone
@@ -7517,8 +7555,8 @@ Write all scenarios and explanations in ${langName}.`;
       const total = sessionTotal();
       document.getElementById('session-body').innerHTML =
         `<div class="word-card">
-           <span class="word-label">${tApp('sess_done')}</span>
-                      <p class="session-note">${tApp('sess_score').replace('{a}', sessionOk).replace('{b}', total)}</p>
+           <span class="word-label">${tPrac('sess_done')}</span>
+                      <p class="session-note">${tPrac('sess_score').replace('{a}', sessionOk).replace('{b}', total)}</p>
            <p class="session-note">${sessionPendingLine()}</p>
          </div>
          ${sessionEndActions()}`;
@@ -7649,7 +7687,7 @@ Write all scenarios and explanations in ${langName}.`;
       _sessionHelpOpen = isNewWord(item.word);
       const esc = item.word.replace(/'/g, "\\'");
       body.innerHTML =
-        `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn" id="qcm-regen" title="${tPrac('qcm_regen')}" onclick="regenQCM()">${tApp('qcm_regen')}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tApp('btn_options')}</span></div>
+        `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn" id="qcm-regen" title="${tPrac('qcm_regen')}" onclick="regenQCM()">${tPrac('qcm_regen')}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tPrac('btn_options')}</span></div>
          <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
          ${wordNote(item.word) ? `<div class="session-def">${wordNote(item.word)}</div>` : ''}
          <p class="session-q">${tPrac('sess_which')}</p>
@@ -7724,7 +7762,7 @@ Write all scenarios and explanations in ${langName}.`;
       const right = (item.choices || []).find(c => c.correct);
       document.querySelectorAll('#session-choices .qcm-choice').forEach((b, i) => {
         b.disabled = true;
-        if (item.choices[i] && item.choices[i].correct) { b.classList.add('correct-answer'); markQcmChoice(b, tApp('mark_ok')); }
+        if (item.choices[i] && item.choices[i].correct) { b.classList.add('correct-answer'); markQcmChoice(b, tPrac('mark_ok')); }
       });
       const res = document.getElementById('session-result');
       res.className = 'qcm-result incorrect';
@@ -7751,10 +7789,10 @@ Write all scenarios and explanations in ${langName}.`;
         const c = item.choices[i];
         if (b === btn) {
           b.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
-          markQcmChoice(b, tApp(isCorrect ? 'mark_ok' : 'mark_ko'));
+          markQcmChoice(b, tPrac(isCorrect ? 'mark_ok' : 'mark_ko'));
         } else if (c && c.correct && !isCorrect) {
           b.classList.add('correct-answer');
-          markQcmChoice(b, tApp('mark_ok'));
+          markQcmChoice(b, tPrac('mark_ok'));
         }
       });
 
@@ -7783,7 +7821,7 @@ Write all scenarios and explanations in ${langName}.`;
       wrap.className = 'session-actions';
       const b = document.createElement('button');
       b.className   = 'btn-secondary';
-      b.textContent = tApp('sess_next');
+      b.textContent = tPrac('sess_next');
       b.onclick     = sessionNext;
       wrap.appendChild(b);
       document.getElementById('session-body').appendChild(wrap);
@@ -7958,7 +7996,7 @@ Answer ONLY with JSON, no markdown fence:
       // texte n'est pas corrigé, sinon la traduction donnerait les réponses.
       _sessionHelpOpen = !!(_clozeState && _clozeState.checked);
       if (!_clozeState) {
-        body.innerHTML = `<p class="session-note"><span class="spinner"></span> ${tApp('sess_writing')}</p>`;
+        body.innerHTML = `<p class="session-note"><span class="spinner"></span> ${tPrac('sess_writing')}</p>`;
         try {
           const d = await (_clozePromise || fetchCloze(item.words));
           if (d && d.error) throw new Error(d.error);
@@ -8014,16 +8052,16 @@ Answer ONLY with JSON, no markdown fence:
              + `<div class="cloze-recap">${st.blanks.map(b => {
                  const okB  = lc(st.filled[b.n] || '') === lc(b.entry);
                  const flex = lc(b.form) !== lc(b.entry)
-                   ? `<span class="rc-flex">${tApp('sess_inbase').replace('{w}', lc(b.entry))}</span>` : '';
+                   ? `<span class="rc-flex">${tPrac('sess_inbase').replace('{w}', lc(b.entry))}</span>` : '';
                  const due = sessionDueLabel(b.entry);
                  return `<div class="cloze-recap-row">
-                           <span class="rc-mark ${okB ? 'ok' : 'ko'}">${tApp(okB ? 'mark_ok' : 'mark_ko')}</span>
+                           <span class="rc-mark ${okB ? 'ok' : 'ko'}">${tPrac(okB ? 'mark_ok' : 'mark_ko')}</span>
                            <span>${lc(b.form)}${flex}${due ? `<span class="rc-due">${due}</span>` : ''}</span>
                            ${starsHtml(b.entry)}
                          </div>`;
                }).join('')}</div>`;
       } else {
-        tail = `<div class="session-actions"><button class="btn-secondary" onclick="checkCloze()">${tApp('sess_check')}</button></div>`;
+        tail = `<div class="session-actions"><button class="btn-secondary" onclick="checkCloze()">${tPrac('sess_check')}</button></div>`;
       }
       body.innerHTML = `<div class="cloze-text">${html}</div>${bank}${tail}`;
       if (st.checked) addSessionNextButton();
@@ -8204,7 +8242,7 @@ Answer ONLY with JSON, no markdown fence:
       };
       let groups = groupsCache[lang];
       if (!groups) {
-        try { groups = await loadGroups(lang); } catch { list.innerHTML = '<div id="free-search-empty">Erreur de chargement.</div>'; return; }
+        try { groups = await loadGroups(lang); } catch { list.innerHTML = `<div id="free-search-empty">${tApp('gp_load_err')}</div>`; return; }
         if (motsFilter !== lang) return; // langue changée pendant le chargement
       }
       const netOfMot = w => motsStars[lang + '|' + w.toLowerCase()] || 0;
@@ -10476,20 +10514,20 @@ Reply with ONLY this JSON object, nothing else:
   <div class="modal-overlay" id="groups-modal" onclick="if(event.target===this)closeGroupsPicker()">
     <div class="modal-card">
       <button class="modal-close" onclick="closeGroupsPicker()" data-i18n="verify_close">fermer</button>
-      <h2 class="modal-title">Mes groupes</h2>
-      <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs groupes, puis choisis combien de mots pratiquer.</p>
+      <h2 class="modal-title" data-i18n="gp_title">Mes groupes</h2>
+      <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem" data-i18n="gp_intro">Coche un ou plusieurs groupes, puis choisis combien de mots pratiquer.</p>
       <div id="groups-list" style="max-height:42vh; overflow-y:auto;"></div>
       <div style="text-align:right; margin-top:0.4rem;">
-        <button class="btn-ghost" style="font-size:0.8rem" onclick="openGroupsManager()">gérer mes groupes</button>
+        <button class="btn-ghost" style="font-size:0.8rem" onclick="openGroupsManager()" data-i18n="gp_manage">gérer mes groupes</button>
       </div>
       <div id="groups-subset" style="display:flex; gap:0.4rem; margin-top:0.9rem;">
-        <button class="filter-btn active" id="gsub-all"    onclick="setGroupSubset('all')"    style="flex:1 1 auto">tous</button>
-        <button class="filter-btn"        id="gsub-random" onclick="setGroupSubset('random')" style="flex:1 1 auto">au hasard</button>
-        <button class="filter-btn"        id="gsub-manual" onclick="setGroupSubset('manual')" style="flex:1 1 auto">à la main</button>
+        <button class="filter-btn active" id="gsub-all"    onclick="setGroupSubset('all')"    style="flex:1 1 auto" data-i18n="gp_all">tous</button>
+        <button class="filter-btn"        id="gsub-random" onclick="setGroupSubset('random')" style="flex:1 1 auto" data-i18n="gp_random">au hasard</button>
+        <button class="filter-btn"        id="gsub-manual" onclick="setGroupSubset('manual')" style="flex:1 1 auto" data-i18n="gp_manual">à la main</button>
       </div>
       <div class="slider-section" id="groups-random-row" style="display:none; margin-top:0.7rem;">
         <div class="slider-header">
-          <span class="slider-label">Combien de mots</span>
+          <span class="slider-label" data-i18n="gp_howmany">Combien de mots</span>
           <span class="slider-value" id="groups-random-value">20 mots</span>
         </div>
         <input type="range" id="groups-random-slider" min="5" max="60" step="5" value="20"
@@ -10503,16 +10541,16 @@ Reply with ONLY this JSON object, nothing else:
   <div class="modal-overlay" id="free-search-modal" onclick="if(event.target===this)closeFreeSearch()">
     <div class="modal-card">
       <button class="modal-close" onclick="closeFreeSearch()" data-i18n="verify_close">fermer</button>
-      <h2 class="modal-title">Chercher un mot</h2>
-      <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs mots à pratiquer (dans l'ordre choisi), puis « commencer ».</p>
-      <input type="text" id="free-search-input" placeholder="filtrer…" autocomplete="off" autocapitalize="off"
+      <h2 class="modal-title" data-i18n="sf_title">Chercher un mot</h2>
+      <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem" data-i18n="sf_intro">Coche un ou plusieurs mots à pratiquer (dans l'ordre choisi), puis « commencer ».</p>
+      <input type="text" id="free-search-input" placeholder="filtrer…" data-i18n-ph="sf_filter" autocomplete="off" autocapitalize="off"
         oninput="renderFreeSearchList(this.value)"
         style="width:100%;box-sizing:border-box;margin-bottom:0.6rem;">
       <div id="free-search-sort" style="display:flex; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.7rem;">
         <button class="filter-btn active" onclick="setFreeSearchSort('az')">A-Z</button>
-        <button class="filter-btn" onclick="setFreeSearchSort('recent')">vus récemment</button>
-        <button class="filter-btn" onclick="setFreeSearchSort('old')">les plus anciens</button>
-        <button class="filter-btn" onclick="setFreeSearchSort('never')">jamais vus</button>
+        <button class="filter-btn" onclick="setFreeSearchSort('recent')" data-i18n="sf_recent">vus récemment</button>
+        <button class="filter-btn" onclick="setFreeSearchSort('old')" data-i18n="sf_old">les plus anciens</button>
+        <button class="filter-btn" onclick="setFreeSearchSort('never')" data-i18n="sf_never">jamais vus</button>
       </div>
       <div id="free-search-list" style="max-height:48vh; overflow-y:auto;"></div>
       <button class="btn-primary" id="free-search-start" style="margin-top:1rem;"
