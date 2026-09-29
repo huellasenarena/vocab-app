@@ -253,20 +253,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .token-warning {
       color: var(--ocre) !important;
       font-size: 0.8rem;
-      animation: pulse 2s infinite;
     }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0.5; }
-    }
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      20%       { transform: translateX(-6px); }
-      40%       { transform: translateX(6px); }
-      60%       { transform: translateX(-4px); }
-      80%       { transform: translateX(4px); }
-    }
-    .shake { animation: shake 0.5s ease; border-color: var(--rojo) !important; }
+    /* Champ refusé : la bordure passe au rouge un instant, sans secousse */
+    .shake { border-color: var(--rojo) !important; }
 
     .screen {
       display: none;
@@ -276,7 +265,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       padding: 1.6rem var(--margen) 2rem;
       width: 100%;
       max-width: 480px;
-      animation: fadeIn 0.6s ease;
     }
     .screen.active { display: flex; }
 
@@ -498,7 +486,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     #session-result:not(:empty) { margin-top: 0.9rem; }
     .session-count { font-size: 0.82rem; color: var(--gris); }
     .session-track { height: 2px; background: var(--linea-suave); overflow: hidden; }
-    .session-fill  { height: 100%; background: var(--tinta); transition: width 0.25s; }
+    .session-fill  { height: 100%; background: var(--tinta); }
     .session-word  { font-size: 1.5rem; font-weight: normal; margin-bottom: 0.3rem;
                      display: flex; align-items: center; gap: 0.3rem; }
     .session-def   { font-size: 0.92rem; color: var(--gris); margin-bottom: 1rem; }
@@ -591,7 +579,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       display: none;
       flex-direction: column;
       gap: 0.75rem;
-      animation: fadeIn 0.4s ease;
     }
     .related-box.visible { display: flex; }
     .related-label {
@@ -645,10 +632,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       font-size: 1rem;
       line-height: 1;
       padding: 0;
-      transition: transform 0.15s;
     }
-    .related-chip .chip-add:hover:not(:disabled) { background: none; color: var(--tinta); transform: scale(1.3); }
-    .related-chip .chip-add:disabled { color: var(--verde); cursor: default; transform: none; }
+    .related-chip .chip-add:hover:not(:disabled) { background: none; color: var(--tinta); }
+    .related-chip .chip-add:disabled { color: var(--verde); cursor: default; }
     .lang-tag {
       font-size: var(--t-nav); color: var(--tinta); cursor: pointer; white-space: nowrap;
       border-bottom: 1px solid transparent;
@@ -694,9 +680,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       border-radius: 50%;
       background: var(--tinta);
       cursor: pointer;
-      transition: transform 0.15s;
     }
-    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 
     /* ── Cartes de mots (multi) ── */
     .words-chips {
@@ -750,13 +734,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       border-bottom: 1px solid var(--linea);
       z-index: 500;
       opacity: 0;
-      transform: translateY(-6px);
       pointer-events: none;
-      transition: opacity 0.22s ease, transform 0.22s ease;
     }
     #sticky-words-bar.visible {
       opacity: 1;
-      transform: translateY(0);
       pointer-events: auto;
     }
     #sticky-words-text {
@@ -857,7 +838,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       display: none;
       flex-direction: column;
       gap: 0.75rem;
-      animation: fadeIn 0.3s ease;
     }
     .hint-dropdown.visible { display: flex; }
     .hint-dropdown-label {
@@ -881,7 +861,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .hint-box {
       width: 100%; border-top: 1px solid var(--linea-suave);
       font-size: 0.92rem; line-height: 1.7;
-      color: var(--tinta); display: none; animation: fadeIn 0.4s ease;
+      color: var(--tinta); display: none;
       overflow: hidden;
     }
     .hint-box.visible { display: block; }
@@ -897,13 +877,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .hint-box .hint-collapse-btn {
       background: none; border: none; color: var(--gris);
       font-size: 0.85rem; cursor: pointer; padding: 0;
-      transition: transform 0.2s;
     }
     .hint-box .hint-body {
       padding: 0 0 1rem;
     }
     .hint-box.collapsed .hint-body { display: none; }
-    .hint-box.collapsed .hint-collapse-btn { transform: rotate(180deg); }
 
     /* ── Bas de la boîte définition : traduire / étudier ── */
     .hint-extra { padding: 0 0 1rem; }
@@ -946,7 +924,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     /* ── Feedback ── */
     .feedback-box {
       width: 100%; padding: 0.1rem 0 0.1rem 1rem; font-size: 0.92rem;
-      line-height: 1.7; display: none; animation: fadeIn 0.4s ease;
+      line-height: 1.7; display: none;
       border-left: 1px solid var(--linea-fuerte); /* ligne neutre pendant le streaming (avant verdict) */
     }
     .feedback-box.visible   { display: block; }
@@ -966,7 +944,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .fb-title { font-family: var(--serif); font-size: 0.72rem; text-transform: uppercase;
       letter-spacing: 0.08em; font-weight: 600; }
     .fb-chevron { display: none; }
-    .fb-section.collapsed .fb-chevron { transform: rotate(-90deg); }
     .fb-body { padding-bottom: 0.55rem; line-height: 1.7; }
     .fb-section.collapsed .fb-body {
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
@@ -1043,7 +1020,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .qcm-offer {
       width: 100%;
       display: none;
-      animation: fadeIn 0.4s ease;
     }
     .qcm-offer.visible { display: block; }
 
@@ -1062,7 +1038,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       display: none;
       flex-direction: column;
       gap: 0.75rem;
-      animation: fadeIn 0.4s ease;
     }
     .qcm-section.visible { display: flex; }
     .qcm-head {
@@ -1073,8 +1048,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       cursor: pointer;
     }
     .qcm-head-text { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; min-width: 0; }
-    .qcm-chevron { color: var(--gris); font-size: 0.9rem; flex-shrink: 0; transition: transform 0.2s; }
-    .qcm-section.collapsed .qcm-chevron { transform: rotate(-90deg); }
+    .qcm-chevron { display: none; }
     .qcm-section.collapsed .qcm-body { display: none; }
     .qcm-body { display: flex; flex-direction: column; gap: 0.75rem; }
     .qcm-question {
@@ -1196,7 +1170,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .modal-card {
       background: var(--papel); border: 1px solid var(--linea-fuerte); border-radius: 0;
       max-width: 460px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 1.6rem;
-      position: relative; animation: fadeIn 0.3s ease;
+      position: relative;
     }
     .modal-close {
       position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; border-radius: 0;
@@ -1255,7 +1229,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .reset-danger, .reset-danger:hover:not(:disabled) { background: var(--relleno); border-color: var(--rojo); color: var(--rojo); opacity: 1; }
     .reset-danger:disabled { opacity: 0.5; cursor: default; }
 
-    .mot-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0.3rem 0.5rem; padding:0.6rem 0; border-top:1px solid var(--linea-suave); border-left:1px solid transparent; transition:border-color 0.15s, padding 0.15s; }
+    .mot-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0.3rem 0.5rem; padding:0.6rem 0; border-top:1px solid var(--linea-suave); border-left:1px solid transparent; }
     .mot-row:last-child { border-bottom:1px solid var(--linea-suave); }
     /* Sélection à la LIGNE : plus de case native, la ligne s'allume — même
        idiome que « chercher un mot ». Le ✓ dit l'état sans ajouter de contrôle. */
@@ -1551,7 +1525,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     }
     .spinner-wrap .spinner { margin-right: 0; }
     @keyframes spin    { to { transform: rotate(360deg); } }
-    @keyframes fadeIn  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
     /* ═══════════ Écrire sous le clavier (2026-09-01) ═══════════
        Deux gênes traitées par la MÊME idée : au lieu de déplacer des éléments
        ou de courir après le scroll d'iOS, on retire de la hauteur.
@@ -1561,14 +1534,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
        2) Vérification → la phrase monte en bandeau, le verdict s'écrit dessous
           dans un écran vide : plus besoin de défilement automatique. */
 
-    /* Bloc repliable. grid-template-rows 0fr↔1fr est la seule façon d'animer
-       « hauteur auto → 0 ». La marge négative annule le gap:1.5rem que .screen
+    /* Bloc repliable (grid-template-rows 0fr↔1fr ; replié d'un coup, sans animation
+       depuis le style commun). La marge négative annule le gap:1.5rem que .screen
        laisserait autour d'un enfant de hauteur nulle. */
     .kb-fold {
       width: 100%; display: grid; grid-template-rows: 1fr; opacity: 1;
-      transition: grid-template-rows 0.28s cubic-bezier(.32,.72,0,1),
-                  margin-bottom      0.28s cubic-bezier(.32,.72,0,1),
-                  opacity            0.17s linear;
     }
     #kb-fold-sliders { margin-top: calc(-0.5 * var(--gap-ecran)); }
     #kb-fold-sliders .due-count { margin-top: 0; }
@@ -1585,11 +1555,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     /* ── Les mots pendant qu'on écrit : un fil, pas des cartes ──
        On a besoin de se rappeler les mots, pas de leurs étoiles. Un fil revient
        à la ligne au lieu de défiler : aucun mot n'est jamais coupé. */
-    .word-chip, #single-word-card {
-      transition: padding 0.28s cubic-bezier(.32,.72,0,1),
-                  gap     0.28s cubic-bezier(.32,.72,0,1),
-                  border-color 0.15s, background 0.15s;
-    }
     body.words-compact #multi-word-chips { gap: 0 0.55rem; }
     body.words-compact #multi-word-chips .word-chip { gap: 0.5rem; }
     body.words-compact #multi-word-chips .word-chip:not(:last-child)::after {
@@ -1650,9 +1615,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     #catchup-btn:hover { background: var(--tinta); color: var(--papel); }
     #catchup-btn.visible { display: block; }
 
-    @media (prefers-reduced-motion: reduce) {
-      .kb-fold, .word-chip, #single-word-card { transition: none; }
-    }
 
   </style>
 </head>

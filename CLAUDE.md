@@ -28,7 +28,8 @@ App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **C
 - **Plus d'emojis ni de symboles dans l'interface** (étape 4) : mots à la place (`btn_options`, `mode_prefix`, `mark_ok`/`mark_ko` = « juste / faux », `page_prev`/`page_next`, `act_*`, `lot_suffix`), drapeaux remplacés par le **nom** de la langue ou son **code** (`LANGS[].code` : EN/ES/FR/EL) dans les listes denses. Restent : les étoiles `★☆` (une donnée), les `→` dans une phrase (« Partager → Vocab »), et les ✓/✗ **des prompts et du parsing du verdict** (`OK_RE`/`KO_RE`, `history.result`) — ne pas y toucher. Un élément choisi dans un menu s'allume d'un filet (`.ctx-menu-btn.on`), plus de coche.
 - **Mots de la séance en ligne** (choix de la maquette, « compact ») : `.word-chip` = mot souligné finement + note + étoiles ; le soulignement et le texte prennent le vert / rouge du verdict. Étoiles `★★☆` conservées (une donnée, pas une icône).
 - **Curseurs sur une ligne** (`.slider-section` en grille : libellé · curseur · valeur).
-- **Migration en cours** (commencée le 2026-09-29) : base ✓ · structure ✓ · éléments ✓ · emojis ✓ · mouvement. Maquette validée : https://claude.ai/artifact/Adwdr7PnG1UQoKX6qyC791 — icône = **globo aerostático à 7 panneaux alternés** (variante F).
+- **Migration terminée le 2026-09-29** (base · structure · éléments · emojis · mouvement, un commit chacun). Maquette validée : https://claude.ai/artifact/Adwdr7PnG1UQoKX6qyC791 — icône = **globo aerostático à 7 panneaux alternés** (variante F). Mouvement restant, seul permis : changements de couleur au survol, fondu de la photo (mode Imagen), spinner. Les replis du clavier (`.kb-fold`) se font d'un coup, sans animation.
+- **Bouton « suite du verdict »** (`#catchup-btn`) : pastille flottante centrée en bas — seul élément centré, parce qu'il flotte au-dessus du contenu.
 
 ---
 
