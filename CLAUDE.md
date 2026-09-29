@@ -11,6 +11,28 @@ App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **C
 
 ---
 
+## Estilo
+@~/Desktop/estilo/estilo.md
+
+### Excepciones en este proyecto
+- **Tokens pegados en el `<style>`** (app de un solo archivo) : bloque « Estilo común — copiado de ~/Desktop/estilo » (`tokens.css`, `oscuro.css`, `base.css`), ne pas l'éditer ici.
+- **Thème sombre** (`oscuro.css`, suit le système) : app d'usage quotidien.
+- **`--barra-estado`** : rideau sous la barre d'état iOS, sombre dans les deux thèmes — `black-translucent` affiche toujours un texte blanc.
+- **Mono du système** seulement pour le technique : compteur de tokens, clés API, lien d'ajout, `code` de l'aide.
+- **Colonne étroite** (`.screen`, 480 px, alignée à gauche) : app pensée pour le téléphone.
+- **Popups et modales** (`#word-ctx-menu`, `.modal-card`) : papier + filet `--linea-fuerte`, sans ombre ni radius ; voile de la modale = `color-mix` du papier. Pièce absente du style commun (dialogues) — à proposer si elle sert ailleurs.
+- **Mots « à réviser » en gris** (`chip-review`/`card-review`) tant que « nouveau » n'est pas dit en toutes lettres — l'or qui distinguait les nouveaux a disparu avec l'accent.
+- **Pastilles un peu plus grandes** (`.btn-primary`, `.btn-secondary`, `.mode-current`… : `6px 16px`, `--t-nav`) : cibles tactiles d'une app qu'on utilise au pouce.
+- ⚠️ **`base.css` colore le survol de TOUT `button`** (`button:hover:not(:disabled)`, plus spécifique qu'une classe seule). Depuis le 2026-09-29 il est enfermé dans `@media (hover: hover)` (corrigé dans ~/Desktop/estilo : sur iPhone l'appui restait collé et la réponse suivante du QCM paraissait choisie). Avec une souris, chaque bouton qui n'est pas une pastille (réponses du QCM, trous, langues, liens-boutons, menus…) le neutralise encore avec `.classe:hover:not(:disabled)` — un nouveau bouton non-pastille doit faire pareil.
+- **`input[type=range]` et cases à cocher** : `border:0; padding:0` — la règle `input` de `base.css` les encadrait.
+- **Plus d'emojis ni de symboles dans l'interface** (étape 4) : mots à la place (`btn_options`, `mode_prefix`, `mark_ok`/`mark_ko` = « juste / faux », `page_prev`/`page_next`, `act_*`, `lot_suffix`), drapeaux remplacés par le **nom** de la langue ou son **code** (`LANGS[].code` : EN/ES/FR/EL) dans les listes denses. Restent : les étoiles `★☆` (une donnée), les `→` dans une phrase (« Partager → Vocab »), et les ✓/✗ **des prompts et du parsing du verdict** (`OK_RE`/`KO_RE`, `history.result`) — ne pas y toucher. Un élément choisi dans un menu s'allume d'un filet (`.ctx-menu-btn.on`), plus de coche.
+- **Mots de la séance en ligne** (choix de la maquette, « compact ») : `.word-chip` = mot souligné finement + note + étoiles ; le soulignement et le texte prennent le vert / rouge du verdict. Étoiles `★★☆` conservées (une donnée, pas une icône).
+- **Curseurs sur une ligne** (`.slider-section` en grille : libellé · curseur · valeur).
+- **Migration terminée le 2026-09-29** (base · structure · éléments · emojis · mouvement, un commit chacun). Maquette validée : https://claude.ai/artifact/Adwdr7PnG1UQoKX6qyC791 — icône = **globo aerostático à 7 panneaux alternés** (variante F). Mouvement restant, seul permis : changements de couleur au survol, fondu de la photo (mode Imagen), spinner. Les replis du clavier (`.kb-fold`) se font d'un coup, sans animation.
+- **Bouton « suite du verdict »** (`#catchup-btn`) : pastille flottante centrée en bas — seul élément centré, parce qu'il flotte au-dessus du contenu.
+
+---
+
 ## Cloudflare Worker
 
 URL : `https://dark-brook-87cc.georg-dreym.workers.dev` · Code : `~/Desktop/vocab-app/dark-brook-87cc/src/worker.js`
@@ -408,7 +430,7 @@ Prompt anglais, réponse espagnol. Sections : `## Precisión`, `## Análisis lin
 - **Journée faite** → `✓ <mots faits>`, anneau vert plein. ⚠️ Le nombre **réel**, pas « objectif / objectif » : baisser la taille de la manche après coup ferait dire « 8 » à une journée de 12 mots.
 - **Journée en cours** → `fait / objectif`, arc doré.
 - **La pile passe SOUS la fraction** (`.lang-sub`, « 14 en attente ») et ne pèse plus sur l'anneau. Elle annonce le **nombre de rappels dus, tel quel** — le même que l'écran de départ du mode. ⚠️ Elle disait auparavant « ce qui ne tient pas dans l'objectif du jour » (rappels + neufs − la manche) : **26** sur l'accueil contre **36** dans le mode, deux nombres différents sous le même mot « en attente ». La fraction porte déjà la manche, le sous-titre n'a pas à la reporter une seconde fois.
-- ⚠️ Le disque intérieur de l'anneau prend **`--card-bg`** et non `background: inherit` : `inherit` recopiait le **dégradé conique** du parent, donc à 100 % la pastille devenait un rond plein — l'anneau disparaissait au moment précis où il annonce une journée faite. La variable couvre aussi le survol, seule raison d'être de `inherit`.
+- **Depuis le 2026-09-29 (style commun)** : plus d'anneau autour du drapeau. Deux langues par ligne séparées par des filets ; l'avancement est une **ligne fine** sous le nom (`.lang-bar::after`, largeur `--p` posé sur le bouton par `updateLangBadges`), noire en cours, verte quand la manche du jour est faite. Le piège du disque intérieur (`--card-bg` vs `inherit`) a disparu avec le dégradé conique.
 - `roundSizeFor(lang)` : la taille de la manche est **par langue**, et la carte parcourt les quatre.
 
 `updateLangBadges` annonçait auparavant le **pool du mode espacé** (mots dus + quota de neufs) : « 340 » quand la manche en sert 19. Depuis le **2026-09-23**, ce qu'une manche peut encore servir ne se lit plus sur un quota du jour disparu : c'est **tous les mots déjà travaillés** (dus, et à défaut les plus proches de leur date) **plus la réserve de neufs de la manche**. Une langue où rien n'a été travaillé a donc pour objectif ses seuls mots neufs — exact, la manche ne servira qu'eux.
