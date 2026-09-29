@@ -11,6 +11,20 @@ App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **C
 
 ---
 
+## Estilo
+@~/Desktop/estilo/estilo.md
+
+### Excepciones en este proyecto
+- **Tokens pegados en el `<style>`** (app de un solo archivo) : bloque « Estilo común — copiado de ~/Desktop/estilo », ne pas l'éditer ici. `tokens.css` + `oscuro.css` depuis l'étape 1 ; `base.css` arrive avec l'étape « éléments » (ses règles génériques `button`/`input` déformaient les curseurs et les lignes de « mes mots »).
+- **Thème sombre** (`oscuro.css`, suit le système) : app d'usage quotidien.
+- **`--barra-estado`** : rideau sous la barre d'état iOS, sombre dans les deux thèmes — `black-translucent` affiche toujours un texte blanc.
+- **Mono du système** seulement pour le technique : compteur de tokens, clés API, lien d'ajout, `code` de l'aide.
+- **Colonne étroite** (`.screen`, 480 px) : app pensée pour le téléphone.
+- **Mots « à réviser » en gris** (`chip-review`/`card-review`) tant que « nouveau » n'est pas dit en toutes lettres — l'or qui distinguait les nouveaux a disparu avec l'accent.
+- **Migration en cours** (commencée le 2026-09-29) : base ✓ · structure · éléments · emojis · mouvement. Maquette validée : https://claude.ai/artifact/Adwdr7PnG1UQoKX6qyC791 — icône = **globo aerostático à 7 panneaux alternés** (variante F).
+
+---
+
 ## Cloudflare Worker
 
 URL : `https://dark-brook-87cc.georg-dreym.workers.dev` · Code : `~/Desktop/vocab-app/dark-brook-87cc/src/worker.js`

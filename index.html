@@ -14,28 +14,117 @@
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f0f0f'/%3E%3Ctext y='74' x='50' text-anchor='middle' font-size='68' font-family='Georgia,serif' fill='%23c9a96e'%3EV%3C/text%3E%3C/svg%3E" />
 
-  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
   <style>
-    html { background: #0f0f0f; }
+    /* ── Estilo común — copiado de ~/Desktop/estilo (tokens.css, oscuro.css ; base.css llega con la etapa « elementos »).
+       No editar aquí : editar allí y volver a pegar. ── */
+/* tokens.css — copiado de ~/Desktop/estilo. No editar aquí: editar allí y ejecutar sync.sh */
+
+:root {
+  color-scheme: light;
+
+  /* Color: papel y tinta, sin acento */
+  --papel: #fafafa;
+  --tinta: #222;
+  --gris: #555;
+  --gris-claro: #999;
+  --linea-fuerte: #ccc;
+  --linea: #ddd;
+  --linea-suave: #eee;
+  --relleno: #f2f2f2;
+  --relleno-hover: #e8e8e8;
+  --tinta-suave: #444;   /* texto de pastillas y citas */
+  --campo: #fff;         /* fondo de textarea */
+  --linea-foco: #bbb;    /* borde de textarea con foco */
+
+  /* Estados: siempre acompañados de palabras */
+  --rojo: #9b2c1f;
+  --verde: #2f5d3a;
+  --ocre: #8a6a1f;
+
+  /* Tipografía: Georgia para todo, mono solo para lo técnico */
+  --serif: Georgia, "Times New Roman", serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --t-h1: 1.6rem;
+  --t-h2: 1.2rem;
+  --t-texto: 0.95rem;
+  --t-nav: 0.9rem;
+  --t-pequeno: 0.82rem;
+  --t-boton: 0.8rem;
+  --t-etiqueta: 0.68rem;
+
+  --interlineado: 1.65;
+
+  /* Composición */
+  --ancho: 900px;
+  --ancho-texto: 620px;
+  --margen: 20px;
+}
+
+/* oscuro.css — copiado de ~/Desktop/estilo. No editar aquí: editar allí y ejecutar sync.sh
+   Variante oscura, solo para apps de uso diario. Se enlaza después de tokens.css.
+   Mismos tokens invertidos, sin acento. data-theme="light" / "dark" en <html> fuerza uno u otro. */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --papel: #151515;
+    --tinta: #e4e4e4;
+    --gris: #a3a3a3;
+    --gris-claro: #6f6f6f;
+    --linea-fuerte: #4a4a4a;
+    --linea: #363636;
+    --linea-suave: #262626;
+    --relleno: #1f1f1f;
+    --relleno-hover: #2a2a2a;
+    --tinta-suave: #c4c4c4;
+    --campo: #1b1b1b;
+    --linea-foco: #5a5a5a;
+    --rojo: #d98a7e;
+    --verde: #8dbb98;
+    --ocre: #cdae6a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --papel: #151515;
+  --tinta: #e4e4e4;
+  --gris: #a3a3a3;
+  --gris-claro: #6f6f6f;
+  --linea-fuerte: #4a4a4a;
+  --linea: #363636;
+  --linea-suave: #262626;
+  --relleno: #1f1f1f;
+  --relleno-hover: #2a2a2a;
+  --tinta-suave: #c4c4c4;
+  --campo: #1b1b1b;
+  --linea-foco: #5a5a5a;
+  --rojo: #d98a7e;
+  --verde: #8dbb98;
+  --ocre: #cdae6a;
+}
+
+
+    /* ── Fin de la copia del estilo común ── */
+
+    html { background: var(--papel); }
     :root {
       --safe-top: env(safe-area-inset-top, 0px);
-      --bg:      #0f0f0f;
-      --surface: #1a1a1a;
-      --border:  #2e2e2e;
-      --text:    #e8e3d9;
-      --muted:   #9e9790;
-      --accent:  #c9a96e;
-      --error:   #c96e6e;
-      --success: #6ec98a;
+      /* Cortina bajo la barra de estado iOS : la app usa black-translucent
+         (texto de la barra siempre blanco), así que la cortina es oscura
+         en los dos temas. Excepción de este proyecto. */
+      --barra-estado: #222;
     }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --barra-estado: var(--papel); } }
+    :root[data-theme="dark"] { --barra-estado: var(--papel); }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Lora', Georgia, serif;
+      background: var(--papel);
+      color: var(--tinta);
+      font-family: var(--serif);
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -50,7 +139,7 @@
       top: 0;
       left: 0; right: 0;
       height: var(--safe-top, 0px);
-      background: var(--bg);
+      background: var(--barra-estado);
       z-index: 9999;
     }
 
@@ -63,7 +152,7 @@
     #screen-revisions, #screen-mots, #screen-history, #screen-stats, #screen-add { align-self: flex-start; }
 
     .token-warning {
-      color: #e0a030 !important;
+      color: var(--ocre) !important;
       font-size: 0.8rem;
       animation: pulse 2s infinite;
     }
@@ -78,7 +167,7 @@
       60%       { transform: translateX(-4px); }
       80%       { transform: translateX(4px); }
     }
-    .shake { animation: shake 0.5s ease; border-color: var(--error) !important; }
+    .shake { animation: shake 0.5s ease; border-color: var(--rojo) !important; }
 
     .screen {
       display: none;
@@ -94,24 +183,24 @@
 
     .app-title {
       font-size: 2.2rem;
-      font-weight: 600;
+      font-weight: normal;
       letter-spacing: 0.05em;
-      color: var(--accent);
+      color: var(--tinta);
     }
     .app-subtitle {
       font-style: italic;
-      color: var(--muted);
+      color: var(--gris);
       font-size: 0.95rem;
       margin-top: -1.2rem;
     }
     .app-tagline {
-      color: var(--muted);
+      color: var(--gris);
       font-size: 0.95rem;
       letter-spacing: 0.04em;
       margin-top: -1.2rem;
     }
     .app-tagline .byov-i {
-      color: var(--accent);
+      color: var(--tinta);
       font-weight: 600;
     }
 
@@ -120,8 +209,8 @@
     input[type="password"], input[type="email"], textarea {
       width: 100%;
       box-sizing: border-box;
-      color: var(--text);
-      font-family: 'Lora', serif;
+      color: var(--tinta);
+      font-family: var(--serif);
       font-size: 1rem;
       padding: 0.85rem 1rem;
       outline: none;
@@ -129,27 +218,27 @@
       resize: none;
     }
     input[type="password"], input[type="email"] {
-      font-family: 'DM Mono', monospace;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      font-family: var(--serif);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 12px;
     }
-    input[type="password"]:focus, input[type="email"]:focus { border-color: var(--accent); }
+    input[type="password"]:focus, input[type="email"]:focus { border-color: var(--tinta); }
     /* Neutralise le fond blanc de l'autofill Safari/Chrome */
     input:-webkit-autofill, input:-webkit-autofill:focus, input:-webkit-autofill:hover {
-      -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
-      -webkit-text-fill-color: var(--text);
-      caret-color: var(--text);
+      -webkit-box-shadow: 0 0 0 1000px var(--relleno) inset;
+      -webkit-text-fill-color: var(--tinta);
+      caret-color: var(--tinta);
     }
     textarea { background: transparent; border: none; border-radius: 0; }
 
     .textarea-wrap {
       position: relative; width: 100%;
-      border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
-      background: var(--surface); transition: border-color 0.2s;
+      border: 1px solid var(--linea); border-radius: 12px; overflow: hidden;
+      background: var(--relleno); transition: border-color 0.2s;
       -webkit-transform: translateZ(0); transform: translateZ(0);
     }
-    .textarea-wrap:focus-within { border-color: var(--accent); }
+    .textarea-wrap:focus-within { border-color: var(--tinta); }
     .textarea-wrap textarea { padding-bottom: 3.2rem; }
     /* Mode Situation : pleine largeur + espacement vertical des boîtes */
     .situation-section { width: 100%; display: flex; flex-direction: column; gap: 1rem; }
@@ -160,8 +249,8 @@
       width: 2.4rem;
       height: 2.4rem;
       border-radius: 50%;
-      background: var(--accent);
-      color: #1a1408;
+      background: var(--tinta);
+      color: var(--papel);
       border: none;
       font-size: 1.2rem;
       font-weight: bold;
@@ -179,12 +268,12 @@
 
     .btn-primary {
       width: 100%;
-      background: var(--accent);
+      background: var(--tinta);
       border: none;
       border-radius: 6px;
-      color: var(--bg);
+      color: var(--papel);
       cursor: pointer;
-      font-family: 'Lora', serif;
+      font-family: var(--serif);
       font-size: 1rem;
       font-weight: 600;
       padding: 0.85rem;
@@ -196,38 +285,38 @@
     .btn-secondary {
       width: 100%;
       background: transparent;
-      border: 1px solid var(--border);
+      border: 1px solid var(--linea);
       border-radius: 6px;
-      color: var(--text);
+      color: var(--tinta);
       cursor: pointer;
-      font-family: 'Lora', serif;
+      font-family: var(--serif);
       font-size: 1rem;
       padding: 0.85rem;
       transition: border-color 0.2s;
     }
-    .btn-secondary:hover    { border-color: var(--accent); }
+    .btn-secondary:hover    { border-color: var(--tinta); }
     .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .btn-ghost {
       background: transparent;
       border: none;
-      color: var(--muted);
+      color: var(--gris);
       cursor: pointer;
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.8rem;
       padding: 0.25rem 0.5rem;
       transition: color 0.2s;
     }
-    .btn-ghost:hover { color: var(--accent); }
+    .btn-ghost:hover { color: var(--tinta); }
 
     .btn-google {
       width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 6px;
-      color: var(--text);
+      color: var(--tinta);
       cursor: pointer;
-      font-family: 'Lora', serif;
+      font-family: var(--serif);
       font-size: 1rem;
       padding: 0.85rem;
       display: flex;
@@ -236,54 +325,54 @@
       gap: 0.75rem;
       transition: border-color 0.2s, background 0.2s;
     }
-    .btn-google:hover { border-color: var(--accent); background: #222; }
+    .btn-google:hover { border-color: var(--tinta); background: var(--relleno-hover); }
     .btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
 
-    .error-msg { color: var(--error); font-size: 0.85rem; font-style: italic; min-height: 1.2em; text-align: center; }
-    .info-msg  { color: var(--muted); font-size: 0.88rem; font-style: italic; text-align: center; line-height: 1.6; }
+    .error-msg { color: var(--rojo); font-size: 0.85rem; font-style: italic; min-height: 1.2em; text-align: center; }
+    .info-msg  { color: var(--gris); font-size: 0.88rem; font-style: italic; text-align: center; line-height: 1.6; }
 
     /* ── Langue ── */
     .lang-grid { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
     .lang-btn {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-      color: var(--text); cursor: pointer; font-family: 'Lora', serif; padding: 1.1rem;
+      background: var(--relleno); border: 1px solid var(--linea); border-radius: 8px;
+      color: var(--tinta); cursor: pointer; font-family: var(--serif); padding: 1.1rem;
       display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
       transition: border-color 0.2s, background 0.2s, transform 0.15s;
     }
-    .lang-btn:hover { border-color: var(--accent); background: #222; transform: translateY(-2px); --card-bg: #222; }
+    .lang-btn:hover { border-color: var(--tinta); background: var(--relleno-hover); transform: translateY(-2px); --card-bg: var(--relleno-hover); }
     .lang-btn .flag { font-size: 1.8rem; }
     /* L'anneau porte l'avancement du jour. ⚠️ Le disque intérieur suit le fond du
        BOUTON via `--card-bg`, et non `background: inherit` : `inherit` recopiait le
        dégradé conique du parent, si bien qu'à 100 % la pastille devenait un rond
        plein — l'anneau disparaissait au moment précis où il annonce une journée
        faite. La variable règle aussi le survol, seule raison d'être de `inherit`. */
-    .lang-btn { --card-bg: var(--surface); }
+    .lang-btn { --card-bg: var(--relleno); }
     .lang-btn .flag-ring {
       display: grid; place-items: center; border-radius: 50%; padding: 3px;
-      background: conic-gradient(var(--ring, var(--border)) calc(var(--p, 0) * 1%), var(--border) 0);
+      background: conic-gradient(var(--ring, var(--linea)) calc(var(--p, 0) * 1%), var(--linea) 0);
     }
     .lang-btn .flag-ring .flag {
       width: 2.9rem; height: 2.9rem; border-radius: 50%;
       display: grid; place-items: center; background: var(--card-bg);
     }
-    .lang-btn .lang-name { font-size: 0.85rem; color: var(--muted); }
+    .lang-btn .lang-name { font-size: 0.85rem; color: var(--gris); }
     /* Journée finie = vert ; journée en cours = doré. Plus de rouge : à huit mots
        neufs par jour, une carte rouge tous les matins ne veut plus rien dire. */
-    .lang-btn.due  { border-color: var(--accent); }
-    .lang-btn.done { border-color: var(--success); }
+    .lang-btn.due  { border-color: var(--tinta); }
+    .lang-btn.done { border-color: var(--verde); }
     .lang-btn .lang-badge {
-      font-size: 0.68rem; font-family: 'DM Mono', monospace; min-height: 0.8rem;
+      font-size: 0.68rem; font-family: var(--serif); min-height: 0.8rem;
       font-variant-numeric: tabular-nums;
     }
-    .lang-btn.due  .lang-badge { color: var(--accent); }
-    .lang-btn.due  .flag-ring  { --ring: var(--accent); }
-    .lang-btn.done .lang-badge { color: var(--success); }
-    .lang-btn.done .flag-ring  { --ring: var(--success); }
+    .lang-btn.due  .lang-badge { color: var(--tinta); }
+    .lang-btn.due  .flag-ring  { --ring: var(--tinta); }
+    .lang-btn.done .lang-badge { color: var(--verde); }
+    .lang-btn.done .flag-ring  { --ring: var(--verde); }
     /* La pile en attente est nommée pour ce qu'elle est, SOUS la fraction : c'est
        de l'avoir mise au dénominateur qui faisait passer une manche terminée pour
        une journée à moitié faite. Elle reste grise dans les deux états. */
     .lang-btn .lang-sub {
-      font-size: 0.6rem; font-family: 'DM Mono', monospace; color: var(--muted);
+      font-size: 0.6rem; font-family: var(--serif); color: var(--gris);
       min-height: 0.7rem; font-variant-numeric: tabular-nums;
     }
 
@@ -295,8 +384,8 @@
     .mode-toggle {
       width: 100%;
       display: flex;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 8px;
       overflow: hidden;
     }
@@ -320,30 +409,30 @@
     .mode-current {
       display: flex; align-items: center; justify-content: center; gap: 0.45rem;
       width: 100%;
-      background: var(--surface); border: 1px solid var(--border);
-      color: var(--text); border-radius: 10px; padding: 0.5rem 0.9rem;
+      background: var(--relleno); border: 1px solid var(--linea);
+      color: var(--tinta); border-radius: 10px; padding: 0.5rem 0.9rem;
       font-size: 0.98rem; font-weight: 600; cursor: pointer; font-family: inherit;
     }
     .mode-current:active { opacity: 0.7; }
-    .mode-chev { color: var(--muted); font-size: 0.7rem; }
+    .mode-chev { color: var(--gris); font-size: 0.7rem; }
 
     /* ── Séance (mode pratique) ── */
     #session-section { width: 100%; }
     .round-dials { display: flex; flex-direction: column; gap: 1.1rem; margin-bottom: 1.6rem; }
     .round-dial  { display: flex; flex-direction: column; gap: 0.4rem; }
-    .round-dial-head { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--muted); }
-    .round-dial-head span:last-child { color: var(--accent); font-weight: 600; }
-    .round-dial input[type=range] { width: 100%; accent-color: var(--accent); }
+    .round-dial-head { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--gris); }
+    .round-dial-head span:last-child { color: var(--tinta); font-weight: 600; }
+    .round-dial input[type=range] { width: 100%; accent-color: var(--tinta); }
     /* Deux bouts de phrase dont l'un peut être long (« → 6 rappels + 1 neuf · 2
        neufs déjà faits ») : ils passent à la ligne au lieu de se comprimer. */
-    .round-derived { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.2rem 0.8rem; font-size: 0.82rem; color: var(--muted); }
-    .round-derived .derived-main { color: var(--text); }
+    .round-derived { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.2rem 0.8rem; font-size: 0.82rem; color: var(--gris); }
+    .round-derived .derived-main { color: var(--tinta); }
     /* Les deux lignes de détail occupent toute la largeur : elles se placent SOUS
        la composition, jamais à côté d'elle. */
     .round-derived .derived-sub { width: 100%; font-size: 0.78rem; opacity: 0.85; }
     /* Le miroir du jour : ce qu'on a ouvert depuis ce matin, donc ce qu'on aura à
        réviser demain. Il n'empêche rien — c'est une information, pas un frein. */
-    .round-derived .day-mirror { width: 100%; font-family: 'DM Mono', monospace; font-size: 0.72rem; opacity: 0.8; margin-top: 0.35rem; }
+    .round-derived .day-mirror { width: 100%; font-family: var(--serif); font-size: 0.72rem; opacity: 0.8; margin-top: 0.35rem; }
     /* Les curseurs restent VISIBLES pendant la manche — les masquer ferait sauter
        l'écran —, mais inertes : on change le nombre en repartant d'une manche. */
     .round-dials.locked { opacity: 0.4; pointer-events: none; }
@@ -356,20 +445,20 @@
     /* Quitter une manche n'annule rien : les réponses sont déjà enregistrées et la
        manche reste reprenable. Sans cette sortie, une manche qu'on ne veut pas finir
        gardait les curseurs verrouillés pour de bon. */
-    .session-quit { background: none; border: none; color: var(--muted); cursor: pointer;
-                    font-family: 'DM Mono', monospace; font-size: 0.72rem; padding: 0.1rem 0.2rem; }
+    .session-quit { background: none; border: none; color: var(--gris); cursor: pointer;
+                    font-family: var(--serif); font-size: 0.72rem; padding: 0.1rem 0.2rem; }
     .session-quit:active { opacity: 0.6; }
     /* La prochaine échéance, dite en délai plutôt qu'en date : elle se lit sans
        compter, et elle explique pourquoi le mot ne reviendra pas demain. */
-    .session-due { font-family: 'DM Mono', monospace; font-size: 0.7rem; opacity: 0.75; margin-left: 0.45rem; }
+    .session-due { font-family: var(--serif); font-size: 0.7rem; opacity: 0.75; margin-left: 0.45rem; }
     #session-choices { display: flex; flex-direction: column; gap: 0.6rem; }
     #session-result:not(:empty) { margin-top: 0.9rem; }
-    .session-count { font-size: 0.82rem; color: var(--muted); }
-    .session-track { height: 4px; border-radius: 3px; background: var(--surface); overflow: hidden; }
-    .session-fill  { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.25s; }
+    .session-count { font-size: 0.82rem; color: var(--gris); }
+    .session-track { height: 4px; border-radius: 3px; background: var(--relleno); overflow: hidden; }
+    .session-fill  { height: 100%; background: var(--tinta); border-radius: 3px; transition: width 0.25s; }
     .session-word  { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 0.3rem;
                      display: flex; align-items: center; justify-content: center; gap: 0.3rem; }
-    .session-def   { font-size: 0.92rem; color: var(--muted); text-align: center; margin-bottom: 1rem; }
+    .session-def   { font-size: 0.92rem; color: var(--gris); text-align: center; margin-bottom: 1rem; }
     /* Les étoiles disent où en est le mot — c'est ce qui donne son sens à l'exercice
        proposé : le QCM sert les mots qui n'en ont pas encore deux, le texte à trous
        les autres. Reprises du mode espacé, mêmes classes de couleur. */
@@ -377,31 +466,31 @@
     .cloze-recap     { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.9rem; }
     .cloze-recap-row { display: grid; grid-template-columns: 1rem 1fr auto; align-items: baseline;
                        gap: 0.5rem; font-size: 0.92rem; text-align: left; }
-    .cloze-recap-row .rc-mark.ok { color: var(--success); }
-    .cloze-recap-row .rc-mark.ko { color: #e05a5a; }
-    .cloze-recap-row .rc-flex    { display: block; font-size: 0.78rem; color: var(--muted); }
-    .cloze-recap-row .rc-due     { display: block; font-family: 'DM Mono', monospace;
-                                   font-size: 0.7rem; color: var(--muted); opacity: 0.8; }
+    .cloze-recap-row .rc-mark.ok { color: var(--verde); }
+    .cloze-recap-row .rc-mark.ko { color: var(--rojo); }
+    .cloze-recap-row .rc-flex    { display: block; font-size: 0.78rem; color: var(--gris); }
+    .cloze-recap-row .rc-due     { display: block; font-family: var(--serif);
+                                   font-size: 0.7rem; color: var(--gris); opacity: 0.8; }
     .cloze-recap-row .stars      { font-size: 0.85rem; }
-    .session-q     { font-size: 0.95rem; margin-bottom: 1rem; text-align: center; color: var(--muted); }
+    .session-q     { font-size: 0.95rem; margin-bottom: 1rem; text-align: center; color: var(--gris); }
     .session-actions { display: flex; justify-content: center; margin-top: 1.1rem; }
-    .session-note  { font-size: 0.85rem; color: var(--muted); margin-top: 0.8rem; text-align: center; }
+    .session-note  { font-size: 0.85rem; color: var(--gris); margin-top: 0.8rem; text-align: center; }
     .cloze-text    { font-size: 1.02rem; line-height: 2.05; margin-bottom: 1.3rem; }
     .cloze-blank {
       display: inline-block; min-width: 4.2em; padding: 0.05em 0.35em;
-      border: none; border-bottom: 2px solid var(--border); border-radius: 3px 3px 0 0;
-      background: rgba(255,255,255,0.035);
-      color: var(--text); font: inherit; font-size: 0.95rem; cursor: pointer; text-align: center;
+      border: none; border-bottom: 2px solid var(--linea); border-radius: 3px 3px 0 0;
+      background: var(--relleno);
+      color: var(--tinta); font: inherit; font-size: 0.95rem; cursor: pointer; text-align: center;
       vertical-align: baseline;
     }
-    .cloze-blank.empty { color: var(--muted); letter-spacing: 0.1em; }
-    .cloze-blank.active { border-bottom-color: var(--accent); background: rgba(212,175,55,0.08); }
-    .cloze-blank.ok  { border-bottom-color: var(--success); color: var(--success); }
-    .cloze-blank.ko  { border-bottom-color: #e05a5a; color: #e05a5a; text-decoration: line-through; }
-    .cloze-fix { color: var(--success); font-weight: 600; font-size: 0.92rem; }
+    .cloze-blank.empty { color: var(--gris); letter-spacing: 0.1em; }
+    .cloze-blank.active { border-bottom-color: var(--tinta); background: var(--relleno); }
+    .cloze-blank.ok  { border-bottom-color: var(--verde); color: var(--verde); }
+    .cloze-blank.ko  { border-bottom-color: var(--rojo); color: var(--rojo); text-decoration: line-through; }
+    .cloze-fix { color: var(--verde); font-weight: 600; font-size: 0.92rem; }
     .cloze-bank { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; }
     .cloze-chip {
-      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      border: 1px solid var(--linea); background: var(--relleno); color: var(--tinta);
       border-radius: 20px; padding: 0.34rem 0.8rem; font-size: 0.93rem; cursor: pointer; font-family: inherit;
     }
     .cloze-chip.used { opacity: 0.3; }
@@ -411,9 +500,9 @@
       flex: 1;
       background: transparent;
       border: none;
-      color: var(--muted);
+      color: var(--gris);
       cursor: pointer;
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.68rem;
       padding: 0.5rem 0.1rem;
       transition: background 0.2s, color 0.2s;
@@ -421,18 +510,18 @@
       line-height: 1.5;
     }
     .mode-btn.active {
-      background: var(--border);
-      color: var(--accent);
+      background: var(--linea);
+      color: var(--tinta);
     }
     .due-count {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.78rem;
-      color: var(--muted);
+      color: var(--gris);
       text-align: center;
       width: 100%;
       margin-top: -0.75rem;
     }
-    .due-count .highlight { color: var(--accent); }
+    .due-count .highlight { color: var(--tinta); }
 
     /* ── État « terminé » du mode espacé : on masque tout sauf la carte ✓ ── */
     #spaced-done-card { display: none; }
@@ -447,14 +536,14 @@
     /* wrappers vidés par les règles ci-dessus : sans ça leur gap subsisterait */
     #screen-practice.spaced-done #kb-fold-sliders,
     #screen-practice.spaced-done #kb-fold-actions { display: none; }
-    #spaced-done-card .done-check { font-size: 3rem; color: var(--success); line-height: 1; }
-    #spaced-done-card .done-msg { font-size: 0.9rem; color: var(--muted); margin: 0; }
+    #spaced-done-card .done-check { font-size: 3rem; color: var(--verde); line-height: 1; }
+    #spaced-done-card .done-msg { font-size: 0.9rem; color: var(--gris); margin: 0; }
 
     /* ── Mots liés ── */
     .related-box {
       width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 8px;
       padding: 1.25rem;
       display: none;
@@ -464,9 +553,9 @@
     }
     .related-box.visible { display: flex; }
     .related-label {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.72rem;
-      color: var(--accent);
+      color: var(--tinta);
       text-transform: uppercase;
       letter-spacing: 0.1em;
     }
@@ -485,12 +574,12 @@
       flex: 1 1 240px;
       min-width: 0;
       max-width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
+      background: var(--papel);
+      border: 1px solid var(--linea);
       border-radius: 12px;
       padding: 0.5rem 0.75rem;
       font-size: 0.88rem;
-      color: var(--text);
+      color: var(--tinta);
       overflow-wrap: anywhere;
     }
     .related-chip .rel-head {
@@ -501,18 +590,18 @@
     }
     .related-chip .rel-word { min-width: 0; }
     .related-chip .rel-from {
-      color: var(--accent); font-size: 0.72rem;
-      font-family: 'DM Mono', monospace; opacity: 0.75;
+      color: var(--tinta); font-size: 0.72rem;
+      font-family: var(--serif); opacity: 0.75;
     }
     .related-chip .rel-note {
-      color: var(--muted); font-size: 0.78rem; font-style: italic; min-width: 0;
+      color: var(--gris); font-size: 0.78rem; font-style: italic; min-width: 0;
     }
     .related-chip .chip-add {
       margin-left: auto;
       align-self: baseline;
       background: transparent;
       border: none;
-      color: var(--accent);
+      color: var(--tinta);
       cursor: pointer;
       font-size: 1rem;
       line-height: 1;
@@ -520,20 +609,20 @@
       transition: transform 0.15s;
     }
     .related-chip .chip-add:hover  { transform: scale(1.3); }
-    .related-chip .chip-add:disabled { color: var(--success); cursor: default; transform: none; }
+    .related-chip .chip-add:disabled { color: var(--verde); cursor: default; transform: none; }
     .lang-tag {
-      font-family: 'DM Mono', monospace; font-size: 0.78rem; color: var(--muted);
-      background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+      font-family: var(--serif); font-size: 0.78rem; color: var(--gris);
+      background: var(--relleno); border: 1px solid var(--linea); border-radius: 4px;
       padding: 0.25rem 0.6rem; cursor: pointer; transition: border-color 0.2s;
       white-space: nowrap;
     }
-    .lang-tag:hover { border-color: var(--accent); }
+    .lang-tag:hover { border-color: var(--tinta); }
 
     /* ── Slider ── */
     .slider-section {
       width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 8px;
       padding: 1rem 1.25rem;
       display: flex;
@@ -546,16 +635,16 @@
       align-items: center;
     }
     .slider-label {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.78rem;
-      color: var(--muted);
+      color: var(--gris);
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
     .slider-value {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.9rem;
-      color: var(--accent);
+      color: var(--tinta);
       font-weight: 500;
     }
     input[type="range"] {
@@ -563,7 +652,7 @@
       -webkit-appearance: none;
       appearance: none;
       height: 4px;
-      background: var(--border);
+      background: var(--linea);
       border-radius: 2px;
       outline: none;
     }
@@ -571,7 +660,7 @@
       -webkit-appearance: none;
       width: 18px; height: 18px;
       border-radius: 50%;
-      background: var(--accent);
+      background: var(--tinta);
       cursor: pointer;
       transition: transform 0.15s;
     }
@@ -585,8 +674,8 @@
       gap: 0.6rem;
     }
     .word-chip {
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 8px;
       padding: 0.6rem 1rem;
       cursor: pointer;
@@ -599,15 +688,15 @@
       min-width: 100px;
       text-align: center;
     }
-    .word-chip { font-family: 'Lora', Georgia, serif; }
-    .word-chip:hover { border-color: var(--accent); background: var(--surface-hover, #2a2a2a); }
+    .word-chip { font-family: var(--serif); }
+    .word-chip:hover { border-color: var(--tinta); background: var(--relleno-hover); }
     #btn-hide-words {
-      font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted);
-      background: transparent; border: 1px solid var(--border); border-radius: 6px;
+      font-family: var(--serif); font-size: 0.72rem; color: var(--gris);
+      background: transparent; border: 1px solid var(--linea); border-radius: 6px;
       padding: 0.75rem 1rem; cursor: pointer; white-space: nowrap; flex-shrink: 0;
       transition: color 0.2s, border-color 0.2s;
     }
-    #btn-hide-words.active { color: var(--accent); border-color: var(--accent); }
+    #btn-hide-words.active { color: var(--tinta); border-color: var(--tinta); }
     .words-hidden .word-main,
     .words-hidden .chip-word,
     .words-hidden .word-note,
@@ -626,8 +715,8 @@
       align-items: center;
       justify-content: space-between;
       padding: calc(var(--safe-top, 0px) + 0.55rem) 1.5rem 0.55rem;
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
+      background: var(--papel);
+      border-bottom: 1px solid var(--linea);
       z-index: 500;
       opacity: 0;
       transform: translateY(-6px);
@@ -640,10 +729,10 @@
       pointer-events: auto;
     }
     #sticky-words-text {
-      font-family: 'Lora', Georgia, serif;
+      font-family: var(--serif);
       font-size: 0.88rem;
       font-weight: 600;
-      color: var(--accent);
+      color: var(--tinta);
       flex: 1;
       line-height: 1.4;
     }
@@ -651,33 +740,33 @@
       background: transparent;
       border: none;
       font-size: 1rem;
-      color: var(--muted);
+      color: var(--gris);
       cursor: pointer;
       padding: 0.1rem 0.4rem;
       flex-shrink: 0;
       transition: color 0.2s;
     }
-    #sticky-hide-btn.active { color: var(--accent); }
+    #sticky-hide-btn.active { color: var(--tinta); }
     .word-chip:active { opacity: 0.75; }
     .word-card { cursor: pointer; transition: border-color 0.15s; }
-    .word-card:not(#spaced-done-card):hover { border-color: var(--accent); }
+    .word-card:not(#spaced-done-card):hover { border-color: var(--tinta); }
     #spaced-done-card { cursor: default; }
     .word-chip .chip-word {
       font-size: 1.1rem;
       font-weight: 600;
-      color: var(--accent);
+      color: var(--tinta);
     }
     .word-chip .chip-word.chip-md { font-size: 0.85rem; }
     .word-chip .chip-word.chip-sm { font-size: 0.7rem; }
     .word-chip .chip-stars {
       font-size: 0.75rem;
-      color: var(--muted);
+      color: var(--gris);
     }
     /* Note entre parenthèses (« expresión colombiana ») : contexte, pas vocabulaire */
     .word-chip .chip-note {
       display: block;
       font-size: 0.68rem;
-      color: var(--muted);
+      color: var(--gris);
       font-style: italic;
       line-height: 1.2;
       margin-top: 0.15rem;
@@ -685,19 +774,19 @@
     .word-card .word-note {
       display: block;
       font-size: 0.8rem;
-      color: var(--muted);
+      color: var(--gris);
       font-style: italic;
       margin-top: 0.3rem;
     }
-    .word-chip .chip-stars.s3 { color: var(--success); }
-    .word-chip .chip-stars.s2 { color: var(--accent); }
-    .word-chip .chip-stars.s1 { color: #c9a96e88; }
+    .word-chip .chip-stars.s3 { color: var(--verde); }
+    .word-chip .chip-stars.s2 { color: var(--tinta); }
+    .word-chip .chip-stars.s1 { color: var(--gris); }
 
     /* Carte mot unique */
     .word-card {
       width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 12px;
       padding: 1.75rem 2rem;
       display: flex;
@@ -711,30 +800,30 @@
     .card-actions { position: absolute; top: 0.5rem; right: 0.5rem; display: flex; gap: 0.1rem; }
     .card-action-btn {
       background: none; border: none; cursor: pointer; opacity: 0.5;
-      font-size: 0.95rem; line-height: 1; padding: 0.25rem 0.35rem; color: var(--muted);
+      font-size: 0.95rem; line-height: 1; padding: 0.25rem 0.35rem; color: var(--gris);
       transition: opacity 0.15s;
     }
     .card-action-btn:hover { opacity: 1; }
     .chip-menu-btn {
       position: absolute; top: 0.1rem; right: 0.35rem;
       background: none; border: none; cursor: pointer; opacity: 0.5;
-      font-size: 1.1rem; line-height: 1; padding: 0.1rem 0.3rem; color: var(--muted);
+      font-size: 1.1rem; line-height: 1; padding: 0.1rem 0.3rem; color: var(--gris);
     }
     .chip-menu-btn:hover { opacity: 1; }
     .word-chip { position: relative; }
-    .word-label { font-size: 0.75rem; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
-    .word-main  { font-size: 2rem; font-weight: 600; color: var(--accent); line-height: 1.2; }
+    .word-label { font-size: 0.75rem; font-family: var(--serif); color: var(--gris); text-transform: uppercase; letter-spacing: 0.1em; }
+    .word-main  { font-size: 2rem; font-weight: 600; color: var(--tinta); line-height: 1.2; }
     .word-meta  { display: flex; align-items: center; gap: 0.75rem; }
-    .word-count { font-size: 0.78rem; font-family: 'DM Mono', monospace; color: var(--muted); }
+    .word-count { font-size: 0.78rem; font-family: var(--serif); color: var(--gris); }
     .stars      { font-size: 0.95rem; letter-spacing: 0.05em; }
-    .stars.s0   { color: var(--muted); }
-    .stars.s1   { color: #c9a96e88; }
-    .stars.s2   { color: var(--accent); }
-    .stars.s3   { color: var(--success); }
+    .stars.s0   { color: var(--gris-claro); }
+    .stars.s1   { color: var(--gris); }
+    .stars.s2   { color: var(--tinta); }
+    .stars.s3   { color: var(--verde); }
 
     .hint-used-badge {
-      font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted);
-      background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+      font-family: var(--serif); font-size: 0.72rem; color: var(--gris);
+      background: var(--relleno); border: 1px solid var(--linea); border-radius: 4px;
       padding: 0.2rem 0.5rem; display: none;
     }
     .hint-used-badge.visible { display: inline-block; }
@@ -749,19 +838,19 @@
     }
     .hint-dropdown.visible { display: flex; }
     .hint-dropdown-label {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.75rem;
-      color: var(--muted);
+      color: var(--gris);
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
     .hint-word-btn {
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 20px;
-      color: var(--text);
+      color: var(--tinta);
       cursor: pointer;
-      font-family: 'Lora', serif;
+      font-family: var(--serif);
       font-size: 0.9rem;
       padding: 0.4rem 1rem;
       text-align: center;
@@ -769,7 +858,7 @@
       display: inline-block;
       width: auto;
     }
-    .hint-word-btn:hover { border-color: var(--accent); background: #222; }
+    .hint-word-btn:hover { border-color: var(--tinta); background: var(--relleno-hover); }
 
     #hint-word-buttons {
       display: flex;
@@ -779,23 +868,23 @@
 
     /* ── Boîte définition ── */
     .hint-box {
-      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      width: 100%; background: var(--relleno); border: 1px solid var(--linea);
       border-radius: 8px; font-size: 0.92rem; line-height: 1.7;
-      color: var(--text); display: none; animation: fadeIn 0.4s ease;
+      color: var(--tinta); display: none; animation: fadeIn 0.4s ease;
       overflow: hidden;
     }
     .hint-box.visible { display: block; }
     .hint-box .hint-label {
-      font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--accent);
+      font-family: var(--serif); font-size: 0.72rem; color: var(--tinta);
       text-transform: uppercase; letter-spacing: 0.1em;
       display: flex; align-items: center; justify-content: space-between;
       padding: 0.75rem 1.25rem;
       cursor: pointer;
       user-select: none;
     }
-    .hint-box .hint-label:hover { background: rgba(255,255,255,0.03); }
+    .hint-box .hint-label:hover { background: var(--relleno); }
     .hint-box .hint-collapse-btn {
-      background: none; border: none; color: var(--muted);
+      background: none; border: none; color: var(--gris);
       font-size: 0.85rem; cursor: pointer; padding: 0;
       transition: transform 0.2s;
     }
@@ -811,60 +900,60 @@
     .hint-actions { display: flex; flex-wrap: wrap; gap: 0.9rem; align-items: center; }
     .btn-link {
       background: none; border: none; padding: 0; cursor: pointer;
-      font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted);
+      font-family: var(--serif); font-size: 0.72rem; color: var(--gris);
       text-decoration: underline; text-underline-offset: 3px;
     }
-    .btn-link:hover { color: var(--accent); }
+    .btn-link:hover { color: var(--tinta); }
     .hint-translation {
-      margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid var(--border);
+      margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid var(--linea);
       font-size: 0.92rem;
     }
-    .hint-translation .tr-word { color: var(--accent); }
-    .hint-translation.tr-err   { color: var(--error); font-size: 0.85rem; }
+    .hint-translation .tr-word { color: var(--tinta); }
+    .hint-translation.tr-err   { color: var(--rojo); font-size: 0.85rem; }
     .study-note {
-      margin-top: 0.75rem; font-family: 'DM Mono', monospace; font-size: 0.72rem;
-      color: var(--muted); text-align: center;
+      margin-top: 0.75rem; font-family: var(--serif); font-size: 0.72rem;
+      color: var(--gris); text-align: center;
     }
-    #word-image-wrap { border-radius: 8px; overflow: hidden; background: #222; }
+    #word-image-wrap { border-radius: 8px; overflow: hidden; background: var(--relleno-hover); }
     #word-image-wrap img { width: 100%; display: block; }
-    .word-image-none { color: var(--muted); font-style: italic; font-size: 0.88rem; text-align: center; }
+    .word-image-none { color: var(--gris); font-style: italic; font-size: 0.88rem; text-align: center; }
 
     /* ── Mode image ── */
     #vocab-section { display: contents; } /* hérite du gap flex du parent .screen */
     #image-section { display: none; flex-direction: column; gap: 0.75rem; width: 100%; }
     #image-section.visible { display: flex; }
-    .photo-wrap { border-radius: 12px; overflow: hidden; background: #222; width: 100%; }
+    .photo-wrap { border-radius: 12px; overflow: hidden; background: var(--relleno-hover); width: 100%; }
     .photo-wrap img { width: 100%; height: auto; display: block; transition: opacity 0.3s; }
     .photo-wrap img.photo-loading { opacity: 0.35; }
-    .btn-new-photo { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 0.55rem; font-size: 0.85rem; cursor: pointer; font-family: 'DM Mono', monospace; }
-    .btn-new-photo:hover { border-color: var(--accent); color: var(--accent); }
-    .token-display { font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--muted); white-space: nowrap; display: block; }
+    .btn-new-photo { width: 100%; background: var(--relleno); border: 1px solid var(--linea); color: var(--gris); border-radius: 8px; padding: 0.55rem; font-size: 0.85rem; cursor: pointer; font-family: var(--serif); }
+    .btn-new-photo:hover { border-color: var(--tinta); color: var(--tinta); }
+    .token-display { font-family: var(--mono); font-size: 0.65rem; color: var(--gris); white-space: nowrap; display: block; }
 
     /* ── Zone phrase ── */
     .sentence-section { width: 100%; display: flex; flex-direction: column; gap: 0.75rem; }
-    .sentence-label   { font-size: 0.85rem; color: var(--muted); font-style: italic; }
+    .sentence-label   { font-size: 0.85rem; color: var(--gris); font-style: italic; }
 
     /* ── Feedback ── */
     .feedback-box {
       width: 100%; border-radius: 8px; padding: 1.25rem; font-size: 0.92rem;
       line-height: 1.7; display: none; animation: fadeIn 0.4s ease;
-      border: 1px solid var(--border); /* bordure neutre pendant le streaming (avant verdict) */
+      border: 1px solid var(--linea); /* bordure neutre pendant le streaming (avant verdict) */
     }
     .feedback-box.visible   { display: block; }
-    .feedback-box.correct   { background: #0e2018; border: 1px solid var(--success); color: var(--success); }
-    .feedback-box.incorrect { background: #200e0e; border: 1px solid var(--error);   color: var(--error); }
-    .feedback-box.partial   { background: #201a0e; border: 1px solid #e0a85a;        color: #e0a85a; }
+    .feedback-box.correct   { background: transparent; border: 1px solid var(--verde); color: var(--verde); }
+    .feedback-box.incorrect { background: transparent; border: 1px solid var(--rojo);   color: var(--rojo); }
+    .feedback-box.partial   { background: transparent; border: 1px solid var(--ocre);        color: var(--ocre); }
 
     /* Sections repliables de la boîte de vérification */
     .fb-controls { display: flex; justify-content: flex-end; margin-bottom: 0.25rem; }
     .fb-toggle-all { background: none; border: none; color: inherit; opacity: 0.7; cursor: pointer;
-      font-family: 'DM Mono', monospace; font-size: 0.7rem; padding: 0.1rem 0.2rem; }
+      font-family: var(--serif); font-size: 0.7rem; padding: 0.1rem 0.2rem; }
     .fb-toggle-all:hover { opacity: 1; }
     .fb-section + .fb-section { border-top: 1px solid currentColor; }
     .fb-section { opacity: 1; }
     .fb-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
       cursor: pointer; padding: 0.55rem 0; }
-    .fb-title { font-family: 'DM Mono', monospace; font-size: 0.72rem; text-transform: uppercase;
+    .fb-title { font-family: var(--serif); font-size: 0.72rem; text-transform: uppercase;
       letter-spacing: 0.08em; font-weight: 600; }
     .fb-chevron { font-size: 0.8rem; flex-shrink: 0; transition: transform 0.2s; }
     .fb-section.collapsed .fb-chevron { transform: rotate(-90deg); }
@@ -881,7 +970,7 @@
     .fb-item { margin: 0 0 0.5rem; }
     .fb-item:last-child { margin-bottom: 0; }
     .sev {
-      font-family: 'DM Mono', monospace; font-size: 0.6rem; text-transform: uppercase;
+      font-family: var(--serif); font-size: 0.6rem; text-transform: uppercase;
       letter-spacing: 0.08em; border: 1px solid currentColor; border-radius: 4px;
       padding: 0.05rem 0.35rem; margin-right: 0.4rem; white-space: nowrap;
     }
@@ -890,7 +979,7 @@
     .sev-det { opacity: 0.5; }
     .fb-details { margin-top: 0.7rem; }
     .fb-details > summary {
-      cursor: pointer; font-family: 'DM Mono', monospace; font-size: 0.7rem;
+      cursor: pointer; font-family: var(--serif); font-size: 0.7rem;
       opacity: 0.65; list-style: none;
     }
     .fb-details > summary::-webkit-details-marker { display: none; }
@@ -905,11 +994,11 @@
     .fb-section.collapsed[data-has-maj] .fb-item.is-maj.over-cap,
     .fb-section.collapsed[data-has-maj] .fb-details { display: none; }
     .fb-count {
-      font-family: 'DM Mono', monospace; font-size: 0.66rem; opacity: 0.65;
+      font-family: var(--serif); font-size: 0.66rem; opacity: 0.65;
       margin-left: 0.4rem; text-transform: none; letter-spacing: 0.04em;
     }
     .fb-more {
-      font-family: 'DM Mono', monospace; font-size: 0.7rem; opacity: 0.7;
+      font-family: var(--serif); font-size: 0.7rem; opacity: 0.7;
       background: none; border: none; color: inherit; cursor: pointer; padding: 0.2rem 0;
     }
     .fb-more:hover { opacity: 1; }
@@ -920,15 +1009,15 @@
     .fb-details[open] > summary::before { content: '▾ '; }
     .fb-details > .fb-item { margin-top: 0.5rem; }
 
-    .feedback-box.image     { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+    .feedback-box.image     { background: var(--relleno); border: 1px solid var(--linea); color: var(--tinta); }
     .feedback-box.image .md-h2 {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.72rem;
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      color: var(--accent);
-      border-bottom: 1px solid var(--border);
+      color: var(--tinta);
+      border-bottom: 1px solid var(--linea);
       padding-bottom: 0.3rem;
       display: block;
       margin-top: 1.1rem;
@@ -938,7 +1027,7 @@
     }
     .no-count-notice { font-size: 0.78rem; font-style: italic; opacity: 0.7; margin-top: 0.5rem; }
     .verdict-score {
-      font-family: 'DM Mono', monospace; font-size: 1.5rem; font-weight: 700;
+      font-family: var(--serif); font-size: 1.5rem; font-weight: 700;
       padding-top: 0.6rem; margin-top: 0.75rem; text-align: center;
       border-top: 1px solid currentColor; opacity: 0.9;
     }
@@ -959,16 +1048,16 @@
     .btn-qcm {
       width: 100%;
       background: transparent;
-      border: 1px dashed var(--accent);
+      border: 1px dashed var(--tinta);
       border-radius: 6px;
-      color: var(--accent);
+      color: var(--tinta);
       cursor: pointer;
-      font-family: 'Lora', serif;
+      font-family: var(--serif);
       font-size: 0.9rem;
       padding: 0.75rem;
       transition: background 0.2s;
     }
-    .btn-qcm:hover { background: #1a1500; }
+    .btn-qcm:hover { background: var(--relleno-hover); }
 
     /* ── Section QCM ── */
     .qcm-section {
@@ -987,21 +1076,21 @@
       cursor: pointer;
     }
     .qcm-head-text { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; min-width: 0; }
-    .qcm-chevron { color: var(--muted); font-size: 0.9rem; flex-shrink: 0; transition: transform 0.2s; }
+    .qcm-chevron { color: var(--gris); font-size: 0.9rem; flex-shrink: 0; transition: transform 0.2s; }
     .qcm-section.collapsed .qcm-chevron { transform: rotate(-90deg); }
     .qcm-section.collapsed .qcm-body { display: none; }
     .qcm-body { display: flex; flex-direction: column; gap: 0.75rem; }
     .qcm-question {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.78rem;
-      color: var(--muted);
+      color: var(--gris);
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
     .qcm-word {
       font-size: 1.3rem;
       font-weight: 600;
-      color: var(--accent);
+      color: var(--tinta);
       text-align: center;
     }
     .qcm-choices {
@@ -1010,12 +1099,12 @@
       gap: 0.5rem;
     }
     .qcm-choice {
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 6px;
-      color: var(--text);
+      color: var(--tinta);
       cursor: pointer;
-      font-family: 'Lora', serif;
+      font-family: var(--serif);
       font-size: 0.9rem;
       padding: 0.85rem 1rem;
       text-align: left;
@@ -1027,11 +1116,11 @@
        bouton qui arrivait à cet endroit héritait de la bordure dorée — une réponse
        paraissait déjà choisie sur la carte suivante. */
     @media (hover: hover) and (pointer: fine) {
-      .qcm-choice:hover:not(:disabled)  { border-color: var(--accent); }
+      .qcm-choice:hover:not(:disabled)  { border-color: var(--tinta); }
     }
     .qcm-choice:disabled                { cursor: default; }
-    .qcm-choice.correct-answer          { border-color: var(--success); background: #0e2018; color: var(--success); }
-    .qcm-choice.wrong-answer            { border-color: var(--error);   background: #200e0e; color: var(--error); }
+    .qcm-choice.correct-answer          { border-color: var(--verde); background: transparent; color: var(--verde); }
+    .qcm-choice.wrong-answer            { border-color: var(--rojo);   background: transparent; color: var(--rojo); }
 
     .qcm-result {
       font-size: 0.88rem;
@@ -1039,8 +1128,8 @@
       text-align: center;
       min-height: 1.4em;
     }
-    .qcm-result.correct   { color: var(--success); }
-    .qcm-result.incorrect { color: var(--error); }
+    .qcm-result.correct   { color: var(--verde); }
+    .qcm-result.incorrect { color: var(--rojo); }
 
     /* ── Formes grammaticales ── */
     .grammar-forms-zone {
@@ -1052,44 +1141,44 @@
     }
     .grammar-pill {
       background: transparent;
-      border: 1px solid var(--border);
+      border: 1px solid var(--linea);
       border-radius: 20px;
-      color: var(--muted);
-      font-family: 'DM Mono', monospace;
+      color: var(--gris);
+      font-family: var(--serif);
       font-size: 0.75rem;
       padding: 0.25rem 0.7rem;
       font-style: italic;
     }
 
     /* ── Chip révision (mot déjà vu) ── */
-    .word-chip.chip-review .chip-word { color: var(--text); }
-    .word-card.card-review #current-word { color: var(--text); }
+    .word-chip.chip-review .chip-word { color: var(--gris); }
+    .word-card.card-review #current-word { color: var(--gris); }
 
     /* ── Mot « étudié » : reste à l'écran, mais sort de la phrase du tour ── */
     .word-chip.chip-studied,
     .word-card.card-studied { opacity: 0.6; border-style: dashed; }
-    .word-chip.chip-studied .chip-word { color: var(--text); }
+    .word-chip.chip-studied .chip-word { color: var(--tinta); }
     .studied-badge {
-      font-family: 'DM Mono', monospace; font-size: 0.6rem; color: var(--muted);
+      font-family: var(--serif); font-size: 0.6rem; color: var(--gris);
       letter-spacing: 0.06em; text-transform: uppercase;
     }
 
     /* ── Contour résultat (après vérification) ── */
     .word-chip.chip-correct,
-    .word-card.card-correct   { border-color: var(--success); box-shadow: 0 0 0 1px var(--success); }
+    .word-card.card-correct   { border-color: var(--verde); box-shadow: 0 0 0 1px var(--verde); }
     .word-chip.chip-incorrect,
-    .word-card.card-incorrect { border-color: #e05a5a; box-shadow: 0 0 0 1px #e05a5a; }
+    .word-card.card-incorrect { border-color: var(--rojo); box-shadow: 0 0 0 1px var(--rojo); }
 
     /* ── Écran « Mes mots » ── */
     /* ── Écran ajouter du contenu ── */
-    .add-field-label { display:block; font-family:'DM Mono',monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin:0.85rem 0 0.3rem; }
-    .add-input { width:100%; box-sizing:border-box; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:0.6rem 0.7rem; font-family:'Lora',serif; }
+    .add-field-label { display:block; font-family:var(--serif); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--gris); margin:0.85rem 0 0.3rem; }
+    .add-input { width:100%; box-sizing:border-box; background:var(--relleno); border:1px solid var(--linea); color:var(--tinta); border-radius:8px; padding:0.6rem 0.7rem; font-family:var(--serif); }
     .add-result { margin-top:0.8rem; font-size:0.88rem; min-height:1.2rem; line-height:1.5; }
-    .add-result.ok   { color:var(--success); }
-    .add-result.err  { color:var(--error); }
-    .add-result.warn { color:#e0a85a; }
+    .add-result.ok   { color:var(--verde); }
+    .add-result.err  { color:var(--rojo); }
+    .add-result.warn { color:var(--ocre); }
 
-    .next-review-line { margin-top:0.7rem; font-family:'DM Mono',monospace; font-size:0.74rem; opacity:0.8; text-align:center; }
+    .next-review-line { margin-top:0.7rem; font-family:var(--serif); font-size:0.74rem; opacity:0.8; text-align:center; }
 
     /* ── Modale générique (instructions + choix des langues) ── */
     .modal-overlay {
@@ -1099,25 +1188,25 @@
     }
     .modal-overlay.visible { display: flex; }
     .modal-card {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      background: var(--relleno); border: 1px solid var(--linea); border-radius: 14px;
       max-width: 460px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 1.6rem;
       position: relative; animation: fadeIn 0.3s ease;
     }
     .modal-close {
       position: absolute; top: 0.6rem; right: 0.8rem; background: none; border: none;
-      color: var(--muted); font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 0.2rem;
+      color: var(--gris); font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 0.2rem;
     }
-    .modal-close:hover { color: var(--text); }
-    .modal-title { font-size: 1.4rem; color: var(--accent); margin: 0 0 1rem; font-weight: 600; }
+    .modal-close:hover { color: var(--tinta); }
+    .modal-title { font-size: 1.4rem; color: var(--tinta); margin: 0 0 1rem; font-weight: 600; }
     .help-section { margin-bottom: 1.15rem; }
     .help-section h3 {
-      font-family: 'DM Mono', monospace; font-size: 0.74rem; text-transform: uppercase;
-      letter-spacing: 0.08em; color: var(--accent); margin: 0 0 0.4rem;
+      font-family: var(--serif); font-size: 0.74rem; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--tinta); margin: 0 0 0.4rem;
     }
-    .help-section p, .help-section ul, .help-section ol { font-size: 0.9rem; line-height: 1.6; margin: 0; color: var(--text); }
+    .help-section p, .help-section ul, .help-section ol { font-size: 0.9rem; line-height: 1.6; margin: 0; color: var(--tinta); }
     .help-section ul, .help-section ol { padding-left: 1.1rem; }
     .help-section li { margin-bottom: 0.25rem; }
-    .help-section code { font-family: 'DM Mono', ui-monospace, monospace; font-size: 0.82em; background: var(--surface); padding: 0.08em 0.35em; border-radius: 4px; word-break: break-word; }
+    .help-section code { font-family: var(--mono); font-size: 0.82em; background: var(--relleno); padding: 0.08em 0.35em; border-radius: 4px; word-break: break-word; }
     .help-btn { font-size: 0.85rem; }
 
     /* Bouton « ajouter une langue » dans la grille */
@@ -1126,57 +1215,57 @@
     /* Lignes du sélecteur de langues */
     .lang-pick-row {
       display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0.85rem;
-      border: 1px solid var(--border); border-radius: 10px; margin-bottom: 0.5rem; cursor: pointer;
+      border: 1px solid var(--linea); border-radius: 10px; margin-bottom: 0.5rem; cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
     }
-    .lang-pick-row.on { border-color: var(--accent); background: #222; }
+    .lang-pick-row.on { border-color: var(--tinta); background: var(--relleno-hover); }
     .lang-pick-row .lp-flag { font-size: 1.4rem; }
     .lang-pick-row .lp-name { flex: 1; }
-    .lang-pick-row .lp-check { color: var(--accent); font-weight: 700; opacity: 0; }
+    .lang-pick-row .lp-check { color: var(--tinta); font-weight: 700; opacity: 0; }
     .lang-pick-row.on .lp-check { opacity: 1; }
 
     /* Lignes du sélecteur de mots (recherche mode libre) */
     .free-pick-row {
       display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0.8rem;
-      border: 1px solid var(--border); border-radius: 10px; margin-bottom: 0.4rem; cursor: pointer;
+      border: 1px solid var(--linea); border-radius: 10px; margin-bottom: 0.4rem; cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
     }
-    .free-pick-row.on { border-color: var(--accent); background: #222; }
-    .free-pick-row .fp-word { flex: 1; font-family: 'Lora', Georgia, serif; }
-    .free-pick-row .fp-order { color: var(--accent); font-weight: 700; font-size: 0.85rem; min-width: 1.2rem; text-align: right; opacity: 0; }
+    .free-pick-row.on { border-color: var(--tinta); background: var(--relleno-hover); }
+    .free-pick-row .fp-word { flex: 1; font-family: var(--serif); }
+    .free-pick-row .fp-order { color: var(--tinta); font-weight: 700; font-size: 0.85rem; min-width: 1.2rem; text-align: right; opacity: 0; }
     .free-pick-row.on .fp-order { opacity: 1; }
-    #free-search-empty { color: var(--muted); font-size: 0.88rem; text-align: center; padding: 1rem 0; }
+    #free-search-empty { color: var(--gris); font-size: 0.88rem; text-align: center; padding: 1rem 0; }
     /* Effectif d'un groupe dans le sélecteur de filtre : toujours visible,
        contrairement à .fp-order qui n'apparaît que sur la ligne cochée. */
     .free-pick-row .fp-count {
-      color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      color: var(--gris); font-family: var(--serif); font-size: 0.72rem;
       font-variant-numeric: tabular-nums; white-space: nowrap;
     }
 
     /* Réinitialisation de la progression */
     .reset-mode-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
     .reset-mode-tab {
-      flex: 1; padding: 0.5rem; border: 1px solid var(--border); border-radius: 8px;
-      background: var(--surface); color: var(--muted); cursor: pointer; font-size: 0.85rem;
+      flex: 1; padding: 0.5rem; border: 1px solid var(--linea); border-radius: 8px;
+      background: var(--relleno); color: var(--gris); cursor: pointer; font-size: 0.85rem;
       transition: border-color 0.15s, color 0.15s;
     }
-    .reset-mode-tab.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-    .reset-danger { background: #e05a5a; border-color: #e05a5a; }
-    .reset-danger:hover:not(:disabled) { background: #c94848; }
+    .reset-mode-tab.on { border-color: var(--tinta); color: var(--tinta); font-weight: 600; }
+    .reset-danger { background: var(--rojo); border-color: var(--rojo); }
+    .reset-danger:hover:not(:disabled) { background: var(--rojo); }
     .reset-danger:disabled { opacity: 0.5; cursor: default; }
 
-    .mot-row { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.6rem 0.85rem; margin-bottom:0.5rem; border:1px solid var(--border); border-radius:12px; background:var(--surface); transition:border-color 0.15s; }
-    .mot-row:hover { border-color:var(--accent); }
+    .mot-row { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.6rem 0.85rem; margin-bottom:0.5rem; border:1px solid var(--linea); border-radius:12px; background:var(--relleno); transition:border-color 0.15s; }
+    .mot-row:hover { border-color:var(--tinta); }
     /* Sélection à la LIGNE : plus de case native, la ligne s'allume — même
        idiome que « chercher un mot ». Le ✓ dit l'état sans ajouter de contrôle. */
-    .mot-row.sel { border-color:var(--accent); }
-    .mot-row .mot-check { flex:0 0 auto; width:0.9rem; color:var(--accent); font-size:0.8rem; }
+    .mot-row.sel { border-color:var(--tinta); }
+    .mot-row .mot-check { flex:0 0 auto; width:0.9rem; color:var(--tinta); font-size:0.8rem; }
     .mot-row.selectable { cursor:pointer; }
     /* En-tête collé de « mes mots » : il porte le fond, sinon la liste
        défilerait visiblement au travers. */
     .mots-head {
       position: sticky; top: var(--safe-top, 0px); z-index: 5;
-      width: 100%; background: var(--bg);
+      width: 100%; background: var(--papel);
       display: flex; flex-direction: column; gap: 0.55rem;
       padding: 0.4rem 0 0.55rem;
       box-shadow: 0 8px 12px -10px #000;
@@ -1190,48 +1279,48 @@
        nulle part ailleurs. */
     .mots-toolbar {
       display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-      font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted);
+      font-family: var(--serif); font-size: 0.72rem; color: var(--gris);
     }
     .mots-toolbar .mots-pager { display: flex; align-items: center; gap: 0.15rem; font-variant-numeric: tabular-nums; }
-    .mots-toolbar .mots-pager .cur { color: var(--text); }
+    .mots-toolbar .mots-pager .cur { color: var(--tinta); }
     .mots-toolbar .btn-ghost { font-size: 0.72rem; padding: 0.15rem 0.25rem; }
     .mots-toolbar .btn-ghost[disabled] { opacity: 0.35; cursor: default; }
-    .mots-toolbar .btn-ghost[disabled]:hover { color: var(--muted); }
-    .mots-size:hover { color: var(--accent); }
+    .mots-toolbar .btn-ghost[disabled]:hover { color: var(--gris); }
+    .mots-size:hover { color: var(--tinta); }
     /* Filtre par groupe : un seul bouton. Les 38 groupes espagnols rendus en
        pilules poussaient l'en-tête collé au-delà de la hauteur de l'écran — plus
        un mot visible, et un sticky plus haut que la fenêtre ne se parcourt pas. */
     .group-select-btn {
       display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-      width: 100%; background: var(--surface); border: 1px solid var(--border);
-      border-radius: 20px; color: var(--text); cursor: pointer;
-      font-family: 'DM Mono', monospace; font-size: 0.75rem; padding: 0.38rem 0.8rem;
+      width: 100%; background: var(--relleno); border: 1px solid var(--linea);
+      border-radius: 20px; color: var(--tinta); cursor: pointer;
+      font-family: var(--serif); font-size: 0.75rem; padding: 0.38rem 0.8rem;
     }
-    .group-select-btn:hover { border-color: var(--accent); }
-    .group-select-btn.active { border-color: var(--accent); }
-    .group-select-btn .gsel-val { color: var(--accent); }
-    .mot-row .mot-w { font-family:'Lora', Georgia, serif; font-size:1rem; }
+    .group-select-btn:hover { border-color: var(--tinta); }
+    .group-select-btn.active { border-color: var(--tinta); }
+    .group-select-btn .gsel-val { color: var(--tinta); }
+    .mot-row .mot-w { font-family:var(--serif); font-size:1rem; }
     /* Note entre parenthèses d'une entrée annotée : contexte, pas vocabulaire */
-    .mot-row .mot-note { color: var(--muted); font-size: 0.78rem; font-style: italic; }
+    .mot-row .mot-note { color: var(--gris); font-size: 0.78rem; font-style: italic; }
     .mot-row .mot-groups { display:flex; flex-wrap:wrap; gap:0.25rem; margin-top:0.25rem; }
-    .mot-row .mot-gchip { font-family:inherit; font-size:0.68rem; color:var(--muted); background:none; border:1px solid var(--border); border-radius:999px; padding:0.05rem 0.45rem; cursor:pointer; }
-    .mot-row .mot-gchip:hover { color:var(--accent); border-color:var(--accent); }
+    .mot-row .mot-gchip { font-family:inherit; font-size:0.68rem; color:var(--gris); background:none; border:1px solid var(--linea); border-radius:999px; padding:0.05rem 0.45rem; cursor:pointer; }
+    .mot-row .mot-gchip:hover { color:var(--tinta); border-color:var(--tinta); }
     .mot-row .mot-lang-tag { font-size:0.78rem; margin-left:0.4rem; opacity:0.7; }
     .mot-row .mot-actions { display:flex; align-items:center; gap:0.2rem; flex-shrink:0; }
-    .mot-row .mot-date { font-size:0.72rem; color:var(--muted); margin-right:0.35rem; white-space:nowrap; }
-    .mot-row .mot-date.rev-due { color:var(--accent); font-weight:600; }
+    .mot-row .mot-date { font-size:0.72rem; color:var(--gris); margin-right:0.35rem; white-space:nowrap; }
+    .mot-row .mot-date.rev-due { color:var(--tinta); font-weight:600; }
     /* padding resserré : 4 actions par ligne (🔍 ✏️ 🔀 🗑) sur écran étroit */
     .mot-row .mot-actions button { background:none; border:none; cursor:pointer; font-size:0.95rem; padding:0.2rem 0.24rem; opacity:0.65; }
     .mot-row .mot-actions button:hover { opacity:1; }
 
     /* ── Bouton hint "révision" dans le dropdown ── */
-    .hint-word-btn.review { color: var(--accent); border-color: var(--accent); }
+    .hint-word-btn.review { color: var(--tinta); border-color: var(--tinta); }
 
     /* ── Panneau confirmation "Je ne sais pas" ── */
     .confirm-panel {
       width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--error);
+      background: var(--relleno);
+      border: 1px solid var(--rojo);
       border-radius: 12px;
       padding: 0.85rem 1rem;
       display: none;
@@ -1239,7 +1328,7 @@
       gap: 0.75rem;
     }
     .confirm-panel.visible { display: flex; }
-    .confirm-panel-text { font-size: 0.88rem; color: var(--text); font-style: italic; }
+    .confirm-panel-text { font-size: 0.88rem; color: var(--tinta); font-style: italic; }
     .confirm-panel-actions { display: flex; gap: 0.6rem; }
     .confirm-panel-actions .btn-primary,
     .confirm-panel-actions .btn-secondary { flex: 1; padding: 0.65rem; font-size: 0.88rem; }
@@ -1247,8 +1336,8 @@
     /* ── Menu contextuel mot ── */
     #word-ctx-menu {
       position: fixed;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 12px;
       padding: 0.35rem 0;
       min-width: 180px;
@@ -1268,22 +1357,22 @@
     #word-ctx-menu.verify .ctx-word-label { white-space: normal; max-width: none; }
     .ctx-verify-body {
       padding: 0.55rem 1rem; font-size: 0.85rem; line-height: 1.45;
-      white-space: normal; color: var(--text);
+      white-space: normal; color: var(--tinta);
     }
-    .ctx-verify-body.ok  { color: var(--success); }
-    .ctx-verify-body.ko  { color: #e05a5a; }
-    .ctx-verify-body.err { color: var(--error); }
+    .ctx-verify-body.ok  { color: var(--verde); }
+    .ctx-verify-body.ko  { color: var(--rojo); }
+    .ctx-verify-body.err { color: var(--rojo); }
     .ctx-verify-sug {
       padding: 0 1rem 0.5rem; font-size: 0.85rem; line-height: 1.4;
-      white-space: normal; color: var(--muted);
+      white-space: normal; color: var(--gris);
     }
-    .ctx-verify-sug strong { color: var(--accent); font-family: 'Lora', serif; }
+    .ctx-verify-sug strong { color: var(--tinta); font-family: var(--serif); }
     .ctx-word-label {
       padding: 0.5rem 1rem 0.4rem;
       font-size: 0.78rem;
-      color: var(--muted);
+      color: var(--gris);
       font-style: italic;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--linea);
       margin-bottom: 0.2rem;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1299,17 +1388,17 @@
       padding: 0.65rem 1rem;
       font-size: 0.9rem;
       cursor: pointer;
-      color: var(--text);
+      color: var(--tinta);
       font-family: inherit;
     }
-    .ctx-menu-btn:hover, .ctx-menu-btn:active { background: rgba(255,255,255,0.06); }
-    .ctx-menu-btn.danger { color: var(--error); }
+    .ctx-menu-btn:hover, .ctx-menu-btn:active { background: var(--relleno-hover); }
+    .ctx-menu-btn.danger { color: var(--rojo); }
 
     /* ── Panneau réglages ── */
     .settings-panel {
       width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 12px;
       padding: 0.75rem 1rem;
       display: none;
@@ -1321,13 +1410,13 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.82rem;
-      color: var(--text);
+      color: var(--tinta);
       cursor: pointer;
       gap: 1rem;
     }
-    .settings-row input[type="checkbox"] { cursor: pointer; width: 1.1rem; height: 1.1rem; accent-color: var(--accent); }
+    .settings-row input[type="checkbox"] { cursor: pointer; width: 1.1rem; height: 1.1rem; accent-color: var(--tinta); }
 
     /* ── Boutons action ── */
     .action-row { width: 100%; display: flex; gap: 0.75rem; }
@@ -1347,18 +1436,18 @@
       gap: 0.5rem;
     }
     .filter-btn {
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 20px;
-      color: var(--muted);
+      color: var(--gris);
       cursor: pointer;
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.78rem;
       padding: 0.3rem 0.8rem;
       transition: border-color 0.2s, color 0.2s;
     }
-    .filter-btn:hover  { border-color: var(--accent); color: var(--text); }
-    .filter-btn.active { border-color: var(--accent); color: var(--accent); }
+    .filter-btn:hover  { border-color: var(--tinta); color: var(--tinta); }
+    .filter-btn.active { border-color: var(--tinta); color: var(--tinta); }
     /* Onglets de la page « ajouter » : deux boîtes de largeur égale */
     #add-mode-tabs { flex-wrap: nowrap; }
     #add-mode-tabs .filter-btn { flex: 1 1 0; text-align: center; }
@@ -1384,8 +1473,8 @@
     }
 
     .history-item {
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: var(--relleno);
+      border: 1px solid var(--linea);
       border-radius: 8px;
       padding: 0.75rem 1rem;
       display: flex;
@@ -1401,12 +1490,12 @@
     .history-word {
       font-size: 1rem;
       font-weight: 600;
-      color: var(--text);
+      color: var(--tinta);
     }
     .history-date {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.72rem;
-      color: var(--muted);
+      color: var(--gris);
     }
     .history-item-right {
       display: flex;
@@ -1416,31 +1505,31 @@
       flex-shrink: 0;
     }
     .history-stars { font-size: 0.85rem; }
-    .history-stars.s0 { color: var(--muted); }
-    .history-stars.s1 { color: #c9a96e88; }
-    .history-stars.s2 { color: var(--accent); }
-    .history-stars.s3 { color: var(--success); }
+    .history-stars.s0 { color: var(--gris-claro); }
+    .history-stars.s1 { color: var(--gris); }
+    .history-stars.s2 { color: var(--tinta); }
+    .history-stars.s3 { color: var(--verde); }
     .history-score {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--serif);
       font-size: 0.72rem;
-      color: var(--muted);
+      color: var(--gris);
     }
     .stats-header { width: 100%; display: flex; align-items: center; justify-content: space-between; }
     .stats-grid   { width: 100%; display: flex; flex-direction: column; gap: 1rem; }
     .stats-lang-block {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      background: var(--relleno); border: 1px solid var(--linea); border-radius: 10px;
       padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;
     }
     .stats-lang-title { display: flex; align-items: center; gap: 0.6rem; font-size: 1rem; font-weight: 600; }
     .stats-lang-title .flag { font-size: 1.2rem; }
     .stats-row { display: flex; justify-content: space-between; font-size: 0.85rem; }
-    .stats-row .label { color: var(--muted); font-style: italic; }
-    .stats-row .value { font-family: 'DM Mono', monospace; }
-    .stats-row .value.green  { color: var(--success); }
-    .stats-row .value.yellow { color: var(--accent); }
-    .stats-row .value.muted  { color: var(--muted); }
-    .progress-bar-bg   { width: 100%; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
-    .progress-bar-fill { height: 100%; background: var(--success); border-radius: 2px; transition: width 0.6s ease; }
+    .stats-row .label { color: var(--gris); font-style: italic; }
+    .stats-row .value { font-family: var(--serif); }
+    .stats-row .value.green  { color: var(--verde); }
+    .stats-row .value.yellow { color: var(--tinta); }
+    .stats-row .value.muted  { color: var(--gris); }
+    .progress-bar-bg   { width: 100%; height: 4px; background: var(--linea); border-radius: 2px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--verde); border-radius: 2px; transition: width 0.6s ease; }
 
     /* ── Menu principal (grille 2×3 sous les langues) ── */
     .menu-grid {
@@ -1448,37 +1537,37 @@
       width: 100%; margin-top: 1.4rem;
     }
     .menu-tile {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      background: var(--relleno); border: 1px solid var(--linea); border-radius: 12px;
       padding: 0.7rem 0.3rem; display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
-      color: var(--text); cursor: pointer;
-      font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      color: var(--tinta); cursor: pointer;
+      font-family: var(--serif); font-size: 0.72rem;
     }
-    .menu-tile:hover { border-color: var(--accent); }
+    .menu-tile:hover { border-color: var(--tinta); }
     .menu-tile .mt-icon { font-size: 1.15rem; line-height: 1; }
     .menu-hero {
       width: 100%; margin-top: 1.4rem;
-      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      background: var(--relleno); border: 1px solid var(--linea); border-radius: 12px;
       padding: 0.9rem 0.3rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-      color: var(--accent); cursor: pointer;
-      font-family: 'DM Mono', monospace; font-size: 0.9rem;
+      color: var(--tinta); cursor: pointer;
+      font-family: var(--serif); font-size: 0.9rem;
     }
-    .menu-hero:hover { border-color: var(--accent); }
+    .menu-hero:hover { border-color: var(--tinta); }
     .menu-hero .mt-icon { font-size: 1.25rem; line-height: 1; }
     .menu-grid + .menu-hero, .menu-hero + .menu-grid { margin-top: 0.6rem; }
 
     /* ── Sélecteur de langue de l'appli (écran connexion) ── */
     .app-lang-row { display: flex; gap: 0.4rem; justify-content: center; margin-bottom: 0.9rem; }
     .app-lang-btn {
-      background: none; border: 1px solid var(--border); color: var(--muted);
+      background: none; border: 1px solid var(--linea); color: var(--gris);
       border-radius: 6px; padding: 0.2rem 0.55rem;
-      font-family: 'DM Mono', monospace; font-size: 0.75rem; cursor: pointer;
+      font-family: var(--serif); font-size: 0.75rem; cursor: pointer;
     }
-    .app-lang-btn.active { color: var(--accent); border-color: var(--accent); }
+    .app-lang-btn.active { color: var(--tinta); border-color: var(--tinta); }
 
     /* ── Spinner ── */
     .spinner {
       display: inline-block; width: 14px; height: 14px;
-      border: 2px solid var(--muted); border-top-color: var(--accent);
+      border: 2px solid var(--gris); border-top-color: var(--tinta);
       border-radius: 50%; animation: spin 0.7s linear infinite;
       margin-right: 6px; vertical-align: middle;
     }
@@ -1536,7 +1625,7 @@
       gap: 0.5rem; background: none; border: none; padding: 0; border-radius: 0;
     }
     body.words-compact #multi-word-chips .word-chip:not(:last-child)::after {
-      content: '·'; color: var(--muted); font-size: 0.95rem;
+      content: '·'; color: var(--gris); font-size: 0.95rem;
     }
     body.words-compact .word-chip .chip-stars,
     body.words-compact .word-chip .chip-note,
@@ -1549,8 +1638,8 @@
     body.words-compact .word-chip.chip-incorrect,
     body.words-compact #single-word-card.card-correct,
     body.words-compact #single-word-card.card-incorrect { box-shadow: none; }
-    body.words-compact .word-chip.chip-correct   .chip-word { color: var(--success); }
-    body.words-compact .word-chip.chip-incorrect .chip-word { color: #e05a5a; text-decoration: line-through; }
+    body.words-compact .word-chip.chip-correct   .chip-word { color: var(--verde); }
+    body.words-compact .word-chip.chip-incorrect .chip-word { color: var(--rojo); text-decoration: line-through; }
 
     body.words-compact #single-word-card {
       background: none; border: none; padding: 0.1rem 0; gap: 0.2rem;
@@ -1559,8 +1648,8 @@
     body.words-compact #single-word-card .word-meta,
     body.words-compact #single-word-card .word-note { display: none; }
     body.words-compact #single-word-card .word-main { font-size: 1.05rem; }
-    body.words-compact #single-word-card.card-correct   .word-main { color: var(--success); }
-    body.words-compact #single-word-card.card-incorrect .word-main { color: #e05a5a; text-decoration: line-through; }
+    body.words-compact #single-word-card.card-correct   .word-main { color: var(--verde); }
+    body.words-compact #single-word-card.card-incorrect .word-main { color: var(--rojo); text-decoration: line-through; }
 
     /* ── Vérification : la phrase monte en haut, le verdict s'écrit dessous ── */
     #sentence-banner { display: none; }
@@ -1578,24 +1667,24 @@
     #screen-practice.verifying .btn-submit-inline { display: none; }
     #screen-practice.verifying .textarea-wrap {
       border: none; background: transparent; border-radius: 0;
-      border-left: 2px solid var(--accent);
+      border-left: 2px solid var(--tinta);
       padding: 0.05rem 1.5rem 0.05rem 0.7rem;
       transform: none; cursor: pointer; overflow: visible;
     }
     #screen-practice.verifying .textarea-wrap::after {
       content: '✎'; position: absolute; right: 0; top: 0;
-      color: var(--muted); font-size: 0.8rem; opacity: 0.7; pointer-events: none;
+      color: var(--gris); font-size: 0.8rem; opacity: 0.7; pointer-events: none;
     }
     #screen-practice.verifying #sentence-banner {
-      display: block; font-size: 0.85rem; font-style: italic; color: var(--muted);
+      display: block; font-size: 0.85rem; font-style: italic; color: var(--gris);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5;
     }
 
     /* Rattrapage : proposé, jamais imposé — rien ne se déplace tout seul */
     #catchup-btn {
       position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 600;
-      display: none; background: var(--accent); color: var(--bg); border: none;
-      border-radius: 999px; font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      display: none; background: var(--tinta); color: var(--papel); border: none;
+      border-radius: 999px; font-family: var(--serif); font-size: 0.72rem;
       padding: 0.5rem 1rem; box-shadow: 0 4px 16px rgba(0,0,0,0.5); cursor: pointer;
     }
     #catchup-btn.visible { display: block; }
@@ -1618,7 +1707,7 @@
   <div class="screen" id="screen-loading">
     <h1 class="app-title">BYOV</h1>
     <p class="app-subtitle" style="margin-top:0" data-i18n="loading_connecting">connexion en cours…</p>
-    <div style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-top:1rem"></div>
+    <div style="width:32px;height:32px;border:3px solid var(--linea);border-top-color:var(--tinta);border-radius:50%;animation:spin 0.8s linear infinite;margin-top:1rem"></div>
   </div>
 
   <!-- ── Écran 1 : Connexion / Inscription ── -->
@@ -1638,7 +1727,7 @@
       <button class="btn-primary" id="auth-submit" onclick="submitAuth()" data-i18n="auth_login">Se connecter</button>
       <button class="btn-ghost" id="auth-toggle" onclick="toggleAuthMode()" data-i18n="auth_no_account">Pas de compte ? Créer un compte</button>
       <p class="error-msg" id="auth-error"></p>
-      <div style="text-align:center;color:var(--muted);font-size:0.8rem;margin:0.2rem 0;" data-i18n="auth_or">— ou —</div>
+      <div style="text-align:center;color:var(--gris);font-size:0.8rem;margin:0.2rem 0;" data-i18n="auth_or">— ou —</div>
       <div id="google-signin-btn" style="display:flex;justify-content:center;"></div>
     </div>
     <button class="btn-ghost help-btn" onclick="openHelp()" data-i18n="help_btn">❓ Comment ça marche</button>
@@ -1668,7 +1757,7 @@
       <div class="settings-row" style="cursor:default;">
         <span data-i18n="set_app_lang">Langue de l'appli</span>
         <select id="app-lang-select" onchange="setAppLang(this.value)"
-          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          style="background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.2rem 0.4rem;font-family:var(--serif);font-size:0.8rem;">
           <option value="en">English</option>
           <option value="fr">Français</option>
           <option value="es">Español</option>
@@ -1678,7 +1767,7 @@
       <div class="settings-row" style="cursor:default;">
         <span data-i18n="set_model">Modèle IA</span>
         <select id="model-select" onchange="setModel(this.value)"
-          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          style="background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.2rem 0.4rem;font-family:var(--serif);font-size:0.8rem;">
           <option value="gpt4">GPT-5.6 Terra</option>
           <option value="gemma">Gemma 4 31B</option>
           <option value="geminiflashlite">Gemini 3.5 Flash Lite</option>
@@ -1688,40 +1777,40 @@
       <div class="settings-row" style="cursor:default;">
         <span id="reasoning-label" data-i18n="set_reasoning">Raisonnement</span>
         <select id="reasoning-select" onchange="setReasoningLevel(this.value)"
-          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          style="background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.2rem 0.4rem;font-family:var(--serif);font-size:0.8rem;">
         </select>
       </div>
       <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
         <span data-i18n="set_openai_key">Clé API OpenAI (GPT)</span>
         <input type="password" id="openai-key-input" placeholder="sk-…" autocomplete="off"
           onchange="setOpenaiKey(this.value)"
-          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          style="width:100%;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.35rem 0.5rem;font-family:var(--mono);font-size:0.8rem;">
       </div>
       <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
         <span data-i18n="set_gemini_key">Clé API Gemini / Gemma</span>
         <input type="password" id="gemini-key-input" placeholder="AIza…" autocomplete="off"
           onchange="setGeminiKey(this.value)"
-          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          style="width:100%;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.35rem 0.5rem;font-family:var(--mono);font-size:0.8rem;">
       </div>
       <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
         <span data-i18n="set_add_link">Lien d'ajout (raccourci iPhone)</span>
         <input type="text" id="add-url-input" readonly placeholder="connecte-toi pour générer ton lien" data-i18n-ph="set_add_link_ph"
           onclick="this.select()"
-          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.35rem 0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;">
-        <span style="font-size:0.7rem;color:var(--muted);" data-i18n="set_add_link_note">Remplace <code>WORD</code> par le mot dans ton raccourci. <code>lang=auto</code> détecte la langue.</span>
+          style="width:100%;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.35rem 0.5rem;font-family:var(--mono);font-size:0.68rem;">
+        <span style="font-size:0.7rem;color:var(--gris);" data-i18n="set_add_link_note">Remplace <code>WORD</code> par le mot dans ton raccourci. <code>lang=auto</code> détecte la langue.</span>
       </div>
       <label class="settings-row">
         <span data-i18n="set_tokens">Afficher compteur tokens</span>
         <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
       </label>
       <label class="settings-row">
-        <span data-i18n="set_situation_counts">Modes Situation et Libre comptent dans la progression<br><span style="font-size:0.7rem;color:var(--muted);">étoiles + révisions (l'historique compte toujours)</span></span>
+        <span data-i18n="set_situation_counts">Modes Situation et Libre comptent dans la progression<br><span style="font-size:0.7rem;color:var(--gris);">étoiles + révisions (l'historique compte toujours)</span></span>
         <input type="checkbox" id="toggle-situation-counts" onchange="setSituationCounts(this.checked)">
       </label>
       <div class="settings-row" style="cursor:default;">
         <span data-i18n="set_image_theme">Thème photos (Imagen)</span>
         <select id="image-theme-select" onchange="setImageTheme(this.value)"
-          style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;">
+          style="background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.2rem 0.4rem;font-family:var(--serif);font-size:0.8rem;">
           <option value="" data-i18n="theme_random">🎲 Aléatoire</option>
           <option value="people" data-i18n="theme_people">👥 Personnes</option>
           <option value="city street" data-i18n="theme_city">🏙️ Ville</option>
@@ -1733,7 +1822,7 @@
         </select>
       </div>
       <div class="settings-row" style="cursor:default;">
-        <span>Réinitialiser la progression<br><span style="font-size:0.7rem;color:var(--muted);">remet des mots à « nouveaux » (l'historique est conservé)</span></span>
+        <span>Réinitialiser la progression<br><span style="font-size:0.7rem;color:var(--gris);">remet des mots à « nouveaux » (l'historique est conservé)</span></span>
         <button class="btn-ghost" onclick="openResetProgress()" style="flex-shrink:0;">🔄 Réinitialiser</button>
       </div>
     </div>
@@ -1765,19 +1854,19 @@
       <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
         <div style="display:flex; justify-content:space-between; width:100%;">
           <span data-i18n="set_max_new">Nouveaux mots / jour</span>
-          <span id="max-new-value" style="color: var(--accent); font-weight: 600;"></span>
+          <span id="max-new-value" style="color: var(--tinta); font-weight: 600;"></span>
         </div>
         <input type="range" id="max-new-slider" min="0" max="23" step="1"
-          style="width:100%; accent-color: var(--accent);"
+          style="width:100%; accent-color: var(--tinta);"
           oninput="setMaxNewPerDay(MAX_NEW_VALUES[+this.value])">
       </div>
       <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
         <div style="display:flex; justify-content:space-between; width:100%;">
           <span data-i18n="set_free_mix">Mélange du mode libre</span>
-          <span id="free-mix-value" style="color: var(--accent); font-weight: 600;"></span>
+          <span id="free-mix-value" style="color: var(--tinta); font-weight: 600;"></span>
         </div>
         <input type="range" id="free-mix-slider" min="0" max="4" step="1"
-          style="width:100%; accent-color: var(--accent);"
+          style="width:100%; accent-color: var(--tinta);"
           oninput="onFreeMixPreview(this.value)" onchange="onFreeMixChange(this.value)">
       </div>
     </div>
@@ -2067,7 +2156,7 @@
       <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">← retour</button>
     </div>
     <div class="stats-grid" id="stats-grid">
-      <p style="color:var(--muted);font-style:italic;" data-i18n="loading">Chargement…</p>
+      <p style="color:var(--gris);font-style:italic;" data-i18n="loading">Chargement…</p>
     </div>
   </div>
 
@@ -2081,7 +2170,7 @@
     <div class="history-filters" id="history-filters"></div>
     <!-- Liste des mots -->
     <div class="history-list" id="history-list">
-      <p style="color:var(--muted);font-style:italic;" data-i18n="loading">Chargement…</p>
+      <p style="color:var(--gris);font-style:italic;" data-i18n="loading">Chargement…</p>
     </div>
   </div>
 
@@ -2097,13 +2186,13 @@
       </div>
       <input type="text" id="mots-search" placeholder="🔍 chercher un mot…" data-i18n-ph="search_ph" oninput="motsPage=0;renderMots()"
         autocapitalize="off" autocomplete="off"
-        style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;">
+        style="width:100%;box-sizing:border-box;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:8px;padding:0.5rem 0.7rem;font-family:var(--serif);">
       <div class="history-filters" id="mots-filters"></div>
       <div class="history-filters" id="mots-group-filters" style="display:none"></div>
       <div id="mots-controls"></div>
     </div>
     <div class="history-list" id="mots-list">
-      <p style="color:var(--muted);font-style:italic;" data-i18n="loading">Chargement…</p>
+      <p style="color:var(--gris);font-style:italic;" data-i18n="loading">Chargement…</p>
     </div>
   </div>
 
@@ -2132,14 +2221,14 @@
     </div>
     <input type="text" id="revisions-search" placeholder="🔍 chercher un mot…" data-i18n-ph="search_ph" oninput="renderRevisions()"
       autocapitalize="off" autocomplete="off"
-      style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.6rem;">
+      style="width:100%;box-sizing:border-box;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:8px;padding:0.5rem 0.7rem;font-family:var(--serif);margin-bottom:0.6rem;">
     <div class="history-filters" id="revisions-sort">
       <button class="filter-btn active" onclick="setRevisionsSort('next')" data-i18n="sort_next">📅 Plus proche</button>
       <button class="filter-btn" onclick="setRevisionsSort('far')" data-i18n="sort_far">📆 Plus lointaine</button>
       <button class="filter-btn" onclick="setRevisionsSort('az')" data-i18n="sort_az">🔤 A-Z</button>
     </div>
     <div class="history-list" id="revisions-list">
-      <p style="color:var(--muted);font-style:italic;" data-i18n="loading">Chargement…</p>
+      <p style="color:var(--gris);font-style:italic;" data-i18n="loading">Chargement…</p>
     </div>
   </div>
 
@@ -2315,10 +2404,10 @@
                           el: `Αντικατέστησε το <code>WORD</code> με τη λέξη στη συντόμευσή σου. Το <code>lang=auto</code> εντοπίζει τη γλώσσα.` },
       set_tokens:       { en: `Show token counter`, fr: `Afficher compteur tokens`, es: `Mostrar contador de tokens`, el: `Εμφάνιση μετρητή tokens` },
       set_situation_counts: {
-        en: `Situation and Free modes count towards progress<br><span style="font-size:0.7rem;color:var(--muted);">stars + reviews (history always counts)</span>`,
-        fr: `Modes Situation et Libre comptent dans la progression<br><span style="font-size:0.7rem;color:var(--muted);">étoiles + révisions (l'historique compte toujours)</span>`,
-        es: `Los modos Situación y Libre cuentan en el progreso<br><span style="font-size:0.7rem;color:var(--muted);">estrellas + repasos (el historial siempre cuenta)</span>`,
-        el: `Οι λειτουργίες Περίσταση και Ελεύθερη μετρούν στην πρόοδο<br><span style="font-size:0.7rem;color:var(--muted);">αστέρια + επαναλήψεις (το ιστορικό μετράει πάντα)</span>` },
+        en: `Situation and Free modes count towards progress<br><span style="font-size:0.7rem;color:var(--gris);">stars + reviews (history always counts)</span>`,
+        fr: `Modes Situation et Libre comptent dans la progression<br><span style="font-size:0.7rem;color:var(--gris);">étoiles + révisions (l'historique compte toujours)</span>`,
+        es: `Los modos Situación y Libre cuentan en el progreso<br><span style="font-size:0.7rem;color:var(--gris);">estrellas + repasos (el historial siempre cuenta)</span>`,
+        el: `Οι λειτουργίες Περίσταση και Ελεύθερη μετρούν στην πρόοδο<br><span style="font-size:0.7rem;color:var(--gris);">αστέρια + επαναλήψεις (το ιστορικό μετράει πάντα)</span>` },
       set_image_theme:  { en: `Photo theme (Imagen)`, fr: `Thème photos (Imagen)`, es: `Tema de fotos (Imagen)`, el: `Θέμα φωτογραφιών (Imagen)` },
       set_app_lang:     { en: `App language`, fr: `Langue de l'appli`, es: `Idioma de la app`, el: `Γλώσσα εφαρμογής` },
       theme_random:     { en: `🎲 Random`, fr: `🎲 Aléatoire`, es: `🎲 Aleatorio`, el: `🎲 Τυχαίο` },
@@ -2541,16 +2630,16 @@
         el: `<ul><li><strong>Μέσα στην εφαρμογή</strong>: «➕ προσθήκη περιεχομένου» → λέξεις ή γραμματικός τύπος.</li><li><strong>Από το iPhone</strong> (συντόμευση) ή <strong>από το Kindle</strong> (script): δες παρακάτω.</li></ul><p style="margin-top:0.75rem"><strong>💬 Εκφράσεις και σημειώσεις.</strong> Μπορείς να προσθέσεις μια σημείωση σε παρένθεση στο τέλος: <code>hacer el oso (κολομβιανή έκφραση)</code>. Η σημείωση δεν είναι ποτέ λέξη προς εξάσκηση — δείχνει στο μοντέλο πώς να διαβάσει την εγγραφή (πάγια έκφραση, τοπική ποικιλία, ύφος) και σου επιτρέπει να ξεχωρίσεις δύο σημασίες της ίδιας λέξης. Και οι δύο παρενθέσεις είναι απαραίτητες.</p><p style="margin-top:0.75rem"><strong>🔑 Το προσωπικό σου token.</strong> Οι δύο μέθοδοι χρειάζονται το <em>token προσθήκης</em>. Θα το βρεις στο <strong>⚙️ → «σύνδεσμος προσθήκης»</strong>: είναι η τιμή μετά το <code>token=</code> στο URL. Επιτρέπει μόνο προσθήκη λέξεων στον <em>δικό σου</em> λογαριασμό — κράτησέ το για σένα.</p>` },
       help_iphone_t:    { en: `📱 iPhone shortcut`, fr: `📱 Raccourci iPhone`, es: `📱 Atajo de iPhone`, el: `📱 Συντόμευση iPhone` },
       help_iphone: {
-        en: `<ol><li>Install the shortcut: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--accent)">open the "Vocab" shortcut</a>.</li><li>In the shortcut, open the <strong>"Text"</strong> action (the URL) and replace <code>COLLE_TON_TOKEN_ICI</code> with your token (copied from ⚙️).</li><li>Then, from any app: <strong>Share → Vocab</strong>, or run the shortcut and type a word. If the word is invalid or looks like an existing one, it asks "add anyway?".</li></ol>`,
-        fr: `<ol><li>Installe le raccourci : <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--accent)">ouvrir le raccourci « Vocab »</a>.</li><li>Dans le raccourci, ouvre l'action <strong>« Texte »</strong> (l'URL) et remplace <code>COLLE_TON_TOKEN_ICI</code> par ton token (copié depuis ⚙️).</li><li>Ensuite, depuis n'importe quelle app : <strong>Partager → Vocab</strong>, ou lance le raccourci et tape un mot. Si le mot est invalide ou ressemble à un mot existant, il te demande « ajouter quand même ? ».</li></ol>`,
-        es: `<ol><li>Instala el atajo: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--accent)">abrir el atajo «Vocab»</a>.</li><li>En el atajo, abre la acción <strong>«Texto»</strong> (la URL) y sustituye <code>COLLE_TON_TOKEN_ICI</code> por tu token (copiado desde ⚙️).</li><li>Después, desde cualquier app: <strong>Compartir → Vocab</strong>, o lanza el atajo y escribe una palabra. Si la palabra es inválida o se parece a una existente, te pregunta «¿añadir igualmente?».</li></ol>`,
-        el: `<ol><li>Εγκατέστησε τη συντόμευση: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--accent)">άνοιξε τη συντόμευση «Vocab»</a>.</li><li>Στη συντόμευση, άνοιξε την ενέργεια <strong>«Κείμενο»</strong> (το URL) και αντικατέστησε το <code>COLLE_TON_TOKEN_ICI</code> με το token σου (από το ⚙️).</li><li>Έπειτα, από οποιαδήποτε εφαρμογή: <strong>Κοινοποίηση → Vocab</strong>, ή τρέξε τη συντόμευση και γράψε μια λέξη. Αν η λέξη είναι άκυρη ή μοιάζει με υπάρχουσα, ρωτά «προσθήκη ούτως ή άλλως;».</li></ol>` },
+        en: `<ol><li>Install the shortcut: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">open the "Vocab" shortcut</a>.</li><li>In the shortcut, open the <strong>"Text"</strong> action (the URL) and replace <code>COLLE_TON_TOKEN_ICI</code> with your token (copied from ⚙️).</li><li>Then, from any app: <strong>Share → Vocab</strong>, or run the shortcut and type a word. If the word is invalid or looks like an existing one, it asks "add anyway?".</li></ol>`,
+        fr: `<ol><li>Installe le raccourci : <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">ouvrir le raccourci « Vocab »</a>.</li><li>Dans le raccourci, ouvre l'action <strong>« Texte »</strong> (l'URL) et remplace <code>COLLE_TON_TOKEN_ICI</code> par ton token (copié depuis ⚙️).</li><li>Ensuite, depuis n'importe quelle app : <strong>Partager → Vocab</strong>, ou lance le raccourci et tape un mot. Si le mot est invalide ou ressemble à un mot existant, il te demande « ajouter quand même ? ».</li></ol>`,
+        es: `<ol><li>Instala el atajo: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">abrir el atajo «Vocab»</a>.</li><li>En el atajo, abre la acción <strong>«Texto»</strong> (la URL) y sustituye <code>COLLE_TON_TOKEN_ICI</code> por tu token (copiado desde ⚙️).</li><li>Después, desde cualquier app: <strong>Compartir → Vocab</strong>, o lanza el atajo y escribe una palabra. Si la palabra es inválida o se parece a una existente, te pregunta «¿añadir igualmente?».</li></ol>`,
+        el: `<ol><li>Εγκατέστησε τη συντόμευση: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">άνοιξε τη συντόμευση «Vocab»</a>.</li><li>Στη συντόμευση, άνοιξε την ενέργεια <strong>«Κείμενο»</strong> (το URL) και αντικατέστησε το <code>COLLE_TON_TOKEN_ICI</code> με το token σου (από το ⚙️).</li><li>Έπειτα, από οποιαδήποτε εφαρμογή: <strong>Κοινοποίηση → Vocab</strong>, ή τρέξε τη συντόμευση και γράψε μια λέξη. Αν η λέξη είναι άκυρη ή μοιάζει με υπάρχουσα, ρωτά «προσθήκη ούτως ή άλλως;».</li></ol>` },
       help_kindle_t:    { en: `📖 Kindle import (computer)`, fr: `📖 Import Kindle (ordinateur)`, es: `📖 Importar de Kindle (ordenador)`, el: `📖 Εισαγωγή από Kindle (υπολογιστής)` },
       help_kindle: {
-        en: `<p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Import all the words you highlighted on your Kindle at once. Requires a Mac/PC with Python 3.</p><ol><li>Install the dependency: <code>pip3 install wordfreq</code>.</li><li>Download the script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--accent)">kindle_import.py</a>.</li><li>In the same folder, create two files: <code>.token</code> (your personal token) and <code>.openai_key</code> (your OpenAI key). Each file contains only the value, nothing else.</li><li>Plug in your Kindle via USB, then run: <code>python3 kindle_import.py</code>. Pick the words to import.</li><li>Need help? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
-        fr: `<p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Importe d'un coup les mots surlignés sur ta Kindle. Nécessite un Mac/PC avec Python 3.</p><ol><li>Installe la dépendance : <code>pip3 install wordfreq</code>.</li><li>Télécharge le script : <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--accent)">kindle_import.py</a>.</li><li>Dans le même dossier, crée deux fichiers : <code>.token</code> (ton token perso) et <code>.openai_key</code> (ta clé OpenAI). Chaque fichier ne contient que la valeur, rien d'autre.</li><li>Branche ta Kindle en USB, puis lance : <code>python3 kindle_import.py</code>. Choisis les mots à importer.</li><li>Besoin d'aide ? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
-        es: `<p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Importa de una vez las palabras subrayadas en tu Kindle. Requiere un Mac/PC con Python 3.</p><ol><li>Instala la dependencia: <code>pip3 install wordfreq</code>.</li><li>Descarga el script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--accent)">kindle_import.py</a>.</li><li>En la misma carpeta, crea dos archivos: <code>.token</code> (tu token personal) y <code>.openai_key</code> (tu clave OpenAI). Cada archivo contiene solo el valor, nada más.</li><li>Conecta tu Kindle por USB y ejecuta: <code>python3 kindle_import.py</code>. Elige las palabras a importar.</li><li>¿Ayuda? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
-        el: `<p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Εισήγαγε μονομιάς τις λέξεις που υπογράμμισες στο Kindle. Απαιτεί Mac/PC με Python 3.</p><ol><li>Εγκατέστησε την εξάρτηση: <code>pip3 install wordfreq</code>.</li><li>Κατέβασε το script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--accent)">kindle_import.py</a>.</li><li>Στον ίδιο φάκελο, δημιούργησε δύο αρχεία: <code>.token</code> (το token σου) και <code>.openai_key</code> (το κλειδί OpenAI σου). Κάθε αρχείο περιέχει μόνο την τιμή.</li><li>Σύνδεσε το Kindle με USB και τρέξε: <code>python3 kindle_import.py</code>. Διάλεξε τις λέξεις.</li><li>Βοήθεια; <code>python3 kindle_import.py --aide</code>.</li></ol>` },
+        en: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Import all the words you highlighted on your Kindle at once. Requires a Mac/PC with Python 3.</p><ol><li>Install the dependency: <code>pip3 install wordfreq</code>.</li><li>Download the script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>In the same folder, create two files: <code>.token</code> (your personal token) and <code>.openai_key</code> (your OpenAI key). Each file contains only the value, nothing else.</li><li>Plug in your Kindle via USB, then run: <code>python3 kindle_import.py</code>. Pick the words to import.</li><li>Need help? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
+        fr: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Importe d'un coup les mots surlignés sur ta Kindle. Nécessite un Mac/PC avec Python 3.</p><ol><li>Installe la dépendance : <code>pip3 install wordfreq</code>.</li><li>Télécharge le script : <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>Dans le même dossier, crée deux fichiers : <code>.token</code> (ton token perso) et <code>.openai_key</code> (ta clé OpenAI). Chaque fichier ne contient que la valeur, rien d'autre.</li><li>Branche ta Kindle en USB, puis lance : <code>python3 kindle_import.py</code>. Choisis les mots à importer.</li><li>Besoin d'aide ? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
+        es: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Importa de una vez las palabras subrayadas en tu Kindle. Requiere un Mac/PC con Python 3.</p><ol><li>Instala la dependencia: <code>pip3 install wordfreq</code>.</li><li>Descarga el script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>En la misma carpeta, crea dos archivos: <code>.token</code> (tu token personal) y <code>.openai_key</code> (tu clave OpenAI). Cada archivo contiene solo el valor, nada más.</li><li>Conecta tu Kindle por USB y ejecuta: <code>python3 kindle_import.py</code>. Elige las palabras a importar.</li><li>¿Ayuda? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
+        el: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Εισήγαγε μονομιάς τις λέξεις που υπογράμμισες στο Kindle. Απαιτεί Mac/PC με Python 3.</p><ol><li>Εγκατέστησε την εξάρτηση: <code>pip3 install wordfreq</code>.</li><li>Κατέβασε το script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>Στον ίδιο φάκελο, δημιούργησε δύο αρχεία: <code>.token</code> (το token σου) και <code>.openai_key</code> (το κλειδί OpenAI σου). Κάθε αρχείο περιέχει μόνο την τιμή.</li><li>Σύνδεσε το Kindle με USB και τρέξε: <code>python3 kindle_import.py</code>. Διάλεξε τις λέξεις.</li><li>Βοήθεια; <code>python3 kindle_import.py --aide</code>.</li></ol>` },
       help_s3_t:        { en: `3 · The 4 modes`, fr: `3 · Les 4 modes`, es: `3 · Los 4 modos`, el: `3 · Οι 4 λειτουργίες` },
       help_s3: {
         en: `<ul><li><strong>📅 Spaced</strong> — review each word at the right time (spaced repetition).</li><li><strong>🎯 Situation</strong> — recall a mastered word from a scene.</li><li><strong>🎲 Free</strong> — weighted random draw.</li><li><strong>📸 Imagen</strong> — describe a photo in Spanish.</li></ul>`,
@@ -3518,7 +3607,7 @@
       }
       el.textContent = text;
       const pct = usagePct();
-      el.style.color = pct >= 1 ? '#e05a5a' : pct >= 0.8 ? '#e8a838' : 'var(--muted)';
+      el.style.color = pct >= 1 ? 'var(--rojo)' : pct >= 0.8 ? 'var(--ocre)' : 'var(--gris)';
       el.style.display = 'block';
     }
 
@@ -3828,7 +3917,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         }
       } catch (err) {
         feedbackBox.classList.add('visible');
-        feedbackText.innerHTML = `<span style="color:var(--error)">${err.message}</span>`;
+        feedbackText.innerHTML = `<span style="color:var(--rojo)">${err.message}</span>`;
         lastSubmittedSentence = '';
       } finally {
         btn.disabled = false;
@@ -3843,7 +3932,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         btn.disabled = true;
         btn.textContent = '↩';
         btn.title = 'Mot déjà dans ta liste';
-        btn.style.color = 'var(--muted)';
+        btn.style.color = 'var(--gris)';
         return;
       }
       btn.disabled = true;
@@ -3852,7 +3941,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         await authFetch('/api/words', { method: 'POST', body: JSON.stringify({ lang: currentLang, word }) });
         allWords.push(word);
         btn.textContent = '✓';
-        btn.style.color = 'var(--success)';
+        btn.style.color = 'var(--verde)';
       } catch (err) {
         btn.disabled = false;
         btn.textContent = '＋';
@@ -4232,13 +4321,13 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         const on = _groupPick.has(id);
         return `<div class="free-pick-row ${on ? 'on' : ''}" onclick="toggleGroupPick(${id})">
           <span class="fp-word">${label}</span>
-          <span class="fp-order" style="color:var(--muted);font-size:0.78rem">${right}</span>
+          <span class="fp-order" style="color:var(--gris);font-size:0.78rem">${right}</span>
         </div>`;
       };
       // Les virtuels d'abord, séparés : ce sont des FILTRES, pas des thèmes.
       let html = VGROUPS.map(v => row(v.id, escapeHtml(v.name), vgroupWords(v.id).length)).join('');
       html += real.length
-        ? `<div style="height:1px;background:var(--border);margin:0.5rem 0"></div>` +
+        ? `<div style="height:1px;background:var(--linea);margin:0.5rem 0"></div>` +
           real.map(g => row(g.id, (g.kind === 'lot' ? '📘 ' : '') + escapeHtml(g.name), `${g.mastered}/${g.n} ★★★`)).join('')
         : '<div id="free-search-empty">Aucun groupe thématique pour cette langue.</div>';
       list.innerHTML = html;
@@ -4402,14 +4491,14 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('taxo-panel').innerHTML = '';
       _taxo = null;
       list.innerHTML = '<div style="text-align:center;padding:1rem"><span class="spinner"></span></div>';
-      try { await loadGroups(_manageLang); } catch { list.innerHTML = '<p style="color:var(--error)">Erreur de chargement.</p>'; return; }
+      try { await loadGroups(_manageLang); } catch { list.innerHTML = '<p style="color:var(--rojo)">Erreur de chargement.</p>'; return; }
       renderGroupsManager();
     }
     function renderGroupsManager() {
       const groups = groupsCache[_manageLang] || [];
       const list = document.getElementById('groups-manage-list');
       if (!groups.length) {
-        list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucun groupe pour cette langue.</p>';
+        list.innerHTML = '<p style="color:var(--gris);font-style:italic;">Aucun groupe pour cette langue.</p>';
         return;
       }
       list.innerHTML = groups.map(g => `
@@ -4419,7 +4508,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
             ${g.scope ? `<span class="mot-note" style="display:block">${escapeHtml(g.scope)}</span>` : ''}
           </span>
           <span class="mot-actions">
-            <span style="color:var(--muted);font-size:0.78rem">${g.mastered}/${g.n} ★★★</span>
+            <span style="color:var(--gris);font-size:0.78rem">${g.mastered}/${g.n} ★★★</span>
             <button title="renommer" onclick="renameGroup(${g.id})">✏️</button>
             <button title="supprimer" onclick="deleteGroup(${g.id})">🗑</button>
           </span>
@@ -4509,7 +4598,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const panel = document.getElementById('taxo-panel');
       const btn = document.getElementById('taxo-redo');
       btn.disabled = true;
-      panel.innerHTML = '<p style="color:var(--muted)"><span class="spinner"></span> le modèle relit tous tes mots…</p>';
+      panel.innerHTML = '<p style="color:var(--gris)"><span class="spinner"></span> le modèle relit tous tes mots…</p>';
       try {
         const r = await authFetch('/api/autogroup', {
           method: 'POST',
@@ -4520,7 +4609,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         _taxo = d;
         renderTaxoProposal();
       } catch (e) {
-        panel.innerHTML = `<p style="color:var(--error)">${escapeHtml(e.message)}</p>`;
+        panel.innerHTML = `<p style="color:var(--rojo)">${escapeHtml(e.message)}</p>`;
       } finally { btn.disabled = false; }
     }
 
@@ -4536,10 +4625,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         return old && g.scope && g.scope !== (old.scope || '');
       });
 
-      let html = `<p style="color:var(--muted);font-size:0.85rem">Sur tes <strong>${_taxo.total}</strong> mots, le modèle propose <strong>${_taxo.proposed.length}</strong> groupes.</p>`;
+      let html = `<p style="color:var(--gris);font-size:0.85rem">Sur tes <strong>${_taxo.total}</strong> mots, le modèle propose <strong>${_taxo.proposed.length}</strong> groupes.</p>`;
 
       if (!news.length && !rescoped.length && !_taxo.dropped.length) {
-        html += '<p style="color:var(--success)">✓ Ta taxonomie actuelle est déjà celle qu\'il proposerait. Rien à changer.</p>';
+        html += '<p style="color:var(--verde)">✓ Ta taxonomie actuelle est déjà celle qu\'il proposerait. Rien à changer.</p>';
         panel.innerHTML = html;
         return;
       }
@@ -4558,8 +4647,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (_taxo.dropped.length) {
         // Jamais de suppression automatique : elle emporterait aussi les
         // rattachements posés à la main. On signale, l'utilisateur tranche.
-        html += `<p style="margin-top:0.8rem"><strong>Plus proposés</strong> <span style="color:var(--muted);font-size:0.8rem">(rien n'est supprimé — à toi de voir avec 🗑)</span></p>
-          <p style="color:var(--muted);font-size:0.85rem">${_taxo.dropped.map(d => escapeHtml(d.name)).join(' · ')}</p>`;
+        html += `<p style="margin-top:0.8rem"><strong>Plus proposés</strong> <span style="color:var(--gris);font-size:0.8rem">(rien n'est supprimé — à toi de voir avec 🗑)</span></p>
+          <p style="color:var(--gris);font-size:0.85rem">${_taxo.dropped.map(d => escapeHtml(d.name)).join(' · ')}</p>`;
       }
       html += `<button class="btn-primary" style="width:100%;margin-top:1rem" onclick="applyTaxoProposal()">Appliquer</button>`;
       panel.innerHTML = html;
@@ -4593,8 +4682,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       }
       await loadGroups(_manageLang);
       renderGroupsManager();
-      panel.innerHTML = `<p style="color:var(--success)">✓ ${created} groupe(s) créé(s), ${updated} description(s) mise(s) à jour.</p>` +
-        (created ? '<p style="color:var(--muted);font-size:0.85rem">Les nouveaux groupes sont vides : lance « 🏷 classer les mots sans groupe » pour qu\'ils se remplissent.</p>' : '');
+      panel.innerHTML = `<p style="color:var(--verde)">✓ ${created} groupe(s) créé(s), ${updated} description(s) mise(s) à jour.</p>` +
+        (created ? '<p style="color:var(--gris);font-size:0.85rem">Les nouveaux groupes sont vides : lance « 🏷 classer les mots sans groupe » pour qu\'ils se remplissent.</p>' : '');
     }
 
     // Rouvre les mots restés sans groupe et les repasse à la moulinette, par
@@ -4611,10 +4700,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         const d0 = await r0.json();
         if (!r0.ok) throw new Error(d0.error?.message || 'erreur');
         let left = d0.reopened;
-        if (!left) { panel.innerHTML = '<p style="color:var(--success)">✓ Tous tes mots ont déjà un groupe.</p>'; return; }
+        if (!left) { panel.innerHTML = '<p style="color:var(--verde)">✓ Tous tes mots ont déjà un groupe.</p>'; return; }
         let done = 0;
         for (;;) {
-          panel.innerHTML = `<p style="color:var(--muted)"><span class="spinner"></span> ${done}/${left} mots classés…</p>`;
+          panel.innerHTML = `<p style="color:var(--gris)"><span class="spinner"></span> ${done}/${left} mots classés…</p>`;
           const r = await authFetch('/api/autogroup', {
             method: 'POST', body: JSON.stringify({ lang: _manageLang, limit: 100 })
           });
@@ -4626,9 +4715,9 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         }
         await loadGroups(_manageLang);
         renderGroupsManager();
-        panel.innerHTML = `<p style="color:var(--success)">✓ ${done} mot(s) repassés au classement.</p>`;
+        panel.innerHTML = `<p style="color:var(--verde)">✓ ${done} mot(s) repassés au classement.</p>`;
       } catch (e) {
-        panel.innerHTML = `<p style="color:var(--error)">${escapeHtml(e.message)}</p>`;
+        panel.innerHTML = `<p style="color:var(--rojo)">${escapeHtml(e.message)}</p>`;
       } finally { btn.disabled = false; }
     }
 
@@ -4779,7 +4868,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // freeSelection[freeCursor…] ; taille = valeur du slider, le reste = file en attente.
     function freeCountLabel(shown, left) {
       const head = (freeQueueLabel ? `🏷 ${escapeHtml(freeQueueLabel)}` : '🔍') +
-        (freeLap > 1 ? ` <span style="color:var(--muted)">· tour ${freeLap}</span>` : '');
+        (freeLap > 1 ? ` <span style="color:var(--gris)">· tour ${freeLap}</span>` : '');
       return left > 0
         ? `${head} · <span class="highlight">${shown}</span> affiché(s) · <span class="highlight">${left}</span> en file`
         : `${head} · <span class="highlight">${shown}</span> ${tPrac(shown > 1 ? 'practice_pl' : 'practice_sg')}`;
@@ -5335,7 +5424,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         } else {
           const remaining = allWords.filter(w => bucketOf(w) !== 'mastered').length;
           document.getElementById('due-count').innerHTML =
-            `<span class="highlight">${remaining}</span> ${tPrac(remaining > 1 ? 'practice_pl' : 'practice_sg')} <span style="color:var(--muted);font-size:0.85em">(${allWords.length} ${tPrac('in_total')})</span>`;
+            `<span class="highlight">${remaining}</span> ${tPrac(remaining > 1 ? 'practice_pl' : 'practice_sg')} <span style="color:var(--gris);font-size:0.85em">(${allWords.length} ${tPrac('in_total')})</span>`;
           document.getElementById('word-count-label').textContent = '';
           setWordSliderMax(allWords.length); // pas plus de mots que la liste n'en contient
           const nFree = wordCount();
@@ -6561,7 +6650,7 @@ Write all scenarios and explanations in ${langName}.`;
       section.classList.remove('collapsed');
       document.getElementById('qcm-word').textContent = lc(qcmWord);
       resultEl.textContent = '';
-      choicesEl.innerHTML  = `<div style="color:var(--muted);font-style:italic;padding:0.5rem;text-align:center"><span class="spinner"></span> ${tPrac('qcm_generating')}</div>`;
+      choicesEl.innerHTML  = `<div style="color:var(--gris);font-style:italic;padding:0.5rem;text-align:center"><span class="spinner"></span> ${tPrac('qcm_generating')}</div>`;
 
       // Scroll immédiat vers la section QCM pour que le spinner soit visible
       requestAnimationFrame(() => {
@@ -6604,7 +6693,7 @@ Write all scenarios and explanations in ${langName}.`;
         });
       } catch (err) {
         const w = qcmWord.replace(/'/g, "\\'");
-        choicesEl.innerHTML = `<p style="color:var(--error)">${tPrac('err_prefix')} ${err.message}</p>
+        choicesEl.innerHTML = `<p style="color:var(--rojo)">${tPrac('err_prefix')} ${err.message}</p>
           <button class="btn-secondary" style="margin-top:0.5rem" onclick="startQCM('${w}')">${tPrac('retry')}</button>`;
       }
     }
@@ -7620,7 +7709,7 @@ Write all scenarios and explanations in ${langName}.`;
          <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
          ${wordNote(item.word) ? `<div class="session-def">${wordNote(item.word)}</div>` : ''}
          <p class="session-q">${tPrac('sess_which')}</p>
-         <div id="session-choices"><div style="text-align:center;padding:0.6rem;color:var(--muted)"><span class="spinner"></span></div></div>
+         <div id="session-choices"><div style="text-align:center;padding:0.6rem;color:var(--gris)"><span class="spinner"></span></div></div>
          <div id="session-result"></div>
          <div class="session-actions" id="session-help"${_sessionHelpOpen ? '' : ' style="display:none"'}>
            <button class="btn-ghost" onclick="fetchHint('${esc}')">📖 ${tPrac('sess_def')}</button>
@@ -7645,7 +7734,7 @@ Write all scenarios and explanations in ${langName}.`;
       } catch (err) {
         item.choicesPromise = null;
         document.getElementById('session-choices').innerHTML =
-          `<p style="color:var(--error)">${tPrac('err_prefix')} ${err.message}</p>
+          `<p style="color:var(--rojo)">${tPrac('err_prefix')} ${err.message}</p>
            <button class="btn-secondary" style="margin-top:0.5rem" onclick="renderSession()">${tPrac('retry')}</button>`;
       }
     }
@@ -7926,7 +8015,7 @@ Answer ONLY with JSON, no markdown fence:
           if (d && d.error) throw new Error(d.error);
           _clozeState = { ...d, filled: {}, active: Math.min(...d.blanks.map(b => b.n)), checked: false };
         } catch (err) {
-          body.innerHTML = `<p style="color:var(--error)">${tPrac('err_prefix')} ${err.message}</p>
+          body.innerHTML = `<p style="color:var(--rojo)">${tPrac('err_prefix')} ${err.message}</p>
             <div class="session-actions"><button class="btn-secondary" onclick="retryCloze()">${tPrac('retry')}</button></div>`;
           return;
         }
@@ -8081,7 +8170,7 @@ Answer ONLY with JSON, no markdown fence:
       document.getElementById('mots-search').value = '';
       motsPage = 0; motsSelected.clear();
       document.getElementById('mots-list').innerHTML =
-        `<p style="color:var(--muted);font-style:italic;">${tApp('loading')}</p>`;
+        `<p style="color:var(--gris);font-style:italic;">${tApp('loading')}</p>`;
       try {
         const [wordsResps, progResps] = await Promise.all([
           Promise.all(LANGS.map(l => authFetch(`/api/words?lang=${encodeURIComponent(l.key)}&detail=1`).then(r => r.json()))),
@@ -8099,7 +8188,7 @@ Answer ONLY with JSON, no markdown fence:
         renderMots();
       } catch (err) {
         document.getElementById('mots-list').innerHTML =
-          `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
+          `<p style="color:var(--rojo)">Erreur : ${err.message}</p>`;
       }
     }
 
@@ -8184,7 +8273,7 @@ Answer ONLY with JSON, no markdown fence:
                + row(-3, 'sans groupe', '');
       const real = groups.filter(g => g.n > 0);
       html += real.length
-        ? `<div style="height:1px;background:var(--border);margin:0.5rem 0"></div>` +
+        ? `<div style="height:1px;background:var(--linea);margin:0.5rem 0"></div>` +
           real.map(g => row(g.id, (g.kind === 'lot' ? '📘 ' : '') + escapeHtml(g.name), g.n)).join('')
         : '<div id="free-search-empty">Aucun groupe pour cette langue.</div>';
       list.innerHTML = html;
@@ -8298,12 +8387,12 @@ Answer ONLY with JSON, no markdown fence:
           </span>
           <button class="btn-ghost mots-size" onclick="openPageSizeMenu(event)">${tApp('per_page').replace('{n}', motsPageSize)} ▾</button>
         </div>
-        ${sel ? `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.6rem;background:var(--surface);border:1px solid var(--accent);border-radius:10px;">
+        ${sel ? `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.6rem;background:var(--relleno);border:1px solid var(--tinta);border-radius:10px;">
           <strong>${tApp('selected_n').replace('{n}', sel)}</strong>
           <button class="btn-ghost" onclick="clearMotsSelection()">${tApp('cancel_lc')}</button>
           <button class="btn-ghost" style="margin-left:auto" onclick="groupSelectedMots(event)">🏷</button>
           <button class="btn-ghost" onclick="moveSelectedMots(event)">🔀</button>
-          <button class="btn-ghost" style="color:#e05a5a" onclick="deleteSelectedMots()">${tApp('btn_delete')}</button>
+          <button class="btn-ghost" style="color:var(--rojo)" onclick="deleteSelectedMots()">${tApp('btn_delete')}</button>
         </div>` : ''}`;
     }
 
@@ -8316,14 +8405,14 @@ Answer ONLY with JSON, no markdown fence:
       _pageRowsCache = rows.slice(motsPage * motsPageSize, motsPage * motsPageSize + motsPageSize);
       renderMotsControls(rows.length, rows.length ? pageCount : 0);
       if (rows.length === 0) {
-        list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tApp('mots_empty')}</p>`;
+        list.innerHTML = `<p style="color:var(--gris);font-style:italic;">${tApp('mots_empty')}</p>`;
         return;
       }
       const allPageSel = _pageRowsCache.length && _pageRowsCache.every(m => motsSelected.has(motKey(m)));
       list.innerHTML = `<div class="mot-row selectable" style="background:transparent;border-color:transparent"
             onclick="toggleSelectAllPage(${!allPageSel})">
           <span class="mot-check">${allPageSel ? '✓' : ''}</span>
-          <span style="color:var(--muted);font-size:0.85rem">${tApp('select_all_page')}</span>
+          <span style="color:var(--gris);font-size:0.85rem">${tApp('select_all_page')}</span>
         </div>` + _pageRowsCache.map((m, idx) => {
         const info = LANGS.find(x => x.key === m.lang);
         const esc  = jsEsc(m.word);
@@ -8655,13 +8744,13 @@ Answer ONLY with JSON, no markdown fence:
     // HTML d'une ligne de résultat selon la réponse texte de /add
     function _renderAddRowResult(txt, i, word) {
       const w = escapeHtml(word);
-      if (txt.startsWith('Succès'))  return `<span style="color:var(--success)">✓ ${w}</span>`;
-      if (txt.startsWith('Doublon')) return `<span style="color:#e0a85a">◦ ${w} — ${tApp('add_dup')}</span>`;
+      if (txt.startsWith('Succès'))  return `<span style="color:var(--verde)">✓ ${w}</span>`;
+      if (txt.startsWith('Doublon')) return `<span style="color:var(--ocre)">◦ ${w} — ${tApp('add_dup')}</span>`;
       let warn, flags;
       if      (txt.startsWith('INVALID:')) { warn = escapeHtml(txt.slice(8).split('|')[0].trim()); flags = 'sens'; }
       else if (txt.startsWith('SIMILAR:')) { warn = tApp('add_variant_of') + ' ' + escapeHtml(txt.slice(8).split('|')[0].trim()); flags = 'sim'; }
       else if (txt.startsWith('NOKEY:'))   { warn = escapeHtml(txt.slice(6).split('|')[0].trim()); flags = 'both'; }
-      else return `<span style="color:var(--error)">✗ ${w} — ${escapeHtml(txt)}</span>`;
+      else return `<span style="color:var(--rojo)">✗ ${w} — ${escapeHtml(txt)}</span>`;
       // « ajouter le mot proposé » : le mot part dans _addBatch (jamais dans le
       // onclick — une apostrophe dans la suggestion casserait l'attribut).
       const sugg = flags === 'sens' ? _addSuggestion(txt) : '';
@@ -8669,7 +8758,7 @@ Answer ONLY with JSON, no markdown fence:
       const btnSugg = sugg
         ? `<button class="btn-secondary" style="margin-left:0.4rem;padding:0.15rem 0.5rem;font-size:0.78rem" onclick="addSuggestedRow(${i})">${tApp('add_suggested').replace('{w}', escapeHtml(sugg))}</button>`
         : '';
-      return `<span style="color:#e0a85a">⚠️ ${w} — ${warn}</span>${btnSugg}
+      return `<span style="color:var(--ocre)">⚠️ ${w} — ${warn}</span>${btnSugg}
         <button class="btn-secondary" style="margin-left:0.4rem;padding:0.15rem 0.5rem;font-size:0.78rem" onclick="retryAddRow(${i}, '${flags}')">${tApp('add_anyway')}</button>`;
     }
 
@@ -8692,7 +8781,7 @@ Answer ONLY with JSON, no markdown fence:
       _addBatch = words.map(w => ({ word: w, lang }));
       res.className = 'add-result';
       res.innerHTML = words.map((w, i) =>
-        `<div id="add-row-${i}"><span style="color:var(--muted)">◌ ${escapeHtml(w)}</span></div>`).join('');
+        `<div id="add-row-${i}"><span style="color:var(--gris)">◌ ${escapeHtml(w)}</span></div>`).join('');
 
       let okCount = 0;
       for (let i = 0; i < words.length; i++) {
@@ -8759,16 +8848,16 @@ Answer ONLY with JSON, no markdown fence:
     async function loadAddGrammarList() {
       const lang = addLang;
       const list = document.getElementById('add-grammar-list');
-      list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
+      list.innerHTML = '<p style="color:var(--gris);font-style:italic;">Chargement…</p>';
       try {
         const r = await authFetch(`/api/grammar?lang=${encodeURIComponent(lang)}`);
         const forms = (await r.json()).forms || [];
-        if (forms.length === 0) { list.innerHTML = '<p style="color:var(--muted);font-style:italic;">Aucune forme pour cette langue.</p>'; return; }
+        if (forms.length === 0) { list.innerHTML = '<p style="color:var(--gris);font-style:italic;">Aucune forme pour cette langue.</p>'; return; }
         list.innerHTML = forms.map(f => `<div class="mot-row">
-          <span class="mot-w">${escapeHtml(f.form)} <span style="color:var(--muted);font-size:0.78rem">— ${escapeHtml(f.category)}</span></span>
+          <span class="mot-w">${escapeHtml(f.form)} <span style="color:var(--gris);font-size:0.78rem">— ${escapeHtml(f.category)}</span></span>
           <span class="mot-actions"><button onclick="deleteGrammarForm('${escapeJs(f.category)}','${escapeJs(f.form)}')" title="Supprimer">🗑</button></span>
         </div>`).join('');
-      } catch (e) { list.innerHTML = `<p style="color:var(--error)">Erreur : ${e.message}</p>`; }
+      } catch (e) { list.innerHTML = `<p style="color:var(--rojo)">Erreur : ${e.message}</p>`; }
     }
 
     async function deleteGrammarForm(category, form) {
@@ -8836,13 +8925,13 @@ Answer ONLY with JSON, no markdown fence:
       if (revisionsRows.length === 0) {
         const emptyMsg = revisionsView === 'group' ? 'Ce groupe est vide.'
           : tPrac(revisionsView === 'mastered' ? 'mastered_empty' : 'revisions_empty');
-        list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${emptyMsg}</p>`;
+        list.innerHTML = `<p style="color:var(--gris);font-style:italic;">${emptyMsg}</p>`;
         return;
       }
       const q = (document.getElementById('revisions-search').value || '').trim().toLowerCase();
       let rows = q ? revisionsRows.filter(r => r.word.toLowerCase().includes(q)) : [...revisionsRows];
       if (rows.length === 0) {
-        list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tPrac('none_found')}</p>`;
+        list.innerHTML = `<p style="color:var(--gris);font-style:italic;">${tPrac('none_found')}</p>`;
         return;
       }
       if (revisionsSort === 'given') {
@@ -8858,7 +8947,7 @@ Answer ONLY with JSON, no markdown fence:
       // compteur « à réviser aujourd'hui » n'a alors aucun sens.
       const dueCount = revisionsView !== 'due' ? 0 : rows.filter(r => r.next && r.next <= today).length;
       const head = dueCount > 0
-        ? `<p style="color:var(--accent);font-weight:600;margin-bottom:0.5rem;">${tPrac('revs_due_today').replace('{n}', dueCount)}</p>`
+        ? `<p style="color:var(--tinta);font-weight:600;margin-bottom:0.5rem;">${tPrac('revs_due_today').replace('{n}', dueCount)}</p>`
         : '';
       list.innerHTML = head + rows.map(r => {
         const lab = r.next ? reviewLabel(r.next, today) : '—';
@@ -8876,7 +8965,7 @@ Answer ONLY with JSON, no markdown fence:
     async function showHistory() {
       showScreen('screen-history');
       document.getElementById('history-list').innerHTML =
-        '<p style="color:var(--muted);font-style:italic;">Chargement…</p>';
+        '<p style="color:var(--gris);font-style:italic;">Chargement…</p>';
 
       try {
         const [histResp, progResp] = await Promise.all([
@@ -8919,7 +9008,7 @@ Answer ONLY with JSON, no markdown fence:
         renderHistory();
       } catch (err) {
         document.getElementById('history-list').innerHTML =
-          `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
+          `<p style="color:var(--rojo)">Erreur : ${err.message}</p>`;
       }
     }
 
@@ -8940,7 +9029,7 @@ Answer ONLY with JSON, no markdown fence:
         : historyData.filter(e => e.lang === historyFilter);
 
       if (filtered.length === 0) {
-        list.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tApp('history_empty')}</p>`;
+        list.innerHTML = `<p style="color:var(--gris);font-style:italic;">${tApp('history_empty')}</p>`;
         return;
       }
 
@@ -8964,7 +9053,7 @@ Answer ONLY with JSON, no markdown fence:
         const info      = LANGS.find(x => x.key === e.lang);
         const flag      = info?.flag || '';
         const isCorrect = e.result === '✓';
-        const resultCls = isCorrect ? 'color:var(--success)' : 'color:var(--error)';
+        const resultCls = isCorrect ? 'color:var(--verde)' : 'color:var(--rojo)';
 
         return `<div class="history-item">
           <div class="history-item-left">
@@ -8984,7 +9073,7 @@ Answer ONLY with JSON, no markdown fence:
     async function showStats() {
       showScreen('screen-stats');
       const grid  = document.getElementById('stats-grid');
-      grid.innerHTML = `<p style="color:var(--muted);font-style:italic;">${tApp('loading')}</p>`;
+      grid.innerHTML = `<p style="color:var(--gris);font-style:italic;">${tApp('loading')}</p>`;
       try {
         const [progResp, ...wordResps] = await Promise.all([
           authFetch('/api/progress').then(r => r.json()),
@@ -9019,7 +9108,7 @@ Answer ONLY with JSON, no markdown fence:
           </div>`;
         }).join('');
       } catch (err) {
-        grid.innerHTML = `<p style="color:var(--error)">Erreur : ${err.message}</p>`;
+        grid.innerHTML = `<p style="color:var(--rojo)">Erreur : ${err.message}</p>`;
       }
     }
 
@@ -9316,7 +9405,7 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
       const box    = document.getElementById('related-box');
       const chips  = document.getElementById('related-chips');
       box.classList.add('visible');
-      chips.innerHTML = `<span style="color:var(--muted);font-style:italic;font-size:0.85rem"><span class="spinner"></span> ${tPrac('loading')}</span>`;
+      chips.innerHTML = `<span style="color:var(--gris);font-style:italic;font-size:0.85rem"><span class="spinner"></span> ${tPrac('loading')}</span>`;
 
       const langName = getLang().mistralName;
       const prompt = wordList.length === 1
@@ -9359,7 +9448,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         _relatedWordsShown = newRelated.map(r => r.word);
         _relatedWordsAdded = new Set();
         if (!newRelated.length) {
-          chips.innerHTML = `<span style="color:var(--muted);font-style:italic;font-size:0.85rem">${tPrac('related_all_known')}</span>`;
+          chips.innerHTML = `<span style="color:var(--gris);font-style:italic;font-size:0.85rem">${tPrac('related_all_known')}</span>`;
         } else {
           chips.innerHTML = newRelated.map((r, i) =>
             `<div class="related-chip">
@@ -9373,7 +9462,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
           ).join('');
         }
       } catch (err) {
-        chips.innerHTML = `<span style="color:var(--error);font-size:0.85rem">${tPrac('err_prefix')} ${err.message}</span>
+        chips.innerHTML = `<span style="color:var(--rojo);font-size:0.85rem">${tPrac('err_prefix')} ${err.message}</span>
           <br><button class="btn-secondary" style="margin-top:0.5rem" onclick="fetchRelatedWords(currentWords)">${tPrac('retry')}</button>`;
       }
     }
@@ -9387,7 +9476,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         btn.disabled = true;
         btn.textContent = '↩';
         btn.title = 'Mot déjà dans ta liste';
-        btn.style.color = 'var(--muted)';
+        btn.style.color = 'var(--gris)';
         return;
       }
 
@@ -9397,7 +9486,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       try {
         await authFetch('/api/words', { method: 'POST', body: JSON.stringify({ lang: currentLang, word }) });
         btn.textContent = '✓';
-        btn.style.color = 'var(--success)';
+        btn.style.color = 'var(--verde)';
         allWords.push(word); // ajoute en mémoire pour éviter un double-ajout immédiat
         _relatedWordsAdded.add(word.toLowerCase());
         console.log(`[Sheets] ✓ Mot ajouté : ${word} → ${currentLang}`);
@@ -10374,17 +10463,17 @@ Reply with ONLY this JSON object, nothing else:
       <div class="help-section">
         <h3 data-i18n="help_iphone_t">📱 Raccourci iPhone</h3>
         <div data-i18n="help_iphone"><ol>
-          <li>Installe le raccourci : <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--accent)">ouvrir le raccourci « Vocab »</a>.</li>
+          <li>Installe le raccourci : <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">ouvrir le raccourci « Vocab »</a>.</li>
           <li>Dans le raccourci, ouvre l'action <strong>« Texte »</strong> (l'URL) et remplace <code>COLLE_TON_TOKEN_ICI</code> par ton token (copié depuis ⚙️).</li>
           <li>Ensuite, depuis n'importe quelle app : <strong>Partager → Vocab</strong>, ou lance le raccourci et tape un mot. Si le mot est invalide ou ressemble à un mot existant, il te demande « ajouter quand même ? ».</li>
         </ol></div>
       </div>
       <div class="help-section">
         <h3 data-i18n="help_kindle_t">📖 Import Kindle (ordinateur)</h3>
-        <div data-i18n="help_kindle"><p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Importe d'un coup les mots surlignés sur ta Kindle. Nécessite un Mac/PC avec Python 3.</p>
+        <div data-i18n="help_kindle"><p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Importe d'un coup les mots surlignés sur ta Kindle. Nécessite un Mac/PC avec Python 3.</p>
         <ol>
           <li>Installe la dépendance : <code>pip3 install wordfreq</code>.</li>
-          <li>Télécharge le script : <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--accent)">kindle_import.py</a>.</li>
+          <li>Télécharge le script : <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li>
           <li>Dans le même dossier, crée deux fichiers : <code>.token</code> (ton token perso) et <code>.openai_key</code> (ta clé OpenAI). Chaque fichier ne contient que la valeur, rien d'autre.</li>
           <li>Branche ta Kindle en USB, puis lance : <code>python3 kindle_import.py</code>. Choisis les mots à importer.</li>
           <li>Besoin d'aide ? <code>python3 kindle_import.py --aide</code>.</li>
@@ -10427,7 +10516,7 @@ Reply with ONLY this JSON object, nothing else:
     <div class="modal-card">
       <button class="modal-close" id="lang-picker-close" onclick="closeLangPicker()">✕</button>
       <h2 class="modal-title" data-i18n="langpicker_title">Tes langues</h2>
-      <p style="color:var(--muted);font-size:0.85rem;margin:-0.5rem 0 1rem" data-i18n="langpicker_note">Choisis les langues que tu veux étudier (au moins une).</p>
+      <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem" data-i18n="langpicker_note">Choisis les langues que tu veux étudier (au moins une).</p>
       <div id="lang-picker-list"></div>
       <button class="btn-primary" style="width:100%;margin-top:1rem" onclick="confirmLangPicker()" data-i18n="btn_confirm">Valider</button>
       <p class="error-msg" id="lang-picker-error"></p>
@@ -10439,7 +10528,7 @@ Reply with ONLY this JSON object, nothing else:
     <div class="modal-card">
       <button class="modal-close" onclick="closeGroupsPicker()">✕</button>
       <h2 class="modal-title">Mes groupes</h2>
-      <p style="color:var(--muted);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs groupes, puis choisis combien de mots pratiquer.</p>
+      <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs groupes, puis choisis combien de mots pratiquer.</p>
       <div id="groups-list" style="max-height:42vh; overflow-y:auto;"></div>
       <div style="text-align:right; margin-top:0.4rem;">
         <button class="btn-ghost" style="font-size:0.8rem" onclick="openGroupsManager()">⚙ gérer mes groupes</button>
@@ -10466,10 +10555,10 @@ Reply with ONLY this JSON object, nothing else:
     <div class="modal-card">
       <button class="modal-close" onclick="closeFreeSearch()">✕</button>
       <h2 class="modal-title">Chercher un mot</h2>
-      <p style="color:var(--muted);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs mots à pratiquer (dans l'ordre choisi), puis « commencer ».</p>
+      <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs mots à pratiquer (dans l'ordre choisi), puis « commencer ».</p>
       <input type="text" id="free-search-input" placeholder="🔍 filtrer…" autocomplete="off" autocapitalize="off"
         oninput="renderFreeSearchList(this.value)"
-        style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.6rem;">
+        style="width:100%;box-sizing:border-box;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:8px;padding:0.5rem 0.7rem;font-family:var(--serif);margin-bottom:0.6rem;">
       <div id="free-search-sort" style="display:flex; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.7rem;">
         <button class="filter-btn active" onclick="setFreeSearchSort('az')">A-Z</button>
         <button class="filter-btn" onclick="setFreeSearchSort('recent')">vus récemment</button>
@@ -10487,7 +10576,7 @@ Reply with ONLY this JSON object, nothing else:
     <div class="modal-card">
       <button class="modal-close" onclick="closeResetProgress()">✕</button>
       <h2 class="modal-title">Réinitialiser la progression</h2>
-      <p style="color:var(--muted);font-size:0.85rem;margin:-0.5rem 0 1rem">Les mots choisis redeviennent « nouveaux » (étoiles remises à zéro, sortis des révisions). <strong>L'historique est conservé.</strong></p>
+      <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem">Les mots choisis redeviennent « nouveaux » (étoiles remises à zéro, sortis des révisions). <strong>L'historique est conservé.</strong></p>
       <div class="reset-mode-tabs">
         <button class="reset-mode-tab on" id="reset-tab-langs" onclick="setResetMode('langs')">Langues entières</button>
         <button class="reset-mode-tab"    id="reset-tab-words" onclick="setResetMode('words')">Mots précis</button>
@@ -10503,11 +10592,11 @@ Reply with ONLY this JSON object, nothing else:
         <div class="settings-row" style="cursor:default; padding:0 0 0.6rem;">
           <span>Langue</span>
           <select id="reset-browse-lang" onchange="onResetBrowseLangChange(this.value)"
-            style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:0.2rem 0.4rem;font-family:'DM Mono',monospace;font-size:0.8rem;"></select>
+            style="background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.2rem 0.4rem;font-family:var(--serif);font-size:0.8rem;"></select>
         </div>
         <input type="text" id="reset-words-search" placeholder="🔍 filtrer…" autocomplete="off" autocapitalize="off"
           oninput="renderResetWords(this.value)"
-          style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.7rem;font-family:'Lora',serif;margin-bottom:0.7rem;">
+          style="width:100%;box-sizing:border-box;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:8px;padding:0.5rem 0.7rem;font-family:var(--serif);margin-bottom:0.7rem;">
         <div id="reset-words-list" style="max-height:42vh; overflow-y:auto;"></div>
       </div>
 
