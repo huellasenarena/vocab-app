@@ -19,7 +19,9 @@ App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **C
 - **Thème sombre** (`oscuro.css`, suit le système) : app d'usage quotidien.
 - **`--barra-estado`** : rideau sous la barre d'état iOS, sombre dans les deux thèmes — `black-translucent` affiche toujours un texte blanc.
 - **Mono du système** seulement pour le technique : compteur de tokens, clés API, lien d'ajout, `code` de l'aide.
-- **Colonne étroite** (`.screen`, 480 px, alignée à gauche) : app pensée pour le téléphone.
+- **Colonne étroite et centrée** (`.screen`, 480 px, `margin: 0 auto`) : app pensée pour le téléphone ; la colonne est au milieu de l'écran (choix de l'utilisateur), son contenu reste aligné à gauche.
+- **Flèche de retour** devant le nom de la langue en haut à droite de la pratique (`← Español`) : sans elle, on ne comprenait pas que ce nom ramène à l'accueil.
+- **« Autre mot » / « Autres mots »** selon le nombre de mots tirés (`btn_next_word` / `btn_next_words`, recalé par `renderWordDisplay`).
 - **Popups et modales** (`#word-ctx-menu`, `.modal-card`) : papier + filet `--linea-fuerte`, sans ombre ni radius ; voile de la modale = `color-mix` du papier. Pièce absente du style commun (dialogues) — à proposer si elle sert ailleurs.
 - **Mots « à réviser » en gris** (`chip-review`/`card-review`) tant que « nouveau » n'est pas dit en toutes lettres — l'or qui distinguait les nouveaux a disparu avec l'accent.
 - **Pastilles un peu plus grandes** (`.btn-primary`, `.btn-secondary`, `.mode-current`… : `6px 16px`, `--t-nav`) : cibles tactiles d'une app qu'on utilise au pouce.
@@ -133,6 +135,10 @@ Chaque utilisateur entre sa clé OpenAI et/ou Gemini dans ⚙️ (`KEY_OPENAI_KE
 Tous les réglages (sliders nombre de mots/formes **par langue**, **nombre de mots Situation** (`vocab_situation_words`, 1-5), modèle, niveaux de raisonnement, **grammaire on/off + nombre de formes, par langue**, thème image, compteur tokens, **langues choisies**, **toggle progression Situation+Libre** `vocab_situation_counts`, **mélange du mode libre** `vocab_free_mix`) sont sérialisés en un blob JSON et synchronisés en D1 (`users.settings`).
 - Front : `collectSettings()` (toutes les clés `vocab_*` sauf denylist : jwt, pwd_ok, clés BYOK, `today_new_*`) · `saveSettingsToServer()` (debounce 1,5 s, appelé par chaque setter) · `applyServerSettings()`/`reloadSettingsVars()`/`applySettingsUI()` au login.
 - Chargé via `/me` (`loadAccountInfo`). Les clés BYOK restent synchronisées séparément (`/api/keys`).
+
+## Langue de l'interface (2026-09-29)
+
+**La langue de l'appli ne vaut que pour l'accueil et ce qu'on ouvre depuis lui** (connexion, « mes mots », stats, historique, ajouter, réglages du compte) : `tApp`. **Tout ce qui vit dans la page d'une langue** — `screen-practice`, `screen-revisions`, le menu ⋯, les fenêtres « Mes groupes » et « Chercher un mot » — est dans la **langue pratiquée** : `tPrac`, et `applyPracticeLangUI()` y applique les `data-i18n`. ⚠️ Le panneau de séance (manche, QCM, texte à trous, mode, échéances) était en `tApp` jusque-là : on y voyait « Words per round » en pratiquant l'espagnol avec l'appli en anglais. Un nouveau libellé de la page d'une langue passe par `tPrac` ; un texte en dur (en français) y est un bug.
 
 ## Langues configurables
 
@@ -344,7 +350,7 @@ Entrer dans le mode lançait **trois appels** — dont le texte à trous, une mi
 
 Les étoiles disent où en est le mot, et donc **pourquoi** l'app propose tel exercice : QCM en dessous de deux étoiles, texte à trous au-dessus. Elles manquaient depuis que le mode espacé n'était plus le mode par défaut.
 - **QCM** : `starsHtml(word)` sous le mot (`#session-stars`), **recalé après la réponse** — la progression vient de bouger, le mot montre son nouvel état tout de suite.
-- **La prochaine échéance avec elles** (2026-09-18, `sessionDueLabel` / `sessionDueSuffix`) : « ★★☆ · 📅 dans 4 j », et une ligne par mot dans le récapitulatif du texte à trous. La date est **déjà calculée** au moment où l'on répond ; l'afficher dit **pourquoi** le mot ne reviendra pas demain. En **délai** plutôt qu'en date : ça se lit sans compter. ⚠️ En langue de l'**appli** (`tApp`) comme tout le panneau de séance — `reviewLabel` est son jumeau en langue **pratiquée**, pour le mode espacé.
+- **La prochaine échéance avec elles** (2026-09-18, `sessionDueLabel` / `sessionDueSuffix`) : « ★★☆ · 📅 dans 4 j », et une ligne par mot dans le récapitulatif du texte à trous. La date est **déjà calculée** au moment où l'on répond ; l'afficher dit **pourquoi** le mot ne reviendra pas demain. En **délai** plutôt qu'en date : ça se lit sans compter. Depuis le 2026-09-29, en langue **pratiquée** (`tPrac`) comme tout le panneau de séance — voir « Langue de l'interface ».
 - **Texte à trous** : récapitulatif de **tous** les mots visés sous le score (`.cloze-recap`), chacun avec ✓/✗, la forme employée, l'écart de flexion s'il y en a un, et ses étoiles. Il remplace les seules lignes « dans ta liste : … », qui ne couvraient que les mots fléchis.
 - ⚠️ `checkCloze` peint **avant** d'écrire la progression : un **second `paintCloze()`** après la boucle, sinon le récapitulatif montre les étoiles d'avant la réponse. ⚠️ Mais ces écritures durent **une seconde** et « Suivant » est déjà à l'écran : le texte à trous étant **toujours le dernier item** de la manche, appuyer pendant ce temps affichait la carte « terminé »… que le second rendu écrasait aussitôt par le texte (bug du 2026-09-20). Le second rendu vérifie donc qu'on est **encore sur le même item** (`sessionRunning && sessionItems[sessionIdx] === item`).
 
