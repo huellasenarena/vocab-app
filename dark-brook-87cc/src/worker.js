@@ -1538,16 +1538,19 @@ export default {
       const auth = await requireAuth(request, env);
       if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
       try {
-        const { query } = await request.json();
-        const apiUrl = `https://api.unsplash.com/photos/random?orientation=landscape&content_filter=high${query ? `&query=${encodeURIComponent(query)}` : ''}`;
+        const { query, count } = await request.json();
+        // `count` : plusieurs photos du même sujet en UNE requête Unsplash (mode
+        // image « ¿Cuál es ? ») — quatre appels séparés mangeraient le quota horaire.
+        const n = Math.min(10, Math.max(0, parseInt(count, 10) || 0));
+        const apiUrl = `https://api.unsplash.com/photos/random?orientation=landscape&content_filter=high${query ? `&query=${encodeURIComponent(query)}` : ''}${n ? `&count=${n}` : ''}`;
         const resp = await fetch(apiUrl, {
           headers: { 'Authorization': `Client-ID ${env.UNSPLASH_KEY}` }
         });
         const data = await resp.json();
-        return new Response(JSON.stringify({
-          url: data.urls.regular,
-          description: data.alt_description || ''
-        }), { status: resp.status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+        if (!resp.ok) throw new Error((data.errors && data.errors[0]) || `Unsplash ${resp.status}`);
+        const one = d => ({ url: d.urls.regular, description: d.alt_description || '' });
+        const out = n ? { photos: (Array.isArray(data) ? data : [data]).map(one) } : one(data);
+        return new Response(JSON.stringify(out), { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } });
       } catch (err) {
         return new Response(JSON.stringify({ error: { message: err.message } }), {
           status: 500, headers: { ...CORS, 'Content-Type': 'application/json' }
@@ -1561,21 +1564,26 @@ export default {
       const geminiKey = request.headers.get('X-Gemini-Key');
       if (!geminiKey) return json({ error: { message: 'Clé Gemini manquante — ajoute-la dans ⚙️' } }, 400);
       try {
-        const { prompt, maxTokens = 1000, imageUrl, stream = false, geminiModel = 'gemini-2.5-pro', thinkingLevel } = await request.json();
+        const { prompt, maxTokens = 1000, imageUrl, imageUrls, stream = false, geminiModel = 'gemini-2.5-pro', thinkingLevel } = await request.json();
 
         const parts = [{ text: prompt }];
 
-        if (imageUrl) {
-          const imgRes = await fetch(imageUrl);
+        // Une ou plusieurs photos ; plusieurs → étiquetées « Photo N » dans l'ordre,
+        // comme côté GPT, pour que le modèle puisse répondre par un numéro.
+        const urls = Array.isArray(imageUrls) ? imageUrls.slice(0, 10) : (imageUrl ? [imageUrl] : []);
+        const images = await Promise.all(urls.map(async u => {
+          const imgRes = await fetch(u);
           if (!imgRes.ok) throw new Error(`Image fetch failed: ${imgRes.status}`);
-          const imgBuffer = await imgRes.arrayBuffer();
-          const bytes = new Uint8Array(imgBuffer);
+          const bytes = new Uint8Array(await imgRes.arrayBuffer());
           let binary = '';
           for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-          const base64 = btoa(binary);
           const mimeType = imgRes.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
-          parts.push({ inlineData: { mimeType, data: base64 } });
-        }
+          return { inlineData: { mimeType, data: btoa(binary) } };
+        }));
+        images.forEach((img, i) => {
+          if (images.length > 1) parts.push({ text: `Photo ${i + 1}:` });
+          parts.push(img);
+        });
 
         const generationConfig = { maxOutputTokens: maxTokens };
         if (thinkingLevel) {

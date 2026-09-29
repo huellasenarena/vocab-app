@@ -910,12 +910,27 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     /* ── Mode image ── */
     #vocab-section { display: contents; } /* hérite du gap flex du parent .screen */
-    #image-section { display: none; flex-direction: column; gap: 0.75rem; width: 100%; }
+    #image-section { display: none; flex-direction: column; gap: 0.75rem; width: 100%; align-items: flex-start; }
     #image-section.visible { display: flex; }
-    .photo-wrap { overflow: hidden; background: var(--relleno-hover); width: 100%; }
-    .photo-wrap img { width: 100%; height: auto; display: block; transition: opacity 0.3s; }
-    .photo-wrap img.photo-loading { opacity: 0.35; }
+    /* « ¿Cuál es ? » : quatre photos du même thème, la sienne marquée d'un filet
+       de tinta. Le modèle les voit toutes sans savoir laquelle est la sienne. */
+    .photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; }
+    .photo-cell { display: grid; gap: 4px; min-width: 0; }
+    .photo-cell img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block;
+      background: var(--relleno-hover); border: 2px solid transparent; transition: opacity 0.3s; }
+    .photo-cell img.photo-loading { opacity: 0.35; }
+    .photo-cell.mine img   { border-color: var(--tinta); }
+    .photo-cell.chosen-ok img { border-color: var(--verde); }
+    .photo-cell.chosen-ko img { border: 2px dashed var(--rojo); }
+    .photo-cap { font-size: 0.8rem; color: var(--gris); font-style: italic; display: flex; justify-content: space-between; gap: 6px; }
+    .photo-cap .cap-ok { color: var(--verde); font-style: normal; }
+    .photo-cap .cap-ko { color: var(--rojo);  font-style: normal; }
+    .photo-grid-msg { grid-column: 1 / -1; color: var(--gris); font-style: italic; font-size: 0.88rem; }
     .btn-new-photo { padding: 6px 16px; font-size: var(--t-nav); }
+    .img-verdict-title { margin: 0 0 0.3rem; }
+    .img-verdict p { margin: 0 0 0.3rem; color: var(--tinta); }
+    .img-errors { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.4rem; font-size: 0.88rem; }
+    .img-errors-none { color: var(--gris); font-style: italic; font-size: 0.88rem; }
     .token-display { font-family: var(--mono); font-size: 0.65rem; color: var(--gris); white-space: nowrap; display: block; }
 
     /* ── Zone phrase ── */
@@ -994,19 +1009,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .fb-section.collapsed:not([data-has-maj]) .fb-more { display: none; }
     .fb-details > .fb-item { margin-top: 0.5rem; }
 
-    .feedback-box.image     { border-left-color: var(--linea-fuerte); color: var(--tinta); }
-    .feedback-box.image .md-h2 {
-      font-family: var(--serif);
-      font-size: 0.72rem;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--tinta);
-      border-bottom: 1px solid var(--linea);
-      padding-bottom: 0.3rem;
-      display: block;
-      margin-top: 1.1rem;
-    }
     .feedback-box .feedback-label {
       display: none;
     }
@@ -1951,10 +1953,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     <!-- Section photo (mode image) -->
     <div id="image-section">
-      <div class="photo-wrap">
-        <img id="practice-photo" alt="Describe esta foto">
-      </div>
-      <button class="btn-new-photo" onclick="newPracticePhoto()">Nueva foto</button>
+      <div class="photo-grid" id="photo-grid"></div>
+      <button class="btn-new-photo" onclick="newPracticePhoto()" data-i18n="img_new">otras fotos</button>
     </div>
 
     <!-- Zone phrase (modes espacé + libre + image) -->
@@ -2036,9 +2036,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       <div class="related-chips" id="related-chips"></div>
     </div>
 
-    <!-- Vocabulario sugerido (mode image) -->
+    <!-- Après la devinette (mode image) : erreurs graves + mots utiles -->
     <div class="related-box" id="image-vocab-box">
-      <div class="related-label">Vocabulario sugerido</div>
+      <div class="related-label" data-i18n="img_errors_label">Corrections</div>
+      <div id="image-errors"></div>
+      <div class="related-label" data-i18n="img_words_label">Mots utiles</div>
       <div class="related-chips" id="image-vocab-chips"></div>
     </div>
 
@@ -2396,6 +2398,20 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       modem_situation:  { en: `Situation`, fr: `Situation`, es: `Situación`, el: `Κατάσταση` },
       modem_free:       { en: `Free`, fr: `Libre`, es: `Libre`, el: `Ελεύθερη` },
       modem_image:      { en: `Imagen`, fr: `Imagen`, es: `Imagen`, el: `Imagen` },
+      // — mode image : « ¿Cuál es ? » —
+      img_task:         { en: `Describe your photo so the model can tell it apart from the others:`, fr: `Décris ta photo pour que le modèle la reconnaisse parmi les autres :`, es: `Describe tu foto para que el modelo la reconozca entre las demás:`, el: `Περίγραψε τη φωτογραφία σου ώστε το μοντέλο να την ξεχωρίσει από τις άλλες:` },
+      img_new:          { en: `other photos`, fr: `autres photos`, es: `otras fotos`, el: `άλλες φωτογραφίες` },
+      img_loading:      { en: `looking for photos…`, fr: `recherche de photos…`, es: `buscando fotos…`, el: `αναζήτηση φωτογραφιών…` },
+      img_photo_err:    { en: `Couldn't load the photos.`, fr: `Impossible de charger les photos.`, es: `No se pudieron cargar las fotos.`, el: `Δεν φορτώθηκαν οι φωτογραφίες.` },
+      img_yours:        { en: `yours`, fr: `la tienne`, es: `la tuya`, el: `η δική σου` },
+      img_chosen:       { en: `chosen`, fr: `choisie`, es: `elegida`, el: `επιλέχθηκε` },
+      img_right:        { en: `Got it: the model chose photo {n}.`, fr: `Trouvé : le modèle a choisi la photo {n}.`, es: `Acertado: el modelo ha elegido la foto {n}.`, el: `Σωστά: το μοντέλο διάλεξε τη φωτογραφία {n}.` },
+      img_wrong:        { en: `Missed: the model chose photo {a}. Yours was photo {b}.`, fr: `Raté : le modèle a choisi la photo {a}. La tienne était la {b}.`, es: `Fallado: el modelo ha elegido la foto {a}. La tuya era la {b}.`, el: `Λάθος: το μοντέλο διάλεξε τη φωτογραφία {a}. Η δική σου ήταν η {b}.` },
+      img_decided:      { en: `What decided it:`, fr: `Ce qui a décidé :`, es: `Lo que decidió:`, el: `Τι έκρινε την επιλογή:` },
+      img_why_not_yours:{ en: `Why it ruled out yours:`, fr: `Pourquoi il a écarté la tienne :`, es: `Por qué descartó la tuya:`, el: `Γιατί απέρριψε τη δική σου:` },
+      img_errors_label: { en: `Corrections`, fr: `Corrections`, es: `Correcciones`, el: `Διορθώσεις` },
+      img_no_errors:    { en: `No errors found.`, fr: `Aucune erreur relevée.`, es: `Sin errores.`, el: `Κανένα λάθος.` },
+      img_words_label:  { en: `Useful words`, fr: `Mots utiles`, es: `Palabras útiles`, el: `Χρήσιμες λέξεις` },
       sess_progress:    { en: `{a} of {b}`, fr: `{a} sur {b}`, es: `{a} de {b}`, el: `{a} από {b}` },
       sess_which:       { en: `In which situation does this word fit?`, fr: `Dans quelle situation ce mot s'emploie-t-il ?`, es: `¿En qué situación se usa esta palabra?`, el: `Σε ποια περίπτωση ταιριάζει η λέξη;` },
       sess_dunno:       { en: `I don't know`, fr: `Je ne sais pas`, es: `No lo sé`, el: `Δεν ξέρω` },
@@ -2657,10 +2673,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         el: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Εισήγαγε μονομιάς τις λέξεις που υπογράμμισες στο Kindle. Απαιτεί Mac/PC με Python 3.</p><ol><li>Εγκατέστησε την εξάρτηση: <code>pip3 install wordfreq</code>.</li><li>Κατέβασε το script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>Στον ίδιο φάκελο, δημιούργησε δύο αρχεία: <code>.token</code> (το token σου) και <code>.openai_key</code> (το κλειδί OpenAI σου). Κάθε αρχείο περιέχει μόνο την τιμή.</li><li>Σύνδεσε το Kindle με USB και τρέξε: <code>python3 kindle_import.py</code>. Διάλεξε τις λέξεις.</li><li>Βοήθεια; <code>python3 kindle_import.py --aide</code>.</li></ol>` },
       help_s3_t:        { en: `3 · The 4 modes`, fr: `3 · Les 4 modes`, es: `3 · Los 4 modos`, el: `3 · Οι 4 λειτουργίες` },
       help_s3: {
-        en: `<ul><li><strong>Spaced</strong> — review each word at the right time (spaced repetition).</li><li><strong>Situation</strong> — recall a mastered word from a scene.</li><li><strong>Free</strong> — weighted random draw.</li><li><strong>Imagen</strong> — describe a photo in Spanish.</li></ul>`,
-        fr: `<ul><li><strong>Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li><li><strong>Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li><li><strong>Libre</strong> — tirage aléatoire pondéré.</li><li><strong>Imagen</strong> — décris une photo en espagnol.</li></ul>`,
-        es: `<ul><li><strong>Espaciada</strong> — repasa cada palabra en el momento justo (repetición espaciada).</li><li><strong>Situación</strong> — recuerda una palabra dominada a partir de una escena.</li><li><strong>Libre</strong> — sorteo aleatorio ponderado.</li><li><strong>Imagen</strong> — describe una foto en español.</li></ul>`,
-        el: `<ul><li><strong>Κατανεμημένη</strong> — επανάλαβε κάθε λέξη την κατάλληλη στιγμή (spaced repetition).</li><li><strong>Περίσταση</strong> — θυμήσου μια κατακτημένη λέξη από μια σκηνή.</li><li><strong>Ελεύθερη</strong> — σταθμισμένη τυχαία επιλογή.</li><li><strong>Imagen</strong> — περίγραψε μια φωτογραφία στα ισπανικά.</li></ul>` },
+        en: `<ul><li><strong>Spaced</strong> — review each word at the right time (spaced repetition).</li><li><strong>Situation</strong> — recall a mastered word from a scene.</li><li><strong>Free</strong> — weighted random draw.</li><li><strong>Imagen</strong> — describe your photo so the model can pick it out of four similar ones.</li></ul>`,
+        fr: `<ul><li><strong>Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li><li><strong>Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li><li><strong>Libre</strong> — tirage aléatoire pondéré.</li><li><strong>Imagen</strong> — décris ta photo pour que le modèle la retrouve parmi quatre photos proches.</li></ul>`,
+        es: `<ul><li><strong>Espaciada</strong> — repasa cada palabra en el momento justo (repetición espaciada).</li><li><strong>Situación</strong> — recuerda una palabra dominada a partir de una escena.</li><li><strong>Libre</strong> — sorteo aleatorio ponderado.</li><li><strong>Imagen</strong> — describe tu foto para que el modelo la encuentre entre cuatro parecidas.</li></ul>`,
+        el: `<ul><li><strong>Κατανεμημένη</strong> — επανάλαβε κάθε λέξη την κατάλληλη στιγμή (spaced repetition).</li><li><strong>Περίσταση</strong> — θυμήσου μια κατακτημένη λέξη από μια σκηνή.</li><li><strong>Ελεύθερη</strong> — σταθμισμένη τυχαία επιλογή.</li><li><strong>Imagen</strong> — περίγραψε τη φωτογραφία σου ώστε το μοντέλο να τη βρει ανάμεσα σε τέσσερις παρόμοιες.</li></ul>` },
       help_s4_t:        { en: `4 · Spaced repetition`, fr: `4 · La répétition espacée`, es: `4 · La repetición espaciada`, el: `4 · Η κατανεμημένη επανάληψη` },
       help_s4: {
         en: `<ul><li>Each word earns <strong>stars</strong> (☆☆☆ → ★★★) as you succeed.</li><li>Succeeding <em>without help</em> pushes the next review further away; failing or opening the definition brings it back to tomorrow.</li><li>You choose how many <strong>new words per day</strong> in settings, and "my upcoming reviews" shows your calendar.</li></ul>`,
@@ -2875,7 +2891,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     const sanitizeKey = k => (k || '').replace(/[^\x21-\x7E]/g, '');
     let openaiKey           = sanitizeKey(localStorage.getItem(KEY_OPENAI_KEY)); // BYOK : clé OpenAI
     let geminiKey           = sanitizeKey(localStorage.getItem(KEY_GEMINI_KEY)); // BYOK : clé Gemini
-    let currentPhotoUrl    = '';
     let imageTheme         = localStorage.getItem(KEY_IMAGE_THEME) || '';
     const definitionCache  = {}; // { "mot|lang|model": "texte définition" }
     let _hintInFlight      = false; // bloque tout nouveau fetchHint pendant un streaming en cours
@@ -3825,32 +3840,77 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       saveTodayTokensDebounced();
     }
 
-    // ── Mode image ────────────────────────────────────────────
+    // ── Mode image : « ¿Cuál es ? » ───────────────────────────
+    // Décrire une photo n'avait ni but ni fin vérifiable. Ici : quatre photos du
+    // même sujet, l'app marque la tienne, tu la décris, et le modèle — qui voit
+    // les quatre sans savoir laquelle est la tienne — doit la retrouver. Réussir,
+    // c'est avoir nommé ce qui la distingue. Le contrôle se fait dans l'app : le
+    // numéro secret ne part jamais dans le prompt.
+    // Sujets précis plutôt que le thème brut : « people » donne quatre photos sans
+    // rapport, et un seul mot suffit alors à trouver la bonne.
+    const IMAGE_SCENES = {
+      'people':           ['cafe terrace people', 'people waiting bus stop', 'family picnic park', 'street musician', 'people reading library', 'friends dinner table'],
+      'city street':      ['narrow old town street', 'city crosswalk', 'street market stalls', 'bicycle parked street', 'rainy city street', 'city square fountain'],
+      'nature landscape': ['mountain lake', 'forest path', 'beach with rocks', 'wheat field', 'waterfall', 'snowy mountain village'],
+      'food':             ['breakfast table', 'fruit market', 'bakery counter', 'pasta dish', 'picnic basket', 'kitchen cooking'],
+      'travel':           ['train station platform', 'airport waiting area', 'suitcase hotel room', 'ferry deck', 'road trip car', 'tourist map street'],
+      'architecture':     ['old wooden door', 'balcony flowers', 'spiral staircase', 'church interior', 'bridge over river', 'colorful houses'],
+      'animals':          ['dog on a beach', 'cat on a windowsill', 'horses in a field', 'birds on a wire', 'cows in a meadow', 'dog in a park'],
+    };
+    const PHOTO_ROUND_SIZE = 4;
+    let photoRound = null; // { photos: [{url}], secret: index, done: bool }
+
+    function pickImageQuery() {
+      const lists = imageTheme && IMAGE_SCENES[imageTheme]
+        ? [IMAGE_SCENES[imageTheme]]
+        : Object.values(IMAGE_SCENES);
+      const list = lists[Math.floor(Math.random() * lists.length)];
+      return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function renderPhotoGrid() {
+      const grid = document.getElementById('photo-grid');
+      if (!photoRound) return;
+      const { photos, secret, choice } = photoRound;
+      grid.innerHTML = photos.map((p, i) => {
+        let cls = 'photo-cell', cap = '';
+        if (i === secret) cls += ' mine';
+        if (choice === i) {
+          cls += i === secret ? ' chosen-ok' : ' chosen-ko';
+          cap = `<span class="${i === secret ? 'cap-ok' : 'cap-ko'}">${tPrac('img_chosen')}</span>`;
+        }
+        const lab = i === secret ? `${i + 1} · ${tPrac('img_yours')}` : `${i + 1}`;
+        return `<div class="${cls}"><img class="photo-loading" alt="" src="${escapeHtml(p.url)}" onload="this.classList.remove('photo-loading')"><div class="photo-cap"><span>${lab}</span>${cap}</div></div>`;
+      }).join('');
+    }
+
     async function newPracticePhoto() {
-      const img = document.getElementById('practice-photo');
-      if (!img) return;
-      img.classList.add('photo-loading');
-      currentPhotoUrl = '';
+      const grid  = document.getElementById('photo-grid');
+      const input = document.getElementById('sentence-input');
+      photoRound = null;
+      grid.innerHTML = `<div class="photo-grid-msg"><span class="spinner"></span> ${tPrac('img_loading')}</div>`;
+      input.value = '';
+      input.disabled = false;
+      document.getElementById('btn-submit').disabled = false;
+      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'partial');
+      document.getElementById('feedback-text').innerHTML = '';
+      document.getElementById('image-vocab-box').classList.remove('visible');
+      lastSubmittedSentence = '';
       try {
         const resp = await fetch(`${API_ENDPOINT}/unsplash`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT() },
-          body: JSON.stringify({ query: imageTheme })
+          body: JSON.stringify({ query: pickImageQuery(), count: PHOTO_ROUND_SIZE })
         });
         const data = await resp.json();
         if (data.error) throw new Error(data.error.message);
-        currentPhotoUrl = data.url;
+        const photos = (data.photos || []).filter(p => p && p.url);
+        if (photos.length < 2) throw new Error(tPrac('img_photo_err'));
+        photoRound = { photos, secret: Math.floor(Math.random() * photos.length), choice: null };
+        renderPhotoGrid();
       } catch (e) {
-        // fallback Picsum
-        const seed = Math.random().toString(36).slice(2, 9);
-        currentPhotoUrl = `https://picsum.photos/seed/${seed}/800/600`;
+        grid.innerHTML = `<div class="photo-grid-msg">${escapeHtml(e.message || tPrac('img_photo_err'))}</div>`;
       }
-      img.onload = () => img.classList.remove('photo-loading');
-      img.src = currentPhotoUrl;
-      document.getElementById('sentence-input').value = '';
-      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'partial', 'image');
-      document.getElementById('feedback-text').innerHTML = '';
-      lastSubmittedSentence = '';
     }
 
     function setImageTheme(val) {
@@ -3861,9 +3921,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     async function analyzePhoto() {
       const text = document.getElementById('sentence-input').value.trim();
-      if (!text) return;
+      if (!text || !photoRound || photoRound.done) return;
+      const round = photoRound;
 
-      const btn = document.getElementById('btn-submit');
+      const btn   = document.getElementById('btn-submit');
+      const input = document.getElementById('sentence-input');
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span>';
 
@@ -3872,78 +3934,96 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       const vocabBox     = document.getElementById('image-vocab-box');
       const vocabChips   = document.getElementById('image-vocab-chips');
       feedbackBox.classList.remove('correct', 'incorrect', 'partial');
-      // La réponse vision n'est pas streamée → boîte visible tout de suite avec un
-      // spinner pendant l'attente (sinon rien ne se passe à l'écran)
-      feedbackBox.classList.add('visible', 'image');
+      // Réponse non streamée → boîte visible tout de suite avec un spinner
+      feedbackBox.classList.add('visible');
       feedbackText.innerHTML = SPINNER_BOX;
       requestAnimationFrame(() => feedbackBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
       vocabBox.classList.remove('visible');
       vocabChips.innerHTML = '';
 
-      const questionHint = text.includes('(?)')
-        ? `\n\nNote: the student used "(?)" to mark words or phrases they were unsure about. For each such marker: identify what they most likely intended, provide the correct Spanish, and include it naturally in your linguistic analysis.`
-        : '';
+      const n        = round.photos.length;
+      const langInfo = getLang();
+      const langName = langInfo.mistralName;
+      const respLang = langInfo.feedbackLang;
+      const others   = Array.from({ length: n }, (_, i) => `"${i + 1}": "..."`).join(', ');
 
-      const prompt = `You are a Spanish language teacher. A student has looked at the attached photo and written this description in Spanish:
+      const prompt = `You are playing a guessing game with a learner of ${langName}. You are given ${n} photos, labelled Photo 1 to Photo ${n}. The learner secretly picked ONE of them and described it in ${langName} so that you can tell which one it is. You do NOT know which one they picked.
 
-"${text}"${questionHint}
+The learner's description:
+"${text}"
 
-Respond entirely in Spanish. Use this exact structure:
+TASK 1 — GUESS. Decide which photo the description is about, using ONLY what the text says. Read it the way a native speaker would: a language mistake matters only if it changes the meaning. Be an honest judge — if the text fits several photos equally well, pick the one it fits best and set "ambiguous" to true; never favour a photo for any reason other than the text.
+- "decisive": one sentence naming the detail(s) of the description that made you choose.
+- "others": for EVERY photo you did not choose, one short sentence: the detail of the description that rules it out, or the fact that the description does not tell it apart.
 
-## Precisión
-Evaluate how accurately the student described what is actually in the image. Bold (**elementos clave**) things they mentioned correctly. Note significant omissions. Be specific and constructive. 2–5 sentences.
+TASK 2 — LANGUAGE. At most 3 CONFIRMED errors in the description, most serious first: grammar, agreement, conjugation, wrong word, missing or wrong accent. Ignore capitalisation and punctuation. If you are not sure it is an error, leave it out. "wrong" = exactly as the learner wrote it, "right" = the correction, "why" = one short sentence.
 
-## Análisis lingüístico
-Numbered list of confirmed errors only (grammar, vocabulary, register, naturalness). For each error: *forma incorrecta* → **forma correcta** — brief explanation. CRITICAL FILTER: if uncertain whether something is an error, do not include it. If no errors, write simply "Sin errores detectados."
+TASK 3 — WORDS. 3 ${langName} words or expressions the learner did not use and that would have helped describe what sets these photos apart. "note" = 12 words maximum.
 
-## Vocabulario sugerido
-A JSON array of 3–5 Spanish words or expressions directly useful for describing this type of image (no other text on this line or after):
-[{"word": "...", "note": "una sola cláusula en español, 12 palabras como máximo"}]`;
+Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing else:
+{"choice": 1, "ambiguous": false, "decisive": "...", "others": {${others}}, "errors": [{"wrong": "...", "right": "...", "why": "..."}], "words": [{"word": "...", "note": "..."}]}`;
 
       try {
-        const result = await callAIVision(currentPhotoUrl, prompt, isGemini() ? 1200 : 16000);
+        const raw  = await callAIVision(round.photos.map(p => p.url), prompt, isGemini() ? 3000 : 16000);
+        const json = String(raw || '').match(/\{[\s\S]*\}/);
+        if (!json) throw new Error('réponse illisible');
+        const data   = JSON.parse(json[0]);
+        const choice = parseInt(data.choice, 10) - 1;
+        if (!(choice >= 0 && choice < n)) throw new Error('réponse illisible');
+        if (photoRound !== round) return; // autres photos demandées pendant l'appel
 
-        // Split vocab JSON from main analysis
-        const vocabMatch = result.match(/##\s*Vocabulario sugerido[\s\S]*?(\[[\s\S]*?\])/);
-        const mainText   = result.replace(/##\s*Vocabulario sugerido[\s\S]*$/, '').trim();
+        // Le verdict se décide ICI, contre le secret que le modèle n'a jamais vu.
+        const ok = choice === round.secret;
+        round.done   = true;
+        round.choice = choice;
+        renderPhotoGrid();
+        input.disabled = true;
 
-        feedbackBox.classList.add('visible', 'image');
-        feedbackText.innerHTML = renderMarkdown(mainText);
-        requestAnimationFrame(() => {
-          const top = feedbackBox.getBoundingClientRect().top + window.scrollY - 20;
-          window.scrollTo({ top, behavior: 'smooth' });
-        });
+        const reasons = data.others || {};
+        let h = `<div class="img-verdict"><div class="img-verdict-title">${ok
+          ? tPrac('img_right').replace('{n}', choice + 1)
+          : tPrac('img_wrong').replace('{a}', choice + 1).replace('{b}', round.secret + 1)}</div>`;
+        if (data.decisive) h += `<p>${tPrac('img_decided')} ${escapeHtml(data.decisive)}</p>`;
+        const whyNot = reasons[String(round.secret + 1)];
+        if (!ok && whyNot) h += `<p>${tPrac('img_why_not_yours')} ${escapeHtml(whyNot)}</p>`;
+        feedbackText.innerHTML = h + `</div>`;
+        feedbackBox.classList.add(ok ? 'correct' : 'incorrect');
 
-        if (vocabMatch) {
-          try {
-            const vocab = JSON.parse(vocabMatch[1]);
-            const newVocab = Array.isArray(vocab) ? vocab.filter(v => !allWords.some(w => w.toLowerCase() === v.word.toLowerCase())) : [];
-            if (newVocab.length) {
-              vocabBox.classList.add('visible');
-              vocabChips.innerHTML = newVocab.map((v, i) =>
-                `<div class="related-chip">
-                  <div class="rel-head">
-                    <span class="rel-word">${v.word}</span>
-                    <button class="chip-add" id="img-chip-add-${i}" onclick="addImageVocabWord('${v.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">${tPrac('act_add')}</button>
-                  </div>
-                  <span class="rel-note">${v.note}</span>
-                </div>`
-              ).join('');
-            }
-          } catch (_) {}
-        }
+        // Après la tâche : les erreurs qui comptent, puis des mots à ajouter.
+        const errors = (Array.isArray(data.errors) ? data.errors : []).filter(e => e && e.wrong && e.right).slice(0, 3);
+        document.getElementById('image-errors').innerHTML = errors.length
+          ? `<ol class="img-errors">${errors.map(e =>
+              `<li><em>${escapeHtml(e.wrong)}</em> → <strong>${escapeHtml(e.right)}</strong>${e.why ? ` — ${escapeHtml(e.why)}` : ''}</li>`).join('')}</ol>`
+          : `<div class="img-errors-none">${tPrac('img_no_errors')}</div>`;
+        const words = (Array.isArray(data.words) ? data.words : [])
+          .filter(v => v && v.word && !allWords.some(w => lc(wordBase(w)) === lc(wordBase(v.word))));
+        _imgWords = words.map(v => v.word);
+        vocabChips.innerHTML = words.map((v, i) =>
+          `<div class="related-chip">
+            <div class="rel-head">
+              <span class="rel-word">${escapeHtml(v.word)}</span>
+              <button class="chip-add" id="img-chip-add-${i}" onclick="addImageVocabWord(${i})">${tPrac('act_add')}</button>
+            </div>
+            <span class="rel-note">${escapeHtml(v.note || '')}</span>
+          </div>`).join('');
+        vocabBox.classList.add('visible');
       } catch (err) {
-        feedbackBox.classList.add('visible');
-        feedbackText.innerHTML = `<span style="color:var(--rojo)">${err.message}</span>`;
-        lastSubmittedSentence = '';
+        feedbackText.innerHTML = `<span>${tPrac('err_prefix')} ${escapeHtml(err.message)}</span>
+          <button class="btn-secondary" style="margin-top:0.5rem" onclick="submitSentence()">${tPrac('retry')}</button>`;
+        feedbackBox.classList.add('incorrect');
       } finally {
-        btn.disabled = false;
         btn.innerHTML = tPrac('sess_check');
+        btn.disabled = !!(photoRound && photoRound.done);
       }
     }
 
-    async function addImageVocabWord(word, btnIndex) {
-      const btn = document.getElementById(`img-chip-add-${btnIndex}`);
+    // Le mot passe par un tableau, jamais par l'attribut onclick (une apostrophe
+    // ou un guillemet casserait l'attribut).
+    let _imgWords = [];
+    async function addImageVocabWord(btnIndex) {
+      const word = _imgWords[btnIndex];
+      const btn  = document.getElementById(`img-chip-add-${btnIndex}`);
+      if (!word || !btn) return;
       const wordLower = word.toLowerCase();
       if (allWords.some(w => w.toLowerCase() === wordLower)) {
         btn.disabled = true;
@@ -4023,7 +4103,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       _pendingGloss  = null;
       document.getElementById('sentence-input').value         = '';
       document.getElementById('sentence-input').style.height  = '';
-      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'partial', 'image');
+      document.getElementById('feedback-box').classList.remove('visible', 'correct', 'incorrect', 'partial');
       document.getElementById('feedback-text').textContent    = '';
       document.getElementById('no-count-notice').textContent  = '';
       document.getElementById('scroll-spacer').style.display  = 'none';
@@ -4042,6 +4122,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       _relatedWordsAdded = new Set();
       document.getElementById('image-vocab-box').classList.remove('visible');
       document.getElementById('image-vocab-chips').innerHTML  = '';
+      document.getElementById('image-errors').innerHTML       = '';
+      // Une devinette finie verrouille le bouton : il doit revivre dans les autres modes.
+      document.getElementById('btn-submit').disabled = false;
+      photoRound = null;
       // Reset words hidden
       wordsHidden = false;
       document.body.classList.remove('words-hidden');
@@ -4134,7 +4218,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       // Adapter la zone phrase
       document.getElementById('sentence-section').style.display = mode === 'situation' ? 'none' : '';
       document.getElementById('sentence-label').textContent = isImage
-        ? 'Describe esta foto en español :'
+        ? tPrac('img_task')
         : (getLang().sentencePromptSingle || 'Utilise ce mot dans une phrase :');
       document.getElementById('confirm-panel').style.display    = isImage ? 'none' : '';
       renderGrammarForms(); // gère visibilité zone + slider selon mode
@@ -9751,7 +9835,14 @@ Return ONLY a JSON array of exactly 3 items, no other text:
                                  : callMistralStream(prompt, c.cb, maxTokens));
       } finally { c.flush(); }
     }
-    function callAIVision(imageUrl, prompt, maxTokens){ checkDailyLimit(); return isGemini() ? callGeminiVision(imageUrl, prompt, maxTokens): callMistralVision(imageUrl, prompt, maxTokens); }
+    // `imageUrls` : une ou plusieurs photos, étiquetées « Photo 1 », « Photo 2 »…
+    // dans l'ordre. ⚠️ Une seconde déclaration (GPT) portait le même nom et écrasait
+    // ce dispatcher : la vision passait toujours par GPT, même avec Gemini choisi.
+    function callAIVision(imageUrls, prompt, maxTokens) {
+      checkDailyLimit();
+      const urls = [].concat(imageUrls);
+      return isGemini() ? callGeminiVision(urls, prompt, maxTokens) : callMistralVision(urls, prompt, maxTokens);
+    }
 
     // ── Gemini (non-streaming) ─────────────────────────────────
     async function callGemini(prompt, maxTokens = 2000) {
@@ -9777,14 +9868,14 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     }
 
     // ── Gemini vision (non-streaming) ─────────────────────────
-    async function callGeminiVision(imageUrl, prompt, maxTokens = 2000) {
+    async function callGeminiVision(imageUrls, prompt, maxTokens = 2000) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 60000);
       try {
         const res = await fetch(`${API_ENDPOINT}/gemini`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-Gemini-Key': geminiKey },
-          body: JSON.stringify({ prompt, maxTokens, imageUrl, stream: false, geminiModel: geminiModelId(), ...geminiThinkingBody() }),
+          body: JSON.stringify({ prompt, maxTokens, imageUrls, stream: false, geminiModel: geminiModelId(), ...geminiThinkingBody() }),
           signal: controller.signal
         });
         const data = await res.json();
@@ -9877,7 +9968,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     }
 
     // ── Appel vision (image + texte, non-streaming) ───────────
-    async function callAIVision(imageUrl, prompt, maxTokens = 1000) {
+    async function callMistralVision(imageUrls, prompt, maxTokens = 1000) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 60000);
       try {
@@ -9888,7 +9979,10 @@ Return ONLY a JSON array of exactly 3 items, no other text:
             model: MISTRAL_MODEL,
             input: [{ role: 'user', content: [
               { type: 'input_text', text: prompt },
-              { type: 'input_image', image_url: imageUrl }
+              ...imageUrls.flatMap((url, i) => [
+                { type: 'input_text', text: `Photo ${i + 1}:` },
+                { type: 'input_image', image_url: url }
+              ])
             ]}],
             max_output_tokens: gptMaxTokens(maxTokens),
             reasoning: { effort: gptEffort }
@@ -10521,7 +10615,7 @@ Reply with ONLY this JSON object, nothing else:
           <li><strong>Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li>
           <li><strong>Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li>
           <li><strong>Libre</strong> — tirage aléatoire pondéré.</li>
-          <li><strong>Imagen</strong> — décris une photo en espagnol.</li>
+          <li><strong>Imagen</strong> — décris ta photo pour que le modèle la retrouve parmi quatre photos proches.</li>
         </ul></div>
       </div>
       <div class="help-section">
