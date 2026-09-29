@@ -1621,7 +1621,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 </head>
 <body>
 <div id="status-curtain"></div>
-<button id="catchup-btn" onclick="catchupToFeedback()">suite du verdict</button>
+<button id="catchup-btn" onclick="catchupToFeedback()" data-i18n="catchup">suite du verdict</button>
 <div id="sticky-words-bar">
   <span id="sticky-words-text"></span>
   <button id="sticky-hide-btn" onclick="toggleWordsHidden()" title="Cacher/Montrer">cacher</button>
@@ -1746,8 +1746,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         </select>
       </div>
       <div class="settings-row" style="cursor:default;">
-        <span>Réinitialiser la progression<br><span style="font-size:0.7rem;color:var(--gris);">remet des mots à « nouveaux » (l'historique est conservé)</span></span>
-        <button class="btn-ghost" onclick="openResetProgress()" style="flex-shrink:0;">Réinitialiser</button>
+        <span><span data-i18n="rs_title">Réinitialiser la progression</span><br><span style="font-size:0.7rem;color:var(--gris);" data-i18n="rs_hint">remet des mots à « nouveaux » (l'historique est conservé)</span></span>
+        <button class="btn-ghost" onclick="openResetProgress()" style="flex-shrink:0;" data-i18n="rs_btn">Réinitialiser</button>
       </div>
     </div>
 
@@ -2122,17 +2122,17 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
   <!-- ── Écran : Révisions à venir (mode espacé) ── -->
   <div class="screen" id="screen-groups">
     <div class="stats-header">
-      <h1 class="app-title" id="groups-screen-title">Mes groupes</h1>
+      <h1 class="app-title" id="groups-screen-title" data-i18n="gp_title">Mes groupes</h1>
       <button class="btn-ghost" onclick="showScreen(_manageBack)" data-i18n="btn_back">retour</button>
     </div>
     <div id="groups-manage-list"></div>
     <div style="display:flex; gap:0.5rem; margin-top:1rem; flex-wrap:wrap;">
-      <button class="btn-ghost" style="flex:1 1 auto" onclick="createGroupPrompt()">nouveau groupe</button>
-      <button class="btn-ghost" style="flex:1 1 auto" id="groups-lot-btn" onclick="createLotPrompt()">lot d'étude</button>
+      <button class="btn-ghost" style="flex:1 1 auto" onclick="createGroupPrompt()" data-i18n="gm_new">nouveau groupe</button>
+      <button class="btn-ghost" style="flex:1 1 auto" id="groups-lot-btn" onclick="createLotPrompt()" data-i18n="gm_lot">lot d'étude</button>
     </div>
     <div style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
-      <button class="btn-ghost" style="flex:1 1 auto" id="taxo-redo" onclick="startTaxoProposal()">⟳ refaire la taxonomie</button>
-      <button class="btn-ghost" style="flex:1 1 auto" id="taxo-orphans" onclick="classifyOrphans()">classer les mots sans groupe</button>
+      <button class="btn-ghost" style="flex:1 1 auto" id="taxo-redo" onclick="startTaxoProposal()" data-i18n="gm_redo">refaire la taxonomie</button>
+      <button class="btn-ghost" style="flex:1 1 auto" id="taxo-orphans" onclick="classifyOrphans()" data-i18n="gm_orphans">classer les mots sans groupe</button>
     </div>
     <div id="taxo-panel" style="margin-top:1rem;"></div>
   </div>
@@ -2402,7 +2402,53 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_def:         { en: `Definition`, fr: `Définition`, es: `Definición`, el: `Ορισμός` },
       sess_next:        { en: `Next`, fr: `Suivant`, es: `Siguiente`, el: `Επόμενο` },
       sess_check:       { en: `Check`, fr: `Vérifier`, es: `Comprobar`, el: `Έλεγχος` },
+      // Écrans ouverts depuis l'accueil : gestion des groupes, filtre par groupe de « mes mots », réinitialisation (langue de l'appli)
+      gm_title:         { en: `My groups ({name})`, fr: `Mes groupes ({name})`, es: `Mis grupos ({name})`, el: `Οι ομάδες μου ({name})` },
+      gm_none:          { en: `No group for this language.`, fr: `Aucun groupe pour cette langue.`, es: `Ningún grupo para este idioma.`, el: `Καμία ομάδα για αυτή τη γλώσσα.` },
+      gm_new:           { en: `new group`, fr: `nouveau groupe`, es: `grupo nuevo`, el: `νέα ομάδα` },
+      gm_lot:           { en: `study set`, fr: `lot d'étude`, es: `lote de estudio`, el: `σετ μελέτης` },
+      gm_redo:          { en: `redo the taxonomy`, fr: `refaire la taxonomie`, es: `rehacer la taxonomía`, el: `ξαναφτιάξε την ταξινόμηση` },
+      gm_orphans:       { en: `sort the words without a group`, fr: `classer les mots sans groupe`, es: `clasificar las palabras sin grupo`, el: `ταξινόμησε τις λέξεις χωρίς ομάδα` },
+      gm_rename_q:      { en: `New group name:`, fr: `Nouveau nom du groupe :`, es: `Nuevo nombre del grupo:`, el: `Νέο όνομα ομάδας:` },
+      gm_delete_q:      { en: `Delete the group “{name}”? Its {n} words stay in your list.`, fr: `Supprimer le groupe « {name} » ? Les {n} mots restent dans ta liste.`, es: `¿Eliminar el grupo «{name}»? Sus {n} palabras siguen en tu lista.`, el: `Διαγραφή της ομάδας «{name}»; Οι {n} λέξεις μένουν στη λίστα σου.` },
+      gm_new_q:         { en: `Name of the new group:`, fr: `Nom du nouveau groupe :`, es: `Nombre del nuevo grupo:`, el: `Όνομα της νέας ομάδας:` },
+      gm_lot_n_q:       { en: `How many words in this set?`, fr: `Combien de mots dans ce lot ?`, es: `¿Cuántas palabras en este lote?`, el: `Πόσες λέξεις σε αυτό το σετ;` },
+      gm_lot_name_q:    { en: `Set name:`, fr: `Nom du lot :`, es: `Nombre del lote:`, el: `Όνομα του σετ:` },
+      gm_lot_default:   { en: `set of {date}`, fr: `lot du {date}`, es: `lote del {date}`, el: `σετ της {date}` },
+      gm_lot_err:       { en: `the set was created but its words could not be added`, fr: `le lot a été créé mais les mots n'ont pas pu y être ajoutés`, es: `el lote se creó pero no se pudieron añadir las palabras`, el: `το σετ δημιουργήθηκε αλλά οι λέξεις δεν προστέθηκαν` },
+      gm_group_err:     { en: `Could not load the group.`, fr: `Erreur de chargement du groupe.`, es: `No se pudo cargar el grupo.`, el: `Σφάλμα φόρτωσης της ομάδας.` },
+      err_generic:      { en: `error`, fr: `erreur`, es: `error`, el: `σφάλμα` },
+      tx_reading:       { en: `the model is rereading all your words…`, fr: `le modèle relit tous tes mots…`, es: `el modelo está releyendo todas tus palabras…`, el: `το μοντέλο ξαναδιαβάζει όλες τις λέξεις σου…` },
+      tx_summary:       { en: `Out of your <strong>{total}</strong> words, the model proposes <strong>{n}</strong> groups.`, fr: `Sur tes <strong>{total}</strong> mots, le modèle propose <strong>{n}</strong> groupes.`, es: `De tus <strong>{total}</strong> palabras, el modelo propone <strong>{n}</strong> grupos.`, el: `Από τις <strong>{total}</strong> λέξεις σου, το μοντέλο προτείνει <strong>{n}</strong> ομάδες.` },
+      tx_same:          { en: `Your current taxonomy is already what it would propose. Nothing to change.`, fr: `Ta taxonomie actuelle est déjà celle qu'il proposerait. Rien à changer.`, es: `Tu taxonomía actual ya es la que propondría. Nada que cambiar.`, el: `Η τωρινή σου ταξινόμηση είναι ήδη αυτή που θα πρότεινε. Τίποτα να αλλάξει.` },
+      tx_new:           { en: `New groups proposed`, fr: `Nouveaux groupes proposés`, es: `Grupos nuevos propuestos`, el: `Νέες προτεινόμενες ομάδες` },
+      tx_rescope:       { en: `Descriptions to update`, fr: `Descriptions à mettre à jour`, es: `Descripciones que actualizar`, el: `Περιγραφές προς ενημέρωση` },
+      tx_dropped:       { en: `No longer proposed`, fr: `Plus proposés`, es: `Ya no propuestos`, el: `Δεν προτείνονται πια` },
+      tx_dropped_note:  { en: `(nothing is deleted — up to you)`, fr: `(rien n'est supprimé — à toi de voir)`, es: `(no se borra nada — tú decides)`, el: `(τίποτα δεν διαγράφεται — εσύ αποφασίζεις)` },
+      tx_apply:         { en: `Apply`, fr: `Appliquer`, es: `Aplicar`, el: `Εφαρμογή` },
+      tx_done:          { en: `{c} group(s) created, {u} description(s) updated.`, fr: `{c} groupe(s) créé(s), {u} description(s) mise(s) à jour.`, es: `{c} grupo(s) creado(s), {u} descripción(es) actualizada(s).`, el: `Ομάδες που δημιουργήθηκαν: {c} · περιγραφές που ενημερώθηκαν: {u}.` },
+      tx_empty_note:    { en: `The new groups are empty: run “{btn}” to fill them.`, fr: `Les nouveaux groupes sont vides : lance « {btn} » pour qu'ils se remplissent.`, es: `Los grupos nuevos están vacíos: usa «{btn}» para llenarlos.`, el: `Οι νέες ομάδες είναι άδειες: πάτα «{btn}» για να γεμίσουν.` },
+      or_all_grouped:   { en: `All your words already have a group.`, fr: `Tous tes mots ont déjà un groupe.`, es: `Todas tus palabras ya tienen grupo.`, el: `Όλες οι λέξεις σου έχουν ήδη ομάδα.` },
+      or_progress:      { en: `{d}/{n} words sorted…`, fr: `{d}/{n} mots classés…`, es: `{d}/{n} palabras clasificadas…`, el: `{d}/{n} λέξεις ταξινομήθηκαν…` },
+      or_done:          { en: `{n} word(s) sent back for sorting.`, fr: `{n} mot(s) repassés au classement.`, es: `{n} palabra(s) enviadas de nuevo a clasificar.`, el: `Λέξεις που ξαναπέρασαν ταξινόμηση: {n}.` },
+      mg_title:         { en: `Filter by group`, fr: `Filtrer par groupe`, es: `Filtrar por grupo`, el: `Φιλτράρισμα ανά ομάδα` },
+      mg_manage:        { en: `manage the groups`, fr: `gérer les groupes`, es: `gestionar los grupos`, el: `διαχείριση ομάδων` },
+      mg_all_words:     { en: `all words`, fr: `tous les mots`, es: `todas las palabras`, el: `όλες οι λέξεις` },
+      mg_prefix:        { en: `group:`, fr: `groupe :`, es: `grupo:`, el: `ομάδα:` },
+      mg_group:         { en: `group`, fr: `groupe`, es: `grupo`, el: `ομάδα` },
+      rs_title:         { en: `Reset progress`, fr: `Réinitialiser la progression`, es: `Restablecer el progreso`, el: `Επαναφορά προόδου` },
+      rs_hint:          { en: `sets words back to “new” (history is kept)`, fr: `remet des mots à « nouveaux » (l'historique est conservé)`, es: `vuelve a poner palabras como «nuevas» (el historial se conserva)`, el: `ξανακάνει λέξεις «νέες» (το ιστορικό διατηρείται)` },
+      rs_intro:         { en: `The chosen words become “new” again (stars back to zero, out of the reviews). <strong>History is kept.</strong>`, fr: `Les mots choisis redeviennent « nouveaux » (étoiles remises à zéro, sortis des révisions). <strong>L'historique est conservé.</strong>`, es: `Las palabras elegidas vuelven a ser «nuevas» (estrellas a cero, fuera de los repasos). <strong>El historial se conserva.</strong>`, el: `Οι λέξεις που διαλέγεις ξαναγίνονται «νέες» (αστέρια στο μηδέν, εκτός επαναλήψεων). <strong>Το ιστορικό διατηρείται.</strong>` },
+      rs_langs:         { en: `Whole languages`, fr: `Langues entières`, es: `Idiomas enteros`, el: `Ολόκληρες γλώσσες` },
+      rs_words:         { en: `Specific words`, fr: `Mots précis`, es: `Palabras concretas`, el: `Συγκεκριμένες λέξεις` },
+      rs_btn:           { en: `Reset`, fr: `Réinitialiser`, es: `Restablecer`, el: `Επαναφορά` },
+      rs_busy:          { en: `Resetting…`, fr: `Réinitialisation…`, es: `Restableciendo…`, el: `Επαναφορά…` },
+      rs_none:          { en: `No words.`, fr: `Aucun mot.`, es: `Ninguna palabra.`, el: `Καμία λέξη.` },
+      rs_confirm_langs: { en: `Reset ALL progress for: {names}?\n\nThese words become “new” again (stars back to zero). This cannot be undone — history is kept.`, fr: `Réinitialiser TOUTE la progression de : {names} ?\n\nCes mots redeviennent « nouveaux » (étoiles remises à zéro). Action irréversible — l'historique est conservé.`, es: `¿Restablecer TODO el progreso de: {names}?\n\nEstas palabras vuelven a ser «nuevas» (estrellas a cero). No se puede deshacer — el historial se conserva.`, el: `Επαναφορά ΟΛΗΣ της προόδου για: {names};\n\nΟι λέξεις ξαναγίνονται «νέες» (αστέρια στο μηδέν). Δεν αναιρείται — το ιστορικό διατηρείται.` },
+      rs_confirm_words: { en: `Reset {n} word(s)?\n\nThey become “new” again (stars back to zero). This cannot be undone — history is kept.`, fr: `Réinitialiser {n} mot(s) ?\n\nIls redeviennent « nouveaux » (étoiles remises à zéro). Action irréversible — l'historique est conservé.`, es: `¿Restablecer {n} palabra(s)?\n\nVuelven a ser «nuevas» (estrellas a cero). No se puede deshacer — el historial se conserva.`, el: `Επαναφορά λέξεων: {n};\n\nΞαναγίνονται «νέες» (αστέρια στο μηδέν). Δεν αναιρείται — το ιστορικό διατηρείται.` },
+      rs_done:          { en: `Reset ({n}).`, fr: `Réinitialisé ({n}).`, es: `Restablecido ({n}).`, el: `Έγινε επαναφορά ({n}).` },
       // Mode libre : barre de choix des mots, « Mes groupes », « Chercher un mot » (en langue pratiquée)
+      catchup:          { en: `rest of the verdict`, fr: `suite du verdict`, es: `resto del veredicto`, el: `συνέχεια της ετυμηγορίας` },
       fs_search:        { en: `search a word`, fr: `chercher un mot`, es: `buscar una palabra`, el: `αναζήτηση λέξης` },
       fs_peek:          { en: `see the words`, fr: `voir les mots`, es: `ver las palabras`, el: `δες τις λέξεις` },
       fs_exit_queue:    { en: `leave the list`, fr: `quitter la file`, es: `salir de la lista`, el: `έξοδος από τη λίστα` },
@@ -2639,7 +2685,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       const sub = s => String(s)
         .replace(/\s*\(\{lang\}\)/g, langName ? ` (${langName})` : '')
         .replace(/\{lang\}/g, langName);
-      root.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = sub(tr(el.dataset.i18n, code)); });
+      // La racine elle-même peut porter la clé (un bouton isolé, ex. #catchup-btn).
+      const els = [...root.querySelectorAll('[data-i18n]')];
+      if (root.matches && root.matches('[data-i18n]')) els.push(root);
+      els.forEach(el => { el.innerHTML = sub(tr(el.dataset.i18n, code)); });
       root.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = sub(tr(el.dataset.i18nPh, code)); });
     }
     function setAppLang(code) {
@@ -2657,7 +2706,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     }
     function applyPracticeLangUI() {
       const code = pracCode();
-      ['screen-practice', 'screen-revisions', 'word-ctx-menu', 'groups-modal', 'free-search-modal'].forEach(id => {
+      ['screen-practice', 'screen-revisions', 'word-ctx-menu', 'groups-modal', 'free-search-modal', 'catchup-btn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) applyI18n(el, code);
       });
@@ -4451,7 +4500,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       showScreen('screen-groups');
       const info = LANGS.find(l => l.key === _manageLang);
       document.getElementById('groups-screen-title').textContent =
-        'Mes groupes (' + ((info && info.name) || _manageLang) + ')';
+        tApp('gm_title').replace('{name}', (info && info.name) || _manageLang);
       // Un lot se tire dans le stock de la langue PRATIQUÉE : on ne le propose
       // pas pour une autre langue plutôt que de tirer dans le mauvais pool.
       document.getElementById('groups-lot-btn').style.display = _manageLang === currentLang ? '' : 'none';
@@ -4459,14 +4508,14 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       document.getElementById('taxo-panel').innerHTML = '';
       _taxo = null;
       list.innerHTML = '<div style="padding:1rem"><span class="spinner"></span></div>';
-      try { await loadGroups(_manageLang); } catch { list.innerHTML = '<p style="color:var(--rojo)">Erreur de chargement.</p>'; return; }
+      try { await loadGroups(_manageLang); } catch { list.innerHTML = `<p style="color:var(--rojo)">${tApp('gp_load_err')}</p>`; return; }
       renderGroupsManager();
     }
     function renderGroupsManager() {
       const groups = groupsCache[_manageLang] || [];
       const list = document.getElementById('groups-manage-list');
       if (!groups.length) {
-        list.innerHTML = '<p style="color:var(--gris);font-style:italic;">Aucun groupe pour cette langue.</p>';
+        list.innerHTML = `<p style="color:var(--gris);font-style:italic;">${tApp('gm_none')}</p>`;
         return;
       }
       list.innerHTML = groups.map(g => `
@@ -4491,17 +4540,17 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         const r = await authFetch('/api/word-groups?group_id=' + id);
         const d = await r.json();
         openWordListScreen('group', { title: lc(g.name), words: d.words || [] });
-      } catch { alert('Erreur de chargement du groupe.'); }
+      } catch { alert(tApp('gm_group_err')); }
     }
 
     async function renameGroup(id) {
       const g = groupById(id);
       if (!g) return;
-      const name = prompt('Nouveau nom du groupe :', g.name);
+      const name = prompt(tApp('gm_rename_q'), g.name);
       if (name === null || !name.trim() || name.trim() === g.name) return;
       const r = await authFetch('/api/groups', { method: 'PUT', body: JSON.stringify({ id, name: name.trim() }) });
       const d = await r.json();
-      if (!r.ok) { alert(d.error?.message || 'erreur'); return; }
+      if (!r.ok) { alert(d.error?.message || tApp('err_generic')); return; }
       g.name = name.trim();
       renderGroupsManager();
     }
@@ -4510,21 +4559,21 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const g = groupById(id);
       if (!g) return;
       // Le mot lui-même n'est jamais touché : on ne supprime que le rangement.
-      if (!confirm(`Supprimer le groupe « ${g.name} » ? Les ${g.n} mots restent dans ta liste.`)) return;
+      if (!confirm(tApp('gm_delete_q').replace('{name}', g.name).replace('{n}', g.n))) return;
       const r = await authFetch('/api/groups', { method: 'DELETE', body: JSON.stringify({ id }) });
-      if (!r.ok) { alert('erreur'); return; }
+      if (!r.ok) { alert(tApp('err_generic')); return; }
       groupsCache[_manageLang] = (groupsCache[_manageLang] || []).filter(x => x.id !== id);
       renderGroupsManager();
     }
 
     async function createGroupPrompt() {
-      const name = prompt('Nom du nouveau groupe :', '');
+      const name = prompt(tApp('gm_new_q'), '');
       if (name === null || !name.trim()) return;
       const r = await authFetch('/api/groups', {
         method: 'POST', body: JSON.stringify({ lang: _manageLang, name: name.trim(), kind: 'theme' })
       });
       const d = await r.json();
-      if (!r.ok) { alert(d.error?.message || 'erreur'); return; }
+      if (!r.ok) { alert(d.error?.message || tApp('err_generic')); return; }
       await loadGroups(_manageLang);
       renderGroupsManager();
     }
@@ -4533,11 +4582,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // PONDÉRÉ (comme le mode libre), donc un lot « au hasard » vise déjà ce qui
     // n'est pas acquis ; `kind = 'lot'` le tient hors du classement automatique.
     async function createLotPrompt() {
-      const nRaw = prompt('Combien de mots dans ce lot ?', '20');
+      const nRaw = prompt(tApp('gm_lot_n_q'), '20');
       if (nRaw === null) return;
       const n = Math.min(Math.max(parseInt(nRaw) || 0, 1), 200);
       if (!n) return;
-      const name = (prompt('Nom du lot :', 'lot du ' + todayStrLocal()) || '').trim();
+      const name = (prompt(tApp('gm_lot_name_q'), tApp('gm_lot_default').replace('{date}', todayStrLocal())) || '').trim();
       if (!name) return;
       const picked = [];
       for (let i = 0; i < n; i++) {
@@ -4550,11 +4599,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         method: 'POST', body: JSON.stringify({ lang: currentLang, name, kind: 'lot' })
       });
       const d = await r.json();
-      if (!r.ok) { alert(d.error?.message || 'erreur'); return; }
+      if (!r.ok) { alert(d.error?.message || tApp('err_generic')); return; }
       const r2 = await authFetch('/api/word-groups', {
         method: 'POST', body: JSON.stringify({ lang: currentLang, group_id: d.id, words: picked })
       });
-      if (!r2.ok) { alert('le lot a été créé mais les mots n\'ont pas pu y être ajoutés'); return; }
+      if (!r2.ok) { alert(tApp('gm_lot_err')); return; }
       await loadGroups(currentLang);
       renderGroupsManager();
     }
@@ -4566,14 +4615,14 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const panel = document.getElementById('taxo-panel');
       const btn = document.getElementById('taxo-redo');
       btn.disabled = true;
-      panel.innerHTML = '<p style="color:var(--gris)"><span class="spinner"></span> le modèle relit tous tes mots…</p>';
+      panel.innerHTML = `<p style="color:var(--gris)"><span class="spinner"></span> ${tApp('tx_reading')}</p>`;
       try {
         const r = await authFetch('/api/autogroup', {
           method: 'POST',
           body: JSON.stringify({ lang: _manageLang, mode: 'propose' })
         });
         const d = await r.json();
-        if (!r.ok) throw new Error(d.error?.message || 'erreur');
+        if (!r.ok) throw new Error(d.error?.message || tApp('err_generic'));
         _taxo = d;
         renderTaxoProposal();
       } catch (e) {
@@ -4593,21 +4642,21 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         return old && g.scope && g.scope !== (old.scope || '');
       });
 
-      let html = `<p style="color:var(--gris);font-size:0.85rem">Sur tes <strong>${_taxo.total}</strong> mots, le modèle propose <strong>${_taxo.proposed.length}</strong> groupes.</p>`;
+      let html = `<p style="color:var(--gris);font-size:0.85rem">${tApp('tx_summary').replace('{total}', _taxo.total).replace('{n}', _taxo.proposed.length)}</p>`;
 
       if (!news.length && !rescoped.length && !_taxo.dropped.length) {
-        html += '<p style="color:var(--verde)">Ta taxonomie actuelle est déjà celle qu\'il proposerait. Rien à changer.</p>';
+        html += `<p style="color:var(--verde)">${tApp('tx_same')}</p>`;
         panel.innerHTML = html;
         return;
       }
       if (news.length) {
-        html += '<p style="margin-top:0.8rem"><strong>Nouveaux groupes proposés</strong></p>' +
+        html += `<p style="margin-top:0.8rem"><strong>${tApp('tx_new')}</strong></p>` +
           news.map((g, i) => `<div class="free-pick-row on" onclick="toggleTaxoPick(this)" data-kind="new" data-i="${i}">
             <span class="fp-word">${escapeHtml(g.name)}<span class="mot-note" style="display:block">${escapeHtml(g.scope || '')}</span></span>
             <span class="fp-order"></span></div>`).join('');
       }
       if (rescoped.length) {
-        html += '<p style="margin-top:0.8rem"><strong>Descriptions à mettre à jour</strong></p>' +
+        html += `<p style="margin-top:0.8rem"><strong>${tApp('tx_rescope')}</strong></p>` +
           rescoped.map((g, i) => `<div class="free-pick-row on" onclick="toggleTaxoPick(this)" data-kind="scope" data-i="${i}">
             <span class="fp-word">${escapeHtml(g.name)}<span class="mot-note" style="display:block">${escapeHtml(g.scope)}</span></span>
             <span class="fp-order"></span></div>`).join('');
@@ -4615,10 +4664,10 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (_taxo.dropped.length) {
         // Jamais de suppression automatique : elle emporterait aussi les
         // rattachements posés à la main. On signale, l'utilisateur tranche.
-        html += `<p style="margin-top:0.8rem"><strong>Plus proposés</strong> <span style="color:var(--gris);font-size:0.8rem">(rien n'est supprimé — à toi de voir)</span></p>
+        html += `<p style="margin-top:0.8rem"><strong>${tApp('tx_dropped')}</strong> <span style="color:var(--gris);font-size:0.8rem">${tApp('tx_dropped_note')}</span></p>
           <p style="color:var(--gris);font-size:0.85rem">${_taxo.dropped.map(d => escapeHtml(d.name)).join(' · ')}</p>`;
       }
-      html += `<button class="btn-primary" style="margin-top:1rem" onclick="applyTaxoProposal()">Appliquer</button>`;
+      html += `<button class="btn-primary" style="margin-top:1rem" onclick="applyTaxoProposal()">${tApp('tx_apply')}</button>`;
       panel.innerHTML = html;
       _taxo._news = news;
       _taxo._rescoped = rescoped;
@@ -4650,8 +4699,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       }
       await loadGroups(_manageLang);
       renderGroupsManager();
-      panel.innerHTML = `<p style="color:var(--verde)">${created} groupe(s) créé(s), ${updated} description(s) mise(s) à jour.</p>` +
-        (created ? '<p style="color:var(--gris);font-size:0.85rem">Les nouveaux groupes sont vides : lance « classer les mots sans groupe » pour qu\'ils se remplissent.</p>' : '');
+      panel.innerHTML = `<p style="color:var(--verde)">${tApp('tx_done').replace('{c}', created).replace('{u}', updated)}</p>` +
+        (created ? `<p style="color:var(--gris);font-size:0.85rem">${tApp('tx_empty_note').replace('{btn}', tApp('gm_orphans'))}</p>` : '');
     }
 
     // Rouvre les mots restés sans groupe et les repasse à la moulinette, par
@@ -4666,24 +4715,24 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           method: 'POST', body: JSON.stringify({ lang: _manageLang, reopen: 'orphans' })
         });
         const d0 = await r0.json();
-        if (!r0.ok) throw new Error(d0.error?.message || 'erreur');
+        if (!r0.ok) throw new Error(d0.error?.message || tApp('err_generic'));
         let left = d0.reopened;
-        if (!left) { panel.innerHTML = '<p style="color:var(--verde)">Tous tes mots ont déjà un groupe.</p>'; return; }
+        if (!left) { panel.innerHTML = `<p style="color:var(--verde)">${tApp('or_all_grouped')}</p>`; return; }
         let done = 0;
         for (;;) {
-          panel.innerHTML = `<p style="color:var(--gris)"><span class="spinner"></span> ${done}/${left} mots classés…</p>`;
+          panel.innerHTML = `<p style="color:var(--gris)"><span class="spinner"></span> ${tApp('or_progress').replace('{d}', done).replace('{n}', left)}</p>`;
           const r = await authFetch('/api/autogroup', {
             method: 'POST', body: JSON.stringify({ lang: _manageLang, limit: 100 })
           });
           const d = await r.json();
-          if (!r.ok) throw new Error(d.error?.message || 'erreur');
+          if (!r.ok) throw new Error(d.error?.message || tApp('err_generic'));
           if (!d.processed) break;
           done += d.processed;
           if (!d.remaining) break;
         }
         await loadGroups(_manageLang);
         renderGroupsManager();
-        panel.innerHTML = `<p style="color:var(--verde)">${done} mot(s) repassés au classement.</p>`;
+        panel.innerHTML = `<p style="color:var(--verde)">${tApp('or_done').replace('{n}', done)}</p>`;
       } catch (e) {
         panel.innerHTML = `<p style="color:var(--rojo)">${escapeHtml(e.message)}</p>`;
       } finally { btn.disabled = false; }
@@ -4741,7 +4790,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       }
       const list = document.getElementById('free-search-list');
       if (_freeFiltered.length === 0) {
-        list.innerHTML = '<div id="free-search-empty">Aucun mot.</div>';
+        list.innerHTML = `<div id="free-search-empty">${tPrac('rs_none')}</div>`;
         return;
       }
       list.innerHTML = _freeFiltered.map((w, i) => {
@@ -4922,7 +4971,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     async function onResetBrowseLangChange(lang) {
       document.getElementById('reset-words-search').value = '';
       if (!_resetWordCache[lang]) {
-        document.getElementById('reset-words-list').innerHTML = '<div id="free-search-empty">Chargement…</div>';
+        document.getElementById('reset-words-list').innerHTML = `<div id="free-search-empty">${tApp('loading')}</div>`;
         try {
           const res  = await authFetch(`/api/words?lang=${encodeURIComponent(lang)}`);
           const data = await res.json();
@@ -4939,7 +4988,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
       const list = document.getElementById('reset-words-list');
       if (_resetBrowseWords.length === 0) {
-        list.innerHTML = '<div id="free-search-empty">Aucun mot.</div>';
+        list.innerHTML = `<div id="free-search-empty">${tApp('rs_none')}</div>`;
         return;
       }
       list.innerHTML = _resetBrowseWords.map((w, i) => {
@@ -4963,7 +5012,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const btn = document.getElementById('reset-confirm-btn');
       const n = _resetMode === 'langs' ? _resetLangsSel.size : _resetWordsSel.size;
       btn.disabled = n === 0;
-      btn.textContent = n > 0 ? `Réinitialiser (${n})` : 'Réinitialiser';
+      btn.textContent = n > 0 ? `${tApp('rs_btn')} (${n})` : tApp('rs_btn');
     }
     async function doResetProgress() {
       let body, summary, count;
@@ -4973,17 +5022,17 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         body = { langs };
         count = langs.length;
         const names = langs.map(k => LANGS.find(x => x.key === k).name).join(', ');
-        summary = `Réinitialiser TOUTE la progression de : ${names} ?\n\nCes mots redeviennent « nouveaux » (étoiles remises à zéro). Action irréversible — l'historique est conservé.`;
+        summary = tApp('rs_confirm_langs').replace('{names}', names);
       } else {
         const items = [..._resetWordsSel].map(k => { const i = k.indexOf('|'); return { lang: k.slice(0, i), word: k.slice(i + 1) }; });
         if (items.length === 0) return;
         body = { items };
         count = items.length;
-        summary = `Réinitialiser ${items.length} mot(s) ?\n\nIls redeviennent « nouveaux » (étoiles remises à zéro). Action irréversible — l'historique est conservé.`;
+        summary = tApp('rs_confirm_words').replace('{n}', items.length);
       }
       if (!confirm(summary)) return;
       const btn = document.getElementById('reset-confirm-btn');
-      btn.disabled = true; btn.textContent = 'Réinitialisation…';
+      btn.disabled = true; btn.textContent = tApp('rs_busy');
       const affectsCurrent = _resetMode === 'langs'
         ? _resetLangsSel.has(currentLang)
         : [..._resetWordsSel].some(k => k.slice(0, k.indexOf('|')) === currentLang);
@@ -4996,7 +5045,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           pickWords();
           updateFreeSearchBar();
         }
-        alert(`Réinitialisé (${count}).`);
+        alert(tApp('rs_done').replace('{n}', count));
       } catch (e) {
         document.getElementById('reset-error').textContent = 'Erreur : ' + (e.message || e);
         btn.disabled = false; updateResetBtn();
@@ -8200,12 +8249,12 @@ Answer ONLY with JSON, no markdown fence:
     // Nom lisible du filtre courant, pour le libellé du bouton.
     function motsGroupName() {
       const id = motsGroupFilter;
-      if (id === null) return 'tous';
-      if (id === -1) return '★★★ maîtrisés';
-      if (id === -2) return 'à travailler';
-      if (id === -3) return 'sans groupe';
+      if (id === null) return tApp('gp_all');
+      if (id === -1) return tApp('vg_mastered');
+      if (id === -2) return tApp('vg_todo');
+      if (id === -3) return tApp('vg_nogroup');
       const g = (groupsCache[motsFilter] || []).find(x => x.id === id);
-      return g ? g.name + (g.kind === 'lot' ? ' ' + tApp('lot_suffix') : '') : 'groupe';
+      return g ? g.name + (g.kind === 'lot' ? ' ' + tApp('lot_suffix') : '') : tApp('mg_group');
     }
 
     async function renderMotsGroupFilters() {
@@ -8216,7 +8265,7 @@ Answer ONLY with JSON, no markdown fence:
       const paint = () => {
         box.innerHTML =
           `<button class="group-select-btn${motsGroupFilter === null ? '' : ' active'}" onclick="openMotsGroupPicker()">
-             <span>groupe : <span class="gsel-val">${escapeHtml(motsGroupName())}</span></span>
+             <span>${tApp('mg_prefix')} <span class="gsel-val">${escapeHtml(motsGroupName())}</span></span>
            </button>`;
       };
       paint(); // le bouton s'affiche tout de suite : sa hauteur ne dépend d'aucun chargement
@@ -8253,15 +8302,15 @@ Answer ONLY with JSON, no markdown fence:
            <span class="fp-count">${right}</span>
          </div>`;
       // Les filtres d'abord (ils portent sur la progression), les thèmes ensuite.
-      let html = row(null, 'tous les mots', inLang.length)
-               + row(-1, '★★★ maîtrisés', inLang.filter(m => netOfMot(m.word) >= 3).length)
-               + row(-2, 'à travailler',  inLang.filter(m => netOfMot(m.word) <  3).length)
-               + row(-3, 'sans groupe', '');
+      let html = row(null, tApp('mg_all_words'), inLang.length)
+               + row(-1, tApp('vg_mastered'), inLang.filter(m => netOfMot(m.word) >= 3).length)
+               + row(-2, tApp('vg_todo'),     inLang.filter(m => netOfMot(m.word) <  3).length)
+               + row(-3, tApp('vg_nogroup'), '');
       const real = groups.filter(g => g.n > 0);
       html += real.length
         ? `<div style="height:1px;background:var(--linea);margin:0.5rem 0"></div>` +
           real.map(g => row(g.id, escapeHtml(g.name) + (g.kind === 'lot' ? ' ' + tApp('lot_suffix') : ''), g.n)).join('')
-        : '<div id="free-search-empty">Aucun groupe pour cette langue.</div>';
+        : `<div id="free-search-empty">${tApp('gm_none')}</div>`;
       list.innerHTML = html;
     }
 
@@ -8589,7 +8638,7 @@ Answer ONLY with JSON, no markdown fence:
           method: 'POST',
           body: JSON.stringify({ lang, group_id: id, words: items.map(i => i.word) })
         });
-        if (!r.ok) { alert('erreur'); return; }
+        if (!r.ok) { alert(tApp('err_generic')); return; }
         const g = groups.find(x => x.id === id);
         clearMotGroupsCache();
         motsSelected.clear();
@@ -10490,10 +10539,10 @@ Reply with ONLY this JSON object, nothing else:
   <div class="modal-overlay" id="mots-group-modal" onclick="if(event.target===this)closeMotsGroupPicker()">
     <div class="modal-card">
       <button class="modal-close" onclick="closeMotsGroupPicker()" data-i18n="verify_close">fermer</button>
-      <h2 class="modal-title">Filtrer par groupe</h2>
+      <h2 class="modal-title" data-i18n="mg_title">Filtrer par groupe</h2>
       <div id="mots-group-list" style="max-height:52vh; overflow-y:auto;"></div>
       <div style="text-align:right; margin-top:0.6rem;">
-        <button class="btn-ghost" style="font-size:0.8rem" id="mots-group-manage">gérer les groupes</button>
+        <button class="btn-ghost" style="font-size:0.8rem" id="mots-group-manage" data-i18n="mg_manage">gérer les groupes</button>
       </div>
     </div>
   </div>
@@ -10562,11 +10611,11 @@ Reply with ONLY this JSON object, nothing else:
   <div class="modal-overlay" id="reset-progress-modal" onclick="if(event.target===this)closeResetProgress()">
     <div class="modal-card">
       <button class="modal-close" onclick="closeResetProgress()" data-i18n="verify_close">fermer</button>
-      <h2 class="modal-title">Réinitialiser la progression</h2>
-      <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem">Les mots choisis redeviennent « nouveaux » (étoiles remises à zéro, sortis des révisions). <strong>L'historique est conservé.</strong></p>
+      <h2 class="modal-title" data-i18n="rs_title">Réinitialiser la progression</h2>
+      <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem" data-i18n="rs_intro">Les mots choisis redeviennent « nouveaux » (étoiles remises à zéro, sortis des révisions). <strong>L'historique est conservé.</strong></p>
       <div class="reset-mode-tabs">
-        <button class="reset-mode-tab on" id="reset-tab-langs" onclick="setResetMode('langs')">Langues entières</button>
-        <button class="reset-mode-tab"    id="reset-tab-words" onclick="setResetMode('words')">Mots précis</button>
+        <button class="reset-mode-tab on" id="reset-tab-langs" onclick="setResetMode('langs')" data-i18n="rs_langs">Langues entières</button>
+        <button class="reset-mode-tab"    id="reset-tab-words" onclick="setResetMode('words')" data-i18n="rs_words">Mots précis</button>
       </div>
 
       <!-- Vue « langues entières » -->
@@ -10577,18 +10626,18 @@ Reply with ONLY this JSON object, nothing else:
       <!-- Vue « mots précis » -->
       <div id="reset-view-words" style="display:none;">
         <div class="settings-row" style="cursor:default; padding:0 0 0.6rem;">
-          <span>Langue</span>
+          <span data-i18n="label_lang">Langue</span>
           <select id="reset-browse-lang" onchange="onResetBrowseLangChange(this.value)"
             style="font-size:0.8rem;"></select>
         </div>
-        <input type="text" id="reset-words-search" placeholder="filtrer…" autocomplete="off" autocapitalize="off"
+        <input type="text" id="reset-words-search" placeholder="filtrer…" data-i18n-ph="sf_filter" autocomplete="off" autocapitalize="off"
           oninput="renderResetWords(this.value)"
           style="width:100%;box-sizing:border-box;margin-bottom:0.7rem;">
         <div id="reset-words-list" style="max-height:42vh; overflow-y:auto;"></div>
       </div>
 
       <button class="btn-primary reset-danger" id="reset-confirm-btn" style="margin-top:1rem;"
-        onclick="doResetProgress()" disabled>Réinitialiser</button>
+        onclick="doResetProgress()" disabled data-i18n="rs_btn">Réinitialiser</button>
       <p class="error-msg" id="reset-error"></p>
     </div>
   </div>
