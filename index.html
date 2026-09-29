@@ -16,7 +16,7 @@
 
 
   <style>
-    /* ── Estilo común — copiado de ~/Desktop/estilo (tokens.css, oscuro.css ; base.css llega con la etapa « elementos »).
+    /* ── Estilo común — copiado de ~/Desktop/estilo (tokens.css, oscuro.css, base.css).
        No editar aquí : editar allí y volver a pegar. ── */
 /* tokens.css — copiado de ~/Desktop/estilo. No editar aquí: editar allí y ejecutar sync.sh */
 
@@ -106,6 +106,109 @@
 }
 
 
+/* base.css — copiado de ~/Desktop/estilo. No editar aquí: editar allí y ejecutar sync.sh
+   Requiere tokens.css. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: var(--serif);
+  line-height: var(--interlineado);
+}
+
+h1 { font-size: var(--t-h1); font-weight: normal; line-height: 1.3; text-wrap: balance; }
+h2 { font-size: var(--t-h2); font-weight: normal; line-height: 1.35; text-wrap: balance; }
+strong, b { font-weight: 600; }
+
+/* Enlaces: subrayado de tinta con borde, no text-decoration */
+a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--tinta);
+}
+
+/* Nav: subrayado solo en el activo y al pasar el cursor */
+nav a { border-bottom-color: transparent; }
+nav a:hover,
+nav a.active,
+nav a[aria-current="page"] { border-bottom-color: var(--tinta); }
+
+/* Pastillas: solo para acciones */
+button,
+.btn {
+  display: inline-block;
+  padding: 4px 14px;
+  font-family: inherit;
+  font-size: var(--t-boton);
+  color: var(--tinta-suave);
+  background: var(--relleno);
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  cursor: pointer;
+}
+button:hover:not(:disabled),
+.btn:hover { background: var(--relleno-hover); border-color: var(--linea-fuerte); color: var(--tinta); }
+button:disabled { opacity: 0.55; cursor: default; }
+button[aria-pressed="true"],
+.btn.active { background: var(--tinta); border-color: var(--tinta); color: var(--papel); }
+
+/* Campos: rectángulos con borde de tinta */
+input, select {
+  font-family: inherit;
+  font-size: var(--t-nav);
+  padding: 6px 8px;
+  color: var(--tinta);
+  background: var(--papel);
+  border: 1px solid var(--tinta);
+  border-radius: 0;
+}
+textarea {
+  font-family: inherit;
+  font-size: var(--t-texto);
+  line-height: 1.6;
+  color: var(--tinta);
+  background: var(--campo);
+  border: 1px solid var(--linea);
+  border-radius: 2px;
+  padding: 12px 14px;
+}
+textarea:focus { outline: none; border-color: var(--linea-foco); }
+
+/* Foco visible para teclado */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 1px solid var(--tinta);
+  outline-offset: 2px;
+}
+
+/* Código y lo técnico */
+code, pre, kbd { font-family: var(--mono); font-size: 0.85em; }
+
+/* Citas y poemas: línea a la izquierda */
+blockquote {
+  margin: 24px 0;
+  padding-left: 16px;
+  border-left: 1px solid var(--linea-fuerte);
+  color: var(--tinta-suave);
+}
+
+/* Separadores */
+hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
+
+/* Etiqueta pequeña en mayúsculas */
+.etiqueta {
+  font-size: var(--t-etiqueta);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+
     /* ── Fin de la copia del estilo común ── */
 
     html { background: var(--papel); }
@@ -115,6 +218,8 @@
          (texto de la barra siempre blanco), así que la cortina es oscura
          en los dos temas. Excepción de este proyecto. */
       --barra-estado: #222;
+      /* Écart vertical entre les blocs d'un écran — repris par les replis .kb-fold */
+      --gap-ecran: 1.1rem;
     }
     @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --barra-estado: var(--papel); } }
     :root[data-theme="dark"] { --barra-estado: var(--papel); }
@@ -163,8 +268,8 @@
       display: none;
       flex-direction: column;
       align-items: flex-start;
-      gap: 1.5rem;
-      padding: 2rem var(--margen);
+      gap: var(--gap-ecran);
+      padding: 1.6rem var(--margen) 2rem;
       width: 100%;
       max-width: 480px;
       animation: fadeIn 0.6s ease;
@@ -172,22 +277,22 @@
     .screen.active { display: flex; }
 
     .app-title {
-      font-size: 2.2rem;
+      font-size: var(--t-h1);
       font-weight: normal;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
       color: var(--tinta);
     }
     .app-subtitle {
       font-style: italic;
       color: var(--gris);
       font-size: 0.95rem;
-      margin-top: -1.2rem;
+      margin-top: -0.9rem;
     }
     .app-tagline {
       color: var(--gris);
       font-size: 0.95rem;
       letter-spacing: 0.04em;
-      margin-top: -1.2rem;
+      margin-top: -0.9rem;
     }
     .app-tagline .byov-i {
       color: var(--tinta);
@@ -207,115 +312,75 @@
       transition: border-color 0.2s;
       resize: none;
     }
-    input[type="password"], input[type="email"] {
-      font-family: var(--serif);
-      background: var(--relleno);
-      border: 1px solid var(--linea);
-      border-radius: 12px;
-    }
-    input[type="password"]:focus, input[type="email"]:focus { border-color: var(--tinta); }
+    input[type="password"], input[type="email"] { padding: 0.6rem 0.7rem; }
     /* Neutralise le fond blanc de l'autofill Safari/Chrome */
     input:-webkit-autofill, input:-webkit-autofill:focus, input:-webkit-autofill:hover {
-      -webkit-box-shadow: 0 0 0 1000px var(--relleno) inset;
+      -webkit-box-shadow: 0 0 0 1000px var(--papel) inset;
       -webkit-text-fill-color: var(--tinta);
       caret-color: var(--tinta);
     }
-    textarea { background: transparent; border: none; border-radius: 0; }
+    .textarea-wrap textarea { background: transparent; border: none; border-radius: 0; }
 
     .textarea-wrap {
       position: relative; width: 100%;
-      border: 1px solid var(--linea); border-radius: 12px; overflow: hidden;
-      background: var(--relleno); transition: border-color 0.2s;
+      border: 1px solid var(--linea); border-radius: 2px; overflow: hidden;
+      background: var(--campo); transition: border-color 0.2s;
       -webkit-transform: translateZ(0); transform: translateZ(0);
     }
-    .textarea-wrap:focus-within { border-color: var(--tinta); }
+    .textarea-wrap:focus-within { border-color: var(--linea-foco); }
     .textarea-wrap textarea { padding-bottom: 3.2rem; }
     /* Mode Situation : pleine largeur + espacement vertical des boîtes */
     .situation-section { width: 100%; display: flex; flex-direction: column; gap: 1rem; }
     .btn-submit-inline {
       position: absolute;
-      bottom: 0.6rem;
-      right: 0.6rem;
-      width: 2.4rem;
-      height: 2.4rem;
-      border-radius: 50%;
+      bottom: 0.5rem;
+      right: 0.5rem;
       background: var(--tinta);
+      border-color: var(--tinta);
       color: var(--papel);
-      border: none;
-      font-size: 1.2rem;
-      font-weight: bold;
+      padding: 4px 14px;
+      font-size: var(--t-nav);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: opacity 0.15s, transform 0.1s;
       z-index: 1;
     }
     .btn-submit-inline .spinner { margin-right: 0; }
-    .btn-submit-inline:hover { opacity: 0.85; }
-    .btn-submit-inline:active { transform: scale(0.92); }
-    .btn-submit-inline:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-submit-inline:hover:not(:disabled) { background: var(--tinta); color: var(--papel); opacity: 0.85; }
+    .btn-submit-inline:disabled { opacity: 0.4; cursor: default; }
 
+    /* Pastilles (base.css). Un peu plus grandes que dans le style commun :
+       cibles tactiles d'une app qu'on utilise au pouce. */
     .btn-primary {
-      width: 100%;
-      background: var(--tinta);
-      border: none;
-      border-radius: 6px;
-      color: var(--papel);
-      cursor: pointer;
-      font-family: var(--serif);
-      font-size: 1rem;
-      font-weight: 600;
-      padding: 0.85rem;
-      transition: opacity 0.2s;
+      background: var(--tinta); border-color: var(--tinta); color: var(--papel);
+      padding: 6px 16px; font-size: var(--t-nav);
     }
-    .btn-primary:hover    { opacity: 0.85; }
-    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary:hover:not(:disabled) { background: var(--tinta); border-color: var(--tinta); color: var(--papel); opacity: 0.85; }
 
     .btn-secondary {
-      width: 100%;
-      background: transparent;
-      border: 1px solid var(--linea);
-      border-radius: 6px;
-      color: var(--tinta);
-      cursor: pointer;
-      font-family: var(--serif);
-      font-size: 1rem;
-      padding: 0.85rem;
-      transition: border-color 0.2s;
+      padding: 6px 16px; font-size: var(--t-nav);
     }
-    .btn-secondary:hover    { border-color: var(--tinta); }
-    .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
 
+
+    /* Bouton-lien : texte gris, souligné au survol (règle des liens de nav) */
     .btn-ghost {
-      background: transparent;
+      background: none;
       border: none;
+      border-bottom: 1px solid transparent;
+      border-radius: 0;
       color: var(--gris);
-      cursor: pointer;
-      font-family: var(--serif);
-      font-size: 0.8rem;
-      padding: 0.25rem 0.5rem;
-      transition: color 0.2s;
+      font-size: var(--t-pequeno);
+      padding: 0.1rem 0;
     }
-    .btn-ghost:hover { color: var(--tinta); }
+    .btn-ghost:hover:not(:disabled) { background: none; color: var(--tinta); border-bottom-color: var(--tinta); }
 
     .btn-google {
-      width: 100%;
-      background: var(--relleno);
-      border: 1px solid var(--linea);
-      border-radius: 6px;
-      color: var(--tinta);
-      cursor: pointer;
-      font-family: var(--serif);
-      font-size: 1rem;
-      padding: 0.85rem;
-      display: flex;
+      padding: 6px 16px; font-size: var(--t-nav);
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      gap: 0.75rem;
-      transition: border-color 0.2s, background 0.2s;
+      gap: 0.6rem;
     }
-    .btn-google:hover { border-color: var(--tinta); background: var(--relleno-hover); }
     .btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
 
     .error-msg { color: var(--rojo); font-size: 0.85rem; font-style: italic; min-height: 1.2em; }
@@ -333,6 +398,7 @@
       display: grid; grid-template-columns: auto 1fr auto; align-items: baseline;
       column-gap: 0.4rem; row-gap: 0.3rem; text-align: left; min-width: 0;
     }
+    .lang-btn:hover:not(:disabled) { background: none; color: var(--tinta); border-color: var(--linea-suave); }
     .lang-btn:hover .lang-name { border-bottom-color: var(--tinta); }
     .lang-btn .flag { font-size: 0.95rem; }
     .lang-btn .lang-name { font-size: 1.05rem; color: var(--tinta); border-bottom: 1px solid transparent; justify-self: start; }
@@ -362,10 +428,6 @@
     .mode-toggle {
       width: 100%;
       display: flex;
-      background: var(--relleno);
-      border: 1px solid var(--linea);
-      border-radius: 8px;
-      overflow: hidden;
     }
     #screen-practice.session-mode #single-word-card,
     #screen-practice.session-mode #multi-word-chips,
@@ -385,13 +447,9 @@
     #screen-practice.session-mode #spaced-done-card { display: none !important; }
 
     .mode-current {
-      display: flex; align-items: center; justify-content: center; gap: 0.45rem;
-      width: 100%;
-      background: var(--relleno); border: 1px solid var(--linea);
-      color: var(--tinta); border-radius: 10px; padding: 0.5rem 0.9rem;
-      font-size: 0.98rem; font-weight: 600; cursor: pointer; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      color: var(--tinta); padding: 6px 16px; font-size: var(--t-nav);
     }
-    .mode-current:active { opacity: 0.7; }
     .mode-chev { color: var(--gris); font-size: 0.7rem; }
 
     /* ── Séance (mode pratique) ── */
@@ -416,8 +474,7 @@
     .round-dials.locked { opacity: 0.4; pointer-events: none; }
     /* Les boutons de départ s'empilent (« commencer », et « reprendre » quand une
        manche attend) : côte à côte, le second se faisait écraser par le premier. */
-    #session-start .session-actions { flex-direction: column; align-items: stretch; gap: 0.6rem; }
-    #session-start .session-actions button { width: 100%; }
+    #session-start .session-actions { flex-wrap: wrap; gap: 0.5rem; }
     .session-head { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.4rem; }
     .session-headline { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
     /* Quitter une manche n'annule rien : les réponses sont déjà enregistrées et la
@@ -425,11 +482,13 @@
        gardait les curseurs verrouillés pour de bon. */
     .session-quit { background: none; border: none; color: var(--gris); cursor: pointer;
                     font-family: var(--serif); font-size: 0.72rem; padding: 0.1rem 0.2rem; }
+    .session-quit:hover:not(:disabled) { background: none; color: var(--tinta); }
     .session-quit:active { opacity: 0.6; }
     /* La prochaine échéance, dite en délai plutôt qu'en date : elle se lit sans
        compter, et elle explique pourquoi le mot ne reviendra pas demain. */
     .session-due { font-family: var(--serif); font-size: 0.7rem; opacity: 0.75; margin-left: 0.45rem; }
     #session-choices { display: flex; flex-direction: column; gap: 0.6rem; }
+    #session-choices > .btn-ghost { align-self: flex-start; }
     #session-result:not(:empty) { margin-top: 0.9rem; }
     .session-count { font-size: 0.82rem; color: var(--gris); }
     .session-track { height: 2px; background: var(--linea-suave); overflow: hidden; }
@@ -461,6 +520,9 @@
       color: var(--tinta); font: inherit; font-size: 0.95rem; cursor: pointer; text-align: center;
       vertical-align: baseline;
     }
+    /* base.css colore le survol de tout bouton : un trou n'est pas une pastille */
+    .cloze-blank:hover:not(:disabled) { background: none; color: var(--tinta); border-color: var(--linea-fuerte); }
+    .cloze-blank.active:hover:not(:disabled) { border-color: var(--tinta); }
     .cloze-blank.empty { color: var(--gris); letter-spacing: 0.1em; }
     .cloze-blank.active { border-bottom: 2px solid var(--tinta); }
     .cloze-blank.ok  { border-bottom-color: var(--verde); color: var(--verde); }
@@ -468,8 +530,7 @@
     .cloze-fix { color: var(--verde); font-weight: 600; font-size: 0.92rem; }
     .cloze-bank { display: flex; flex-wrap: wrap; gap: 0.4rem; }
     .cloze-chip {
-      border: 1px solid var(--linea); background: var(--relleno); color: var(--tinta);
-      border-radius: 20px; padding: 0.34rem 0.8rem; font-size: 0.93rem; cursor: pointer; font-family: inherit;
+      font-size: var(--t-nav); padding: 5px 14px;
     }
     .cloze-chip.used { opacity: 0.3; }
     .cloze-chip:active { opacity: 0.6; }
@@ -580,48 +641,45 @@
       padding: 0;
       transition: transform 0.15s;
     }
-    .related-chip .chip-add:hover  { transform: scale(1.3); }
+    .related-chip .chip-add:hover:not(:disabled) { background: none; color: var(--tinta); transform: scale(1.3); }
     .related-chip .chip-add:disabled { color: var(--verde); cursor: default; transform: none; }
     .lang-tag {
-      font-family: var(--serif); font-size: 0.78rem; color: var(--gris);
-      background: var(--relleno); border: 1px solid var(--linea); border-radius: 4px;
-      padding: 0.25rem 0.6rem; cursor: pointer; transition: border-color 0.2s;
-      white-space: nowrap;
+      font-size: var(--t-nav); color: var(--tinta); cursor: pointer; white-space: nowrap;
+      border-bottom: 1px solid transparent;
     }
-    .lang-tag:hover { border-color: var(--tinta); }
+    .lang-tag:hover { border-bottom-color: var(--tinta); }
 
     /* ── Slider ── */
     .slider-section {
       width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
-    .slider-header {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
       align-items: center;
+      gap: 0.8rem;
     }
+    .slider-header { display: contents; }
     .slider-label {
-      font-family: var(--serif);
-      font-size: 0.78rem;
+      order: 1;
+      font-size: var(--t-pequeno);
       color: var(--gris);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
     }
+    .slider-section input[type="range"] { order: 2; }
     .slider-value {
-      font-family: var(--serif);
-      font-size: 0.9rem;
+      order: 3;
+      font-size: var(--t-pequeno);
       color: var(--tinta);
-      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
     input[type="range"] {
       width: 100%;
       -webkit-appearance: none;
       appearance: none;
-      height: 4px;
+      height: 2px;
       background: var(--linea);
-      border-radius: 2px;
+      border: 0;
+      border-radius: 0;
+      padding: 0;
       outline: none;
     }
     input[type="range"]::-webkit-slider-thumb {
@@ -639,32 +697,31 @@
       width: 100%;
       display: flex;
       flex-wrap: wrap;
-      gap: 0.6rem;
+      align-items: baseline;
+      gap: 0.3rem 1.1rem;
     }
+    /* Un mot = le mot souligné finement, sa note et ses étoiles à la suite.
+       Le soulignement porte le verdict (vert / rouge) après vérification. */
     .word-chip {
-      background: var(--relleno);
-      border: 1px solid var(--linea);
-      border-radius: 8px;
-      padding: 0.6rem 1rem;
+      background: none;
+      border: none;
+      border-radius: 0;
+      padding: 0;
       cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.3rem;
-      flex: 1;
-      min-width: 100px;
-      text-align: center;
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0 0.4rem;
+      text-align: left;
+      color: var(--tinta);
     }
     .word-chip { font-family: var(--serif); }
-    .word-chip:hover { border-color: var(--tinta); background: var(--relleno-hover); }
+    .word-chip:hover:not(:disabled) { background: none; color: var(--tinta); }
+    .word-chip:hover .chip-word { border-bottom-color: var(--tinta); }
     #btn-hide-words {
-      font-family: var(--serif); font-size: 0.72rem; color: var(--gris);
-      background: transparent; border: 1px solid var(--linea); border-radius: 6px;
-      padding: 0.75rem 1rem; cursor: pointer; white-space: nowrap; flex-shrink: 0;
-      transition: color 0.2s, border-color 0.2s;
+      padding: 6px 16px; font-size: var(--t-nav); white-space: nowrap; flex-shrink: 0;
     }
-    #btn-hide-words.active { color: var(--tinta); border-color: var(--tinta); }
+    #btn-hide-words.active { background: var(--tinta); border-color: var(--tinta); color: var(--papel); }
     .words-hidden .word-main,
     .words-hidden .chip-word,
     .words-hidden .word-note,
@@ -719,24 +776,21 @@
     .word-card { cursor: pointer; }
     #spaced-done-card { cursor: default; }
     .word-chip .chip-word {
-      font-size: 1.1rem;
-      font-weight: 600;
+      font-size: 1.25rem;
       color: var(--tinta);
+      border-bottom: 1px solid var(--linea-fuerte);
     }
-    .word-chip .chip-word.chip-md { font-size: 0.85rem; }
-    .word-chip .chip-word.chip-sm { font-size: 0.7rem; }
+    .word-chip .chip-word.chip-md { font-size: 1.05rem; }
+    .word-chip .chip-word.chip-sm { font-size: 0.9rem; }
     .word-chip .chip-stars {
-      font-size: 0.75rem;
+      font-size: var(--t-pequeno);
       color: var(--gris);
     }
     /* Note entre parenthèses (« expresión colombiana ») : contexte, pas vocabulaire */
     .word-chip .chip-note {
-      display: block;
-      font-size: 0.68rem;
+      font-size: var(--t-pequeno);
       color: var(--gris);
       font-style: italic;
-      line-height: 1.2;
-      margin-top: 0.15rem;
     }
     .word-card .word-note {
       display: block;
@@ -754,30 +808,30 @@
       width: 100%;
       border-top: 1px solid var(--linea-suave);
       border-bottom: 1px solid var(--linea-suave);
-      padding: 0.9rem 2rem 0.9rem 0;
+      padding: 0.7rem 2rem 0.7rem 0;
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 0.4rem;
+      gap: 0.25rem;
       position: relative;
     }
     /* Boutons modifier / supprimer sur la carte et les chips */
     .card-actions { position: absolute; top: 0.6rem; right: 0; display: flex; gap: 0.1rem; }
     .card-action-btn {
-      background: none; border: none; cursor: pointer; opacity: 0.5;
+      background: none; border: none; border-radius: 0; cursor: pointer; opacity: 0.5;
       font-size: 0.95rem; line-height: 1; padding: 0.25rem 0.35rem; color: var(--gris);
       transition: opacity 0.15s;
     }
-    .card-action-btn:hover { opacity: 1; }
+    .card-action-btn:hover:not(:disabled) { background: none; opacity: 1; }
     .chip-menu-btn {
-      position: absolute; top: 0.1rem; right: 0.35rem;
-      background: none; border: none; cursor: pointer; opacity: 0.5;
-      font-size: 1.1rem; line-height: 1; padding: 0.1rem 0.3rem; color: var(--gris);
+      position: static; order: 9;
+      background: none; border: none; border-radius: 0; cursor: pointer; opacity: 0.5;
+      font-size: 1rem; line-height: 1; padding: 0 0.1rem; color: var(--gris);
     }
-    .chip-menu-btn:hover { opacity: 1; }
+    .chip-menu-btn:hover:not(:disabled) { background: none; opacity: 1; }
     .word-chip { position: relative; }
-    .word-label { font-size: 0.75rem; font-family: var(--serif); color: var(--gris); text-transform: uppercase; letter-spacing: 0.1em; }
-    .word-main  { font-size: 2rem; font-weight: normal; color: var(--tinta); line-height: 1.2; }
+    .word-label { font-size: var(--t-etiqueta); color: var(--gris); text-transform: uppercase; letter-spacing: 0.13em; }
+    .word-main  { font-size: 1.7rem; font-weight: normal; color: var(--tinta); line-height: 1.2; }
     .word-meta  { display: flex; align-items: center; gap: 0.75rem; }
     .word-count { font-size: 0.78rem; font-family: var(--serif); color: var(--gris); }
     .stars      { font-size: 0.95rem; letter-spacing: 0.05em; }
@@ -787,9 +841,7 @@
     .stars.s3   { color: var(--verde); }
 
     .hint-used-badge {
-      font-family: var(--serif); font-size: 0.72rem; color: var(--gris);
-      background: var(--relleno); border: 1px solid var(--linea); border-radius: 4px;
-      padding: 0.2rem 0.5rem; display: none;
+      font-size: var(--t-pequeno); color: var(--gris); font-style: italic; display: none;
     }
     .hint-used-badge.visible { display: inline-block; }
 
@@ -810,20 +862,8 @@
       letter-spacing: 0.08em;
     }
     .hint-word-btn {
-      background: var(--relleno);
-      border: 1px solid var(--linea);
-      border-radius: 20px;
-      color: var(--tinta);
-      cursor: pointer;
-      font-family: var(--serif);
-      font-size: 0.9rem;
-      padding: 0.4rem 1rem;
-      text-align: center;
-      transition: border-color 0.2s, background 0.2s;
-      display: inline-block;
-      width: auto;
+      font-size: var(--t-boton);
     }
-    .hint-word-btn:hover { border-color: var(--tinta); background: var(--relleno-hover); }
 
     #hint-word-buttons {
       display: flex;
@@ -847,6 +887,7 @@
       cursor: pointer;
       user-select: none;
     }
+    .hint-box .hint-collapse-btn:hover:not(:disabled) { background: none; color: var(--tinta); }
     .hint-box .hint-collapse-btn {
       background: none; border: none; color: var(--gris);
       font-size: 0.85rem; cursor: pointer; padding: 0;
@@ -867,7 +908,7 @@
       font-family: var(--serif); font-size: 0.72rem; color: var(--gris);
       text-decoration: underline; text-underline-offset: 3px;
     }
-    .btn-link:hover { color: var(--tinta); }
+    .btn-link:hover:not(:disabled) { background: none; color: var(--tinta); }
     .hint-translation {
       margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid var(--linea);
       font-size: 0.92rem;
@@ -889,8 +930,7 @@
     .photo-wrap { overflow: hidden; background: var(--relleno-hover); width: 100%; }
     .photo-wrap img { width: 100%; height: auto; display: block; transition: opacity 0.3s; }
     .photo-wrap img.photo-loading { opacity: 0.35; }
-    .btn-new-photo { width: 100%; background: var(--relleno); border: 1px solid var(--linea); color: var(--gris); border-radius: 8px; padding: 0.55rem; font-size: 0.85rem; cursor: pointer; font-family: var(--serif); }
-    .btn-new-photo:hover { border-color: var(--tinta); color: var(--tinta); }
+    .btn-new-photo { padding: 6px 16px; font-size: var(--t-nav); }
     .token-display { font-family: var(--mono); font-size: 0.65rem; color: var(--gris); white-space: nowrap; display: block; }
 
     /* ── Zone phrase ── */
@@ -912,7 +952,7 @@
     .fb-controls { display: flex; margin-bottom: 0.25rem; }
     .fb-toggle-all { background: none; border: none; color: inherit; opacity: 0.7; cursor: pointer;
       font-family: var(--serif); font-size: 0.7rem; padding: 0.1rem 0.2rem; }
-    .fb-toggle-all:hover { opacity: 1; }
+    .fb-toggle-all:hover:not(:disabled) { background: none; color: inherit; opacity: 1; }
     .fb-section + .fb-section { border-top: 1px solid currentColor; }
     .fb-section { opacity: 1; }
     .fb-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
@@ -935,8 +975,7 @@
     .fb-item:last-child { margin-bottom: 0; }
     .sev {
       font-family: var(--serif); font-size: 0.6rem; text-transform: uppercase;
-      letter-spacing: 0.08em; border: 1px solid currentColor; border-radius: 4px;
-      padding: 0.05rem 0.35rem; margin-right: 0.4rem; white-space: nowrap;
+      letter-spacing: 0.1em; margin-right: 0.5rem; white-space: nowrap;
     }
     .sev-maj { opacity: 1; font-weight: 700; }
     .sev-min { opacity: 0.75; }
@@ -965,7 +1004,7 @@
       font-family: var(--serif); font-size: 0.7rem; opacity: 0.7;
       background: none; border: none; color: inherit; cursor: pointer; padding: 0.2rem 0;
     }
-    .fb-more:hover { opacity: 1; }
+    .fb-more:hover:not(:disabled) { background: none; color: inherit; opacity: 1; }
     /* Le « ＋N autres graves » n'a de sens que replié, et seulement là où il y a
        effectivement des graves cachées. */
     .fb-section:not(.collapsed) .fb-more,
@@ -1010,18 +1049,8 @@
       gap: 0.6rem;
     }
     .btn-qcm {
-      width: 100%;
-      background: transparent;
-      border: 1px dashed var(--tinta);
-      border-radius: 6px;
-      color: var(--tinta);
-      cursor: pointer;
-      font-family: var(--serif);
-      font-size: 0.9rem;
-      padding: 0.75rem;
-      transition: background 0.2s;
+      padding: 6px 16px; font-size: var(--t-nav);
     }
-    .btn-qcm:hover { background: var(--relleno-hover); }
 
     /* ── Section QCM ── */
     .qcm-section {
@@ -1080,6 +1109,16 @@
        iOS garde le dernier appui « collé ». L'écran suivant se redessinait et le
        bouton qui arrivait à cet endroit héritait de la bordure dorée — une réponse
        paraissait déjà choisie sur la carte suivante. */
+    /* ⚠️ base.css donne un fond et une couleur de bordure au survol de TOUT bouton,
+       hors media query : sur iPhone, l'appui reste « collé » et la réponse qui
+       arrivait à cet endroit sur la carte suivante paraissait déjà choisie. Le
+       survol d'une réponse est neutre partout ; seul un vrai pointeur le montre. */
+    .qcm-choice:hover:not(:disabled) {
+      background: none; color: var(--tinta);
+      border-color: var(--linea-suave) var(--linea-suave) var(--linea-suave) transparent;
+    }
+    .qcm-choice.correct-answer:hover:not(:disabled) { color: var(--verde); border-left-color: var(--verde); }
+    .qcm-choice.wrong-answer:hover:not(:disabled)   { color: var(--rojo);  border-left-color: var(--rojo); }
     @media (hover: hover) and (pointer: fine) {
       .qcm-choice:hover:not(:disabled)  { border-left-color: var(--linea-fuerte); }
     }
@@ -1100,17 +1139,13 @@
       width: 100%;
       display: flex;
       flex-wrap: wrap;
-      gap: 0.4rem;
+      gap: 0.1rem 0.9rem;
       margin-bottom: 0.5rem;
     }
+    /* Formes grammaticales : un rappel, pas une action — du texte, pas des pastilles */
     .grammar-pill {
-      background: transparent;
-      border: 1px solid var(--linea);
-      border-radius: 20px;
       color: var(--gris);
-      font-family: var(--serif);
-      font-size: 0.75rem;
-      padding: 0.25rem 0.7rem;
+      font-size: var(--t-pequeno);
       font-style: italic;
     }
 
@@ -1128,8 +1163,8 @@
     }
 
     /* ── Contour résultat (après vérification) ── */
-    .word-chip.chip-correct   { border-color: var(--verde); }
-    .word-chip.chip-incorrect { border-color: var(--rojo); }
+    .word-chip.chip-correct   .chip-word { color: var(--verde); border-bottom-color: var(--verde); }
+    .word-chip.chip-incorrect .chip-word { color: var(--rojo);  border-bottom-color: var(--rojo); }
     .word-card.card-correct, .word-card.card-incorrect { border-left: 1px solid; padding-left: 0.9rem; }
     .word-card.card-correct   { border-left-color: var(--verde); }
     .word-card.card-incorrect { border-left-color: var(--rojo); }
@@ -1137,7 +1172,7 @@
     /* ── Écran « Mes mots » ── */
     /* ── Écran ajouter du contenu ── */
     .add-field-label { display:block; font-family:var(--serif); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--gris); margin:0.85rem 0 0.3rem; }
-    .add-input { width:100%; box-sizing:border-box; background:var(--relleno); border:1px solid var(--linea); color:var(--tinta); border-radius:8px; padding:0.6rem 0.7rem; font-family:var(--serif); }
+    .add-input { width:100%; box-sizing:border-box; }
     .add-result { margin-top:0.8rem; font-size:0.88rem; min-height:1.2rem; line-height:1.5; }
     .add-result.ok   { color:var(--verde); }
     .add-result.err  { color:var(--rojo); }
@@ -1161,7 +1196,7 @@
       position: absolute; top: 0.6rem; right: 0.8rem; background: none; border: none;
       color: var(--gris); font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 0.2rem;
     }
-    .modal-close:hover { color: var(--tinta); }
+    .modal-close:hover:not(:disabled) { background: none; color: var(--tinta); }
     .modal-title { font-size: 1.4rem; color: var(--tinta); margin: 0 0 1rem; font-weight: normal; }
     .help-section { margin-bottom: 1.15rem; }
     .help-section h3 {
@@ -1209,14 +1244,9 @@
 
     /* Réinitialisation de la progression */
     .reset-mode-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-    .reset-mode-tab {
-      flex: 1; padding: 0.5rem; border: 1px solid var(--linea); border-radius: 8px;
-      background: var(--relleno); color: var(--gris); cursor: pointer; font-size: 0.85rem;
-      transition: border-color 0.15s, color 0.15s;
-    }
-    .reset-mode-tab.on { border-color: var(--tinta); color: var(--tinta); font-weight: 600; }
-    .reset-danger { background: var(--rojo); border-color: var(--rojo); }
-    .reset-danger:hover:not(:disabled) { background: var(--rojo); }
+    .reset-mode-tab { flex: 1; }
+    .reset-mode-tab.on, .reset-mode-tab.on:hover { background: var(--tinta); border-color: var(--tinta); color: var(--papel); }
+    .reset-danger, .reset-danger:hover:not(:disabled) { background: var(--relleno); border-color: var(--rojo); color: var(--rojo); opacity: 1; }
     .reset-danger:disabled { opacity: 0.5; cursor: default; }
 
     .mot-row { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.6rem 0; border-top:1px solid var(--linea-suave); border-left:1px solid transparent; transition:border-color 0.15s, padding 0.15s; }
@@ -1256,30 +1286,26 @@
        pilules poussaient l'en-tête collé au-delà de la hauteur de l'écran — plus
        un mot visible, et un sticky plus haut que la fenêtre ne se parcourt pas. */
     .group-select-btn {
-      display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-      width: 100%; background: var(--relleno); border: 1px solid var(--linea);
-      border-radius: 20px; color: var(--tinta); cursor: pointer;
-      font-family: var(--serif); font-size: 0.75rem; padding: 0.38rem 0.8rem;
+      display: inline-flex; align-items: center; gap: 0.5rem;
     }
-    .group-select-btn:hover { border-color: var(--tinta); }
-    .group-select-btn.active { border-color: var(--tinta); }
+    .group-select-btn.active { border-color: var(--tinta); color: var(--tinta); }
     .group-select-btn .gsel-val { color: var(--tinta); }
     .mot-row .mot-w { font-family:var(--serif); font-size:1rem; }
     /* Note entre parenthèses d'une entrée annotée : contexte, pas vocabulaire */
     .mot-row .mot-note { color: var(--gris); font-size: 0.78rem; font-style: italic; }
-    .mot-row .mot-groups { display:flex; flex-wrap:wrap; gap:0.25rem; margin-top:0.25rem; }
-    .mot-row .mot-gchip { font-family:inherit; font-size:0.68rem; color:var(--gris); background:none; border:1px solid var(--linea); border-radius:999px; padding:0.05rem 0.45rem; cursor:pointer; }
-    .mot-row .mot-gchip:hover { color:var(--tinta); border-color:var(--tinta); }
+    .mot-row .mot-groups { display:flex; flex-wrap:wrap; gap:0.1rem 0.7rem; margin-top:0.25rem; }
+    .mot-row .mot-gchip { font-size:0.72rem; color:var(--gris); background:none; border:none; border-bottom:1px solid var(--linea-fuerte); border-radius:0; padding:0; cursor:pointer; }
+    .mot-row .mot-gchip:hover:not(:disabled) { background:none; color:var(--tinta); border-bottom-color:var(--tinta); }
     .mot-row .mot-lang-tag { font-size:0.78rem; margin-left:0.4rem; opacity:0.7; }
     .mot-row .mot-actions { display:flex; align-items:center; gap:0.2rem; flex-shrink:0; }
     .mot-row .mot-date { font-size:0.72rem; color:var(--gris); margin-right:0.35rem; white-space:nowrap; }
     .mot-row .mot-date.rev-due { color:var(--tinta); font-weight:600; }
     /* padding resserré : 4 actions par ligne (🔍 ✏️ 🔀 🗑) sur écran étroit */
-    .mot-row .mot-actions button { background:none; border:none; cursor:pointer; font-size:0.95rem; padding:0.2rem 0.24rem; opacity:0.65; }
-    .mot-row .mot-actions button:hover { opacity:1; }
+    .mot-row .mot-actions button { background:none; border:none; border-radius:0; cursor:pointer; font-size:0.95rem; padding:0.2rem 0.24rem; opacity:0.65; }
+    .mot-row .mot-actions button:hover:not(:disabled) { background:none; opacity:1; }
 
     /* ── Bouton hint "révision" dans le dropdown ── */
-    .hint-word-btn.review { color: var(--tinta); border-color: var(--tinta); }
+    .hint-word-btn.review { background: var(--tinta); border-color: var(--tinta); color: var(--papel); }
 
     /* ── Panneau confirmation "Je ne sais pas" ── */
     .confirm-panel {
@@ -1292,9 +1318,7 @@
     }
     .confirm-panel.visible { display: flex; }
     .confirm-panel-text { font-size: 0.88rem; color: var(--tinta); font-style: italic; }
-    .confirm-panel-actions { display: flex; gap: 0.6rem; }
-    .confirm-panel-actions .btn-primary,
-    .confirm-panel-actions .btn-secondary { flex: 1; padding: 0.65rem; font-size: 0.88rem; }
+    .confirm-panel-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
     /* ── Menu contextuel mot ── */
     #word-ctx-menu {
@@ -1353,7 +1377,9 @@
       color: var(--tinta);
       font-family: inherit;
     }
-    .ctx-menu-btn:hover, .ctx-menu-btn:active { background: var(--relleno-hover); }
+    .ctx-menu-btn { border-radius: 0; }
+    .ctx-menu-btn:hover:not(:disabled), .ctx-menu-btn:active { background: var(--relleno-hover); color: var(--tinta); }
+    .ctx-menu-btn.danger:hover:not(:disabled) { color: var(--rojo); }
     .ctx-menu-btn.danger { color: var(--rojo); }
 
     /* ── Panneau réglages ── */
@@ -1377,12 +1403,10 @@
       cursor: pointer;
       gap: 1rem;
     }
-    .settings-row input[type="checkbox"] { cursor: pointer; width: 1.1rem; height: 1.1rem; accent-color: var(--tinta); }
+    .settings-row input[type="checkbox"] { cursor: pointer; width: 1.1rem; height: 1.1rem; padding: 0; border: 0; accent-color: var(--tinta); }
 
     /* ── Boutons action ── */
-    .action-row { width: 100%; display: flex; gap: 0.75rem; }
-    .action-row .btn-secondary { font-size: 0.9rem; padding: 0.75rem; flex: 1; width: auto; }
-    .action-row .btn-primary   { font-size: 0.9rem; padding: 0.75rem; flex: 1; width: auto; }
+    .action-row { width: 100%; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 
     /* ── Stats ── */
     #screen-stats { max-width: 480px; }
@@ -1396,28 +1420,14 @@
       flex-wrap: wrap;
       gap: 0.5rem;
     }
-    .filter-btn {
-      background: var(--relleno);
-      border: 1px solid var(--linea);
-      border-radius: 20px;
-      color: var(--gris);
-      cursor: pointer;
-      font-family: var(--serif);
-      font-size: 0.78rem;
-      padding: 0.3rem 0.8rem;
-      transition: border-color 0.2s, color 0.2s;
-    }
-    .filter-btn:hover  { border-color: var(--tinta); color: var(--tinta); }
-    .filter-btn.active { border-color: var(--tinta); color: var(--tinta); }
+    .filter-btn { }
+    .filter-btn.active,
+    .filter-btn.active:hover:not(:disabled) { background: var(--tinta); border-color: var(--tinta); color: var(--papel); }
     /* Onglets de la page « ajouter » : deux boîtes de largeur égale */
-    #add-mode-tabs { flex-wrap: nowrap; }
-    #add-mode-tabs .filter-btn { flex: 1 1 0; text-align: center; }
+
     /* Pilules de langue : elles se partagent la ligne et passent à la ligne quand
        elles ne tiennent plus (leur nombre suit les langues choisies : 1 à 4). */
-    #add-lang-pills .filter-btn {
-      flex: 1 1 auto; text-align: center; font-size: 0.9rem; padding: 0.6rem 0.9rem;
-      border-radius: 12px;
-    }
+
     /* Sans largeur, un div enfant d'un flex `align-items:center` se rétrécit à son
        contenu — et le `width:100%` du textarea valait alors 100 % d'un panneau déjà
        rétréci (boîte de saisie plus étroite que le reste de l'écran). */
@@ -1494,29 +1504,25 @@
       width: 100%; margin-top: 0.4rem;
     }
     .menu-tile {
-      background: none; border: none; border-radius: 0; padding: 0.15rem 0;
+      background: none; border: none; border-bottom: 1px solid transparent; border-radius: 0; padding: 0.1rem 0;
       display: flex; align-items: baseline; gap: 0.35rem;
       color: var(--tinta); cursor: pointer; font-family: var(--serif); font-size: var(--t-nav);
     }
-    .menu-tile:hover { text-decoration: underline; text-underline-offset: 4px; }
+    .menu-tile:hover:not(:disabled) { background: none; color: var(--tinta); border-bottom-color: var(--tinta); }
     .menu-tile .mt-icon { font-size: 0.9rem; line-height: 1; }
     .menu-hero {
       margin-top: 1rem;
-      background: none; border: none; border-radius: 0; padding: 0.15rem 0;
-      display: flex; align-items: baseline; gap: 0.4rem;
-      color: var(--tinta); cursor: pointer; font-family: var(--serif); font-size: var(--t-nav);
+      display: inline-flex; align-items: baseline; gap: 0.4rem;
+      background: var(--tinta); border-color: var(--tinta); color: var(--papel);
+      padding: 6px 16px; font-size: var(--t-nav);
     }
-    .menu-hero:hover { text-decoration: underline; text-underline-offset: 4px; }
+    .menu-hero:hover:not(:disabled) { background: var(--tinta); border-color: var(--tinta); color: var(--papel); opacity: 0.85; }
     .menu-hero .mt-icon { font-size: 0.95rem; line-height: 1; }
 
     /* ── Sélecteur de langue de l'appli (écran connexion) ── */
     .app-lang-row { display: flex; gap: 0.4rem; margin-bottom: 0.9rem; }
-    .app-lang-btn {
-      background: none; border: 1px solid var(--linea); color: var(--gris);
-      border-radius: 6px; padding: 0.2rem 0.55rem;
-      font-family: var(--serif); font-size: 0.75rem; cursor: pointer;
-    }
-    .app-lang-btn.active { color: var(--tinta); border-color: var(--tinta); }
+    .app-lang-btn { }
+    .app-lang-btn.active, .app-lang-btn.active:hover { background: var(--tinta); border-color: var(--tinta); color: var(--papel); }
 
     /* ── Spinner ── */
     .spinner {
@@ -1553,16 +1559,16 @@
                   margin-bottom      0.28s cubic-bezier(.32,.72,0,1),
                   opacity            0.17s linear;
     }
-    #kb-fold-sliders { margin-top: -0.75rem; }
+    #kb-fold-sliders { margin-top: calc(-0.5 * var(--gap-ecran)); }
     #kb-fold-sliders .due-count { margin-top: 0; }
     .kb-fold > .kb-fold-in {
       overflow: hidden; min-height: 0; width: 100%;
-      display: flex; flex-direction: column; align-items: flex-start; gap: 1.5rem;
+      display: flex; flex-direction: column; align-items: flex-start; gap: var(--gap-ecran);
     }
     body.kb-open .kb-fold,
     #screen-practice.verifying #kb-fold-modes,
     #screen-practice.verifying #kb-fold-sliders {
-      grid-template-rows: 0fr; margin-bottom: -1.5rem; opacity: 0; pointer-events: none;
+      grid-template-rows: 0fr; margin-bottom: calc(-1 * var(--gap-ecran)); opacity: 0; pointer-events: none;
     }
 
     /* ── Les mots pendant qu'on écrit : un fil, pas des cartes ──
@@ -1574,17 +1580,14 @@
                   border-color 0.15s, background 0.15s;
     }
     body.words-compact #multi-word-chips { gap: 0 0.55rem; }
-    body.words-compact #multi-word-chips .word-chip {
-      flex: 0 0 auto; min-width: 0; flex-direction: row; align-items: baseline;
-      gap: 0.5rem; background: none; border: none; padding: 0; border-radius: 0;
-    }
+    body.words-compact #multi-word-chips .word-chip { gap: 0.5rem; }
     body.words-compact #multi-word-chips .word-chip:not(:last-child)::after {
       content: '·'; color: var(--gris); font-size: 0.95rem;
     }
     body.words-compact .word-chip .chip-stars,
     body.words-compact .word-chip .chip-note,
     body.words-compact .card-actions { display: none; }
-    body.words-compact .word-chip .chip-word { font-size: 0.95rem; }
+    body.words-compact .word-chip .chip-word { font-size: 0.95rem; border-bottom: none; }
     /* Le verdict se lit en couleur et en barré, faute de bordure à colorer. */
     body.words-compact #single-word-card.card-correct,
     body.words-compact #single-word-card.card-incorrect { border-left: none; padding-left: 0; }
@@ -1637,6 +1640,7 @@
       border-radius: 999px; font-family: var(--serif); font-size: 0.72rem;
       padding: 0.5rem 1rem; cursor: pointer;
     }
+    #catchup-btn:hover { background: var(--tinta); color: var(--papel); }
     #catchup-btn.visible { display: block; }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1707,7 +1711,7 @@
       <div class="settings-row" style="cursor:default;">
         <span data-i18n="set_app_lang">Langue de l'appli</span>
         <select id="app-lang-select" onchange="setAppLang(this.value)"
-          style="background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.2rem 0.4rem;font-family:var(--serif);font-size:0.8rem;">
+          style="font-size:0.8rem;">
           <option value="en">English</option>
           <option value="fr">Français</option>
           <option value="es">Español</option>
@@ -1717,7 +1721,7 @@
       <div class="settings-row" style="cursor:default;">
         <span data-i18n="set_model">Modèle IA</span>
         <select id="model-select" onchange="setModel(this.value)"
-          style="background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.2rem 0.4rem;font-family:var(--serif);font-size:0.8rem;">
+          style="font-size:0.8rem;">
           <option value="gpt4">GPT-5.6 Terra</option>
           <option value="gemma">Gemma 4 31B</option>
           <option value="geminiflashlite">Gemini 3.5 Flash Lite</option>
@@ -1727,26 +1731,26 @@
       <div class="settings-row" style="cursor:default;">
         <span id="reasoning-label" data-i18n="set_reasoning">Raisonnement</span>
         <select id="reasoning-select" onchange="setReasoningLevel(this.value)"
-          style="background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.2rem 0.4rem;font-family:var(--serif);font-size:0.8rem;">
+          style="font-size:0.8rem;">
         </select>
       </div>
       <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
         <span data-i18n="set_openai_key">Clé API OpenAI (GPT)</span>
         <input type="password" id="openai-key-input" placeholder="sk-…" autocomplete="off"
           onchange="setOpenaiKey(this.value)"
-          style="width:100%;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.35rem 0.5rem;font-family:var(--mono);font-size:0.8rem;">
+          style="width:100%;font-family:var(--mono);font-size:0.8rem;">
       </div>
       <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
         <span data-i18n="set_gemini_key">Clé API Gemini / Gemma</span>
         <input type="password" id="gemini-key-input" placeholder="AIza…" autocomplete="off"
           onchange="setGeminiKey(this.value)"
-          style="width:100%;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.35rem 0.5rem;font-family:var(--mono);font-size:0.8rem;">
+          style="width:100%;font-family:var(--mono);font-size:0.8rem;">
       </div>
       <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
         <span data-i18n="set_add_link">Lien d'ajout (raccourci iPhone)</span>
         <input type="text" id="add-url-input" readonly placeholder="connecte-toi pour générer ton lien" data-i18n-ph="set_add_link_ph"
           onclick="this.select()"
-          style="width:100%;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.35rem 0.5rem;font-family:var(--mono);font-size:0.68rem;">
+          style="width:100%;font-family:var(--mono);font-size:0.68rem;">
         <span style="font-size:0.7rem;color:var(--gris);" data-i18n="set_add_link_note">Remplace <code>WORD</code> par le mot dans ton raccourci. <code>lang=auto</code> détecte la langue.</span>
       </div>
       <label class="settings-row">
@@ -1760,7 +1764,7 @@
       <div class="settings-row" style="cursor:default;">
         <span data-i18n="set_image_theme">Thème photos (Imagen)</span>
         <select id="image-theme-select" onchange="setImageTheme(this.value)"
-          style="background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.2rem 0.4rem;font-family:var(--serif);font-size:0.8rem;">
+          style="font-size:0.8rem;">
           <option value="" data-i18n="theme_random">🎲 Aléatoire</option>
           <option value="people" data-i18n="theme_people">👥 Personnes</option>
           <option value="city street" data-i18n="theme_city">🏙️ Ville</option>
@@ -1963,7 +1967,7 @@
         </div>
         <div id="hint-translation"></div>
         <div id="hint-study" style="display:none; margin-top:0.9rem;">
-          <button class="btn-secondary" style="width:100%" onclick="startStudyQuiz()" data-i18n="btn_study">✓ je l'ai compris — teste-moi</button>
+          <button class="btn-secondary" onclick="startStudyQuiz()" data-i18n="btn_study">✓ je l'ai compris — teste-moi</button>
         </div>
       </div>
     </div>
@@ -2023,7 +2027,7 @@
       </div>
       <!-- Boutons d'action ENTRE le texte et le champ (cohérence avec les autres modes).
            Un seul visible à la fois : « Je ne sais pas » avant de répondre, « Autre situation » après. -->
-      <button class="btn-secondary" id="btn-situation-skip" onclick="revealWord()" style="width:100%; display:none;" data-i18n="btn_dont_know">Je ne sais pas →</button>
+      <button class="btn-secondary" id="btn-situation-skip" onclick="revealWord()" style="display:none;" data-i18n="btn_dont_know">Je ne sais pas →</button>
       <button class="btn-primary" id="btn-situation-next" onclick="nextSituation()" style="display:none;" data-i18n="btn_next_situation">Autre situation →</button>
       <!-- Champ de réponse -->
       <div class="sentence-section" id="situation-answer-section" style="display:none;">
@@ -2136,7 +2140,7 @@
       </div>
       <input type="text" id="mots-search" placeholder="🔍 chercher un mot…" data-i18n-ph="search_ph" oninput="motsPage=0;renderMots()"
         autocapitalize="off" autocomplete="off"
-        style="width:100%;box-sizing:border-box;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:8px;padding:0.5rem 0.7rem;font-family:var(--serif);">
+        style="width:100%;box-sizing:border-box;">
       <div class="history-filters" id="mots-filters"></div>
       <div class="history-filters" id="mots-group-filters" style="display:none"></div>
       <div id="mots-controls"></div>
@@ -2171,7 +2175,7 @@
     </div>
     <input type="text" id="revisions-search" placeholder="🔍 chercher un mot…" data-i18n-ph="search_ph" oninput="renderRevisions()"
       autocapitalize="off" autocomplete="off"
-      style="width:100%;box-sizing:border-box;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:8px;padding:0.5rem 0.7rem;font-family:var(--serif);margin-bottom:0.6rem;">
+      style="width:100%;box-sizing:border-box;margin-bottom:0.6rem;">
     <div class="history-filters" id="revisions-sort">
       <button class="filter-btn active" onclick="setRevisionsSort('next')" data-i18n="sort_next">📅 Plus proche</button>
       <button class="filter-btn" onclick="setRevisionsSort('far')" data-i18n="sort_far">📆 Plus lointaine</button>
@@ -2200,7 +2204,7 @@
     <div id="add-word-panel">
       <label class="add-field-label" data-i18n="label_words">Mot(s) ou expression(s)</label>
       <textarea id="add-word-input" class="add-input" rows="4" autocapitalize="off" autocomplete="off" placeholder="ex. resilience&#10;plusieurs mots : un par ligne, ou séparés par des « ; »&#10;expression : hacer el oso (expresión colombiana)" data-i18n-ph="add_words_ph"></textarea>
-      <button class="btn-primary" style="width:100%;margin-top:0.7rem" onclick="addWordFromApp()" data-i18n="btn_add">Ajouter</button>
+      <button class="btn-primary" style="margin-top:0.7rem" onclick="addWordFromApp()" data-i18n="btn_add">Ajouter</button>
       <div id="add-word-result" class="add-result"></div>
     </div>
 
@@ -2210,7 +2214,7 @@
       <input type="text" id="add-cat-input" class="add-input" autocapitalize="off" autocomplete="off" placeholder="ex. futuro simple">
       <label class="add-field-label" data-i18n="label_form">Forme</label>
       <input type="text" id="add-form-input" class="add-input" autocapitalize="off" autocomplete="off" placeholder="ex. hablaré">
-      <button class="btn-primary" style="width:100%;margin-top:0.7rem" onclick="addGrammarForm()" data-i18n="btn_add_form">Ajouter la forme</button>
+      <button class="btn-primary" style="margin-top:0.7rem" onclick="addGrammarForm()" data-i18n="btn_add_form">Ajouter la forme</button>
       <div id="add-grammar-result" class="add-result"></div>
       <div class="history-list" id="add-grammar-list" style="margin-top:1rem"></div>
     </div>
@@ -4600,7 +4604,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         html += `<p style="margin-top:0.8rem"><strong>Plus proposés</strong> <span style="color:var(--gris);font-size:0.8rem">(rien n'est supprimé — à toi de voir avec 🗑)</span></p>
           <p style="color:var(--gris);font-size:0.85rem">${_taxo.dropped.map(d => escapeHtml(d.name)).join(' · ')}</p>`;
       }
-      html += `<button class="btn-primary" style="width:100%;margin-top:1rem" onclick="applyTaxoProposal()">Appliquer</button>`;
+      html += `<button class="btn-primary" style="margin-top:1rem" onclick="applyTaxoProposal()">Appliquer</button>`;
       panel.innerHTML = html;
       _taxo._news = news;
       _taxo._rescoped = rescoped;
@@ -10468,7 +10472,7 @@ Reply with ONLY this JSON object, nothing else:
       <h2 class="modal-title" data-i18n="langpicker_title">Tes langues</h2>
       <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem" data-i18n="langpicker_note">Choisis les langues que tu veux étudier (au moins une).</p>
       <div id="lang-picker-list"></div>
-      <button class="btn-primary" style="width:100%;margin-top:1rem" onclick="confirmLangPicker()" data-i18n="btn_confirm">Valider</button>
+      <button class="btn-primary" style="margin-top:1rem" onclick="confirmLangPicker()" data-i18n="btn_confirm">Valider</button>
       <p class="error-msg" id="lang-picker-error"></p>
     </div>
   </div>
@@ -10496,7 +10500,7 @@ Reply with ONLY this JSON object, nothing else:
         <input type="range" id="groups-random-slider" min="5" max="60" step="5" value="20"
           oninput="onGroupRandomSlider(this.value)" />
       </div>
-      <button class="btn-primary" id="groups-start" style="width:100%; margin-top:1rem;"
+      <button class="btn-primary" id="groups-start" style="margin-top:1rem;"
         onclick="startGroupQueue()" disabled>Commencer</button>
     </div>
   </div>
@@ -10508,7 +10512,7 @@ Reply with ONLY this JSON object, nothing else:
       <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs mots à pratiquer (dans l'ordre choisi), puis « commencer ».</p>
       <input type="text" id="free-search-input" placeholder="🔍 filtrer…" autocomplete="off" autocapitalize="off"
         oninput="renderFreeSearchList(this.value)"
-        style="width:100%;box-sizing:border-box;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:8px;padding:0.5rem 0.7rem;font-family:var(--serif);margin-bottom:0.6rem;">
+        style="width:100%;box-sizing:border-box;margin-bottom:0.6rem;">
       <div id="free-search-sort" style="display:flex; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.7rem;">
         <button class="filter-btn active" onclick="setFreeSearchSort('az')">A-Z</button>
         <button class="filter-btn" onclick="setFreeSearchSort('recent')">vus récemment</button>
@@ -10516,7 +10520,7 @@ Reply with ONLY this JSON object, nothing else:
         <button class="filter-btn" onclick="setFreeSearchSort('never')">jamais vus</button>
       </div>
       <div id="free-search-list" style="max-height:48vh; overflow-y:auto;"></div>
-      <button class="btn-primary" id="free-search-start" style="width:100%; margin-top:1rem;"
+      <button class="btn-primary" id="free-search-start" style="margin-top:1rem;"
         onclick="startFreeQueue()" disabled>Commencer</button>
     </div>
   </div>
@@ -10542,15 +10546,15 @@ Reply with ONLY this JSON object, nothing else:
         <div class="settings-row" style="cursor:default; padding:0 0 0.6rem;">
           <span>Langue</span>
           <select id="reset-browse-lang" onchange="onResetBrowseLangChange(this.value)"
-            style="background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:6px;padding:0.2rem 0.4rem;font-family:var(--serif);font-size:0.8rem;"></select>
+            style="font-size:0.8rem;"></select>
         </div>
         <input type="text" id="reset-words-search" placeholder="🔍 filtrer…" autocomplete="off" autocapitalize="off"
           oninput="renderResetWords(this.value)"
-          style="width:100%;box-sizing:border-box;background:var(--relleno);border:1px solid var(--linea);color:var(--tinta);border-radius:8px;padding:0.5rem 0.7rem;font-family:var(--serif);margin-bottom:0.7rem;">
+          style="width:100%;box-sizing:border-box;margin-bottom:0.7rem;">
         <div id="reset-words-list" style="max-height:42vh; overflow-y:auto;"></div>
       </div>
 
-      <button class="btn-primary reset-danger" id="reset-confirm-btn" style="width:100%; margin-top:1rem;"
+      <button class="btn-primary reset-danger" id="reset-confirm-btn" style="margin-top:1rem;"
         onclick="doResetProgress()" disabled>Réinitialiser</button>
       <p class="error-msg" id="reset-error"></p>
     </div>

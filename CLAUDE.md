@@ -15,14 +15,19 @@ App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **C
 @~/Desktop/estilo/estilo.md
 
 ### Excepciones en este proyecto
-- **Tokens pegados en el `<style>`** (app de un solo archivo) : bloque « Estilo común — copiado de ~/Desktop/estilo », ne pas l'éditer ici. `tokens.css` + `oscuro.css` depuis l'étape 1 ; `base.css` arrive avec l'étape « éléments » (ses règles génériques `button`/`input` déformaient les curseurs et les lignes de « mes mots »).
+- **Tokens pegados en el `<style>`** (app de un solo archivo) : bloque « Estilo común — copiado de ~/Desktop/estilo » (`tokens.css`, `oscuro.css`, `base.css`), ne pas l'éditer ici.
 - **Thème sombre** (`oscuro.css`, suit le système) : app d'usage quotidien.
 - **`--barra-estado`** : rideau sous la barre d'état iOS, sombre dans les deux thèmes — `black-translucent` affiche toujours un texte blanc.
 - **Mono du système** seulement pour le technique : compteur de tokens, clés API, lien d'ajout, `code` de l'aide.
 - **Colonne étroite** (`.screen`, 480 px, alignée à gauche) : app pensée pour le téléphone.
 - **Popups et modales** (`#word-ctx-menu`, `.modal-card`) : papier + filet `--linea-fuerte`, sans ombre ni radius ; voile de la modale = `color-mix` du papier. Pièce absente du style commun (dialogues) — à proposer si elle sert ailleurs.
 - **Mots « à réviser » en gris** (`chip-review`/`card-review`) tant que « nouveau » n'est pas dit en toutes lettres — l'or qui distinguait les nouveaux a disparu avec l'accent.
-- **Migration en cours** (commencée le 2026-09-29) : base ✓ · structure ✓ · éléments · emojis · mouvement. Maquette validée : https://claude.ai/artifact/Adwdr7PnG1UQoKX6qyC791 — icône = **globo aerostático à 7 panneaux alternés** (variante F).
+- **Pastilles un peu plus grandes** (`.btn-primary`, `.btn-secondary`, `.mode-current`… : `6px 16px`, `--t-nav`) : cibles tactiles d'une app qu'on utilise au pouce.
+- ⚠️ **`base.css` colore le survol de TOUT `button`** (`button:hover:not(:disabled)`, hors media query, et plus spécifique qu'une classe seule). Chaque bouton qui n'est pas une pastille (réponses du QCM, trous, langues, liens-boutons, menus…) neutralise ce survol avec `.classe:hover:not(:disabled)`. Sans ça, sur iPhone l'appui reste collé et la réponse suivante du QCM paraît déjà choisie. Un nouveau bouton non-pastille doit faire pareil.
+- **`input[type=range]` et cases à cocher** : `border:0; padding:0` — la règle `input` de `base.css` les encadrait.
+- **Mots de la séance en ligne** (choix de la maquette, « compact ») : `.word-chip` = mot souligné finement + note + étoiles ; le soulignement et le texte prennent le vert / rouge du verdict. Étoiles `★★☆` conservées (une donnée, pas une icône).
+- **Curseurs sur une ligne** (`.slider-section` en grille : libellé · curseur · valeur).
+- **Migration en cours** (commencée le 2026-09-29) : base ✓ · structure ✓ · éléments ✓ · emojis · mouvement. Maquette validée : https://claude.ai/artifact/Adwdr7PnG1UQoKX6qyC791 — icône = **globo aerostático à 7 panneaux alternés** (variante F).
 
 ---
 
