@@ -149,14 +149,18 @@ button,
   border-radius: 999px;
   cursor: pointer;
 }
-button:hover:not(:disabled),
-.btn:hover { background: var(--relleno-hover); border-color: var(--linea-fuerte); color: var(--tinta); }
+/* Solo con un puntero de verdad: en el móvil el último toque se queda "pegado"
+   y el botón que aparece en ese sitio en la pantalla siguiente parecería elegido. */
+@media (hover: hover) {
+  button:hover:not(:disabled),
+  .btn:hover { background: var(--relleno-hover); border-color: var(--linea-fuerte); color: var(--tinta); }
+}
 button:disabled { opacity: 0.55; cursor: default; }
 button[aria-pressed="true"],
 .btn.active { background: var(--tinta); border-color: var(--tinta); color: var(--papel); }
 
-/* Campos: rectángulos con borde de tinta */
-input, select {
+/* Campos: rectángulos con borde de tinta (no los curseurs ni las casillas) */
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]), select {
   font-family: inherit;
   font-size: var(--t-nav);
   padding: 6px 8px;
@@ -395,7 +399,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .lang-btn {
       background: none; border: none; border-top: 1px solid var(--linea-suave); border-radius: 0;
       color: var(--tinta); cursor: pointer; font-family: var(--serif); padding: 0.65rem 0 0.75rem;
-      display: grid; grid-template-columns: auto 1fr auto; align-items: baseline;
+      display: grid; grid-template-columns: 1fr auto; align-items: baseline;
       column-gap: 0.4rem; row-gap: 0.3rem; text-align: left; min-width: 0;
     }
     .lang-btn:hover:not(:disabled) { background: none; color: var(--tinta); border-color: var(--linea-suave); }
@@ -422,7 +426,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     /* ── Header pratique ── */
     .practice-header { width: 100%; display: flex; align-items: center; justify-content: space-between; }
-    .header-actions  { display: flex; gap: 0.5rem; align-items: center; }
+    .header-actions  { display: flex; gap: 1rem; align-items: baseline; }
+    /* Liens-boutons du mode libre : séparés par l'espace, pas par des icônes */
+    #free-search-bar .btn-ghost { margin-right: 0.9rem; }
 
     /* ── Toggle mode ── */
     .mode-toggle {
@@ -501,7 +507,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
        les autres. Reprises du mode espacé, mêmes classes de couleur. */
     .session-stars { margin-bottom: 0.7rem; }
     .cloze-recap     { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.9rem; }
-    .cloze-recap-row { display: grid; grid-template-columns: 1rem 1fr auto; align-items: baseline;
+    .cloze-recap-row { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline;
                        gap: 0.5rem; font-size: 0.92rem; text-align: left; }
     .cloze-recap-row .rc-mark.ok { color: var(--verde); }
     .cloze-recap-row .rc-mark.ko { color: var(--rojo); }
@@ -818,8 +824,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     /* Boutons modifier / supprimer sur la carte et les chips */
     .card-actions { position: absolute; top: 0.6rem; right: 0; display: flex; gap: 0.1rem; }
     .card-action-btn {
-      background: none; border: none; border-radius: 0; cursor: pointer; opacity: 0.5;
-      font-size: 0.95rem; line-height: 1; padding: 0.25rem 0.35rem; color: var(--gris);
+      background: none; border: none; border-radius: 0; cursor: pointer; opacity: 0.6;
+      font-size: var(--t-pequeno); line-height: 1; padding: 0.25rem 0.35rem; color: var(--gris);
       transition: opacity 0.15s;
     }
     .card-action-btn:hover:not(:disabled) { background: none; opacity: 1; }
@@ -959,7 +965,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       cursor: pointer; padding: 0.55rem 0; }
     .fb-title { font-family: var(--serif); font-size: 0.72rem; text-transform: uppercase;
       letter-spacing: 0.08em; font-weight: 600; }
-    .fb-chevron { font-size: 0.8rem; flex-shrink: 0; transition: transform 0.2s; }
+    .fb-chevron { display: none; }
     .fb-section.collapsed .fb-chevron { transform: rotate(-90deg); }
     .fb-body { padding-bottom: 0.55rem; line-height: 1.7; }
     .fb-section.collapsed .fb-body {
@@ -986,7 +992,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       opacity: 0.65; list-style: none;
     }
     .fb-details > summary::-webkit-details-marker { display: none; }
-    .fb-details > summary::before { content: '▸ '; }
     /* Section repliée PORTANT des remarques graves : on les montre en entier
        (MAJ_VISIBLE au plus), on masque le reste. L'aperçu 2 lignes ne s'applique
        plus qu'aux sections sans rien de grave (version améliorée, verdict…). */
@@ -1009,7 +1014,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
        effectivement des graves cachées. */
     .fb-section:not(.collapsed) .fb-more,
     .fb-section.collapsed:not([data-has-maj]) .fb-more { display: none; }
-    .fb-details[open] > summary::before { content: '▾ '; }
     .fb-details > .fb-item { margin-top: 0.5rem; }
 
     .feedback-box.image     { border-left-color: var(--linea-fuerte); color: var(--tinta); }
@@ -1123,6 +1127,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       .qcm-choice:hover:not(:disabled)  { border-left-color: var(--linea-fuerte); }
     }
     .qcm-choice:disabled                { cursor: default; }
+    /* « juste » / « faux » en toutes lettres au-dessus du scénario choisi */
+    .qcm-mark { display: block; font-size: var(--t-etiqueta); letter-spacing: 0.13em; text-transform: uppercase; }
     .qcm-choice.correct-answer          { border-left-color: var(--verde); color: var(--verde); }
     .qcm-choice.wrong-answer            { border-left-color: var(--rojo);  color: var(--rojo); }
 
@@ -1193,8 +1199,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       position: relative; animation: fadeIn 0.3s ease;
     }
     .modal-close {
-      position: absolute; top: 0.6rem; right: 0.8rem; background: none; border: none;
-      color: var(--gris); font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 0.2rem;
+      position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; border-radius: 0;
+      color: var(--gris); font-size: var(--t-pequeno); cursor: pointer; line-height: 1; padding: 0.2rem 0;
     }
     .modal-close:hover:not(:disabled) { background: none; color: var(--tinta); }
     .modal-title { font-size: 1.4rem; color: var(--tinta); margin: 0 0 1rem; font-weight: normal; }
@@ -1249,12 +1255,12 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .reset-danger, .reset-danger:hover:not(:disabled) { background: var(--relleno); border-color: var(--rojo); color: var(--rojo); opacity: 1; }
     .reset-danger:disabled { opacity: 0.5; cursor: default; }
 
-    .mot-row { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.6rem 0; border-top:1px solid var(--linea-suave); border-left:1px solid transparent; transition:border-color 0.15s, padding 0.15s; }
+    .mot-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0.3rem 0.5rem; padding:0.6rem 0; border-top:1px solid var(--linea-suave); border-left:1px solid transparent; transition:border-color 0.15s, padding 0.15s; }
     .mot-row:last-child { border-bottom:1px solid var(--linea-suave); }
     /* Sélection à la LIGNE : plus de case native, la ligne s'allume — même
        idiome que « chercher un mot ». Le ✓ dit l'état sans ajouter de contrôle. */
     .mot-row.sel { border-left-color:var(--tinta); padding-left:0.75rem; }
-    .mot-row .mot-check { flex:0 0 auto; width:0.9rem; color:var(--tinta); font-size:0.8rem; }
+    .mot-row .mot-check { display:none; }
     .mot-row.selectable { cursor:pointer; }
     /* En-tête collé de « mes mots » : il porte le fond, sinon la liste
        défilerait visiblement au travers. */
@@ -1297,12 +1303,15 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .mot-row .mot-gchip { font-size:0.72rem; color:var(--gris); background:none; border:none; border-bottom:1px solid var(--linea-fuerte); border-radius:0; padding:0; cursor:pointer; }
     .mot-row .mot-gchip:hover:not(:disabled) { background:none; color:var(--tinta); border-bottom-color:var(--tinta); }
     .mot-row .mot-lang-tag { font-size:0.78rem; margin-left:0.4rem; opacity:0.7; }
-    .mot-row .mot-actions { display:flex; align-items:center; gap:0.2rem; flex-shrink:0; }
+    .mot-row .mot-actions { display:flex; flex-wrap:wrap; align-items:baseline; gap:0.2rem 0.9rem; flex-shrink:0; }
+    /* « mes mots » : les actions en toutes lettres passent sur leur propre ligne */
+    .mot-row .mot-acts { width:100%; }
+    .mot-code, .mot-row .mot-code { font-size:var(--t-etiqueta); letter-spacing:0.13em; color:var(--gris); margin-right:0.5rem; }
     .mot-row .mot-date { font-size:0.72rem; color:var(--gris); margin-right:0.35rem; white-space:nowrap; }
     .mot-row .mot-date.rev-due { color:var(--tinta); font-weight:600; }
-    /* padding resserré : 4 actions par ligne (🔍 ✏️ 🔀 🗑) sur écran étroit */
-    .mot-row .mot-actions button { background:none; border:none; border-radius:0; cursor:pointer; font-size:0.95rem; padding:0.2rem 0.24rem; opacity:0.65; }
-    .mot-row .mot-actions button:hover:not(:disabled) { background:none; opacity:1; }
+    .mot-row .mot-actions button { background:none; border:none; border-bottom:1px solid var(--linea-fuerte); border-radius:0; cursor:pointer; font-size:var(--t-pequeno); color:var(--gris); padding:0; }
+    .mot-row .mot-actions button:hover:not(:disabled) { background:none; color:var(--tinta); border-bottom-color:var(--tinta); }
+    .mot-row .mot-actions button.danger, .mot-row .mot-actions button.danger:hover:not(:disabled) { color:var(--rojo); border-bottom-color:currentColor; }
 
     /* ── Bouton hint "révision" dans le dropdown ── */
     .hint-word-btn.review { background: var(--tinta); border-color: var(--tinta); color: var(--papel); }
@@ -1381,6 +1390,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .ctx-menu-btn:hover:not(:disabled), .ctx-menu-btn:active { background: var(--relleno-hover); color: var(--tinta); }
     .ctx-menu-btn.danger:hover:not(:disabled) { color: var(--rojo); }
     .ctx-menu-btn.danger { color: var(--rojo); }
+    /* Élément courant d'un menu (mode, groupes cochés) : un filet, pas une coche */
+    .ctx-menu-btn.on { border-left: 1px solid var(--tinta); }
 
     /* ── Panneau réglages ── */
     .settings-panel {
@@ -1624,10 +1635,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       padding: 0.05rem 1.5rem 0.05rem 0.7rem;
       transform: none; cursor: pointer; overflow: visible;
     }
-    #screen-practice.verifying .textarea-wrap::after {
-      content: '✎'; position: absolute; right: 0; top: 0;
-      color: var(--gris); font-size: 0.8rem; opacity: 0.7; pointer-events: none;
-    }
     #screen-practice.verifying #sentence-banner {
       display: block; font-size: 0.85rem; font-style: italic; color: var(--gris);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5;
@@ -1651,10 +1658,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 </head>
 <body>
 <div id="status-curtain"></div>
-<button id="catchup-btn" onclick="catchupToFeedback()">↓ suite du verdict</button>
+<button id="catchup-btn" onclick="catchupToFeedback()">suite du verdict</button>
 <div id="sticky-words-bar">
   <span id="sticky-words-text"></span>
-  <button id="sticky-hide-btn" onclick="toggleWordsHidden()" title="Cacher/Montrer">👁</button>
+  <button id="sticky-hide-btn" onclick="toggleWordsHidden()" title="Cacher/Montrer">cacher</button>
 </div>
 
   <!-- ── Écran 0 : Chargement ── -->
@@ -1684,7 +1691,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       <div style="color:var(--gris);font-size:0.8rem;margin:0.2rem 0;" data-i18n="auth_or">— ou —</div>
       <div id="google-signin-btn" style="display:flex;justify-content:center;"></div>
     </div>
-    <button class="btn-ghost help-btn" onclick="openHelp()" data-i18n="help_btn">❓ Comment ça marche</button>
+    <button class="btn-ghost help-btn" onclick="openHelp()" data-i18n="help_btn">Comment ça marche</button>
   </div>
 
   <!-- ── Écran 2 : Sélecteur de langue ── -->
@@ -1694,16 +1701,16 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     <div class="lang-grid" id="lang-grid"></div>
 
     <!-- Action principale : ajouter (pleine largeur) -->
-    <button class="menu-hero" onclick="showAddContent()"><span class="mt-icon">➕</span><span data-i18n="tile_menu_add">ajouter</span></button>
+    <button class="menu-hero" onclick="showAddContent()"><span data-i18n="tile_menu_add">ajouter</span></button>
 
     <!-- Menu principal : grille d'icônes 3×2 -->
     <div class="menu-grid">
-      <button class="menu-tile" onclick="showMots()"><span class="mt-icon">📝</span><span data-i18n="tile_menu_mots">mes mots</span></button>
-      <button class="menu-tile" onclick="showStats()"><span class="mt-icon">📊</span><span data-i18n="tile_menu_stats">stats</span></button>
-      <button class="menu-tile" onclick="showHistory()"><span class="mt-icon">📋</span><span data-i18n="tile_menu_history">historique</span></button>
-      <button class="menu-tile" onclick="toggleAccountSettings()"><span class="mt-icon">⚙️</span><span data-i18n="tile_menu_settings">réglages</span></button>
-      <button class="menu-tile" onclick="openHelp()"><span class="mt-icon">❓</span><span data-i18n="tile_menu_help">aide</span></button>
-      <button class="menu-tile" onclick="logout()"><span class="mt-icon">🚪</span><span data-i18n="tile_menu_logout">déconnexion</span></button>
+      <button class="menu-tile" onclick="showMots()"><span data-i18n="tile_menu_mots">mes mots</span></button>
+      <button class="menu-tile" onclick="showStats()"><span data-i18n="tile_menu_stats">stats</span></button>
+      <button class="menu-tile" onclick="showHistory()"><span data-i18n="tile_menu_history">historique</span></button>
+      <button class="menu-tile" onclick="toggleAccountSettings()"><span data-i18n="tile_menu_settings">réglages</span></button>
+      <button class="menu-tile" onclick="openHelp()"><span data-i18n="tile_menu_help">aide</span></button>
+      <button class="menu-tile" onclick="logout()"><span data-i18n="tile_menu_logout">déconnexion</span></button>
     </div>
 
     <!-- Réglages du compte (indépendants de la langue pratiquée) -->
@@ -1765,19 +1772,19 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         <span data-i18n="set_image_theme">Thème photos (Imagen)</span>
         <select id="image-theme-select" onchange="setImageTheme(this.value)"
           style="font-size:0.8rem;">
-          <option value="" data-i18n="theme_random">🎲 Aléatoire</option>
-          <option value="people" data-i18n="theme_people">👥 Personnes</option>
-          <option value="city street" data-i18n="theme_city">🏙️ Ville</option>
-          <option value="nature landscape" data-i18n="theme_nature">🌿 Nature</option>
-          <option value="food" data-i18n="theme_food">🍽️ Nourriture</option>
-          <option value="travel" data-i18n="theme_travel">✈️ Voyage</option>
-          <option value="architecture" data-i18n="theme_architecture">🏛️ Architecture</option>
-          <option value="animals" data-i18n="theme_animals">🐾 Animaux</option>
+          <option value="" data-i18n="theme_random">Aléatoire</option>
+          <option value="people" data-i18n="theme_people">Personnes</option>
+          <option value="city street" data-i18n="theme_city">Ville</option>
+          <option value="nature landscape" data-i18n="theme_nature">Nature</option>
+          <option value="food" data-i18n="theme_food">Nourriture</option>
+          <option value="travel" data-i18n="theme_travel">Voyage</option>
+          <option value="architecture" data-i18n="theme_architecture">Architecture</option>
+          <option value="animals" data-i18n="theme_animals">Animaux</option>
         </select>
       </div>
       <div class="settings-row" style="cursor:default;">
         <span>Réinitialiser la progression<br><span style="font-size:0.7rem;color:var(--gris);">remet des mots à « nouveaux » (l'historique est conservé)</span></span>
-        <button class="btn-ghost" onclick="openResetProgress()" style="flex-shrink:0;">🔄 Réinitialiser</button>
+        <button class="btn-ghost" onclick="openResetProgress()" style="flex-shrink:0;">Réinitialiser</button>
       </div>
     </div>
 
@@ -1793,8 +1800,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         <span class="token-display" id="token-display" style="display:none"></span>
       </div>
       <div class="header-actions">
-        <button class="btn-ghost" onclick="toggleSettings()">⚙️</button>
-        <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">← langue</span>
+        <button class="btn-ghost" onclick="toggleSettings()" data-i18n="tile_menu_settings">réglages</button>
+        <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">langue</span>
       </div>
     </div>
 
@@ -1829,7 +1836,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     <div class="kb-fold" id="kb-fold-modes"><div class="kb-fold-in">
     <div class="mode-toggle">
       <button class="mode-current" id="mode-current-btn" onclick="openModeMenu(event)">
-        <span id="mode-current-label">📅 Espacée</span><span class="mode-chev">▾</span>
+        <span id="mode-current-label">mode : espacée</span>
       </button>
     </div>
     </div></div>
@@ -1850,10 +1857,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     <!-- Recherche d'un mot précis (mode libre uniquement) -->
     <div id="free-search-bar" style="display:none; margin-bottom:0.6rem;">
-      <button class="btn-ghost" id="groups-open" onclick="openGroupsPicker()">🏷 groupes</button>
-      <button class="btn-ghost" id="free-search-open" onclick="openFreeSearch()">🔍 chercher un mot</button>
-      <button class="btn-ghost" id="free-peek" onclick="peekFreePool()">👁 voir les mots</button>
-      <button class="btn-ghost" id="free-queue-exit" style="display:none;" onclick="exitFreeQueue()">✕ quitter la file</button>
+      <button class="btn-ghost" id="groups-open" onclick="openGroupsPicker()">groupes</button>
+      <button class="btn-ghost" id="free-search-open" onclick="openFreeSearch()">chercher un mot</button>
+      <button class="btn-ghost" id="free-peek" onclick="peekFreePool()">voir les mots</button>
+      <button class="btn-ghost" id="free-queue-exit" style="display:none;" onclick="exitFreeQueue()">quitter la file</button>
     </div>
 
     <!-- Slider nombre de formes grammaticales (langue courante, si elle en a) -->
@@ -1870,7 +1877,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     <!-- Mot unique -->
     <div id="single-word-card" class="word-card" onclick="singleCardHint()" style="cursor:pointer">
       <div class="card-actions">
-        <button class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu(currentWords[0], event)">⋯</button>
+        <button class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu(currentWords[0], event)" data-i18n="btn_options">options</button>
       </div>
       <span class="word-label" data-i18n="word_label">mot du jour</span>
       <span class="word-main" id="current-word">…</span>
@@ -1878,7 +1885,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       <div class="word-meta">
         <span class="stars s0" id="word-stars">☆☆☆</span>
         <span class="word-count" id="word-count-label"></span>
-        <span class="hint-used-badge" id="hint-used-badge" data-i18n="hint_badge">💡 aide</span>
+        <span class="hint-used-badge" id="hint-used-badge" data-i18n="hint_badge">aide</span>
         <span class="studied-badge" id="card-studied-badge" style="display:none"></span>
       </div>
     </div>
@@ -1933,9 +1940,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     <!-- Carte « terminé pour aujourd'hui » (mode espacé) -->
     <div id="spaced-done-card" class="word-card">
       <span class="word-label" data-i18n="done_label">terminé</span>
-      <span class="done-check">✓</span>
-      <p class="done-msg" data-i18n="done_msg">Tout fait pour aujourd'hui — reviens demain !</p>
-      <button class="btn-ghost" onclick="showRevisions()" data-i18n="btn_revisions">📅 mes révisions à venir</button>
+            <p class="done-msg" data-i18n="done_msg">Tout fait pour aujourd'hui — reviens demain !</p>
+      <button class="btn-ghost" onclick="showRevisions()" data-i18n="btn_revisions">mes révisions à venir</button>
     </div>
 
     <!-- Confirmation "Je ne sais pas" -->
@@ -1950,31 +1956,31 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     <!-- Bouton suivant -->
     <div class="kb-fold" id="kb-fold-actions"><div class="kb-fold-in">
     <div class="action-row">
-      <button id="btn-hide-words" onclick="toggleWordsHidden()" data-i18n="btn_hide">👁 Cacher</button>
-      <button class="btn-primary" id="btn-next" onclick="nextWord()" data-i18n="btn_next_word">Autre mot →</button>
+      <button id="btn-hide-words" onclick="toggleWordsHidden()" data-i18n="btn_hide">Cacher</button>
+      <button class="btn-primary" id="btn-next" onclick="nextWord()" data-i18n="btn_next_word">Autre mot</button>
     </div>
 
     <!-- Boîte définition -->
     <div class="hint-box" id="hint-box">
       <div class="hint-label" id="hint-box-label" onclick="toggleHintCollapse()">
         <span id="hint-box-label-text" data-i18n="label_definition">Définition</span>
-        <button class="hint-collapse-btn">▲</button>
+        
       </div>
       <div class="hint-body" id="hint-text"></div>
       <div class="hint-extra" id="hint-extra" style="display:none;">
         <div class="hint-actions">
-          <button class="btn-link" id="hint-translate-btn" onclick="hintTranslate()" data-i18n="act_translate">🌐 traduire</button>
+          <button class="btn-link" id="hint-translate-btn" onclick="hintTranslate()" data-i18n="act_translate">traduire</button>
         </div>
         <div id="hint-translation"></div>
         <div id="hint-study" style="display:none; margin-top:0.9rem;">
-          <button class="btn-secondary" onclick="startStudyQuiz()" data-i18n="btn_study">✓ je l'ai compris — teste-moi</button>
+          <button class="btn-secondary" onclick="startStudyQuiz()" data-i18n="btn_study">je l'ai compris — teste-moi</button>
         </div>
       </div>
     </div>
 
     <!-- Image du mot (option « voir une image ») -->
     <div class="hint-box" id="word-image-box">
-      <div class="hint-label"><span id="word-image-label">🖼</span></div>
+      <div class="hint-label"><span id="word-image-label"></span></div>
       <div class="hint-body" id="word-image-body"></div>
     </div>
     </div></div><!-- /kb-fold-actions -->
@@ -1985,7 +1991,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       <div class="photo-wrap">
         <img id="practice-photo" alt="Describe esta foto">
       </div>
-      <button class="btn-new-photo" onclick="newPracticePhoto()">🔄 Nueva foto</button>
+      <button class="btn-new-photo" onclick="newPracticePhoto()">Nueva foto</button>
     </div>
 
     <!-- Zone phrase (modes espacé + libre + image) -->
@@ -1995,14 +2001,14 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       <div class="textarea-wrap">
         <div id="sentence-banner" onclick="reopenSentence()"></div>
         <textarea id="sentence-input" rows="1" placeholder="Écris ta phrase ici…" data-i18n-ph="sentence_ph"></textarea>
-        <button class="btn-submit-inline" id="btn-submit" onclick="submitSentence()" title="Vérifier">↑</button>
+        <button class="btn-submit-inline" id="btn-submit" onclick="submitSentence()" data-i18n="sess_check">Vérifier</button>
       </div>
     </div>
 
     <!-- Tous les mots du tour ont été étudiés : plus de phrase à écrire -->
     <div id="study-all-done" style="display:none; width:100%;">
       <p class="sentence-label" data-i18n="study_all">Tous les mots du tour sont étudiés — à employer demain.</p>
-      <button class="btn-primary" style="margin-top:0.7rem" onclick="nextWord()" data-i18n="btn_next_word">Autre mot →</button>
+      <button class="btn-primary" style="margin-top:0.7rem" onclick="nextWord()" data-i18n="btn_next_word">Autre mot</button>
     </div>
 
     <!-- Zone situation (mode situation) -->
@@ -2022,19 +2028,19 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       </div>
       <!-- Boîte situation générée par Mistral -->
       <div class="hint-box" id="situation-box" style="display:none;">
-        <div class="hint-label" data-i18n="situation_label">🎯 Situation</div>
+        <div class="hint-label" data-i18n="situation_label">Situation</div>
         <div id="situation-text" class="hint-body"></div>
       </div>
       <!-- Boutons d'action ENTRE le texte et le champ (cohérence avec les autres modes).
            Un seul visible à la fois : « Je ne sais pas » avant de répondre, « Autre situation » après. -->
-      <button class="btn-secondary" id="btn-situation-skip" onclick="revealWord()" style="display:none;" data-i18n="btn_dont_know">Je ne sais pas →</button>
-      <button class="btn-primary" id="btn-situation-next" onclick="nextSituation()" style="display:none;" data-i18n="btn_next_situation">Autre situation →</button>
+      <button class="btn-secondary" id="btn-situation-skip" onclick="revealWord()" style="display:none;" data-i18n="btn_dont_know">Je ne sais pas</button>
+      <button class="btn-primary" id="btn-situation-next" onclick="nextSituation()" style="display:none;" data-i18n="btn_next_situation">Autre situation</button>
       <!-- Champ de réponse -->
       <div class="sentence-section" id="situation-answer-section" style="display:none;">
         <p class="sentence-label" id="situation-prompt-label">Quel est ce mot ?</p>
         <div class="textarea-wrap">
           <textarea id="situation-input" rows="2" placeholder="Écris le mot (ou plusieurs, séparés par des virgules)…" data-i18n-ph="situation_ph"></textarea>
-          <button class="btn-submit-inline" id="btn-situation-submit" onclick="submitSituation()" title="Vérifier">↑</button>
+          <button class="btn-submit-inline" id="btn-situation-submit" onclick="submitSituation()" data-i18n="sess_check">Vérifier</button>
         </div>
       </div>
       <!-- Résultat situation -->
@@ -2053,7 +2059,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     <!-- Bouton "Autre mot" sous le verdict ✓ (évite de scroller remonter) -->
     <div id="btn-next-below" style="display:none; padding-top:0.75rem;">
-      <button class="btn-primary" onclick="nextWord()" data-i18n="btn_next_word">Autre mot →</button>
+      <button class="btn-primary" onclick="nextWord()" data-i18n="btn_next_word">Autre mot</button>
     </div>
 
     <!-- Offre QCM (après ✗) — un bouton par mot raté -->
@@ -2080,7 +2086,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
           <span class="qcm-question" id="qcm-question">Quelle est la bonne définition ?</span>
           <span class="qcm-word" id="qcm-word"></span>
         </div>
-        <span class="qcm-chevron" id="qcm-chevron">▾</span>
+        <span class="qcm-chevron" id="qcm-chevron"></span>
       </div>
       <div class="qcm-body" id="qcm-body">
         <div class="qcm-choices" id="qcm-choices"></div>
@@ -2090,7 +2096,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     <!-- Calendrier des révisions (mode espacé) -->
     <div id="revisions-bar" style="display:none; padding-top:1.2rem;">
-      <button class="btn-ghost" onclick="showRevisions()" data-i18n="btn_revisions">📅 mes révisions à venir</button>
+      <button class="btn-ghost" onclick="showRevisions()" data-i18n="btn_revisions">mes révisions à venir</button>
     </div>
 
     <!-- Liste des mots maîtrisés (mode Situation) — jumeau de #revisions-bar -->
@@ -2107,7 +2113,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
   <div class="screen" id="screen-stats">
     <div class="stats-header">
       <h1 class="app-title" data-i18n="stats_title">Stats</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">← retour</button>
+      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">retour</button>
     </div>
     <div class="stats-grid" id="stats-grid">
       <p style="color:var(--gris);font-style:italic;" data-i18n="loading">Chargement…</p>
@@ -2118,7 +2124,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
   <div class="screen" id="screen-history">
     <div class="stats-header">
       <h1 class="app-title" data-i18n="history_title">Historique</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">← retour</button>
+      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">retour</button>
     </div>
     <!-- Filtre par langue -->
     <div class="history-filters" id="history-filters"></div>
@@ -2136,9 +2142,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     <div class="mots-head">
       <div class="stats-header">
         <h1 class="app-title" data-i18n="mots_title">Mes mots</h1>
-        <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">← retour</button>
+        <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">retour</button>
       </div>
-      <input type="text" id="mots-search" placeholder="🔍 chercher un mot…" data-i18n-ph="search_ph" oninput="motsPage=0;renderMots()"
+      <input type="text" id="mots-search" placeholder="chercher un mot…" data-i18n-ph="search_ph" oninput="motsPage=0;renderMots()"
         autocapitalize="off" autocomplete="off"
         style="width:100%;box-sizing:border-box;">
       <div class="history-filters" id="mots-filters"></div>
@@ -2154,16 +2160,16 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
   <div class="screen" id="screen-groups">
     <div class="stats-header">
       <h1 class="app-title" id="groups-screen-title">Mes groupes</h1>
-      <button class="btn-ghost" onclick="showScreen(_manageBack)" data-i18n="btn_back">← retour</button>
+      <button class="btn-ghost" onclick="showScreen(_manageBack)" data-i18n="btn_back">retour</button>
     </div>
     <div id="groups-manage-list"></div>
     <div style="display:flex; gap:0.5rem; margin-top:1rem; flex-wrap:wrap;">
-      <button class="btn-ghost" style="flex:1 1 auto" onclick="createGroupPrompt()">＋ nouveau groupe</button>
-      <button class="btn-ghost" style="flex:1 1 auto" id="groups-lot-btn" onclick="createLotPrompt()">＋ lot d'étude</button>
+      <button class="btn-ghost" style="flex:1 1 auto" onclick="createGroupPrompt()">nouveau groupe</button>
+      <button class="btn-ghost" style="flex:1 1 auto" id="groups-lot-btn" onclick="createLotPrompt()">lot d'étude</button>
     </div>
     <div style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
       <button class="btn-ghost" style="flex:1 1 auto" id="taxo-redo" onclick="startTaxoProposal()">⟳ refaire la taxonomie</button>
-      <button class="btn-ghost" style="flex:1 1 auto" id="taxo-orphans" onclick="classifyOrphans()">🏷 classer les mots sans groupe</button>
+      <button class="btn-ghost" style="flex:1 1 auto" id="taxo-orphans" onclick="classifyOrphans()">classer les mots sans groupe</button>
     </div>
     <div id="taxo-panel" style="margin-top:1rem;"></div>
   </div>
@@ -2171,15 +2177,15 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
   <div class="screen" id="screen-revisions">
     <div class="stats-header">
       <h1 class="app-title" id="revisions-title" data-i18n="revisions_title">Révisions</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-practice')" data-i18n="btn_back">← retour</button>
+      <button class="btn-ghost" onclick="showScreen('screen-practice')" data-i18n="btn_back">retour</button>
     </div>
-    <input type="text" id="revisions-search" placeholder="🔍 chercher un mot…" data-i18n-ph="search_ph" oninput="renderRevisions()"
+    <input type="text" id="revisions-search" placeholder="chercher un mot…" data-i18n-ph="search_ph" oninput="renderRevisions()"
       autocapitalize="off" autocomplete="off"
       style="width:100%;box-sizing:border-box;margin-bottom:0.6rem;">
     <div class="history-filters" id="revisions-sort">
-      <button class="filter-btn active" onclick="setRevisionsSort('next')" data-i18n="sort_next">📅 Plus proche</button>
-      <button class="filter-btn" onclick="setRevisionsSort('far')" data-i18n="sort_far">📆 Plus lointaine</button>
-      <button class="filter-btn" onclick="setRevisionsSort('az')" data-i18n="sort_az">🔤 A-Z</button>
+      <button class="filter-btn active" onclick="setRevisionsSort('next')" data-i18n="sort_next">Plus proche</button>
+      <button class="filter-btn" onclick="setRevisionsSort('far')" data-i18n="sort_far">Plus lointaine</button>
+      <button class="filter-btn" onclick="setRevisionsSort('az')" data-i18n="sort_az">A-Z</button>
     </div>
     <div class="history-list" id="revisions-list">
       <p style="color:var(--gris);font-style:italic;" data-i18n="loading">Chargement…</p>
@@ -2190,11 +2196,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
   <div class="screen" id="screen-add">
     <div class="stats-header">
       <h1 class="app-title" data-i18n="add_title">Ajouter</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">← retour</button>
+      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">retour</button>
     </div>
     <div class="history-filters" id="add-mode-tabs">
-      <button class="filter-btn active" onclick="setAddMode('word')" data-i18n="tab_word">📝 Mot</button>
-      <button class="filter-btn" onclick="setAddMode('grammar')" data-i18n="tab_grammar">🔤 Forme grammaticale</button>
+      <button class="filter-btn active" onclick="setAddMode('word')" data-i18n="tab_word">Mot</button>
+      <button class="filter-btn" onclick="setAddMode('grammar')" data-i18n="tab_grammar">Forme grammaticale</button>
     </div>
 
     <label class="add-field-label" id="add-lang-label" data-i18n="label_lang">Langue</label>
@@ -2271,14 +2277,14 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     const BLACKLIST_COLS   = { English: 'A', Spanish: 'B', French: 'C', Greek: 'D' };
 
     const LANGS = [
-      { key: 'English', flag: '🇬🇧', name: 'English',   mistralName: 'English',
+      { key: 'English', code: 'EN', flag: '🇬🇧', name: 'English',   mistralName: 'English',
         sentencePrompt: 'Use these words in a single text:',
         sentencePromptSingle: 'Use this word in a sentence:',
         hintDropdownLabel: 'Which word would you like to clarify?',
         qcmQuestion: 'In which situation would you use this word?',
         hintNotice: '(hint used: {words} — not counted towards stars)',
         feedbackLang: 'English' },
-      { key: 'Spanish', flag: '🇪🇸', name: 'Español',   mistralName: 'Spanish',
+      { key: 'Spanish', code: 'ES', flag: '🇪🇸', name: 'Español',   mistralName: 'Spanish',
         sentencePrompt: 'Usa estas palabras en un solo texto:',
         sentencePromptSingle: 'Usa esta palabra en una frase:',
         hintDropdownLabel: '¿Qué palabra quieres aclarar?',
@@ -2303,7 +2309,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     // ── i18n de l'interface ────────────────────────────────────
     // Deux contextes : les pages principales suivent la LANGUE DE L'APPLI (appLang,
-    // défaut anglais, choisie dans ⚙️ ou sur l'écran de connexion) ; l'écran de
+    // défaut anglais, choisie dans les réglages ou sur l'écran de connexion) ; l'écran de
     // pratique + révisions suivent la LANGUE PRATIQUÉE (currentLang). Les réponses
     // de l'IA ne sont pas concernées (elles suivent feedbackLang comme avant).
     const KEY_APP_LANG = 'vocab_app_lang';
@@ -2314,10 +2320,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       // — commun —
       loading:          { en: `Loading…`, fr: `Chargement…`, es: `Cargando…`, el: `Φόρτωση…` },
       err_prefix:       { en: `Error:`, fr: `Erreur :`, es: `Error:`, el: `Σφάλμα:` },
-      retry:            { en: `↺ Retry`, fr: `↺ Réessayer`, es: `↺ Reintentar`, el: `↺ Ξαναδοκίμασε` },
-      btn_back:         { en: `← back`, fr: `← retour`, es: `← volver`, el: `← πίσω` },
+      retry:            { en: `Retry`, fr: `Réessayer`, es: `Reintentar`, el: `Ξαναδοκίμασε` },
+      btn_back:         { en: `back`, fr: `retour`, es: `volver`, el: `πίσω` },
       btn_cancel:       { en: `Cancel`, fr: `Annuler`, es: `Cancelar`, el: `Άκυρο` },
-      search_ph:        { en: `🔍 search a word…`, fr: `🔍 chercher un mot…`, es: `🔍 buscar una palabra…`, el: `🔍 αναζήτηση λέξης…` },
+      search_ph:        { en: `search a word…`, fr: `chercher un mot…`, es: `buscar una palabra…`, el: `αναζήτηση λέξης…` },
       // — écrans connexion / chargement —
       loading_connecting: { en: `signing in…`, fr: `connexion en cours…`, es: `conectando…`, el: `σύνδεση…` },
       auth_password_ph: { en: `password`, fr: `mot de passe`, es: `contraseña`, el: `κωδικός` },
@@ -2327,17 +2333,17 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       auth_have_account:{ en: `Already have an account? Log in`, fr: `Déjà un compte ? Se connecter`, es: `¿Ya tienes cuenta? Inicia sesión`, el: `Έχεις ήδη λογαριασμό; Συνδέσου` },
       auth_or:          { en: `— or —`, fr: `— ou —`, es: `— o —`, el: `— ή —` },
       auth_required:    { en: `email and password required`, fr: `email et mot de passe requis`, es: `email y contraseña requeridos`, el: `απαιτούνται email και κωδικός` },
-      help_btn:         { en: `❓ How it works`, fr: `❓ Comment ça marche`, es: `❓ Cómo funciona`, el: `❓ Πώς λειτουργεί` },
+      help_btn:         { en: `How it works`, fr: `Comment ça marche`, es: `Cómo funciona`, el: `Πώς λειτουργεί` },
       // — page principale —
       lang_subtitle:    { en: `which language today?`, fr: `quelle langue aujourd'hui ?`, es: `¿qué idioma hoy?`, el: `ποια γλώσσα σήμερα;` },
-      btn_settings:     { en: `⚙️ settings`, fr: `⚙️ réglages`, es: `⚙️ ajustes`, el: `⚙️ ρυθμίσεις` },
-      btn_stats:        { en: `📊 my statistics`, fr: `📊 voir mes statistiques`, es: `📊 mis estadísticas`, el: `📊 τα στατιστικά μου` },
-      btn_history:      { en: `📋 word history`, fr: `📋 historique des mots`, es: `📋 historial de palabras`, el: `📋 ιστορικό λέξεων` },
-      btn_mots:         { en: `📝 manage my words`, fr: `📝 gérer mes mots`, es: `📝 gestionar mis palabras`, el: `📝 διαχείριση λέξεων` },
-      btn_add_content:  { en: `➕ add content`, fr: `➕ ajouter du contenu`, es: `➕ añadir contenido`, el: `➕ προσθήκη περιεχομένου` },
-      btn_logout:       { en: `🚪 log out`, fr: `🚪 se déconnecter`, es: `🚪 cerrar sesión`, el: `🚪 αποσύνδεση` },
-      badge_done:       { en: `✓ done`, fr: `✓ fait`, es: `✓ hecho`, el: `✓ έγινε` },
-      tile_add:         { en: `＋ add`, fr: `＋ ajouter`, es: `＋ añadir`, el: `＋ προσθήκη` },
+      btn_settings:     { en: `settings`, fr: `réglages`, es: `ajustes`, el: `ρυθμίσεις` },
+      btn_stats:        { en: `my statistics`, fr: `voir mes statistiques`, es: `mis estadísticas`, el: `τα στατιστικά μου` },
+      btn_history:      { en: `word history`, fr: `historique des mots`, es: `historial de palabras`, el: `ιστορικό λέξεων` },
+      btn_mots:         { en: `manage my words`, fr: `gérer mes mots`, es: `gestionar mis palabras`, el: `διαχείριση λέξεων` },
+      btn_add_content:  { en: `add content`, fr: `ajouter du contenu`, es: `añadir contenido`, el: `προσθήκη περιεχομένου` },
+      btn_logout:       { en: `log out`, fr: `se déconnecter`, es: `cerrar sesión`, el: `αποσύνδεση` },
+      badge_done:       { en: `done`, fr: `fait`, es: `hecho`, el: `έγινε` },
+      tile_add:         { en: `add`, fr: `ajouter`, es: `añadir`, el: `προσθήκη` },
       tile_menu_add:    { en: `add`, fr: `ajouter`, es: `añadir`, el: `προσθήκη` },
       tile_menu_mots:   { en: `my words`, fr: `mes mots`, es: `mis palabras`, el: `οι λέξεις μου` },
       tile_menu_stats:  { en: `stats`, fr: `stats`, es: `stats`, el: `στατιστικά` },
@@ -2364,14 +2370,14 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         el: `Οι λειτουργίες Περίσταση και Ελεύθερη μετρούν στην πρόοδο<br><span style="font-size:0.7rem;color:var(--gris);">αστέρια + επαναλήψεις (το ιστορικό μετράει πάντα)</span>` },
       set_image_theme:  { en: `Photo theme (Imagen)`, fr: `Thème photos (Imagen)`, es: `Tema de fotos (Imagen)`, el: `Θέμα φωτογραφιών (Imagen)` },
       set_app_lang:     { en: `App language`, fr: `Langue de l'appli`, es: `Idioma de la app`, el: `Γλώσσα εφαρμογής` },
-      theme_random:     { en: `🎲 Random`, fr: `🎲 Aléatoire`, es: `🎲 Aleatorio`, el: `🎲 Τυχαίο` },
-      theme_people:     { en: `👥 People`, fr: `👥 Personnes`, es: `👥 Personas`, el: `👥 Άνθρωποι` },
-      theme_city:       { en: `🏙️ City`, fr: `🏙️ Ville`, es: `🏙️ Ciudad`, el: `🏙️ Πόλη` },
-      theme_nature:     { en: `🌿 Nature`, fr: `🌿 Nature`, es: `🌿 Naturaleza`, el: `🌿 Φύση` },
-      theme_food:       { en: `🍽️ Food`, fr: `🍽️ Nourriture`, es: `🍽️ Comida`, el: `🍽️ Φαγητό` },
-      theme_travel:     { en: `✈️ Travel`, fr: `✈️ Voyage`, es: `✈️ Viajes`, el: `✈️ Ταξίδια` },
-      theme_architecture:{ en: `🏛️ Architecture`, fr: `🏛️ Architecture`, es: `🏛️ Arquitectura`, el: `🏛️ Αρχιτεκτονική` },
-      theme_animals:    { en: `🐾 Animals`, fr: `🐾 Animaux`, es: `🐾 Animales`, el: `🐾 Ζώα` },
+      theme_random:     { en: `Random`, fr: `Aléatoire`, es: `Aleatorio`, el: `Τυχαίο` },
+      theme_people:     { en: `People`, fr: `Personnes`, es: `Personas`, el: `Άνθρωποι` },
+      theme_city:       { en: `City`, fr: `Ville`, es: `Ciudad`, el: `Πόλη` },
+      theme_nature:     { en: `Nature`, fr: `Nature`, es: `Naturaleza`, el: `Φύση` },
+      theme_food:       { en: `Food`, fr: `Nourriture`, es: `Comida`, el: `Φαγητό` },
+      theme_travel:     { en: `Travel`, fr: `Voyage`, es: `Viajes`, el: `Ταξίδια` },
+      theme_architecture:{ en: `Architecture`, fr: `Architecture`, es: `Arquitectura`, el: `Αρχιτεκτονική` },
+      theme_animals:    { en: `Animals`, fr: `Animaux`, es: `Animales`, el: `Ζώα` },
       // — écrans listes —
       stats_title:      { en: `Stats`, fr: `Stats`, es: `Stats`, el: `Στατιστικά` },
       history_title:    { en: `History`, fr: `Historique`, es: `Historial`, el: `Ιστορικό` },
@@ -2379,7 +2385,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       revisions_title:  { en: `Reviews`, fr: `Révisions`, es: `Repasos`, el: `Επαναλήψεις` },
       mastered_title:   { en: `Mastered`, fr: `Maîtrisés`, es: `Dominadas`, el: `Κατακτημένες` },
       add_title:        { en: `Add`, fr: `Ajouter`, es: `Añadir`, el: `Προσθήκη` },
-      filter_all:       { en: `🌐 All`, fr: `🌐 Tout`, es: `🌐 Todo`, el: `🌐 Όλα` },
+      filter_all:       { en: `All`, fr: `Tout`, es: `Todo`, el: `Όλα` },
       history_empty:    { en: `Nothing in the history yet.`, fr: `Aucun mot dans l'historique pour l'instant.`, es: `Todavía no hay nada en el historial.`, el: `Δεν υπάρχει τίποτα στο ιστορικό ακόμη.` },
       stats_total:      { en: `Total words`, fr: `Total de mots`, es: `Total de palabras`, el: `Σύνολο λέξεων` },
       stats_mastered:   { en: `★★★ Mastered`, fr: `★★★ Maîtrisés`, es: `★★★ Dominadas`, el: `★★★ Κατακτημένες` },
@@ -2394,15 +2400,15 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       per_page:         { en: `{n} per page`, fr: `{n} par page`, es: `{n} por página`, el: `{n} ανά σελίδα` },
       selected_n:       { en: `{n} selected`, fr: `{n} sélectionné(s)`, es: `{n} seleccionada(s)`, el: `{n} επιλεγμένες` },
       cancel_lc:        { en: `cancel`, fr: `annuler`, es: `cancelar`, el: `άκυρο` },
-      btn_delete:       { en: `🗑 Delete`, fr: `🗑 Supprimer`, es: `🗑 Eliminar`, el: `🗑 Διαγραφή` },
+      btn_delete:       { en: `Delete`, fr: `Supprimer`, es: `Eliminar`, el: `Διαγραφή` },
       confirm_delete_n: { en: `Permanently delete {n} word(s)?`, fr: `Supprimer {n} mot(s) définitivement ?`, es: `¿Eliminar {n} palabra(s) definitivamente?`, el: `Οριστική διαγραφή {n} λέξεων;` },
       confirm_delete_w: { en: `Delete "{w}"?`, fr: `Supprimer « {w} » ?`, es: `¿Eliminar «{w}»?`, el: `Διαγραφή «{w}»;` },
       rename_prompt:    { en: `Rename "{w}":`, fr: `Renommer « {w} » :`, es: `Renombrar «{w}»:`, el: `Μετονομασία «{w}»:` },
       title_rename:     { en: `Rename`, fr: `Renommer`, es: `Renombrar`, el: `Μετονομασία` },
       title_delete:     { en: `Delete`, fr: `Supprimer`, es: `Eliminar`, el: `Διαγραφή` },
       // — écran ajouter —
-      tab_word:         { en: `📝 Word`, fr: `📝 Mot`, es: `📝 Palabra`, el: `📝 Λέξη` },
-      tab_grammar:      { en: `🔤 Grammar form`, fr: `🔤 Forme grammaticale`, es: `🔤 Forma gramatical`, el: `🔤 Γραμματικός τύπος` },
+      tab_word:         { en: `Word`, fr: `Mot`, es: `Palabra`, el: `Λέξη` },
+      tab_grammar:      { en: `Grammar form`, fr: `Forme grammaticale`, es: `Forma gramatical`, el: `Γραμματικός τύπος` },
       label_lang:       { en: `Language`, fr: `Langue`, es: `Idioma`, el: `Γλώσσα` },
       label_words:      { en: `Word(s) or expression(s)`, fr: `Mot(s) ou expression(s)`, es: `Palabra(s) o expresión(es)`, el: `Λέξη/εις ή έκφραση/εις` },
       add_words_ph:     { en: `e.g. resilience\nseveral words: one per line, or separated by « ; »\nexpression: hacer el oso (Colombian expression)`, fr: `ex. resilience\nplusieurs mots : un par ligne, ou séparés par des « ; »\nexpression : hacer el oso (expresión colombiana)`, es: `ej. resilience\nvarias palabras: una por línea, o separadas por « ; »\nexpresión: hacer el oso (expresión colombiana)`, el: `π.χ. resilience\nπερισσότερες λέξεις: μία ανά γραμμή, ή χωρισμένες με « ; »\nέκφραση: hacer el oso (κολομβιανή έκφραση)` },
@@ -2422,17 +2428,33 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       // — écran pratique (suit la langue pratiquée) —
       set_grammar:      { en: `Grammar forms ({lang})`, fr: `Formes grammaticales ({lang})`, es: `Formas gramaticales ({lang})`, el: `Γραμματικοί τύποι ({lang})` },
       set_max_new:      { en: `New words / day (spaced mode)`, fr: `Nouveaux mots / jour (mode espacé)`, es: `Palabras nuevas / día (modo espaciado)`, el: `Νέες λέξεις / ημέρα (κατανεμημένη)` },
-      modem_practice:   { en: `📝 Practice`, fr: `📝 Pratique`, es: `📝 Práctica`, el: `📝 Εξάσκηση` },
-      modem_spaced:     { en: `📅 Spaced`, fr: `📅 Espacée`, es: `📅 Espaciada`, el: `📅 Κατανεμημένη` },
-      modem_situation:  { en: `🎯 Situation`, fr: `🎯 Situation`, es: `🎯 Situación`, el: `🎯 Κατάσταση` },
-      modem_free:       { en: `🎲 Free`, fr: `🎲 Libre`, es: `🎲 Libre`, el: `🎲 Ελεύθερη` },
-      modem_image:      { en: `📸 Imagen`, fr: `📸 Imagen`, es: `📸 Imagen`, el: `📸 Imagen` },
+      modem_practice:   { en: `Practice`, fr: `Pratique`, es: `Práctica`, el: `Εξάσκηση` },
+      modem_spaced:     { en: `Spaced`, fr: `Espacée`, es: `Espaciada`, el: `Κατανεμημένη` },
+      modem_situation:  { en: `Situation`, fr: `Situation`, es: `Situación`, el: `Κατάσταση` },
+      modem_free:       { en: `Free`, fr: `Libre`, es: `Libre`, el: `Ελεύθερη` },
+      modem_image:      { en: `Imagen`, fr: `Imagen`, es: `Imagen`, el: `Imagen` },
       sess_progress:    { en: `{a} of {b}`, fr: `{a} sur {b}`, es: `{a} de {b}`, el: `{a} από {b}` },
       sess_which:       { en: `In which situation does this word fit?`, fr: `Dans quelle situation ce mot s'emploie-t-il ?`, es: `¿En qué situación se usa esta palabra?`, el: `Σε ποια περίπτωση ταιριάζει η λέξη;` },
       sess_dunno:       { en: `I don't know`, fr: `Je ne sais pas`, es: `No lo sé`, el: `Δεν ξέρω` },
       sess_def:         { en: `Definition`, fr: `Définition`, es: `Definición`, el: `Ορισμός` },
-      sess_next:        { en: `Next →`, fr: `Suivant →`, es: `Siguiente →`, el: `Επόμενο →` },
+      sess_next:        { en: `Next`, fr: `Suivant`, es: `Siguiente`, el: `Επόμενο` },
       sess_check:       { en: `Check`, fr: `Vérifier`, es: `Comprobar`, el: `Έλεγχος` },
+      // Mots à la place des emojis et des symboles (migration vers le style commun, 2026-09-29)
+      btn_options:      { en: `options`, fr: `options`, es: `opciones`, el: `επιλογές` },
+      mode_prefix:      { en: `mode:`, fr: `mode :`, es: `modo:`, el: `λειτουργία:` },
+      mark_ok:          { en: `right`, fr: `juste`, es: `bien`, el: `σωστό` },
+      mark_ko:          { en: `wrong`, fr: `faux`, es: `mal`, el: `λάθος` },
+      page_prev:        { en: `previous`, fr: `précédente`, es: `anterior`, el: `προηγούμενη` },
+      page_next:        { en: `next`, fr: `suivante`, es: `siguiente`, el: `επόμενη` },
+      act_verify:       { en: `check`, fr: `vérifier`, es: `comprobar`, el: `έλεγχος` },
+      act_edit:         { en: `edit`, fr: `modifier`, es: `editar`, el: `επεξεργασία` },
+      act_lang:         { en: `language`, fr: `langue`, es: `idioma`, el: `γλώσσα` },
+      act_delete:       { en: `delete`, fr: `supprimer`, es: `eliminar`, el: `διαγραφή` },
+      act_groups:       { en: `groups`, fr: `groupes`, es: `grupos`, el: `ομάδες` },
+      act_add:          { en: `add`, fr: `ajouter`, es: `añadir`, el: `προσθήκη` },
+      act_added:        { en: `added`, fr: `ajouté`, es: `añadida`, el: `προστέθηκε` },
+      act_in_list:      { en: `already in your list`, fr: `déjà dans ta liste`, es: `ya en tu lista`, el: `ήδη στη λίστα σου` },
+      lot_suffix:       { en: `(set)`, fr: `(lot)`, es: `(lote)`, el: `(σετ)` },
       sess_writing:     { en: `Writing the text…`, fr: `Rédaction du texte…`, es: `Redactando el texto…`, el: `Σύνταξη κειμένου…` },
       sess_done:        { en: `Session complete`, fr: `Séance terminée`, es: `Sesión terminada`, el: `Η συνεδρία ολοκληρώθηκε` },
       sess_empty:       { en: `Nothing due today.`, fr: `Rien à faire aujourd'hui.`, es: `Nada para hoy.`, el: `Τίποτα για σήμερα.` },
@@ -2441,11 +2463,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_round:       { en: `{a} / {b} this round`, fr: `{a} / {b} dans cette manche`, es: `{a} / {b} en esta ronda`, el: `{a} / {b} σε αυτόν τον γύρο` },
       sess_pending_one: { en: `1 recall still waiting`, fr: `1 rappel encore en attente`, es: `1 repaso pendiente`, el: `1 επανάληψη σε εκκρεμότητα` },
       sess_pending:     { en: `{n} recalls still waiting`, fr: `{n} rappels encore en attente`, es: `{n} repasos pendientes`, el: `{n} επαναλήψεις σε εκκρεμότητα` },
-      sess_again:       { en: `Another round →`, fr: `Une autre manche →`, es: `Otra ronda →`, el: `Άλλος γύρος →` },
+      sess_again:       { en: `Another round`, fr: `Une autre manche`, es: `Otra ronda`, el: `Άλλος γύρος` },
       sess_clear:       { en: `Nothing left to recall today.`, fr: `Plus rien à rappeler aujourd'hui.`, es: `Nada más que repasar hoy.`, el: `Τίποτα άλλο για επανάληψη σήμερα.` },
-      sess_start:       { en: `Start →`, fr: `Commencer →`, es: `Empezar →`, el: `Έναρξη →` },
-      sess_resume:      { en: `Resume ({n} words) →`, fr: `Reprendre ({n} mots) →`, es: `Continuar ({n} palabras) →`, el: `Συνέχεια ({n} λέξεις) →` },
-      sess_resume_other:{ en: `Resume ({n} words, other device) →`, fr: `Reprendre ({n} mots, autre appareil) →`, es: `Continuar ({n} palabras, otro aparato) →`, el: `Συνέχεια ({n} λέξεις, άλλη συσκευή) →` },
+      sess_start:       { en: `Start`, fr: `Commencer`, es: `Empezar`, el: `Έναρξη` },
+      sess_resume:      { en: `Resume ({n} words)`, fr: `Reprendre ({n} mots)`, es: `Continuar ({n} palabras)`, el: `Συνέχεια ({n} λέξεις)` },
+      sess_resume_other:{ en: `Resume ({n} words, other device)`, fr: `Reprendre ({n} mots, autre appareil)`, es: `Continuar ({n} palabras, otro aparato)`, el: `Συνέχεια ({n} λέξεις, άλλη συσκευή)` },
       sess_new_round:   { en: `New round`, fr: `Nouvelle manche`, es: `Ronda nueva`, el: `Νέος γύρος` },
       sess_set_size:    { en: `Words per round`, fr: `Mots par manche`, es: `Palabras por ronda`, el: `Λέξεις ανά γύρο` },
       sess_set_new:     { en: `New words among them`, fr: `Dont mots neufs`, es: `De ellas, nuevas`, el: `Από αυτές, νέες` },
@@ -2461,14 +2483,14 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_mirror_one:  { en: `1 new word today — due tomorrow`, fr: `1 mot neuf aujourd'hui — à revoir demain`, es: `1 palabra nueva hoy — a repasar mañana`, el: `1 νέα λέξη σήμερα — για αύριο` },
       sess_new_one:     { en: `new`, fr: `neuf`, es: `nueva`, el: `νέα` },
       sess_new_n:       { en: `new`, fr: `neufs`, es: `nuevas`, el: `νέες` },
-      sess_quit:        { en: `✕ leave round`, fr: `✕ quitter la manche`, es: `✕ salir de la ronda`, el: `✕ έξοδος από τον γύρο` },
+      sess_quit:        { en: `leave round`, fr: `quitter la manche`, es: `salir de la ronda`, el: `έξοδος από τον γύρο` },
       qcm_regen:        { en: `Another question`, fr: `Autre question`, es: `Otra pregunta`, el: `Άλλη ερώτηση` },
       qcm_unknown:      { en: `The model does not reliably know this word, and says so rather than inventing a meaning.`, fr: `Le modèle ne connaît pas ce mot de façon sûre, et le dit plutôt que d'inventer un sens.`, es: `El modelo no conoce bien esta palabra, y lo dice en vez de inventar un significado.`, el: `Το μοντέλο δεν γνωρίζει με βεβαιότητα αυτή τη λέξη, και το λέει αντί να επινοήσει σημασία.` },
       qcm_add_sense:    { en: `write its meaning in brackets`, fr: `écrire son sens entre parenthèses`, es: `escribir su sentido entre paréntesis`, el: `γράψε τη σημασία σε παρένθεση` },
-      mode_spaced:      { en: `📅<br>Spaced`, fr: `📅<br>Espacée`, es: `📅<br>Espaciada`, el: `📅<br>Κατανεμημένη` },
-      mode_situation:   { en: `🎯<br>Situation`, fr: `🎯<br>Situation`, es: `🎯<br>Situación`, el: `🎯<br>Περίσταση` },
-      mode_free:        { en: `🎲<br>Free`, fr: `🎲<br>Libre`, es: `🎲<br>Libre`, el: `🎲<br>Ελεύθερη` },
-      mode_image:       { en: `📸<br>Imagen`, fr: `📸<br>Imagen`, es: `📸<br>Imagen`, el: `📸<br>Imagen` },
+      mode_spaced:      { en: `Spaced`, fr: `Espacée`, es: `Espaciada`, el: `Κατανεμημένη` },
+      mode_situation:   { en: `Situation`, fr: `Situation`, es: `Situación`, el: `Περίσταση` },
+      mode_free:        { en: `Free`, fr: `Libre`, es: `Libre`, el: `Ελεύθερη` },
+      mode_image:       { en: `Imagen`, fr: `Imagen`, es: `Imagen`, el: `Imagen` },
       label_word_count: { en: `Number of words`, fr: `Nombre de mots`, es: `Número de palabras`, el: `Αριθμός λέξεων` },
       label_form_count: { en: `Number of forms`, fr: `Nombre de formes`, es: `Número de formas`, el: `Αριθμός τύπων` },
       label_free_mix:   { en: `Mix`, fr: `Mélange`, es: `Mezcla`, el: `Μείγμα` },
@@ -2483,36 +2505,36 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       one_form:         { en: `1 form`, fr: `1 forme`, es: `1 forma`, el: `1 τύπος` },
       forms_suffix:     { en: `forms`, fr: `formes`, es: `formas`, el: `τύποι` },
       word_label:       { en: `word of the day`, fr: `mot du jour`, es: `palabra del día`, el: `λέξη της ημέρας` },
-      hint_badge:       { en: `💡 hint`, fr: `💡 aide`, es: `💡 ayuda`, el: `💡 βοήθεια` },
+      hint_badge:       { en: `hint used`, fr: `aide utilisée`, es: `ayuda usada`, el: `με βοήθεια` },
       done_label:       { en: `done`, fr: `terminé`, es: `hecho`, el: `τέλος` },
       done_msg:         { en: `All done for today — come back tomorrow!`, fr: `Tout fait pour aujourd'hui — reviens demain !`, es: `¡Todo hecho por hoy — vuelve mañana!`, el: `Όλα έγιναν για σήμερα — έλα ξανά αύριο!` },
-      btn_revisions:    { en: `📅 my upcoming reviews`, fr: `📅 mes révisions à venir`, es: `📅 mis próximos repasos`, el: `📅 οι επόμενες επαναλήψεις μου` },
+      btn_revisions:    { en: `my upcoming reviews`, fr: `mes révisions à venir`, es: `mis próximos repasos`, el: `οι επόμενες επαναλήψεις μου` },
       btn_mastered:     { en: `★★★ my mastered words`, fr: `★★★ mes mots maîtrisés`, es: `★★★ mis palabras dominadas`, el: `★★★ οι κατακτημένες λέξεις μου` },
       confirm_sure:     { en: `Are you sure? It will count as incorrect.`, fr: `Es-tu sûr ? Ce sera compté comme incorrect.`, es: `¿Seguro? Contará como incorrecto.`, el: `Σίγουρα; Θα μετρήσει ως λάθος.` },
       confirm_sure_word:{ en: `Are you sure about "{word}"? It will count as incorrect.`, fr: `Es-tu sûr pour "{word}" ? Ce sera compté comme incorrect.`, es: `¿Seguro con "{word}"? Contará como incorrecto.`, el: `Σίγουρα για το "{word}"; Θα μετρήσει ως λάθος.` },
       btn_confirm2:     { en: `Confirm`, fr: `Confirmer`, es: `Confirmar`, el: `Επιβεβαίωση` },
-      btn_hide:         { en: `👁 Hide`, fr: `👁 Cacher`, es: `👁 Ocultar`, el: `👁 Απόκρυψη` },
-      btn_show:         { en: `👁 Show`, fr: `👁 Montrer`, es: `👁 Mostrar`, el: `👁 Εμφάνιση` },
-      btn_next_word:    { en: `Another word →`, fr: `Autre mot →`, es: `Otra palabra →`, el: `Άλλη λέξη →` },
+      btn_hide:         { en: `Hide`, fr: `Cacher`, es: `Ocultar`, el: `Απόκρυψη` },
+      btn_show:         { en: `Show`, fr: `Montrer`, es: `Mostrar`, el: `Εμφάνιση` },
+      btn_next_word:    { en: `Another word`, fr: `Autre mot`, es: `Otra palabra`, el: `Άλλη λέξη` },
       label_definition: { en: `Definition`, fr: `Définition`, es: `Definición`, el: `Ορισμός` },
       sentence_ph:      { en: `Write your sentence here…`, fr: `Écris ta phrase ici…`, es: `Escribe tu frase aquí…`, el: `Γράψε την πρότασή σου εδώ…` },
       btn_start:        { en: `Start`, fr: `Commencer`, es: `Empezar`, el: `Ξεκίνα` },
-      situation_label:  { en: `🎯 Situation`, fr: `🎯 Situation`, es: `🎯 Situación`, el: `🎯 Περίσταση` },
-      btn_dont_know:    { en: `I don't know →`, fr: `Je ne sais pas →`, es: `No lo sé →`, el: `Δεν ξέρω →` },
-      btn_next_situation:{ en: `Another situation →`, fr: `Autre situation →`, es: `Otra situación →`, el: `Άλλη περίσταση →` },
+      situation_label:  { en: `Situation`, fr: `Situation`, es: `Situación`, el: `Περίσταση` },
+      btn_dont_know:    { en: `I don't know`, fr: `Je ne sais pas`, es: `No lo sé`, el: `Δεν ξέρω` },
+      btn_next_situation:{ en: `Another situation`, fr: `Autre situation`, es: `Otra situación`, el: `Άλλη περίσταση` },
       situation_ph:     { en: `Write the word (or several candidates, comma-separated)…`, fr: `Écris le mot (ou plusieurs candidats, séparés par des virgules)…`, es: `Escribe la palabra (o varias candidatas, separadas por comas)…`, el: `Γράψε τη λέξη (ή περισσότερες υποψήφιες, με κόμμα)…` },
       situation_ph_multi:{ en: `1. word, other candidate…\n2. word…\n3. word…`, fr: `1. mot, autre candidat…\n2. mot…\n3. mot…`, es: `1. palabra, otra candidata…\n2. palabra…\n3. palabra…`, el: `1. λέξη, άλλη υποψήφια…\n2. λέξη…\n3. λέξη…` },
       label_related:    { en: `Words from the same universe`, fr: `Mots du même univers`, es: `Palabras del mismo universo`, el: `Λέξεις από τον ίδιο κόσμο` },
       related_all_known:{ en: `All suggested words are already in your list.`, fr: `Tous les mots suggérés sont déjà dans ta liste.`, es: `Todas las palabras sugeridas ya están en tu lista.`, el: `Όλες οι προτεινόμενες λέξεις είναι ήδη στη λίστα σου.` },
       qcm_generating:   { en: `Generating the quiz…`, fr: `Génération du QCM…`, es: `Generando el test…`, el: `Δημιουργία του κουίζ…` },
-      qcm_see_def:      { en: `📖 See the definition`, fr: `📖 Voir la définition`, es: `📖 Ver la definición`, el: `📖 Δες τον ορισμό` },
-      qcm_other:        { en: `← Other quizzes`, fr: `← Autres QCMs`, es: `← Otros tests`, el: `← Άλλα κουίζ` },
+      qcm_see_def:      { en: `See the definition`, fr: `Voir la définition`, es: `Ver la definición`, el: `Δες τον ορισμό` },
+      qcm_other:        { en: `Other quizzes`, fr: `Autres QCMs`, es: `Otros tests`, el: `Άλλα κουίζ` },
       qcm_good:         { en: `Good situation!`, fr: `Bonne situation !`, es: `¡Buena situación!`, el: `Σωστή περίσταση!` },
       qcm_bad:          { en: `Not quite…`, fr: `Pas tout à fait…`, es: `No exactamente…`, el: `Όχι ακριβώς…` },
       to_review:        { en: `to review`, fr: `à réviser`, es: `por repasar`, el: `για επανάληψη` },
       new_remaining:    { en: `new remaining`, fr: `nouveaux restants`, es: `nuevas restantes`, el: `νέες απομένουν` },
       in_total:         { en: `in total`, fr: `au total`, es: `en total`, el: `συνολικά` },
-      due_all_done:     { en: `✓ All done for today — come back tomorrow!`, fr: `✓ Tout fait pour aujourd'hui — reviens demain !`, es: `✓ ¡Todo hecho por hoy — vuelve mañana!`, el: `✓ Όλα έγιναν για σήμερα — έλα ξανά αύριο!` },
+      due_all_done:     { en: `All done for today — come back tomorrow!`, fr: `Tout fait pour aujourd'hui — reviens demain !`, es: `¡Todo hecho por hoy — vuelve mañana!`, el: `Όλα έγιναν για σήμερα — έλα ξανά αύριο!` },
       no_mastered:      { en: `No mastered words yet — practice in Spaced mode to unlock this mode!`, fr: `Aucun mot maîtrisé encore — pratique en mode Espacée pour débloquer ce mode !`, es: `Aún no hay palabras dominadas — practica en modo Espaciada para desbloquear este modo.`, el: `Καμία κατακτημένη λέξη ακόμη — εξασκήσου στην Κατανεμημένη για να ξεκλειδώσεις αυτή τη λειτουργία!` },
       mastered_sg:      { en: `mastered word`, fr: `mot maîtrisé`, es: `palabra dominada`, el: `κατακτημένη λέξη` },
       mastered_pl:      { en: `mastered words`, fr: `mots maîtrisés`, es: `palabras dominadas`, el: `κατακτημένες λέξεις` },
@@ -2521,18 +2543,18 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       no_words_found:   { en: `no words found`, fr: `aucun mot trouvé`, es: `ninguna palabra encontrada`, el: `δεν βρέθηκαν λέξεις` },
       word_was:         { en: `The word was`, fr: `Le mot était`, es: `La palabra era`, el: `Η λέξη ήταν` },
       words_were:       { en: `The words were`, fr: `Les mots étaient`, es: `Las palabras eran`, el: `Οι λέξεις ήταν` },
-      next_review_one:  { en: `📅 next review:`, fr: `📅 prochaine révision :`, es: `📅 próximo repaso:`, el: `📅 επόμενη επανάληψη:` },
-      next_review_many: { en: `📅 next reviews:`, fr: `📅 prochaines révisions :`, es: `📅 próximos repasos:`, el: `📅 επόμενες επαναλήψεις:` },
+      next_review_one:  { en: `next review:`, fr: `prochaine révision :`, es: `próximo repaso:`, el: `επόμενη επανάληψη:` },
+      next_review_many: { en: `next reviews:`, fr: `prochaines révisions :`, es: `próximos repasos:`, el: `επόμενες επαναλήψεις:` },
       rev_tomorrow:     { en: `tomorrow`, fr: `demain`, es: `mañana`, el: `αύριο` },
       rev_in_days:      { en: `in {n} d`, fr: `dans {n} j`, es: `en {n} d`, el: `σε {n} ημ.` },
       revs_due_today:   { en: `{n} word(s) to review today`, fr: `{n} mot(s) à réviser aujourd'hui`, es: `{n} palabra(s) por repasar hoy`, el: `{n} λέξη/εις για επανάληψη σήμερα` },
       mastered_empty:   { en: `No mastered word yet — a word becomes mastered at ★★★ (3 more correct than wrong).`, fr: `Aucun mot maîtrisé encore — un mot le devient à ★★★ (3 réussites de plus que d'échecs).`, es: `Aún no hay palabras dominadas — una palabra lo es a ★★★ (3 aciertos más que fallos).`, el: `Καμία κατακτημένη λέξη ακόμη — μια λέξη γίνεται ★★★ (3 σωστά παραπάνω από λάθη).` },
       revisions_empty:  { en: `No scheduled words yet — practice some words to see them here.`, fr: `Aucun mot programmé pour l'instant — pratique des mots pour les voir apparaître ici.`, es: `Aún no hay palabras programadas — practica algunas para verlas aquí.`, el: `Καμία προγραμματισμένη λέξη ακόμη — εξασκήσου για να τις δεις εδώ.` },
       none_found:       { en: `No words found.`, fr: `Aucun mot trouvé.`, es: `Ninguna palabra encontrada.`, el: `Δεν βρέθηκαν λέξεις.` },
-      sort_next:        { en: `📅 Soonest`, fr: `📅 Plus proche`, es: `📅 Más próxima`, el: `📅 Πιο κοντινή` },
-      sort_far:         { en: `📆 Furthest`, fr: `📆 Plus lointaine`, es: `📆 Más lejana`, el: `📆 Πιο μακρινή` },
-      sort_az:          { en: `🔤 A-Z`, fr: `🔤 A-Z`, es: `🔤 A-Z`, el: `🔤 Α-Ω` },
-      fb_expand:        { en: `⌄ Expand all`, fr: `⌄ Tout déplier`, es: `⌄ Desplegar todo`, el: `⌄ Άνοιγμα όλων` },
+      sort_next:        { en: `Soonest`, fr: `Plus proche`, es: `Más próxima`, el: `Πιο κοντινή` },
+      sort_far:         { en: `Furthest`, fr: `Plus lointaine`, es: `Más lejana`, el: `Πιο μακρινή` },
+      sort_az:          { en: `A-Z`, fr: `A-Z`, es: `A-Z`, el: `Α-Ω` },
+      fb_expand:        { en: `Expand all`, fr: `Tout déplier`, es: `Desplegar todo`, el: `Άνοιγμα όλων` },
       sev_maj:          { en: `major`, fr: `majeur`, es: `grave`, el: `σοβαρό` },
       sev_min:          { en: `minor`, fr: `mineur`, es: `menor`, el: `ήσσον` },
       sev_det:          { en: `form`, fr: `forme`, es: `forma`, el: `μορφή` },
@@ -2541,54 +2563,54 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       fb_maj_one:       { en: `1 major`, fr: `1 grave`, es: `1 grave`, el: `1 σοβαρό` },
       fb_maj_n:         { en: `{n} major`, fr: `{n} graves`, es: `{n} graves`, el: `{n} σοβαρά` },
       fb_other_n:       { en: `{n} more`, fr: `{n} autres`, es: `{n} más`, el: `{n} άλλα` },
-      fb_more_maj_one:  { en: `＋ 1 more major`, fr: `＋ 1 autre erreur grave`, es: `＋ 1 error grave más`, el: `＋ 1 ακόμη σοβαρό` },
-      fb_more_maj:      { en: `＋ {n} more major`, fr: `＋ {n} autres erreurs graves`, es: `＋ {n} errores graves más`, el: `＋ {n} ακόμη σοβαρά` },
-      fb_collapse:      { en: `⌃ Collapse all`, fr: `⌃ Tout replier`, es: `⌃ Plegar todo`, el: `⌃ Κλείσιμο όλων` },
-      ctx_edit:         { en: `✏️ Edit`, fr: `✏️ Modifier`, es: `✏️ Editar`, el: `✏️ Επεξεργασία` },
-      ctx_delete:       { en: `🗑 Delete`, fr: `🗑 Supprimer`, es: `🗑 Eliminar`, el: `🗑 Διαγραφή` },
-      ctx_move:         { en: `🔀 Change language`, fr: `🔀 Changer de langue`, es: `🔀 Cambiar de idioma`, el: `🔀 Αλλαγή γλώσσας` },
-      ctx_verify:       { en: `🔍 Check this word`, fr: `🔍 Vérifier le mot`, es: `🔍 Comprobar la palabra`, el: `🔍 Έλεγχος της λέξης` },
+      fb_more_maj_one:  { en: `1 more major`, fr: `1 autre erreur grave`, es: `1 error grave más`, el: `1 ακόμη σοβαρό` },
+      fb_more_maj:      { en: `{n} more major`, fr: `{n} autres erreurs graves`, es: `{n} errores graves más`, el: `{n} ακόμη σοβαρά` },
+      fb_collapse:      { en: `Collapse all`, fr: `Tout replier`, es: `Plegar todo`, el: `Κλείσιμο όλων` },
+      ctx_edit:         { en: `Edit`, fr: `Modifier`, es: `Editar`, el: `Επεξεργασία` },
+      ctx_delete:       { en: `Delete`, fr: `Supprimer`, es: `Eliminar`, el: `Διαγραφή` },
+      ctx_move:         { en: `Change language`, fr: `Changer de langue`, es: `Cambiar de idioma`, el: `Αλλαγή γλώσσας` },
+      ctx_verify:       { en: `Check this word`, fr: `Vérifier le mot`, es: `Comprobar la palabra`, el: `Έλεγχος της λέξης` },
       verify_checking:  { en: `Checking…`, fr: `Vérification…`, es: `Comprobando…`, el: `Έλεγχος…` },
       verify_suggestion:{ en: `Suggested spelling:`, fr: `Correction proposée :`, es: `Corrección propuesta:`, el: `Προτεινόμενη διόρθωση:` },
-      verify_fix:       { en: `✏️ Fix`, fr: `✏️ Corriger`, es: `✏️ Corregir`, el: `✏️ Διόρθωση` },
+      verify_fix:       { en: `Fix`, fr: `Corriger`, es: `Corregir`, el: `Διόρθωση` },
       verify_fuller:    { en: `Fuller form:`, fr: `Forme plus complète :`, es: `Forma más completa:`, el: `Πληρέστερη μορφή:` },
       verify_close:     { en: `Close`, fr: `Fermer`, es: `Cerrar`, el: `Κλείσιμο` },
       title_verify:     { en: `Check this word`, fr: `Vérifier le mot`, es: `Comprobar la palabra`, el: `Έλεγχος της λέξης` },
       move_to:          { en: `Move to…`, fr: `Déplacer vers…`, es: `Mover a…`, el: `Μετακίνηση σε…` },
       // — traduire / image / étudier —
-      ctx_translate:    { en: `🌐 Translate`, fr: `🌐 Traduire`, es: `🌐 Traducir`, el: `🌐 Μετάφραση` },
-      ctx_photo:        { en: `🖼 Show an image`, fr: `🖼 Voir une image`, es: `🖼 Ver una imagen`, el: `🖼 Δες μια εικόνα` },
-      act_translate:    { en: `🌐 translate`, fr: `🌐 traduire`, es: `🌐 traducir`, el: `🌐 μετάφραση` },
+      ctx_translate:    { en: `Translate`, fr: `Traduire`, es: `Traducir`, el: `Μετάφραση` },
+      ctx_photo:        { en: `Show an image`, fr: `Voir une image`, es: `Ver una imagen`, el: `Δες μια εικόνα` },
+      act_translate:    { en: `translate`, fr: `traduire`, es: `traducir`, el: `μετάφραση` },
       act_see_def:      { en: `see the definition`, fr: `voir la définition`, es: `ver la definición`, el: `δες τον ορισμό` },
       translating:      { en: `Translating…`, fr: `Traduction…`, es: `Traduciendo…`, el: `Μετάφραση…` },
       photo_none:       { en: `No useful image for this word.`, fr: `Pas d'image utile pour ce mot.`, es: `No hay imagen útil para esta palabra.`, el: `Καμία χρήσιμη εικόνα για αυτή τη λέξη.` },
-      btn_study:        { en: `✓ I've got it — quiz me`, fr: `✓ je l'ai compris — teste-moi`, es: `✓ lo he entendido — ponme a prueba`, el: `✓ το κατάλαβα — δοκίμασέ με` },
-      study_marked:     { en: `📖 Studied — you'll have to use it tomorrow.`, fr: `📖 Étudié — à employer demain.`, es: `📖 Estudiada — habrá que usarla mañana.`, el: `📖 Μελετήθηκε — αύριο θα τη χρησιμοποιήσεις.` },
-      study_badge:      { en: `📖 studied`, fr: `📖 étudié`, es: `📖 estudiada`, el: `📖 μελετήθηκε` },
-      study_other_q:    { en: `🎯 Another question`, fr: `🎯 Autre question`, es: `🎯 Otra pregunta`, el: `🎯 Άλλη ερώτηση` },
+      btn_study:        { en: `I've got it — quiz me`, fr: `je l'ai compris — teste-moi`, es: `lo he entendido — ponme a prueba`, el: `το κατάλαβα — δοκίμασέ με` },
+      study_marked:     { en: `Studied — you'll have to use it tomorrow.`, fr: `Étudié — à employer demain.`, es: `Estudiada — habrá que usarla mañana.`, el: `Μελετήθηκε — αύριο θα τη χρησιμοποιήσεις.` },
+      study_badge:      { en: `studied`, fr: `étudié`, es: `estudiada`, el: `μελετήθηκε` },
+      study_other_q:    { en: `Another question`, fr: `Autre question`, es: `Otra pregunta`, el: `Άλλη ερώτηση` },
       study_all:        { en: `All the words of this round are studied — you'll use them tomorrow.`, fr: `Tous les mots du tour sont étudiés — à employer demain.`, es: `Todas las palabras de la ronda están estudiadas — las usarás mañana.`, el: `Όλες οι λέξεις του γύρου μελετήθηκαν — θα τις χρησιμοποιήσεις αύριο.` },
-      move_done:        { en: `✓ {n} word(s) moved`, fr: `✓ {n} mot(s) déplacé(s)`, es: `✓ {n} palabra(s) movida(s)`, el: `✓ {n} λέξη/-εις μετακινήθηκαν` },
+      move_done:        { en: `{n} word(s) moved`, fr: `{n} mot(s) déplacé(s)`, es: `{n} palabra(s) movida(s)`, el: `{n} λέξη/-εις μετακινήθηκαν` },
       // — modale d'aide —
       help_title:       { en: `How it works`, fr: `Comment ça marche`, es: `Cómo funciona`, el: `Πώς λειτουργεί` },
       help_s1_t:        { en: `1 · Get started`, fr: `1 · Démarrer`, es: `1 · Empezar`, el: `1 · Ξεκίνημα` },
       help_s1: {
-        en: `<p>Create an account (email + password) or "Continue with Google". Then open <strong>⚙️</strong> and paste your <strong>API key</strong> (OpenAI or Gemini): the app uses it to generate definitions and correct your sentences. Your key stays yours (BYOK) and is never shared.</p>`,
-        fr: `<p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». Puis ouvre <strong>⚙️</strong> et colle ta <strong>clé API</strong> (OpenAI ou Gemini) : l'app s'en sert pour générer les définitions et corriger tes phrases. Ta clé reste à toi (BYOK), elle n'est jamais partagée.</p>`,
-        es: `<p>Crea una cuenta (email + contraseña) o «Continuar con Google». Luego abre <strong>⚙️</strong> y pega tu <strong>clave API</strong> (OpenAI o Gemini): la app la usa para generar definiciones y corregir tus frases. Tu clave es tuya (BYOK), nunca se comparte.</p>`,
-        el: `<p>Δημιούργησε λογαριασμό (email + κωδικός) ή «Συνέχεια με Google». Μετά άνοιξε το <strong>⚙️</strong> και επικόλλησε το <strong>κλειδί API</strong> σου (OpenAI ή Gemini): η εφαρμογή το χρησιμοποιεί για ορισμούς και διορθώσεις. Το κλειδί μένει δικό σου (BYOK), δεν κοινοποιείται ποτέ.</p>` },
+        en: `<p>Create an account (email + password) or "Continue with Google". Then open <strong>settings</strong> and paste your <strong>API key</strong> (OpenAI or Gemini): the app uses it to generate definitions and correct your sentences. Your key stays yours (BYOK) and is never shared.</p>`,
+        fr: `<p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». Puis ouvre <strong>réglages</strong> et colle ta <strong>clé API</strong> (OpenAI ou Gemini) : l'app s'en sert pour générer les définitions et corriger tes phrases. Ta clé reste à toi (BYOK), elle n'est jamais partagée.</p>`,
+        es: `<p>Crea una cuenta (email + contraseña) o «Continuar con Google». Luego abre <strong>ajustes</strong> y pega tu <strong>clave API</strong> (OpenAI o Gemini): la app la usa para generar definiciones y corregir tus frases. Tu clave es tuya (BYOK), nunca se comparte.</p>`,
+        el: `<p>Δημιούργησε λογαριασμό (email + κωδικός) ή «Συνέχεια με Google». Μετά άνοιξε το <strong>ρυθμίσεις</strong> και επικόλλησε το <strong>κλειδί API</strong> σου (OpenAI ή Gemini): η εφαρμογή το χρησιμοποιεί για ορισμούς και διορθώσεις. Το κλειδί μένει δικό σου (BYOK), δεν κοινοποιείται ποτέ.</p>` },
       help_s2_t:        { en: `2 · Add words`, fr: `2 · Ajouter des mots`, es: `2 · Añadir palabras`, el: `2 · Προσθήκη λέξεων` },
       help_s2: {
-        en: `<ul><li><strong>In the app</strong>: "➕ add content" → words or a grammar form.</li><li><strong>From your iPhone</strong> (shortcut) or <strong>from your Kindle</strong> (script): see below.</li></ul><p style="margin-top:0.75rem"><strong>💬 Expressions and notes.</strong> You can add a note in parentheses at the end of an entry: <code>hacer el oso (Colombian expression)</code>. The note is never a word to practice — it tells the model how to read the entry (idiom, regional variety, register) and lets you distinguish two senses of the same word. Both parentheses are required.</p><p style="margin-top:0.75rem"><strong>🔑 Your personal token.</strong> Both methods below need your <em>add token</em>. You'll find it in <strong>⚙️ → "add link"</strong>: it's the value after <code>token=</code> in the URL. It only allows adding words to <em>your</em> account — keep it to yourself.</p>`,
-        fr: `<ul><li><strong>Dans l'app</strong> : « ➕ ajouter du contenu » → des mots ou une forme grammaticale.</li><li><strong>Depuis l'iPhone</strong> (raccourci) ou <strong>depuis ta Kindle</strong> (script) : voir ci-dessous.</li></ul><p style="margin-top:0.75rem"><strong>💬 Expressions et notes.</strong> Tu peux ajouter une note entre parenthèses à la fin d'une entrée : <code>hacer el oso (expresión colombiana)</code>. La note n'est jamais un mot à réviser — elle indique au modèle comment lire l'entrée (expression figée, variété régionale, registre) et permet de distinguer deux sens d'un même mot. Les deux parenthèses sont obligatoires.</p><p style="margin-top:0.75rem"><strong>🔑 Ton token perso.</strong> Les deux méthodes ci-dessous ont besoin de ton <em>token d'ajout</em>. Tu le trouves dans <strong>⚙️ → « lien d'ajout »</strong> : c'est la valeur après <code>token=</code> dans l'URL affichée. Il permet seulement d'ajouter des mots à <em>ton</em> compte — garde-le pour toi.</p>`,
-        es: `<ul><li><strong>En la app</strong>: «➕ añadir contenido» → palabras o una forma gramatical.</li><li><strong>Desde el iPhone</strong> (atajo) o <strong>desde tu Kindle</strong> (script): ver más abajo.</li></ul><p style="margin-top:0.75rem"><strong>💬 Expresiones y notas.</strong> Puedes añadir una nota entre paréntesis al final de una entrada: <code>hacer el oso (expresión colombiana)</code>. La nota nunca es una palabra que practicar — le indica al modelo cómo leer la entrada (expresión fija, variedad regional, registro) y permite distinguir dos sentidos de una misma palabra. Los dos paréntesis son obligatorios.</p><p style="margin-top:0.75rem"><strong>🔑 Tu token personal.</strong> Los dos métodos siguientes necesitan tu <em>token</em>. Lo encuentras en <strong>⚙️ → «enlace para añadir»</strong>: es el valor después de <code>token=</code> en la URL. Solo permite añadir palabras a <em>tu</em> cuenta — guárdalo para ti.</p>`,
-        el: `<ul><li><strong>Μέσα στην εφαρμογή</strong>: «➕ προσθήκη περιεχομένου» → λέξεις ή γραμματικός τύπος.</li><li><strong>Από το iPhone</strong> (συντόμευση) ή <strong>από το Kindle</strong> (script): δες παρακάτω.</li></ul><p style="margin-top:0.75rem"><strong>💬 Εκφράσεις και σημειώσεις.</strong> Μπορείς να προσθέσεις μια σημείωση σε παρένθεση στο τέλος: <code>hacer el oso (κολομβιανή έκφραση)</code>. Η σημείωση δεν είναι ποτέ λέξη προς εξάσκηση — δείχνει στο μοντέλο πώς να διαβάσει την εγγραφή (πάγια έκφραση, τοπική ποικιλία, ύφος) και σου επιτρέπει να ξεχωρίσεις δύο σημασίες της ίδιας λέξης. Και οι δύο παρενθέσεις είναι απαραίτητες.</p><p style="margin-top:0.75rem"><strong>🔑 Το προσωπικό σου token.</strong> Οι δύο μέθοδοι χρειάζονται το <em>token προσθήκης</em>. Θα το βρεις στο <strong>⚙️ → «σύνδεσμος προσθήκης»</strong>: είναι η τιμή μετά το <code>token=</code> στο URL. Επιτρέπει μόνο προσθήκη λέξεων στον <em>δικό σου</em> λογαριασμό — κράτησέ το για σένα.</p>` },
-      help_iphone_t:    { en: `📱 iPhone shortcut`, fr: `📱 Raccourci iPhone`, es: `📱 Atajo de iPhone`, el: `📱 Συντόμευση iPhone` },
+        en: `<ul><li><strong>In the app</strong>: "add content" → words or a grammar form.</li><li><strong>From your iPhone</strong> (shortcut) or <strong>from your Kindle</strong> (script): see below.</li></ul><p style="margin-top:0.75rem"><strong>Expressions and notes.</strong> You can add a note in parentheses at the end of an entry: <code>hacer el oso (Colombian expression)</code>. The note is never a word to practice — it tells the model how to read the entry (idiom, regional variety, register) and lets you distinguish two senses of the same word. Both parentheses are required.</p><p style="margin-top:0.75rem"><strong>Your personal token.</strong> Both methods below need your <em>add token</em>. You'll find it in <strong>settings → "add link"</strong>: it's the value after <code>token=</code> in the URL. It only allows adding words to <em>your</em> account — keep it to yourself.</p>`,
+        fr: `<ul><li><strong>Dans l'app</strong> : « ajouter du contenu » → des mots ou une forme grammaticale.</li><li><strong>Depuis l'iPhone</strong> (raccourci) ou <strong>depuis ta Kindle</strong> (script) : voir ci-dessous.</li></ul><p style="margin-top:0.75rem"><strong>Expressions et notes.</strong> Tu peux ajouter une note entre parenthèses à la fin d'une entrée : <code>hacer el oso (expresión colombiana)</code>. La note n'est jamais un mot à réviser — elle indique au modèle comment lire l'entrée (expression figée, variété régionale, registre) et permet de distinguer deux sens d'un même mot. Les deux parenthèses sont obligatoires.</p><p style="margin-top:0.75rem"><strong>Ton token perso.</strong> Les deux méthodes ci-dessous ont besoin de ton <em>token d'ajout</em>. Tu le trouves dans <strong>réglages → « lien d'ajout »</strong> : c'est la valeur après <code>token=</code> dans l'URL affichée. Il permet seulement d'ajouter des mots à <em>ton</em> compte — garde-le pour toi.</p>`,
+        es: `<ul><li><strong>En la app</strong>: «añadir contenido» → palabras o una forma gramatical.</li><li><strong>Desde el iPhone</strong> (atajo) o <strong>desde tu Kindle</strong> (script): ver más abajo.</li></ul><p style="margin-top:0.75rem"><strong>Expresiones y notas.</strong> Puedes añadir una nota entre paréntesis al final de una entrada: <code>hacer el oso (expresión colombiana)</code>. La nota nunca es una palabra que practicar — le indica al modelo cómo leer la entrada (expresión fija, variedad regional, registro) y permite distinguir dos sentidos de una misma palabra. Los dos paréntesis son obligatorios.</p><p style="margin-top:0.75rem"><strong>Tu token personal.</strong> Los dos métodos siguientes necesitan tu <em>token</em>. Lo encuentras en <strong>ajustes → «enlace para añadir»</strong>: es el valor después de <code>token=</code> en la URL. Solo permite añadir palabras a <em>tu</em> cuenta — guárdalo para ti.</p>`,
+        el: `<ul><li><strong>Μέσα στην εφαρμογή</strong>: «προσθήκη περιεχομένου» → λέξεις ή γραμματικός τύπος.</li><li><strong>Από το iPhone</strong> (συντόμευση) ή <strong>από το Kindle</strong> (script): δες παρακάτω.</li></ul><p style="margin-top:0.75rem"><strong>Εκφράσεις και σημειώσεις.</strong> Μπορείς να προσθέσεις μια σημείωση σε παρένθεση στο τέλος: <code>hacer el oso (κολομβιανή έκφραση)</code>. Η σημείωση δεν είναι ποτέ λέξη προς εξάσκηση — δείχνει στο μοντέλο πώς να διαβάσει την εγγραφή (πάγια έκφραση, τοπική ποικιλία, ύφος) και σου επιτρέπει να ξεχωρίσεις δύο σημασίες της ίδιας λέξης. Και οι δύο παρενθέσεις είναι απαραίτητες.</p><p style="margin-top:0.75rem"><strong>Το προσωπικό σου token.</strong> Οι δύο μέθοδοι χρειάζονται το <em>token προσθήκης</em>. Θα το βρεις στο <strong>ρυθμίσεις → «σύνδεσμος προσθήκης»</strong>: είναι η τιμή μετά το <code>token=</code> στο URL. Επιτρέπει μόνο προσθήκη λέξεων στον <em>δικό σου</em> λογαριασμό — κράτησέ το για σένα.</p>` },
+      help_iphone_t:    { en: `iPhone shortcut`, fr: `Raccourci iPhone`, es: `Atajo de iPhone`, el: `Συντόμευση iPhone` },
       help_iphone: {
-        en: `<ol><li>Install the shortcut: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">open the "Vocab" shortcut</a>.</li><li>In the shortcut, open the <strong>"Text"</strong> action (the URL) and replace <code>COLLE_TON_TOKEN_ICI</code> with your token (copied from ⚙️).</li><li>Then, from any app: <strong>Share → Vocab</strong>, or run the shortcut and type a word. If the word is invalid or looks like an existing one, it asks "add anyway?".</li></ol>`,
-        fr: `<ol><li>Installe le raccourci : <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">ouvrir le raccourci « Vocab »</a>.</li><li>Dans le raccourci, ouvre l'action <strong>« Texte »</strong> (l'URL) et remplace <code>COLLE_TON_TOKEN_ICI</code> par ton token (copié depuis ⚙️).</li><li>Ensuite, depuis n'importe quelle app : <strong>Partager → Vocab</strong>, ou lance le raccourci et tape un mot. Si le mot est invalide ou ressemble à un mot existant, il te demande « ajouter quand même ? ».</li></ol>`,
-        es: `<ol><li>Instala el atajo: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">abrir el atajo «Vocab»</a>.</li><li>En el atajo, abre la acción <strong>«Texto»</strong> (la URL) y sustituye <code>COLLE_TON_TOKEN_ICI</code> por tu token (copiado desde ⚙️).</li><li>Después, desde cualquier app: <strong>Compartir → Vocab</strong>, o lanza el atajo y escribe una palabra. Si la palabra es inválida o se parece a una existente, te pregunta «¿añadir igualmente?».</li></ol>`,
-        el: `<ol><li>Εγκατέστησε τη συντόμευση: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">άνοιξε τη συντόμευση «Vocab»</a>.</li><li>Στη συντόμευση, άνοιξε την ενέργεια <strong>«Κείμενο»</strong> (το URL) και αντικατέστησε το <code>COLLE_TON_TOKEN_ICI</code> με το token σου (από το ⚙️).</li><li>Έπειτα, από οποιαδήποτε εφαρμογή: <strong>Κοινοποίηση → Vocab</strong>, ή τρέξε τη συντόμευση και γράψε μια λέξη. Αν η λέξη είναι άκυρη ή μοιάζει με υπάρχουσα, ρωτά «προσθήκη ούτως ή άλλως;».</li></ol>` },
-      help_kindle_t:    { en: `📖 Kindle import (computer)`, fr: `📖 Import Kindle (ordinateur)`, es: `📖 Importar de Kindle (ordenador)`, el: `📖 Εισαγωγή από Kindle (υπολογιστής)` },
+        en: `<ol><li>Install the shortcut: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">open the "Vocab" shortcut</a>.</li><li>In the shortcut, open the <strong>"Text"</strong> action (the URL) and replace <code>COLLE_TON_TOKEN_ICI</code> with your token (copied from settings).</li><li>Then, from any app: <strong>Share → Vocab</strong>, or run the shortcut and type a word. If the word is invalid or looks like an existing one, it asks "add anyway?".</li></ol>`,
+        fr: `<ol><li>Installe le raccourci : <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">ouvrir le raccourci « Vocab »</a>.</li><li>Dans le raccourci, ouvre l'action <strong>« Texte »</strong> (l'URL) et remplace <code>COLLE_TON_TOKEN_ICI</code> par ton token (copié depuis réglages).</li><li>Ensuite, depuis n'importe quelle app : <strong>Partager → Vocab</strong>, ou lance le raccourci et tape un mot. Si le mot est invalide ou ressemble à un mot existant, il te demande « ajouter quand même ? ».</li></ol>`,
+        es: `<ol><li>Instala el atajo: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">abrir el atajo «Vocab»</a>.</li><li>En el atajo, abre la acción <strong>«Texto»</strong> (la URL) y sustituye <code>COLLE_TON_TOKEN_ICI</code> por tu token (copiado desde ajustes).</li><li>Después, desde cualquier app: <strong>Compartir → Vocab</strong>, o lanza el atajo y escribe una palabra. Si la palabra es inválida o se parece a una existente, te pregunta «¿añadir igualmente?».</li></ol>`,
+        el: `<ol><li>Εγκατέστησε τη συντόμευση: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">άνοιξε τη συντόμευση «Vocab»</a>.</li><li>Στη συντόμευση, άνοιξε την ενέργεια <strong>«Κείμενο»</strong> (το URL) και αντικατέστησε το <code>COLLE_TON_TOKEN_ICI</code> με το token σου (από το ρυθμίσεις).</li><li>Έπειτα, από οποιαδήποτε εφαρμογή: <strong>Κοινοποίηση → Vocab</strong>, ή τρέξε τη συντόμευση και γράψε μια λέξη. Αν η λέξη είναι άκυρη ή μοιάζει με υπάρχουσα, ρωτά «προσθήκη ούτως ή άλλως;».</li></ol>` },
+      help_kindle_t:    { en: `Kindle import (computer)`, fr: `Import Kindle (ordinateur)`, es: `Importar de Kindle (ordenador)`, el: `Εισαγωγή από Kindle (υπολογιστής)` },
       help_kindle: {
         en: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Import all the words you highlighted on your Kindle at once. Requires a Mac/PC with Python 3.</p><ol><li>Install the dependency: <code>pip3 install wordfreq</code>.</li><li>Download the script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>In the same folder, create two files: <code>.token</code> (your personal token) and <code>.openai_key</code> (your OpenAI key). Each file contains only the value, nothing else.</li><li>Plug in your Kindle via USB, then run: <code>python3 kindle_import.py</code>. Pick the words to import.</li><li>Need help? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
         fr: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Importe d'un coup les mots surlignés sur ta Kindle. Nécessite un Mac/PC avec Python 3.</p><ol><li>Installe la dépendance : <code>pip3 install wordfreq</code>.</li><li>Télécharge le script : <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>Dans le même dossier, crée deux fichiers : <code>.token</code> (ton token perso) et <code>.openai_key</code> (ta clé OpenAI). Chaque fichier ne contient que la valeur, rien d'autre.</li><li>Branche ta Kindle en USB, puis lance : <code>python3 kindle_import.py</code>. Choisis les mots à importer.</li><li>Besoin d'aide ? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
@@ -2596,16 +2618,16 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         el: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Εισήγαγε μονομιάς τις λέξεις που υπογράμμισες στο Kindle. Απαιτεί Mac/PC με Python 3.</p><ol><li>Εγκατέστησε την εξάρτηση: <code>pip3 install wordfreq</code>.</li><li>Κατέβασε το script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>Στον ίδιο φάκελο, δημιούργησε δύο αρχεία: <code>.token</code> (το token σου) και <code>.openai_key</code> (το κλειδί OpenAI σου). Κάθε αρχείο περιέχει μόνο την τιμή.</li><li>Σύνδεσε το Kindle με USB και τρέξε: <code>python3 kindle_import.py</code>. Διάλεξε τις λέξεις.</li><li>Βοήθεια; <code>python3 kindle_import.py --aide</code>.</li></ol>` },
       help_s3_t:        { en: `3 · The 4 modes`, fr: `3 · Les 4 modes`, es: `3 · Los 4 modos`, el: `3 · Οι 4 λειτουργίες` },
       help_s3: {
-        en: `<ul><li><strong>📅 Spaced</strong> — review each word at the right time (spaced repetition).</li><li><strong>🎯 Situation</strong> — recall a mastered word from a scene.</li><li><strong>🎲 Free</strong> — weighted random draw.</li><li><strong>📸 Imagen</strong> — describe a photo in Spanish.</li></ul>`,
-        fr: `<ul><li><strong>📅 Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li><li><strong>🎯 Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li><li><strong>🎲 Libre</strong> — tirage aléatoire pondéré.</li><li><strong>📸 Imagen</strong> — décris une photo en espagnol.</li></ul>`,
-        es: `<ul><li><strong>📅 Espaciada</strong> — repasa cada palabra en el momento justo (repetición espaciada).</li><li><strong>🎯 Situación</strong> — recuerda una palabra dominada a partir de una escena.</li><li><strong>🎲 Libre</strong> — sorteo aleatorio ponderado.</li><li><strong>📸 Imagen</strong> — describe una foto en español.</li></ul>`,
-        el: `<ul><li><strong>📅 Κατανεμημένη</strong> — επανάλαβε κάθε λέξη την κατάλληλη στιγμή (spaced repetition).</li><li><strong>🎯 Περίσταση</strong> — θυμήσου μια κατακτημένη λέξη από μια σκηνή.</li><li><strong>🎲 Ελεύθερη</strong> — σταθμισμένη τυχαία επιλογή.</li><li><strong>📸 Imagen</strong> — περίγραψε μια φωτογραφία στα ισπανικά.</li></ul>` },
+        en: `<ul><li><strong>Spaced</strong> — review each word at the right time (spaced repetition).</li><li><strong>Situation</strong> — recall a mastered word from a scene.</li><li><strong>Free</strong> — weighted random draw.</li><li><strong>Imagen</strong> — describe a photo in Spanish.</li></ul>`,
+        fr: `<ul><li><strong>Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li><li><strong>Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li><li><strong>Libre</strong> — tirage aléatoire pondéré.</li><li><strong>Imagen</strong> — décris une photo en espagnol.</li></ul>`,
+        es: `<ul><li><strong>Espaciada</strong> — repasa cada palabra en el momento justo (repetición espaciada).</li><li><strong>Situación</strong> — recuerda una palabra dominada a partir de una escena.</li><li><strong>Libre</strong> — sorteo aleatorio ponderado.</li><li><strong>Imagen</strong> — describe una foto en español.</li></ul>`,
+        el: `<ul><li><strong>Κατανεμημένη</strong> — επανάλαβε κάθε λέξη την κατάλληλη στιγμή (spaced repetition).</li><li><strong>Περίσταση</strong> — θυμήσου μια κατακτημένη λέξη από μια σκηνή.</li><li><strong>Ελεύθερη</strong> — σταθμισμένη τυχαία επιλογή.</li><li><strong>Imagen</strong> — περίγραψε μια φωτογραφία στα ισπανικά.</li></ul>` },
       help_s4_t:        { en: `4 · Spaced repetition`, fr: `4 · La répétition espacée`, es: `4 · La repetición espaciada`, el: `4 · Η κατανεμημένη επανάληψη` },
       help_s4: {
-        en: `<ul><li>Each word earns <strong>stars</strong> (☆☆☆ → ★★★) as you succeed.</li><li>Succeeding <em>without help</em> pushes the next review further away; failing or opening the definition brings it back to tomorrow.</li><li>You choose how many <strong>new words per day</strong> in ⚙️, and "📅 my upcoming reviews" shows your calendar.</li></ul>`,
-        fr: `<ul><li>Chaque mot gagne des <strong>étoiles</strong> (☆☆☆ → ★★★) selon tes réussites.</li><li>Réussir <em>sans aide</em> éloigne la prochaine révision ; échouer ou afficher la définition la ramène à demain.</li><li>Tu choisis combien de <strong>nouveaux mots par jour</strong> dans ⚙️, et le bouton « 📅 mes révisions à venir » montre ton calendrier.</li></ul>`,
-        es: `<ul><li>Cada palabra gana <strong>estrellas</strong> (☆☆☆ → ★★★) según tus aciertos.</li><li>Acertar <em>sin ayuda</em> aleja el próximo repaso; fallar o abrir la definición lo trae de vuelta a mañana.</li><li>Eliges cuántas <strong>palabras nuevas por día</strong> en ⚙️, y «📅 mis próximos repasos» muestra tu calendario.</li></ul>`,
-        el: `<ul><li>Κάθε λέξη κερδίζει <strong>αστέρια</strong> (☆☆☆ → ★★★) με τις επιτυχίες σου.</li><li>Η επιτυχία <em>χωρίς βοήθεια</em> απομακρύνει την επόμενη επανάληψη· η αποτυχία ή ο ορισμός τη φέρνει πίσω στο αύριο.</li><li>Επιλέγεις πόσες <strong>νέες λέξεις την ημέρα</strong> στο ⚙️, και το «📅 οι επόμενες επαναλήψεις μου» δείχνει το ημερολόγιό σου.</li></ul>` },
+        en: `<ul><li>Each word earns <strong>stars</strong> (☆☆☆ → ★★★) as you succeed.</li><li>Succeeding <em>without help</em> pushes the next review further away; failing or opening the definition brings it back to tomorrow.</li><li>You choose how many <strong>new words per day</strong> in settings, and "my upcoming reviews" shows your calendar.</li></ul>`,
+        fr: `<ul><li>Chaque mot gagne des <strong>étoiles</strong> (☆☆☆ → ★★★) selon tes réussites.</li><li>Réussir <em>sans aide</em> éloigne la prochaine révision ; échouer ou afficher la définition la ramène à demain.</li><li>Tu choisis combien de <strong>nouveaux mots par jour</strong> dans réglages, et le bouton « mes révisions à venir » montre ton calendrier.</li></ul>`,
+        es: `<ul><li>Cada palabra gana <strong>estrellas</strong> (☆☆☆ → ★★★) según tus aciertos.</li><li>Acertar <em>sin ayuda</em> aleja el próximo repaso; fallar o abrir la definición lo trae de vuelta a mañana.</li><li>Eliges cuántas <strong>palabras nuevas por día</strong> en ajustes, y «mis próximos repasos» muestra tu calendario.</li></ul>`,
+        el: `<ul><li>Κάθε λέξη κερδίζει <strong>αστέρια</strong> (☆☆☆ → ★★★) με τις επιτυχίες σου.</li><li>Η επιτυχία <em>χωρίς βοήθεια</em> απομακρύνει την επόμενη επανάληψη· η αποτυχία ή ο ορισμός τη φέρνει πίσω στο αύριο.</li><li>Επιλέγεις πόσες <strong>νέες λέξεις την ημέρα</strong> στο ρυθμίσεις, και το «οι επόμενες επαναλήψεις μου» δείχνει το ημερολόγιό σου.</li></ul>` },
     };
 
     const UI_LOCALE = { en: 'en-GB', fr: 'fr-FR', es: 'es-ES', el: 'el-GR' };
@@ -2842,13 +2864,13 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         const l = LANGS.find(x => x.key === key);
         if (!l) return '';
         return `<button class="lang-btn" data-lang="${l.key}" onclick="selectLanguage('${l.key}')">
-          <span class="flag">${l.flag}</span><span class="lang-name">${l.name}</span><span class="lang-badge"></span><span class="lang-bar"></span><span class="lang-sub"></span>
+          <span class="lang-name">${l.name}</span><span class="lang-badge"></span><span class="lang-bar"></span><span class="lang-sub"></span>
         </button>`;
       }).join('');
       // Tuile « ajouter » uniquement s'il reste des langues à ajouter
       const addTile = selectedLangs.length < LANGS.length
         ? `<button class="lang-btn lang-add-btn" onclick="openLangPicker(false)">
-            <span class="flag">＋</span><span class="lang-name">${tApp('tile_add').replace('＋ ', '')}</span>
+            <span class="lang-name">${tApp('tile_add')}</span>
           </button>`
         : '';
       grid.innerHTML = buttons + addTile;
@@ -2874,9 +2896,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       document.getElementById('lang-picker-list').innerHTML = LANGS.map(l => {
         const on = _pickerLangs.includes(l.key);
         return `<div class="lang-pick-row ${on ? 'on' : ''}" onclick="toggleLangPick('${l.key}')">
-          <span class="lp-flag">${l.flag}</span>
-          <span class="lp-name">${l.name}</span>
-          <span class="lp-check">✓</span>
+                    <span class="lp-name">${l.name}</span>
+          <span class="lp-check"></span>
         </div>`;
       }).join('');
     }
@@ -2999,7 +3020,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
             btn.style.setProperty('--p', 100);
             // ⚠️ Le nombre RÉEL de mots faits, pas « objectif / objectif » : baisser
             // la taille de la manche après coup ferait dire « 8 » à une journée de 12.
-            if (badge) badge.textContent = goal ? `✓ ${doneN}` : tApp('badge_done');
+            if (badge) badge.textContent = goal ? `${tApp('badge_done')} · ${doneN}` : tApp('badge_done');
           } else {
             btn.classList.add('due');
             btn.style.setProperty('--p', Math.round(100 * doneN / goal));
@@ -3390,7 +3411,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       document.getElementById('grammar-count-slider').value = _langGC;
       document.getElementById('grammar-slider-value').textContent = formsLabel(_langGC);
       const langInfo = getLang();
-      document.getElementById('lang-tag').textContent                  = `← ${langInfo.name}`;
+      document.getElementById('lang-tag').textContent                  = langInfo.name;
       document.getElementById('qcm-question').textContent              = langInfo.qcmQuestion;
       showScreen('screen-practice');
       resetPracticeUI();
@@ -3532,15 +3553,15 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     function checkDailyLimit() {
       checkApiKey();
-      if (isLimitReached()) throw new Error('Limite journalière atteinte — change de modèle dans ⚙️');
+      if (isLimitReached()) throw new Error('Limite journalière atteinte — change de modèle dans les réglages');
     }
 
     // BYOK : vérifie que la clé du modèle sélectionné est présente
     function checkApiKey() {
       if (isGemini()) {
-        if (!geminiKey) throw new Error('Clé API Gemini manquante — ajoute-la dans ⚙️');
+        if (!geminiKey) throw new Error('Clé API Gemini manquante — ajoute-la dans les réglages');
       } else if (!openaiKey) {
-        throw new Error('Clé API OpenAI manquante — ajoute-la dans ⚙️');
+        throw new Error('Clé API OpenAI manquante — ajoute-la dans les réglages');
       }
     }
 
@@ -3861,7 +3882,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
                 `<div class="related-chip">
                   <div class="rel-head">
                     <span class="rel-word">${v.word}</span>
-                    <button class="chip-add" id="img-chip-add-${i}" onclick="addImageVocabWord('${v.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">＋</button>
+                    <button class="chip-add" id="img-chip-add-${i}" onclick="addImageVocabWord('${v.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">${tPrac('act_add')}</button>
                   </div>
                   <span class="rel-note">${v.note}</span>
                 </div>`
@@ -3875,7 +3896,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         lastSubmittedSentence = '';
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '↑';
+        btn.innerHTML = tPrac('sess_check');
       }
     }
 
@@ -3884,7 +3905,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const wordLower = word.toLowerCase();
       if (allWords.some(w => w.toLowerCase() === wordLower)) {
         btn.disabled = true;
-        btn.textContent = '↩';
+        btn.textContent = tPrac('act_in_list');
         btn.title = 'Mot déjà dans ta liste';
         btn.style.color = 'var(--gris)';
         return;
@@ -3894,11 +3915,11 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       try {
         await authFetch('/api/words', { method: 'POST', body: JSON.stringify({ lang: currentLang, word }) });
         allWords.push(word);
-        btn.textContent = '✓';
+        btn.textContent = tPrac('act_added');
         btn.style.color = 'var(--verde)';
       } catch (err) {
         btn.disabled = false;
-        btn.textContent = '＋';
+        btn.textContent = tPrac('act_add');
         btn.title = 'Erreur : ' + err.message;
       }
     }
@@ -4282,7 +4303,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       let html = VGROUPS.map(v => row(v.id, escapeHtml(v.name), vgroupWords(v.id).length)).join('');
       html += real.length
         ? `<div style="height:1px;background:var(--linea);margin:0.5rem 0"></div>` +
-          real.map(g => row(g.id, (g.kind === 'lot' ? '📘 ' : '') + escapeHtml(g.name), `${g.mastered}/${g.n} ★★★`)).join('')
+          real.map(g => row(g.id, escapeHtml(g.name) + (g.kind === 'lot' ? ' ' + tApp('lot_suffix') : ''), `${g.mastered}/${g.n} ★★★`)).join('')
         : '<div id="free-search-empty">Aucun groupe thématique pour cette langue.</div>';
       list.innerHTML = html;
     }
@@ -4458,13 +4479,13 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       list.innerHTML = groups.map(g => `
         <div class="mot-row">
           <span class="mot-w" style="cursor:pointer" onclick="openGroupWords(${g.id})">
-            ${g.kind === 'lot' ? '📘 ' : ''}${escapeHtml(g.name)}
+            ${escapeHtml(g.name)}${g.kind === 'lot' ? ' ' + tApp('lot_suffix') : ''}
             ${g.scope ? `<span class="mot-note" style="display:block">${escapeHtml(g.scope)}</span>` : ''}
           </span>
           <span class="mot-actions">
             <span style="color:var(--gris);font-size:0.78rem">${g.mastered}/${g.n} ★★★</span>
-            <button title="renommer" onclick="renameGroup(${g.id})">✏️</button>
-            <button title="supprimer" onclick="deleteGroup(${g.id})">🗑</button>
+            <button title="renommer" onclick="renameGroup(${g.id})">${tApp('act_edit')}</button>
+            <button title="supprimer" onclick="deleteGroup(${g.id})">${tApp('act_delete')}</button>
           </span>
         </div>`).join('');
     }
@@ -4582,7 +4603,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       let html = `<p style="color:var(--gris);font-size:0.85rem">Sur tes <strong>${_taxo.total}</strong> mots, le modèle propose <strong>${_taxo.proposed.length}</strong> groupes.</p>`;
 
       if (!news.length && !rescoped.length && !_taxo.dropped.length) {
-        html += '<p style="color:var(--verde)">✓ Ta taxonomie actuelle est déjà celle qu\'il proposerait. Rien à changer.</p>';
+        html += '<p style="color:var(--verde)">Ta taxonomie actuelle est déjà celle qu\'il proposerait. Rien à changer.</p>';
         panel.innerHTML = html;
         return;
       }
@@ -4590,18 +4611,18 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         html += '<p style="margin-top:0.8rem"><strong>Nouveaux groupes proposés</strong></p>' +
           news.map((g, i) => `<div class="free-pick-row on" onclick="toggleTaxoPick(this)" data-kind="new" data-i="${i}">
             <span class="fp-word">${escapeHtml(g.name)}<span class="mot-note" style="display:block">${escapeHtml(g.scope || '')}</span></span>
-            <span class="fp-order">✓</span></div>`).join('');
+            <span class="fp-order"></span></div>`).join('');
       }
       if (rescoped.length) {
         html += '<p style="margin-top:0.8rem"><strong>Descriptions à mettre à jour</strong></p>' +
           rescoped.map((g, i) => `<div class="free-pick-row on" onclick="toggleTaxoPick(this)" data-kind="scope" data-i="${i}">
             <span class="fp-word">${escapeHtml(g.name)}<span class="mot-note" style="display:block">${escapeHtml(g.scope)}</span></span>
-            <span class="fp-order">✓</span></div>`).join('');
+            <span class="fp-order"></span></div>`).join('');
       }
       if (_taxo.dropped.length) {
         // Jamais de suppression automatique : elle emporterait aussi les
         // rattachements posés à la main. On signale, l'utilisateur tranche.
-        html += `<p style="margin-top:0.8rem"><strong>Plus proposés</strong> <span style="color:var(--gris);font-size:0.8rem">(rien n'est supprimé — à toi de voir avec 🗑)</span></p>
+        html += `<p style="margin-top:0.8rem"><strong>Plus proposés</strong> <span style="color:var(--gris);font-size:0.8rem">(rien n'est supprimé — à toi de voir)</span></p>
           <p style="color:var(--gris);font-size:0.85rem">${_taxo.dropped.map(d => escapeHtml(d.name)).join(' · ')}</p>`;
       }
       html += `<button class="btn-primary" style="margin-top:1rem" onclick="applyTaxoProposal()">Appliquer</button>`;
@@ -4610,7 +4631,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       _taxo._rescoped = rescoped;
     }
 
-    function toggleTaxoPick(el) { el.classList.toggle('on'); el.querySelector('.fp-order').textContent = el.classList.contains('on') ? '✓' : ''; }
+    function toggleTaxoPick(el) { el.classList.toggle('on'); el.querySelector('.fp-order').textContent = ''; }
 
     async function applyTaxoProposal() {
       const panel = document.getElementById('taxo-panel');
@@ -4636,8 +4657,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       }
       await loadGroups(_manageLang);
       renderGroupsManager();
-      panel.innerHTML = `<p style="color:var(--verde)">✓ ${created} groupe(s) créé(s), ${updated} description(s) mise(s) à jour.</p>` +
-        (created ? '<p style="color:var(--gris);font-size:0.85rem">Les nouveaux groupes sont vides : lance « 🏷 classer les mots sans groupe » pour qu\'ils se remplissent.</p>' : '');
+      panel.innerHTML = `<p style="color:var(--verde)">${created} groupe(s) créé(s), ${updated} description(s) mise(s) à jour.</p>` +
+        (created ? '<p style="color:var(--gris);font-size:0.85rem">Les nouveaux groupes sont vides : lance « classer les mots sans groupe » pour qu\'ils se remplissent.</p>' : '');
     }
 
     // Rouvre les mots restés sans groupe et les repasse à la moulinette, par
@@ -4654,7 +4675,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         const d0 = await r0.json();
         if (!r0.ok) throw new Error(d0.error?.message || 'erreur');
         let left = d0.reopened;
-        if (!left) { panel.innerHTML = '<p style="color:var(--verde)">✓ Tous tes mots ont déjà un groupe.</p>'; return; }
+        if (!left) { panel.innerHTML = '<p style="color:var(--verde)">Tous tes mots ont déjà un groupe.</p>'; return; }
         let done = 0;
         for (;;) {
           panel.innerHTML = `<p style="color:var(--gris)"><span class="spinner"></span> ${done}/${left} mots classés…</p>`;
@@ -4669,7 +4690,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         }
         await loadGroups(_manageLang);
         renderGroupsManager();
-        panel.innerHTML = `<p style="color:var(--verde)">✓ ${done} mot(s) repassés au classement.</p>`;
+        panel.innerHTML = `<p style="color:var(--verde)">${done} mot(s) repassés au classement.</p>`;
       } catch (e) {
         panel.innerHTML = `<p style="color:var(--rojo)">${escapeHtml(e.message)}</p>`;
       } finally { btn.disabled = false; }
@@ -4812,7 +4833,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       if (pk) pk.style.display = (inFree || inSit) ? '' : 'none';
       const exitBtn = document.getElementById('free-queue-exit');
       exitBtn.style.display = ((inFree && freeQueueActive) || (inSit && _sitGroupWords)) ? '' : 'none';
-      exitBtn.textContent = inSit ? '✕ quitter le groupe' : '✕ quitter la file';
+      exitBtn.textContent = inSit ? 'quitter le groupe' : 'quitter la file';
       // Le curseur de mélange vit maintenant dans ⚙ (réglage PAR LANGUE, à côté
       // des nouveaux mots/jour et des formes grammaticales).
       document.getElementById('free-mix-slider').value = freeMix;
@@ -4821,7 +4842,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
     // Sélection manuelle (mode libre) : construit le batch courant depuis
     // freeSelection[freeCursor…] ; taille = valeur du slider, le reste = file en attente.
     function freeCountLabel(shown, left) {
-      const head = (freeQueueLabel ? `🏷 ${escapeHtml(freeQueueLabel)}` : '🔍') +
+      const head = (freeQueueLabel ? escapeHtml(freeQueueLabel) : 'sélection') +
         (freeLap > 1 ? ` <span style="color:var(--gris)">· tour ${freeLap}</span>` : '');
       return left > 0
         ? `${head} · <span class="highlight">${shown}</span> affiché(s) · <span class="highlight">${left}</span> en file`
@@ -4866,7 +4887,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
       const sel = document.getElementById('reset-browse-lang');
       sel.innerHTML = selectedLangs.map(k => {
         const l = LANGS.find(x => x.key === k);
-        return `<option value="${k}">${l.flag} ${l.name}</option>`;
+        return `<option value="${k}">${l.name}</option>`;
       }).join('');
       renderResetLangs();
       document.getElementById('reset-words-list').innerHTML = '';
@@ -4895,9 +4916,8 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         const l  = LANGS.find(x => x.key === k);
         const on = _resetLangsSel.has(k);
         return `<div class="lang-pick-row ${on ? 'on' : ''}" onclick="toggleResetLang('${k}')">
-          <span class="lp-flag">${l.flag}</span>
-          <span class="lp-name">${l.name}</span>
-          <span class="lp-check">✓</span>
+                    <span class="lp-name">${l.name}</span>
+          <span class="lp-check"></span>
         </div>`;
       }).join('');
     }
@@ -4933,7 +4953,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         const on = _resetWordsSel.has(lang + '|' + w);
         return `<div class="free-pick-row ${on ? 'on' : ''}" onclick="toggleResetWord(${i})">
           <span class="fp-word">${lc(w)}</span>
-          <span class="fp-order">✓</span>
+          <span class="fp-order"></span>
         </div>`;
       }).join('');
     }
@@ -4983,7 +5003,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           pickWords();
           updateFreeSearchBar();
         }
-        alert(`✓ Réinitialisé (${count}).`);
+        alert(`Réinitialisé (${count}).`);
       } catch (e) {
         document.getElementById('reset-error').textContent = 'Erreur : ' + (e.message || e);
         btn.disabled = false; updateResetBtn();
@@ -5329,7 +5349,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
         }
 
         document.getElementById('due-count').innerHTML =
-          (_sitGroupLabel ? `🏷 ${escapeHtml(_sitGroupLabel)} · ` : '') +
+          (_sitGroupLabel ? `${escapeHtml(_sitGroupLabel)} · ` : '') +
           `<span class="highlight">${mastered.length}</span> ${tPrac(mastered.length > 1 ? 'mastered_pl' : 'mastered_sg')}`;
         if (mbar) mbar.style.display = ''; // il y a des ★★★ → on propose la liste
 
@@ -5446,7 +5466,7 @@ A JSON array of 3–5 Spanish words or expressions directly useful for describin
           // data-word = entrée COMPLÈTE : c'est la clé de progression/verdict,
           // que l'affichage ne porte plus (il ne montre que la base).
           return `<button class="word-chip${reviewCls}" data-word="${escapeHtml(lc(w)).replace(/"/g, '&quot;')}" onclick="chipHint('${esc}')">
-            <span class="chip-menu-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">⋯</span>
+            <span class="chip-menu-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tPrac('btn_options')}</span>
             <span class="chip-word">${escapeHtml(lc(base))}</span>
             ${note ? `<span class="chip-note">(${escapeHtml(lc(note))})</span>` : ''}
             ${studied ? `<span class="studied-badge">${tPrac('study_badge')}</span>` : ''}
@@ -6093,7 +6113,7 @@ Reply with ONLY this JSON object, nothing else:
     async function runWordImage(word) {
       const box  = document.getElementById('word-image-box');
       const body = document.getElementById('word-image-body');
-      document.getElementById('word-image-label').textContent = `🖼 ${lc(wordBase(word))}`;
+      document.getElementById('word-image-label').textContent = lc(wordBase(word));
       box.classList.add('visible');
       revealSessionBox(box);
       body.innerHTML = SPINNER_BOX;
@@ -6411,7 +6431,7 @@ Respond entirely in ${feedbackLang}.`;
         }
         if (!countsProgress) {
           const notice = document.getElementById('no-count-notice');
-          if (notice) notice.textContent = 'Mode Libre : ne compte pas dans la progression (réglable dans ⚙️).';
+          if (notice) notice.textContent = 'Mode Libre : ne compte pas dans la progression (réglable dans les réglages).';
         }
 
         // Envoi groupé : history en un seul appel, progress en parallèle
@@ -6471,7 +6491,7 @@ Respond entirely in ${feedbackLang}.`;
           _qcmWordsOffer = wordsForQCM;
           document.getElementById('qcm-question').textContent = langInfo.qcmQuestion;
           document.getElementById('qcm-offer-buttons').innerHTML = wordsForQCM
-            .map(w => `<button class="btn-qcm" onclick="startQCM('${w.replace(/'/g, "\\'")}')">🎯 QCM — <span class="qcm-offer-word">${lc(w)}</span></button>`)
+            .map(w => `<button class="btn-qcm" onclick="startQCM('${w.replace(/'/g, "\\'")}')">QCM — <span class="qcm-offer-word">${lc(w)}</span></button>`)
             .join('');
           document.getElementById('qcm-offer').classList.add('visible');
         }
@@ -6489,7 +6509,7 @@ Respond entirely in ${feedbackLang}.`;
       }
 
       btn.disabled = false;
-      btn.innerHTML = '↑';
+      btn.innerHTML = tPrac('sess_check');
       sentenceSubmitted = true;
     }
 
@@ -6652,6 +6672,15 @@ Write all scenarios and explanations in ${langName}.`;
       }
     }
 
+    // L'état d'une réponse se dit en toutes lettres, pas seulement en couleur :
+    // une étiquette « juste » / « faux » au-dessus du texte du scénario.
+    function markQcmChoice(b, label) {
+      if (b.querySelector('.qcm-mark')) return;
+      const m = document.createElement('span');
+      m.className = 'qcm-mark'; m.textContent = label;
+      b.prepend(m);
+    }
+
     async function checkQCM(btn, idx) {
       const chosen    = _qcmChoices[idx] || {};
       const isCorrect = !!chosen.correct;
@@ -6662,10 +6691,10 @@ Write all scenarios and explanations in ${langName}.`;
         const c = _qcmChoices[i];
         if (b === btn) {
           b.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
-          b.textContent = (isCorrect ? '✓ ' : '✗ ') + (c ? c.text : b.textContent);
+          markQcmChoice(b, tPrac(isCorrect ? 'mark_ok' : 'mark_ko'));
         } else if (c && c.correct && !isCorrect) {
           b.classList.add('correct-answer'); // révèle la bonne réponse
-          b.textContent = '✓ ' + c.text;
+          markQcmChoice(b, tPrac('mark_ok'));
         }
       });
 
@@ -6678,8 +6707,8 @@ Write all scenarios and explanations in ${langName}.`;
         // Compte comme ✗ supplémentaire (sauf en étude)
         if (!inStudy) await saveProgress(qcmWord, false);
         // Le « pourquoi » : pourquoi le scénario choisi ne colle pas + pourquoi la bonne réponse colle
-        let html = `✗ ${chosen.explanation || tPrac('qcm_bad')}`;
-        if (correct && correct.explanation) html += `<br>✓ ${correct.explanation}`;
+        let html = `${chosen.explanation || tPrac('qcm_bad')}`;
+        if (correct && correct.explanation) html += `<br>${correct.explanation}`;
         resultEl.innerHTML = html;
         resultEl.className = 'qcm-result incorrect';
         // Après un échec : accès direct à la définition dans la boîte du haut
@@ -6711,7 +6740,7 @@ Write all scenarios and explanations in ${langName}.`;
         }
       } else {
         // Résultat neutre — ni ✓ ni ✗ dans la progression
-        resultEl.innerHTML = `✓ ${chosen.explanation || tPrac('qcm_good')}`;
+        resultEl.innerHTML = `${chosen.explanation || tPrac('qcm_good')}`;
         resultEl.className = 'qcm-result correct';
         if (inStudy) {
           await markWordStudied(qcmWord);
@@ -6830,7 +6859,7 @@ Write all scenarios and explanations in ${langName}.`;
       } catch (err) {
         console.error(`[Sheets] Erreur saveProgress :`, err.message);
         const notice = document.getElementById('no-count-notice');
-        if (notice) notice.textContent += ' ⚠️ Erreur de sauvegarde — vérifie ta connexion.';
+        if (notice) notice.textContent += ' Erreur de sauvegarde — vérifie ta connexion.';
       }
     }
 
@@ -6964,7 +6993,7 @@ Write all scenarios and explanations in ${langName}.`;
     }
     function sessionDueSuffix(word) {
       const lab = sessionDueLabel(word);
-      return lab ? `<span class="session-due">📅 ${lab}</span>` : '';
+      return lab ? `<span class="session-due">· ${lab}</span>` : '';
     }
 
     function unlockSessionHelp() {
@@ -6984,7 +7013,7 @@ Write all scenarios and explanations in ${langName}.`;
 
     function updateModeLabel() {
       const el = document.getElementById('mode-current-label');
-      if (el) el.innerHTML = tApp('modem_' + practiceMode);
+      if (el) el.innerHTML = `${tApp('mode_prefix')} ${tApp('modem_' + practiceMode).toLowerCase()}`;
     }
 
     function openModeMenu(ev) {
@@ -6992,7 +7021,7 @@ Write all scenarios and explanations in ${langName}.`;
       _ctxWord = null;
       document.getElementById('word-ctx-label').textContent = '';
       document.getElementById('ctx-langs').innerHTML = MODE_KEYS.map(k =>
-        `<button class="ctx-menu-btn" onclick="pickMode('${k}')">${k === practiceMode ? '✓ ' : ''}${tApp('modem_' + k)}</button>`
+        `<button class="ctx-menu-btn${k === practiceMode ? ' on' : ''}" onclick="pickMode('${k}')">${tApp('modem_' + k)}</button>`
       ).join('');
       document.getElementById('ctx-main').style.display  = 'none';
       document.getElementById('ctx-langs').style.display = '';
@@ -7527,8 +7556,7 @@ Write all scenarios and explanations in ${langName}.`;
       document.getElementById('session-body').innerHTML =
         `<div class="word-card">
            <span class="word-label">${tApp('sess_done')}</span>
-           <span class="done-check">✓</span>
-           <p class="session-note">${tApp('sess_score').replace('{a}', sessionOk).replace('{b}', total)}</p>
+                      <p class="session-note">${tApp('sess_score').replace('{a}', sessionOk).replace('{b}', total)}</p>
            <p class="session-note">${sessionPendingLine()}</p>
          </div>
          ${sessionEndActions()}`;
@@ -7659,14 +7687,14 @@ Write all scenarios and explanations in ${langName}.`;
       _sessionHelpOpen = isNewWord(item.word);
       const esc = item.word.replace(/'/g, "\\'");
       body.innerHTML =
-        `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn" id="qcm-regen" title="${tPrac('qcm_regen')}" onclick="regenQCM()">↻</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">⋯</span></div>
+        `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn" id="qcm-regen" title="${tPrac('qcm_regen')}" onclick="regenQCM()">${tApp('qcm_regen')}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tApp('btn_options')}</span></div>
          <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
          ${wordNote(item.word) ? `<div class="session-def">${wordNote(item.word)}</div>` : ''}
          <p class="session-q">${tPrac('sess_which')}</p>
          <div id="session-choices"><div style="padding:0.6rem;color:var(--gris)"><span class="spinner"></span></div></div>
          <div id="session-result"></div>
          <div class="session-actions" id="session-help"${_sessionHelpOpen ? '' : ' style="display:none"'}>
-           <button class="btn-ghost" onclick="fetchHint('${esc}')">📖 ${tPrac('sess_def')}</button>
+           <button class="btn-ghost" onclick="fetchHint('${esc}')">${tPrac('sess_def')}</button>
          </div>`;
       prefetchQCM(sessionIdx + 1);
       try {
@@ -7703,7 +7731,7 @@ Write all scenarios and explanations in ${langName}.`;
         `<p class="session-note">${tPrac('qcm_unknown')}</p>` +
         (why ? `<p class="session-note" style="font-style:italic">${escapeHtml(why)}</p>` : '') +
         `<div class="session-actions" style="gap:0.6rem">
-           <button class="btn-ghost" onclick="editWordOnCard('${esc}', '${escapeJs(fix)}')">✏️ ${tPrac('qcm_add_sense')}</button>
+           <button class="btn-ghost" onclick="editWordOnCard('${esc}', '${escapeJs(fix)}')">${tPrac('qcm_add_sense')}</button>
          </div>`;
       // ↻ reste offert : c'est la seule façon de redemander un vrai exercice si l'on
       // pense que le modèle se sous-estime. Écrire le sens entre parenthèses, lui,
@@ -7734,11 +7762,11 @@ Write all scenarios and explanations in ${langName}.`;
       const right = (item.choices || []).find(c => c.correct);
       document.querySelectorAll('#session-choices .qcm-choice').forEach((b, i) => {
         b.disabled = true;
-        if (item.choices[i] && item.choices[i].correct) b.classList.add('correct-answer');
+        if (item.choices[i] && item.choices[i].correct) { b.classList.add('correct-answer'); markQcmChoice(b, tApp('mark_ok')); }
       });
       const res = document.getElementById('session-result');
       res.className = 'qcm-result incorrect';
-      res.innerHTML = right?.explanation ? `✓ ${right.explanation}` : '';
+      res.innerHTML = right?.explanation ? right.explanation : '';
       const rg = document.getElementById('qcm-regen'); if (rg) rg.style.display = 'none';
       unlockSessionHelp();
       await recordSessionAnswer(item.word, false);
@@ -7759,16 +7787,21 @@ Write all scenarios and explanations in ${langName}.`;
       document.querySelectorAll('#session-choices .qcm-choice').forEach((b, i) => {
         b.disabled = true;
         const c = item.choices[i];
-        if (b === btn)                        b.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
-        else if (c && c.correct && !isCorrect) b.classList.add('correct-answer');
+        if (b === btn) {
+          b.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
+          markQcmChoice(b, tApp(isCorrect ? 'mark_ok' : 'mark_ko'));
+        } else if (c && c.correct && !isCorrect) {
+          b.classList.add('correct-answer');
+          markQcmChoice(b, tApp('mark_ok'));
+        }
       });
 
       const right = item.choices.find(c => c.correct);
       const res   = document.getElementById('session-result');
       res.className = 'qcm-result ' + (isCorrect ? 'correct' : 'incorrect');
       res.innerHTML = isCorrect
-        ? `✓ ${chosen.explanation || ''}`
-        : `✗ ${chosen.explanation || ''}` + (right?.explanation ? `<br>✓ ${right.explanation}` : '');
+        ? `${chosen.explanation || ''}`
+        : `${chosen.explanation || ''}` + (right?.explanation ? `<br>${right.explanation}` : '');
 
       const rg = document.getElementById('qcm-regen'); if (rg) rg.style.display = 'none';
       unlockSessionHelp();
@@ -8022,8 +8055,8 @@ Answer ONLY with JSON, no markdown fence:
                    ? `<span class="rc-flex">${tApp('sess_inbase').replace('{w}', lc(b.entry))}</span>` : '';
                  const due = sessionDueLabel(b.entry);
                  return `<div class="cloze-recap-row">
-                           <span class="rc-mark ${okB ? 'ok' : 'ko'}">${okB ? '✓' : '✗'}</span>
-                           <span>${lc(b.form)}${flex}${due ? `<span class="rc-due">📅 ${due}</span>` : ''}</span>
+                           <span class="rc-mark ${okB ? 'ok' : 'ko'}">${tApp(okB ? 'mark_ok' : 'mark_ko')}</span>
+                           <span>${lc(b.form)}${flex}${due ? `<span class="rc-due">${due}</span>` : ''}</span>
                            ${starsHtml(b.entry)}
                          </div>`;
                }).join('')}</div>`;
@@ -8150,7 +8183,7 @@ Answer ONLY with JSON, no markdown fence:
       document.getElementById('mots-filters').innerHTML = ['all', ...LANGS.map(l => l.key)].map(k => {
         const info  = LANGS.find(x => x.key === k);
         const count = k === 'all' ? motsData.length : motsData.filter(m => m.lang === k).length;
-        const label = k === 'all' ? `🌐 Tout (${count})` : `${info.flag} ${count}`;
+        const label = k === 'all' ? `${tApp('filter_all')} (${count})` : `${info.name} ${count}`;
         return `<button class="filter-btn ${k === motsFilter ? 'active' : ''}" onclick="setMotsFilter('${k}')">${label}</button>`;
       }).join('');
     }
@@ -8172,7 +8205,7 @@ Answer ONLY with JSON, no markdown fence:
       if (id === -2) return 'à travailler';
       if (id === -3) return 'sans groupe';
       const g = (groupsCache[motsFilter] || []).find(x => x.id === id);
-      return g ? (g.kind === 'lot' ? '📘 ' : '') + g.name : 'groupe';
+      return g ? g.name + (g.kind === 'lot' ? ' ' + tApp('lot_suffix') : '') : 'groupe';
     }
 
     async function renderMotsGroupFilters() {
@@ -8183,8 +8216,7 @@ Answer ONLY with JSON, no markdown fence:
       const paint = () => {
         box.innerHTML =
           `<button class="group-select-btn${motsGroupFilter === null ? '' : ' active'}" onclick="openMotsGroupPicker()">
-             <span>🏷 groupe : <span class="gsel-val">${escapeHtml(motsGroupName())}</span></span>
-             <span>▾</span>
+             <span>groupe : <span class="gsel-val">${escapeHtml(motsGroupName())}</span></span>
            </button>`;
       };
       paint(); // le bouton s'affiche tout de suite : sa hauteur ne dépend d'aucun chargement
@@ -8228,7 +8260,7 @@ Answer ONLY with JSON, no markdown fence:
       const real = groups.filter(g => g.n > 0);
       html += real.length
         ? `<div style="height:1px;background:var(--linea);margin:0.5rem 0"></div>` +
-          real.map(g => row(g.id, (g.kind === 'lot' ? '📘 ' : '') + escapeHtml(g.name), g.n)).join('')
+          real.map(g => row(g.id, escapeHtml(g.name) + (g.kind === 'lot' ? ' ' + tApp('lot_suffix') : ''), g.n)).join('')
         : '<div id="free-search-empty">Aucun groupe pour cette langue.</div>';
       list.innerHTML = html;
     }
@@ -8335,17 +8367,17 @@ Answer ONLY with JSON, no markdown fence:
         <div class="mots-toolbar">
           <span>${tApp(total === 1 ? 'words_count_one' : 'words_count').replace('{n}', nf(total))}</span>
           <span class="mots-pager">
-            <button class="btn-ghost" ${motsPage <= 0 ? 'disabled' : ''} onclick="motsGoPage(-1)">◀</button>
+            <button class="btn-ghost" ${motsPage <= 0 ? 'disabled' : ''} onclick="motsGoPage(-1)">${tApp('page_prev')}</button>
             <span class="cur">${tApp('page_label')} ${pageCount ? motsPage + 1 : 0}</span>&nbsp;${tApp('page_of')} ${pageCount}
-            <button class="btn-ghost" ${motsPage >= pageCount - 1 ? 'disabled' : ''} onclick="motsGoPage(1)">▶</button>
+            <button class="btn-ghost" ${motsPage >= pageCount - 1 ? 'disabled' : ''} onclick="motsGoPage(1)">${tApp('page_next')}</button>
           </span>
-          <button class="btn-ghost mots-size" onclick="openPageSizeMenu(event)">${tApp('per_page').replace('{n}', motsPageSize)} ▾</button>
+          <button class="btn-ghost mots-size" onclick="openPageSizeMenu(event)">${tApp('per_page').replace('{n}', motsPageSize)}</button>
         </div>
         ${sel ? `<div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.6rem;background:var(--relleno);border:1px solid var(--tinta);border-radius:10px;">
           <strong>${tApp('selected_n').replace('{n}', sel)}</strong>
           <button class="btn-ghost" onclick="clearMotsSelection()">${tApp('cancel_lc')}</button>
-          <button class="btn-ghost" style="margin-left:auto" onclick="groupSelectedMots(event)">🏷</button>
-          <button class="btn-ghost" onclick="moveSelectedMots(event)">🔀</button>
+          <button class="btn-ghost" style="margin-left:auto" onclick="groupSelectedMots(event)">${tApp('act_groups')}</button>
+          <button class="btn-ghost" onclick="moveSelectedMots(event)">${tApp('act_lang')}</button>
           <button class="btn-ghost" style="color:var(--rojo)" onclick="deleteSelectedMots()">${tApp('btn_delete')}</button>
         </div>` : ''}`;
     }
@@ -8365,7 +8397,7 @@ Answer ONLY with JSON, no markdown fence:
       const allPageSel = _pageRowsCache.length && _pageRowsCache.every(m => motsSelected.has(motKey(m)));
       list.innerHTML = `<div class="mot-row selectable" style="background:transparent;border-color:transparent"
             onclick="toggleSelectAllPage(${!allPageSel})">
-          <span class="mot-check">${allPageSel ? '✓' : ''}</span>
+          <span class="mot-check"></span>
           <span style="color:var(--gris);font-size:0.85rem">${tApp('select_all_page')}</span>
         </div>` + _pageRowsCache.map((m, idx) => {
         const info = LANGS.find(x => x.key === m.lang);
@@ -8376,19 +8408,21 @@ Answer ONLY with JSON, no markdown fence:
         // s'en excluent eux-mêmes (voir toggleMotRow).
         return `<div class="mot-row selectable ${checked ? 'sel' : ''}" onclick="toggleMotRow(event, '${m.lang}','${esc}')">
           <span style="display:flex;align-items:center;gap:0.5rem;min-width:0">
-            <span class="mot-check">${checked ? '✓' : ''}</span>
+            <span class="mot-check"></span>
             <span style="min-width:0">
-              <span class="mot-w">${info?.flag || ''} ${motWordHtml(m.word)}</span>
+              <span class="mot-code">${info?.code || ''}</span><span class="mot-w">${motWordHtml(m.word)}</span>
               <span class="mot-groups" id="mg-${idx}"></span>
             </span>
           </span>
           <span class="mot-actions">
             <span class="stars ${si.cls}" style="font-size:0.8rem">${si.str}</span>
             <span class="mot-date">${fmtMotDate(m.created_at)}</span>
-            <button onclick="verifyMot('${m.lang}','${esc}', event)" title="${tApp('title_verify')}">🔍</button>
-            <button onclick="editMot('${m.lang}','${esc}')" title="${tApp('title_rename')}">✏️</button>
-            <button onclick="moveMot('${m.lang}','${esc}', event)" title="${tApp('ctx_move')}">🔀</button>
-            <button onclick="deleteMot('${m.lang}','${esc}')" title="${tApp('title_delete')}">🗑</button>
+          </span>
+          <span class="mot-actions mot-acts">
+            <button onclick="verifyMot('${m.lang}','${esc}', event)" title="${tApp('title_verify')}">${tApp('act_verify')}</button>
+            <button onclick="editMot('${m.lang}','${esc}')" title="${tApp('title_rename')}">${tApp('act_edit')}</button>
+            <button onclick="moveMot('${m.lang}','${esc}', event)" title="${tApp('ctx_move')}">${tApp('act_lang')}</button>
+            <button onclick="deleteMot('${m.lang}','${esc}')" title="${tApp('title_delete')}" class="danger">${tApp('act_delete')}</button>
           </span>
         </div>`;
       }).join('');
@@ -8435,7 +8469,7 @@ Answer ONLY with JSON, no markdown fence:
         const names = groupsCache[m.lang] || [];
         el.innerHTML = (ids || []).map(id => {
           const g = names.find(x => x.id === id);
-          return g ? `<button class="mot-gchip" onclick="motsFilterByGroup('${m.lang}',${id})">${g.kind === 'lot' ? '📘 ' : ''}${escapeHtml(g.name)}</button>` : '';
+          return g ? `<button class="mot-gchip" onclick="motsFilterByGroup('${m.lang}',${id})">${escapeHtml(g.name)}${g.kind === 'lot' ? ' ' + tApp('lot_suffix') : ''}</button>` : '';
         }).join('');
       });
     }
@@ -8574,7 +8608,7 @@ Answer ONLY with JSON, no markdown fence:
       document.getElementById('word-ctx-label').textContent = label;
       const box = document.getElementById('ctx-groups');
       box.innerHTML = groups.map(g =>
-        `<button class="ctx-menu-btn" onclick="pickGroupMenu(${g.id})">${g.kind === 'lot' ? '📘 ' : ''}${escapeHtml(g.name)}</button>`
+        `<button class="ctx-menu-btn" onclick="pickGroupMenu(${g.id})">${escapeHtml(g.name)}${g.kind === 'lot' ? ' ' + tApp('lot_suffix') : ''}</button>`
       ).join('') + `<button class="ctx-menu-btn" onclick="closeWordContextMenu()">${tApp('btn_cancel')}</button>`;
       document.getElementById('ctx-main').style.display = 'none';
       box.style.display = '';
@@ -8631,7 +8665,7 @@ Answer ONLY with JSON, no markdown fence:
       label.style.display = solo ? 'none' : '';
       box.innerHTML = langs.map(k => {
         const info = LANGS.find(l => l.key === k);
-        return `<button class="filter-btn ${k === addLang ? 'active' : ''}" onclick="setAddLang('${k}')">${info.flag} ${info.name}</button>`;
+        return `<button class="filter-btn ${k === addLang ? 'active' : ''}" onclick="setAddLang('${k}')">${info.name}</button>`;
       }).join('');
     }
 
@@ -8698,13 +8732,13 @@ Answer ONLY with JSON, no markdown fence:
     // HTML d'une ligne de résultat selon la réponse texte de /add
     function _renderAddRowResult(txt, i, word) {
       const w = escapeHtml(word);
-      if (txt.startsWith('Succès'))  return `<span style="color:var(--verde)">✓ ${w}</span>`;
-      if (txt.startsWith('Doublon')) return `<span style="color:var(--ocre)">◦ ${w} — ${tApp('add_dup')}</span>`;
+      if (txt.startsWith('Succès'))  return `<span style="color:var(--verde)">${w} — ${tApp('act_added')}</span>`;
+      if (txt.startsWith('Doublon')) return `<span style="color:var(--ocre)">${w} — ${tApp('add_dup')}</span>`;
       let warn, flags;
       if      (txt.startsWith('INVALID:')) { warn = escapeHtml(txt.slice(8).split('|')[0].trim()); flags = 'sens'; }
       else if (txt.startsWith('SIMILAR:')) { warn = tApp('add_variant_of') + ' ' + escapeHtml(txt.slice(8).split('|')[0].trim()); flags = 'sim'; }
       else if (txt.startsWith('NOKEY:'))   { warn = escapeHtml(txt.slice(6).split('|')[0].trim()); flags = 'both'; }
-      else return `<span style="color:var(--rojo)">✗ ${w} — ${escapeHtml(txt)}</span>`;
+      else return `<span style="color:var(--rojo)">${w} — ${escapeHtml(txt)}</span>`;
       // « ajouter le mot proposé » : le mot part dans _addBatch (jamais dans le
       // onclick — une apostrophe dans la suggestion casserait l'attribut).
       const sugg = flags === 'sens' ? _addSuggestion(txt) : '';
@@ -8712,7 +8746,7 @@ Answer ONLY with JSON, no markdown fence:
       const btnSugg = sugg
         ? `<button class="btn-secondary" style="margin-left:0.4rem;padding:0.15rem 0.5rem;font-size:0.78rem" onclick="addSuggestedRow(${i})">${tApp('add_suggested').replace('{w}', escapeHtml(sugg))}</button>`
         : '';
-      return `<span style="color:var(--ocre)">⚠️ ${w} — ${warn}</span>${btnSugg}
+      return `<span style="color:var(--ocre)">${w} — ${warn}</span>${btnSugg}
         <button class="btn-secondary" style="margin-left:0.4rem;padding:0.15rem 0.5rem;font-size:0.78rem" onclick="retryAddRow(${i}, '${flags}')">${tApp('add_anyway')}</button>`;
     }
 
@@ -8792,7 +8826,7 @@ Answer ONLY with JSON, no markdown fence:
         const r = await authFetch('/api/grammar', { method: 'POST', body: JSON.stringify({ lang, category, form }) });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error?.message || 'erreur');
-        res.className = 'add-result ok'; res.textContent = `✓ « ${form} » ajouté à « ${category} ».`;
+        res.className = 'add-result ok'; res.textContent = `« ${form} » ajouté à « ${category} ».`;
         document.getElementById('add-form-input').value = '';
         loadAddGrammarList();
         if (lang === currentLang) loadGrammarForms(); // rafraîchit le pool en mémoire
@@ -8809,7 +8843,7 @@ Answer ONLY with JSON, no markdown fence:
         if (forms.length === 0) { list.innerHTML = '<p style="color:var(--gris);font-style:italic;">Aucune forme pour cette langue.</p>'; return; }
         list.innerHTML = forms.map(f => `<div class="mot-row">
           <span class="mot-w">${escapeHtml(f.form)} <span style="color:var(--gris);font-size:0.78rem">— ${escapeHtml(f.category)}</span></span>
-          <span class="mot-actions"><button onclick="deleteGrammarForm('${escapeJs(f.category)}','${escapeJs(f.form)}')" title="Supprimer">🗑</button></span>
+          <span class="mot-actions"><button onclick="deleteGrammarForm('${escapeJs(f.category)}','${escapeJs(f.form)}')" title="Supprimer" class="danger">${tApp('act_delete')}</button></span>
         </div>`).join('');
       } catch (e) { list.innerHTML = `<p style="color:var(--rojo)">Erreur : ${e.message}</p>`; }
     }
@@ -8954,7 +8988,7 @@ Answer ONLY with JSON, no markdown fence:
         const langs = ['all', ...new Set(historyData.map(e => e.lang))];
         document.getElementById('history-filters').innerHTML = langs.map(l => {
           const info  = LANGS.find(x => x.key === l);
-          const label = l === 'all' ? tApp('filter_all') : `${info?.flag || ''} ${info?.name || l}`;
+          const label = l === 'all' ? tApp('filter_all') : `${info?.name || l}`;
           return `<button class="filter-btn ${l === historyFilter ? 'active' : ''}"
             onclick="setHistoryFilter('${l}')">${label}</button>`;
         }).join('');
@@ -9005,19 +9039,18 @@ Answer ONLY with JSON, no markdown fence:
         }
 
         const info      = LANGS.find(x => x.key === e.lang);
-        const flag      = info?.flag || '';
         const isCorrect = e.result === '✓';
         const resultCls = isCorrect ? 'color:var(--verde)' : 'color:var(--rojo)';
 
         return `<div class="history-item">
           <div class="history-item-left">
-            <span class="history-word">${flag} ${e.word}</span>
+            <span class="history-word"><span class="mot-code">${info?.code || ''}</span>${e.word}</span>
             <span class="history-date">${dateStr}</span>
           </div>
           <div class="history-item-right">
-            <span style="font-size:1rem;font-weight:600;${resultCls}">${e.result}</span>
+            <span style="font-size:var(--t-pequeno);${resultCls}">${tApp(isCorrect ? 'mark_ok' : 'mark_ko')}</span>
             <span class="history-stars ${starsCls}">${stars}</span>
-            <span class="history-score">✓${e.correct} ✗${e.incorrect}</span>
+            <span class="history-score">${e.correct} / ${e.correct + e.incorrect}</span>
           </div>
         </div>`;
       }).join('');
@@ -9053,7 +9086,7 @@ Answer ONLY with JSON, no markdown fence:
           const pct        = s.total > 0 ? Math.round((s.mastered / s.total) * 100) : 0;
           const notStarted = s.total - practiced;
           return `<div class="stats-lang-block">
-            <div class="stats-lang-title"><span class="flag">${l.flag}</span><span>${l.name}</span></div>
+            <div class="stats-lang-title"><span>${l.name}</span></div>
             <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
             <div class="stats-row"><span class="label">${tApp('stats_total')}</span><span class="value">${s.total}</span></div>
             <div class="stats-row"><span class="label">${tApp('stats_mastered')}</span><span class="value green">${s.mastered}</span></div>
@@ -9301,14 +9334,14 @@ Do NOT display the steps or your internal reasoning. Show the learner only:
         // Verrouille la saisie SANS masquer la section ; remplace « Je ne sais pas »
         // par « Autre situation » (au même endroit, entre le texte et le champ).
         lockSituationAnswer(true);
-        btn.innerHTML = '↑';
+        btn.innerHTML = tPrac('sess_check');
         document.getElementById('btn-situation-skip').style.display = 'none';
         document.getElementById('btn-situation-next').style.display = '';
 
       } catch (err) {
         document.getElementById('situation-feedback-text').textContent = 'Erreur : ' + err.message;
         btn.disabled = false;
-        btn.innerHTML = '↑';
+        btn.innerHTML = tPrac('sess_check');
       }
     }
 
@@ -9408,8 +9441,8 @@ Return ONLY a JSON array of exactly 3 items, no other text:
             `<div class="related-chip">
               <div class="rel-head">
                 <span class="rel-word">${r.word}</span>
-                ${r.relatedTo ? `<span class="rel-from">↖ ${r.relatedTo}</span>` : ''}
-                <button class="chip-add" id="chip-add-${i}" onclick="addRelatedWord('${r.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">＋</button>
+                ${r.relatedTo ? `<span class="rel-from">(${r.relatedTo})</span>` : ''}
+                <button class="chip-add" id="chip-add-${i}" onclick="addRelatedWord('${r.word.replace(/'/g,"\\'")}', ${i})" title="Ajouter à ma liste">${tPrac('act_add')}</button>
               </div>
               <span class="rel-note">${r.note}</span>
             </div>`
@@ -9428,7 +9461,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       const wordLower = word.toLowerCase();
       if (allWords.some(w => w.toLowerCase() === wordLower)) {
         btn.disabled = true;
-        btn.textContent = '↩';
+        btn.textContent = tPrac('act_in_list');
         btn.title = 'Mot déjà dans ta liste';
         btn.style.color = 'var(--gris)';
         return;
@@ -9439,13 +9472,13 @@ Return ONLY a JSON array of exactly 3 items, no other text:
 
       try {
         await authFetch('/api/words', { method: 'POST', body: JSON.stringify({ lang: currentLang, word }) });
-        btn.textContent = '✓';
+        btn.textContent = tPrac('act_added');
         btn.style.color = 'var(--verde)';
         allWords.push(word); // ajoute en mémoire pour éviter un double-ajout immédiat
         _relatedWordsAdded.add(word.toLowerCase());
         console.log(`[Sheets] ✓ Mot ajouté : ${word} → ${currentLang}`);
       } catch (err) {
-        btn.textContent = '✗';
+        btn.textContent = tPrac('act_add');
         btn.disabled = false;
         console.error(`[Sheets] Erreur addRelatedWord :`, err.message);
       }
@@ -9957,7 +9990,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       document.getElementById('ctx-langs').innerHTML =
         selectedLangs.filter(k => k !== excludeLang).map(k => {
           const info = LANGS.find(l => l.key === k);
-          return `<button class="ctx-menu-btn" onclick="pickLangMenu('${k}')">${info.flag} ${info.name}</button>`;
+          return `<button class="ctx-menu-btn" onclick="pickLangMenu('${k}')">${info.name}</button>`;
         }).join('') + `<button class="ctx-menu-btn" onclick="closeWordContextMenu()">${tApp('btn_cancel')}</button>`;
       document.getElementById('ctx-main').style.display  = 'none';
       document.getElementById('ctx-langs').style.display = '';
@@ -9977,7 +10010,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       const others = selectedLangs.filter(k => k !== currentLang);
       box.innerHTML = others.map(k => {
         const info = LANGS.find(l => l.key === k);
-        return `<button class="ctx-menu-btn" onclick="ctxMoveTo('${k}')">${info.flag} ${info.name}</button>`;
+        return `<button class="ctx-menu-btn" onclick="ctxMoveTo('${k}')">${info.name}</button>`;
       }).join('') + `<button class="ctx-menu-btn" onclick="ctxMenuBack()">${tPrac('btn_cancel')}</button>`;
       document.getElementById('ctx-main').style.display = 'none';
       box.style.display = '';
@@ -10009,7 +10042,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     function renderCtxGroups(groups) {
       const box = document.getElementById('ctx-groups');
       box.innerHTML = (groups || []).map(g =>
-        `<button class="ctx-menu-btn" onclick="toggleCtxGroup(${g.id})">${_ctxGroupIds.has(g.id) ? '✓ ' : '＋ '}${escapeHtml(lc(g.name))}</button>`
+        `<button class="ctx-menu-btn${_ctxGroupIds.has(g.id) ? ' on' : ''}" onclick="toggleCtxGroup(${g.id})">${escapeHtml(lc(g.name))}</button>`
       ).join('') + `<button class="ctx-menu-btn" onclick="ctxMenuBack()">${tPrac('btn_cancel')}</button>`;
     }
     async function toggleCtxGroup(id) {
@@ -10085,7 +10118,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     }
 
     // ── « Vérifier le mot » : le mot existe-t-il vraiment ? ────
-    // Appel FRONT (clé BYOK + modèle et raisonnement choisis dans ⚙️) : l'entonnoir
+    // Appel FRONT (clé BYOK + modèle et raisonnement choisis dans les réglages) : l'entonnoir
     // /add valide avec la clé propriétaire et un modèle plus faible, et n'est de
     // toute façon pas exposé pour un mot déjà en base.
     // Le verdict PROPOSE, il ne supprime jamais tout seul : sur un régionalisme ou
@@ -10172,7 +10205,7 @@ Reply with ONLY this JSON object, nothing else:
         const v = await verifyWordSense(word, lang);
         if (_ctxWord !== word) return; // popup refermé ou changé de mot entre-temps
         _verifySuggest = v.suggestion;
-        html = `<div class="ctx-verify-body ${v.valid ? 'ok' : 'ko'}">${v.valid ? '✓' : '✗'} ${escapeHtml(v.note)}</div>`;
+        html = `<div class="ctx-verify-body ${v.valid ? 'ok' : 'ko'}">${escapeHtml(v.note)}</div>`;
         // La suggestion s'affiche aussi sur une entrée VALIDE : depuis que le prompt
         // accepte les fragments, il peut proposer la forme plus complète (« futé de
         // + infinitif ») sans pour autant déclarer l'entrée fausse.
@@ -10400,30 +10433,30 @@ Reply with ONLY this JSON object, nothing else:
   <!-- ── Modale : instructions ── -->
   <div class="modal-overlay" id="help-modal" onclick="if(event.target===this)closeHelp()">
     <div class="modal-card">
-      <button class="modal-close" onclick="closeHelp()">✕</button>
+      <button class="modal-close" onclick="closeHelp()" data-i18n="verify_close">fermer</button>
       <h2 class="modal-title" data-i18n="help_title">Comment ça marche</h2>
       <div class="help-section">
         <h3 data-i18n="help_s1_t">1 · Démarrer</h3>
-        <div data-i18n="help_s1"><p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». Puis ouvre <strong>⚙️</strong> et colle ta <strong>clé API</strong> (OpenAI ou Gemini) : l'app s'en sert pour générer les définitions et corriger tes phrases. Ta clé reste à toi (BYOK), elle n'est jamais partagée.</p></div>
+        <div data-i18n="help_s1"><p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». Puis ouvre <strong>réglages</strong> et colle ta <strong>clé API</strong> (OpenAI ou Gemini) : l'app s'en sert pour générer les définitions et corriger tes phrases. Ta clé reste à toi (BYOK), elle n'est jamais partagée.</p></div>
       </div>
       <div class="help-section">
         <h3 data-i18n="help_s2_t">2 · Ajouter des mots</h3>
         <div data-i18n="help_s2"><ul>
-          <li><strong>Dans l'app</strong> : « ➕ ajouter du contenu » → des mots ou une forme grammaticale.</li>
+          <li><strong>Dans l'app</strong> : « ajouter du contenu » → des mots ou une forme grammaticale.</li>
           <li><strong>Depuis l'iPhone</strong> (raccourci) ou <strong>depuis ta Kindle</strong> (script) : voir ci-dessous.</li>
         </ul>
-        <p style="margin-top:0.75rem"><strong>🔑 Ton token perso.</strong> Les deux méthodes ci-dessous ont besoin de ton <em>token d'ajout</em>. Tu le trouves dans <strong>⚙️ → « lien d'ajout »</strong> : c'est la valeur après <code>token=</code> dans l'URL affichée. Il permet seulement d'ajouter des mots à <em>ton</em> compte — garde-le pour toi.</p></div>
+        <p style="margin-top:0.75rem"><strong>Ton token perso.</strong> Les deux méthodes ci-dessous ont besoin de ton <em>token d'ajout</em>. Tu le trouves dans <strong>réglages → « lien d'ajout »</strong> : c'est la valeur après <code>token=</code> dans l'URL affichée. Il permet seulement d'ajouter des mots à <em>ton</em> compte — garde-le pour toi.</p></div>
       </div>
       <div class="help-section">
-        <h3 data-i18n="help_iphone_t">📱 Raccourci iPhone</h3>
+        <h3 data-i18n="help_iphone_t">Raccourci iPhone</h3>
         <div data-i18n="help_iphone"><ol>
           <li>Installe le raccourci : <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">ouvrir le raccourci « Vocab »</a>.</li>
-          <li>Dans le raccourci, ouvre l'action <strong>« Texte »</strong> (l'URL) et remplace <code>COLLE_TON_TOKEN_ICI</code> par ton token (copié depuis ⚙️).</li>
+          <li>Dans le raccourci, ouvre l'action <strong>« Texte »</strong> (l'URL) et remplace <code>COLLE_TON_TOKEN_ICI</code> par ton token (copié depuis les réglages).</li>
           <li>Ensuite, depuis n'importe quelle app : <strong>Partager → Vocab</strong>, ou lance le raccourci et tape un mot. Si le mot est invalide ou ressemble à un mot existant, il te demande « ajouter quand même ? ».</li>
         </ol></div>
       </div>
       <div class="help-section">
-        <h3 data-i18n="help_kindle_t">📖 Import Kindle (ordinateur)</h3>
+        <h3 data-i18n="help_kindle_t">Import Kindle (ordinateur)</h3>
         <div data-i18n="help_kindle"><p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Importe d'un coup les mots surlignés sur ta Kindle. Nécessite un Mac/PC avec Python 3.</p>
         <ol>
           <li>Installe la dépendance : <code>pip3 install wordfreq</code>.</li>
@@ -10436,10 +10469,10 @@ Reply with ONLY this JSON object, nothing else:
       <div class="help-section">
         <h3 data-i18n="help_s3_t">3 · Les 4 modes</h3>
         <div data-i18n="help_s3"><ul>
-          <li><strong>📅 Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li>
-          <li><strong>🎯 Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li>
-          <li><strong>🎲 Libre</strong> — tirage aléatoire pondéré.</li>
-          <li><strong>📸 Imagen</strong> — décris une photo en espagnol.</li>
+          <li><strong>Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li>
+          <li><strong>Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li>
+          <li><strong>Libre</strong> — tirage aléatoire pondéré.</li>
+          <li><strong>Imagen</strong> — décris une photo en espagnol.</li>
         </ul></div>
       </div>
       <div class="help-section">
@@ -10447,7 +10480,7 @@ Reply with ONLY this JSON object, nothing else:
         <div data-i18n="help_s4"><ul>
           <li>Chaque mot gagne des <strong>étoiles</strong> (☆☆☆ → ★★★) selon tes réussites.</li>
           <li>Réussir <em>sans aide</em> éloigne la prochaine révision ; échouer ou afficher la définition la ramène à demain.</li>
-          <li>Tu choisis combien de <strong>nouveaux mots par jour</strong> dans ⚙️, et le bouton « 📅 mes révisions à venir » montre ton calendrier.</li>
+          <li>Tu choisis combien de <strong>nouveaux mots par jour</strong> dans les réglages, et le bouton « mes révisions à venir » montre ton calendrier.</li>
         </ul></div>
       </div>
     </div>
@@ -10456,11 +10489,11 @@ Reply with ONLY this JSON object, nothing else:
   <!-- ── Modale : filtrer « mes mots » par groupe (choix unique) ── -->
   <div class="modal-overlay" id="mots-group-modal" onclick="if(event.target===this)closeMotsGroupPicker()">
     <div class="modal-card">
-      <button class="modal-close" onclick="closeMotsGroupPicker()">✕</button>
+      <button class="modal-close" onclick="closeMotsGroupPicker()" data-i18n="verify_close">fermer</button>
       <h2 class="modal-title">Filtrer par groupe</h2>
       <div id="mots-group-list" style="max-height:52vh; overflow-y:auto;"></div>
       <div style="text-align:right; margin-top:0.6rem;">
-        <button class="btn-ghost" style="font-size:0.8rem" id="mots-group-manage">⚙ gérer les groupes</button>
+        <button class="btn-ghost" style="font-size:0.8rem" id="mots-group-manage">gérer les groupes</button>
       </div>
     </div>
   </div>
@@ -10468,7 +10501,7 @@ Reply with ONLY this JSON object, nothing else:
   <!-- ── Modale : choix des langues ── -->
   <div class="modal-overlay" id="lang-picker-modal" onclick="if(event.target===this)closeLangPicker()">
     <div class="modal-card">
-      <button class="modal-close" id="lang-picker-close" onclick="closeLangPicker()">✕</button>
+      <button class="modal-close" id="lang-picker-close" onclick="closeLangPicker()" data-i18n="verify_close">fermer</button>
       <h2 class="modal-title" data-i18n="langpicker_title">Tes langues</h2>
       <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem" data-i18n="langpicker_note">Choisis les langues que tu veux étudier (au moins une).</p>
       <div id="lang-picker-list"></div>
@@ -10480,12 +10513,12 @@ Reply with ONLY this JSON object, nothing else:
   <!-- Recherche d'un mot à pratiquer (mode libre) -->
   <div class="modal-overlay" id="groups-modal" onclick="if(event.target===this)closeGroupsPicker()">
     <div class="modal-card">
-      <button class="modal-close" onclick="closeGroupsPicker()">✕</button>
+      <button class="modal-close" onclick="closeGroupsPicker()" data-i18n="verify_close">fermer</button>
       <h2 class="modal-title">Mes groupes</h2>
       <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs groupes, puis choisis combien de mots pratiquer.</p>
       <div id="groups-list" style="max-height:42vh; overflow-y:auto;"></div>
       <div style="text-align:right; margin-top:0.4rem;">
-        <button class="btn-ghost" style="font-size:0.8rem" onclick="openGroupsManager()">⚙ gérer mes groupes</button>
+        <button class="btn-ghost" style="font-size:0.8rem" onclick="openGroupsManager()">gérer mes groupes</button>
       </div>
       <div id="groups-subset" style="display:flex; gap:0.4rem; margin-top:0.9rem;">
         <button class="filter-btn active" id="gsub-all"    onclick="setGroupSubset('all')"    style="flex:1 1 auto">tous</button>
@@ -10507,10 +10540,10 @@ Reply with ONLY this JSON object, nothing else:
 
   <div class="modal-overlay" id="free-search-modal" onclick="if(event.target===this)closeFreeSearch()">
     <div class="modal-card">
-      <button class="modal-close" onclick="closeFreeSearch()">✕</button>
+      <button class="modal-close" onclick="closeFreeSearch()" data-i18n="verify_close">fermer</button>
       <h2 class="modal-title">Chercher un mot</h2>
       <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem">Coche un ou plusieurs mots à pratiquer (dans l'ordre choisi), puis « commencer ».</p>
-      <input type="text" id="free-search-input" placeholder="🔍 filtrer…" autocomplete="off" autocapitalize="off"
+      <input type="text" id="free-search-input" placeholder="filtrer…" autocomplete="off" autocapitalize="off"
         oninput="renderFreeSearchList(this.value)"
         style="width:100%;box-sizing:border-box;margin-bottom:0.6rem;">
       <div id="free-search-sort" style="display:flex; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.7rem;">
@@ -10528,7 +10561,7 @@ Reply with ONLY this JSON object, nothing else:
   <!-- Réinitialiser la progression -->
   <div class="modal-overlay" id="reset-progress-modal" onclick="if(event.target===this)closeResetProgress()">
     <div class="modal-card">
-      <button class="modal-close" onclick="closeResetProgress()">✕</button>
+      <button class="modal-close" onclick="closeResetProgress()" data-i18n="verify_close">fermer</button>
       <h2 class="modal-title">Réinitialiser la progression</h2>
       <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem">Les mots choisis redeviennent « nouveaux » (étoiles remises à zéro, sortis des révisions). <strong>L'historique est conservé.</strong></p>
       <div class="reset-mode-tabs">
@@ -10548,7 +10581,7 @@ Reply with ONLY this JSON object, nothing else:
           <select id="reset-browse-lang" onchange="onResetBrowseLangChange(this.value)"
             style="font-size:0.8rem;"></select>
         </div>
-        <input type="text" id="reset-words-search" placeholder="🔍 filtrer…" autocomplete="off" autocapitalize="off"
+        <input type="text" id="reset-words-search" placeholder="filtrer…" autocomplete="off" autocapitalize="off"
           oninput="renderResetWords(this.value)"
           style="width:100%;box-sizing:border-box;margin-bottom:0.7rem;">
         <div id="reset-words-list" style="max-height:42vh; overflow-y:auto;"></div>
@@ -10563,13 +10596,13 @@ Reply with ONLY this JSON object, nothing else:
   <div id="word-ctx-menu">
     <div class="ctx-word-label" id="word-ctx-label"></div>
     <div id="ctx-main">
-      <button class="ctx-menu-btn" onclick="ctxMenuVerify()" data-i18n="ctx_verify">🔍 Vérifier le mot</button>
-      <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuTranslate()" data-i18n="ctx_translate">🌐 Traduire</button>
-      <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuPhoto()" data-i18n="ctx_photo">🖼 Voir une image</button>
-      <button class="ctx-menu-btn" onclick="ctxMenuEdit()" data-i18n="ctx_edit">✏️ Modifier</button>
-      <button class="ctx-menu-btn" onclick="ctxMenuGroups()">🏷 Groupes</button>
-      <button class="ctx-menu-btn" onclick="ctxMenuMove()" data-i18n="ctx_move">🔀 Changer de langue</button>
-      <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()" data-i18n="ctx_delete">🗑 Supprimer</button>
+      <button class="ctx-menu-btn" onclick="ctxMenuVerify()" data-i18n="ctx_verify">Vérifier le mot</button>
+      <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuTranslate()" data-i18n="ctx_translate">Traduire</button>
+      <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuPhoto()" data-i18n="ctx_photo">Voir une image</button>
+      <button class="ctx-menu-btn" onclick="ctxMenuEdit()" data-i18n="ctx_edit">Modifier</button>
+      <button class="ctx-menu-btn" onclick="ctxMenuGroups()" data-i18n="act_groups">Groupes</button>
+      <button class="ctx-menu-btn" onclick="ctxMenuMove()" data-i18n="ctx_move">Changer de langue</button>
+      <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()" data-i18n="ctx_delete">Supprimer</button>
       <button class="ctx-menu-btn" onclick="closeWordContextMenu()" data-i18n="btn_cancel">Annuler</button>
     </div>
     <!-- Sous-menu « changer de langue » (rempli par ctxMenuMove) -->
