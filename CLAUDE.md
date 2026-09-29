@@ -19,9 +19,10 @@ App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **C
 - **Thème sombre** (`oscuro.css`, suit le système) : app d'usage quotidien.
 - **`--barra-estado`** : rideau sous la barre d'état iOS, sombre dans les deux thèmes — `black-translucent` affiche toujours un texte blanc.
 - **Mono du système** seulement pour le technique : compteur de tokens, clés API, lien d'ajout, `code` de l'aide.
-- **Colonne étroite** (`.screen`, 480 px) : app pensée pour le téléphone.
+- **Colonne étroite** (`.screen`, 480 px, alignée à gauche) : app pensée pour le téléphone.
+- **Popups et modales** (`#word-ctx-menu`, `.modal-card`) : papier + filet `--linea-fuerte`, sans ombre ni radius ; voile de la modale = `color-mix` du papier. Pièce absente du style commun (dialogues) — à proposer si elle sert ailleurs.
 - **Mots « à réviser » en gris** (`chip-review`/`card-review`) tant que « nouveau » n'est pas dit en toutes lettres — l'or qui distinguait les nouveaux a disparu avec l'accent.
-- **Migration en cours** (commencée le 2026-09-29) : base ✓ · structure · éléments · emojis · mouvement. Maquette validée : https://claude.ai/artifact/Adwdr7PnG1UQoKX6qyC791 — icône = **globo aerostático à 7 panneaux alternés** (variante F).
+- **Migration en cours** (commencée le 2026-09-29) : base ✓ · structure ✓ · éléments · emojis · mouvement. Maquette validée : https://claude.ai/artifact/Adwdr7PnG1UQoKX6qyC791 — icône = **globo aerostático à 7 panneaux alternés** (variante F).
 
 ---
 
@@ -422,7 +423,7 @@ Prompt anglais, réponse espagnol. Sections : `## Precisión`, `## Análisis lin
 - **Journée faite** → `✓ <mots faits>`, anneau vert plein. ⚠️ Le nombre **réel**, pas « objectif / objectif » : baisser la taille de la manche après coup ferait dire « 8 » à une journée de 12 mots.
 - **Journée en cours** → `fait / objectif`, arc doré.
 - **La pile passe SOUS la fraction** (`.lang-sub`, « 14 en attente ») et ne pèse plus sur l'anneau. Elle annonce le **nombre de rappels dus, tel quel** — le même que l'écran de départ du mode. ⚠️ Elle disait auparavant « ce qui ne tient pas dans l'objectif du jour » (rappels + neufs − la manche) : **26** sur l'accueil contre **36** dans le mode, deux nombres différents sous le même mot « en attente ». La fraction porte déjà la manche, le sous-titre n'a pas à la reporter une seconde fois.
-- ⚠️ Le disque intérieur de l'anneau prend **`--card-bg`** et non `background: inherit` : `inherit` recopiait le **dégradé conique** du parent, donc à 100 % la pastille devenait un rond plein — l'anneau disparaissait au moment précis où il annonce une journée faite. La variable couvre aussi le survol, seule raison d'être de `inherit`.
+- **Depuis le 2026-09-29 (style commun)** : plus d'anneau autour du drapeau. Deux langues par ligne séparées par des filets ; l'avancement est une **ligne fine** sous le nom (`.lang-bar::after`, largeur `--p` posé sur le bouton par `updateLangBadges`), noire en cours, verte quand la manche du jour est faite. Le piège du disque intérieur (`--card-bg` vs `inherit`) a disparu avec le dégradé conique.
 - `roundSizeFor(lang)` : la taille de la manche est **par langue**, et la carte parcourt les quatre.
 
 `updateLangBadges` annonçait auparavant le **pool du mode espacé** (mots dus + quota de neufs) : « 340 » quand la manche en sert 19. Depuis le **2026-09-23**, ce qu'une manche peut encore servir ne se lit plus sur un quota du jour disparu : c'est **tous les mots déjà travaillés** (dus, et à défaut les plus proches de leur date) **plus la réserve de neufs de la manche**. Une langue où rien n'a été travaillé a donc pour objectif ses seuls mots neufs — exact, la manche ne servira qu'eux.
