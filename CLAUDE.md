@@ -88,6 +88,7 @@ Cold start après inactivité : ~100-200ms sur la 1re requête.
 
 - **Email/mdp** : `hashPassword`/`verifyPassword` = PBKDF2-SHA256 (100k itérations, Web Crypto), format `pbkdf2$iter$salt$hash`.
 - **Google OAuth** : lib Google Identity Services (front), bouton « Continuer avec Google » sur `screen-auth`. Le Worker vérifie l'ID token via les clés publiques Google (JWKS, cache selon `max-age`). `GOOGLE_CLIENT_ID` prod = `742808037031-...apps.googleusercontent.com` (origines JS autorisées : `localhost:8080` + `huellasenarena.github.io`).
+- **Bouton Google** (`renderGoogleButton`) : redessiné à chaque changement de langue de l'appli (`locale: appLang`, sinon Google prend la langue du navigateur). ⚠️ `#google-signin-btn` porte `color-scheme: light` : c'est une page de Google en thème clair, et sous un parent en thème sombre le navigateur peint un **fond blanc opaque** derrière elle (la « boîte blanche »).
 - **Liaison par email** : même email = un seul compte (qu'on entre par Google ou mdp) → `google_id` rattaché à la ligne existante.
 - **Session** : JWT HS256 signé par le Worker, stocké `localStorage` (`KEY_JWT = vocab_jwt`). Front : `authFetch(path, opts)` ajoute le header. `API_ENDPOINT` auto-détecté (localhost → worker local `:8787`, sinon prod).
 
