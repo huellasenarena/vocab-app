@@ -1200,6 +1200,14 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .help-section code { font-family: var(--mono); font-size: 0.82em; background: var(--relleno); padding: 0.08em 0.35em; border-radius: 2px; word-break: break-word; }
     .help-btn { font-size: 0.85rem; }
 
+    /* Connexion : sous « Se connecter », tout est centré */
+    #screen-auth .help-btn { align-self: center; }
+    .auth-or { display: flex; align-items: center; gap: 0.6rem; color: var(--gris); font-size: 0.8rem; margin: 0.2rem 0; }
+    .auth-or::before, .auth-or::after { content: ""; flex: 1; border-top: 1px solid var(--linea); }
+    /* Le bouton Google est une page de Google en thème clair : sous un parent en thème
+       sombre, le navigateur peint un fond blanc opaque derrière lui. */
+    #google-signin-btn { display: flex; justify-content: center; color-scheme: light; }
+
     /* Bouton « ajouter une langue » dans la grille */
     .lang-btn.lang-add-btn { color: var(--gris); }
     .lang-btn.lang-add-btn:hover { opacity: 1; }
@@ -1661,8 +1669,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       <button class="btn-primary" id="auth-submit" onclick="submitAuth()" data-i18n="auth_login">Se connecter</button>
       <button class="btn-ghost" id="auth-toggle" onclick="toggleAuthMode()" data-i18n="auth_no_account">Pas de compte ? Créer un compte</button>
       <p class="error-msg" id="auth-error"></p>
-      <div style="color:var(--gris);font-size:0.8rem;margin:0.2rem 0;" data-i18n="auth_or">— ou —</div>
-      <div id="google-signin-btn" style="display:flex;justify-content:center;"></div>
+      <div class="auth-or" data-i18n="auth_or">ou</div>
+      <div id="google-signin-btn"></div>
     </div>
     <button class="btn-ghost help-btn" onclick="openHelp()" data-i18n="help_btn">Comment ça marche</button>
   </div>
@@ -2304,7 +2312,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       auth_signup:      { en: `Create account`, fr: `Créer le compte`, es: `Crear cuenta`, el: `Δημιουργία λογαριασμού` },
       auth_no_account:  { en: `No account? Create one`, fr: `Pas de compte ? Créer un compte`, es: `¿Sin cuenta? Crea una`, el: `Δεν έχεις λογαριασμό; Φτιάξε έναν` },
       auth_have_account:{ en: `Already have an account? Log in`, fr: `Déjà un compte ? Se connecter`, es: `¿Ya tienes cuenta? Inicia sesión`, el: `Έχεις ήδη λογαριασμό; Συνδέσου` },
-      auth_or:          { en: `— or —`, fr: `— ou —`, es: `— o —`, el: `— ή —` },
+      auth_or:          { en: `or`, fr: `ou`, es: `o`, el: `ή` },
       auth_required:    { en: `email and password required`, fr: `email et mot de passe requis`, es: `email y contraseña requeridos`, el: `απαιτούνται email και κωδικός` },
       help_btn:         { en: `How it works`, fr: `Comment ça marche`, es: `Cómo funciona`, el: `Πώς λειτουργεί` },
       // — page principale —
@@ -2679,18 +2687,18 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         fr: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Importe d'un coup les mots surlignés sur ta Kindle. Nécessite un Mac/PC avec Python 3.</p><ol><li>Installe la dépendance : <code>pip3 install wordfreq</code>.</li><li>Télécharge le script : <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>Dans le même dossier, crée deux fichiers : <code>.token</code> (ton token perso) et <code>.openai_key</code> (ta clé OpenAI). Chaque fichier ne contient que la valeur, rien d'autre.</li><li>Branche ta Kindle en USB, puis lance : <code>python3 kindle_import.py</code>. Choisis les mots à importer.</li><li>Besoin d'aide ? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
         es: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Importa de una vez las palabras subrayadas en tu Kindle. Requiere un Mac/PC con Python 3.</p><ol><li>Instala la dependencia: <code>pip3 install wordfreq</code>.</li><li>Descarga el script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>En la misma carpeta, crea dos archivos: <code>.token</code> (tu token personal) y <code>.openai_key</code> (tu clave OpenAI). Cada archivo contiene solo el valor, nada más.</li><li>Conecta tu Kindle por USB y ejecuta: <code>python3 kindle_import.py</code>. Elige las palabras a importar.</li><li>¿Ayuda? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
         el: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Εισήγαγε μονομιάς τις λέξεις που υπογράμμισες στο Kindle. Απαιτεί Mac/PC με Python 3.</p><ol><li>Εγκατέστησε την εξάρτηση: <code>pip3 install wordfreq</code>.</li><li>Κατέβασε το script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>Στον ίδιο φάκελο, δημιούργησε δύο αρχεία: <code>.token</code> (το token σου) και <code>.openai_key</code> (το κλειδί OpenAI σου). Κάθε αρχείο περιέχει μόνο την τιμή.</li><li>Σύνδεσε το Kindle με USB και τρέξε: <code>python3 kindle_import.py</code>. Διάλεξε τις λέξεις.</li><li>Βοήθεια; <code>python3 kindle_import.py --aide</code>.</li></ol>` },
-      help_s3_t:        { en: `3 · The 4 modes`, fr: `3 · Les 4 modes`, es: `3 · Los 4 modos`, el: `3 · Οι 4 λειτουργίες` },
+      help_s3_t:        { en: `3 · The 5 modes`, fr: `3 · Les 5 modes`, es: `3 · Los 5 modos`, el: `3 · Οι 5 λειτουργίες` },
       help_s3: {
-        en: `<ul><li><strong>Spaced</strong> — review each word at the right time (spaced repetition).</li><li><strong>Situation</strong> — recall a mastered word from a scene.</li><li><strong>Free</strong> — weighted random draw.</li><li><strong>Imagen</strong> — describe your photo so the model can pick it out of four similar ones.</li></ul>`,
-        fr: `<ul><li><strong>Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li><li><strong>Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li><li><strong>Libre</strong> — tirage aléatoire pondéré.</li><li><strong>Imagen</strong> — décris ta photo pour que le modèle la retrouve parmi quatre photos proches.</li></ul>`,
-        es: `<ul><li><strong>Espaciada</strong> — repasa cada palabra en el momento justo (repetición espaciada).</li><li><strong>Situación</strong> — recuerda una palabra dominada a partir de una escena.</li><li><strong>Libre</strong> — sorteo aleatorio ponderado.</li><li><strong>Imagen</strong> — describe tu foto para que el modelo la encuentre entre cuatro parecidas.</li></ul>`,
-        el: `<ul><li><strong>Κατανεμημένη</strong> — επανάλαβε κάθε λέξη την κατάλληλη στιγμή (spaced repetition).</li><li><strong>Περίσταση</strong> — θυμήσου μια κατακτημένη λέξη από μια σκηνή.</li><li><strong>Ελεύθερη</strong> — σταθμισμένη τυχαία επιλογή.</li><li><strong>Imagen</strong> — περίγραψε τη φωτογραφία σου ώστε το μοντέλο να τη βρει ανάμεσα σε τέσσερις παρόμοιες.</li></ul>` },
+        en: `<ul><li><strong>Practice</strong> — the default mode. Each round mixes new words and words to review. A word is first worked on with a multiple-choice quiz, then with a fill-in-the-blanks text once it has two stars.</li><li><strong>Spaced</strong> — review each word at the right time (spaced repetition).</li><li><strong>Situation</strong> — recall a mastered word from a scene.</li><li><strong>Free</strong> — weighted random draw.</li><li><strong>Imagen</strong> — describe your photo so the model can pick it out of four similar ones.</li></ul>`,
+        fr: `<ul><li><strong>Pratique</strong> — le mode par défaut. Chaque manche mêle des mots neufs et des mots à revoir. Un mot se travaille d'abord en QCM, puis en texte à trous dès qu'il a deux étoiles.</li><li><strong>Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li><li><strong>Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li><li><strong>Libre</strong> — tirage aléatoire pondéré.</li><li><strong>Imagen</strong> — décris ta photo pour que le modèle la retrouve parmi quatre photos proches.</li></ul>`,
+        es: `<ul><li><strong>Práctica</strong> — el modo por defecto. Cada ronda mezcla palabras nuevas y palabras por repasar. Una palabra se trabaja primero con un test de opción múltiple y, en cuanto tiene dos estrellas, con un texto con huecos.</li><li><strong>Espaciada</strong> — repasa cada palabra en el momento justo (repetición espaciada).</li><li><strong>Situación</strong> — recuerda una palabra dominada a partir de una escena.</li><li><strong>Libre</strong> — sorteo aleatorio ponderado.</li><li><strong>Imagen</strong> — describe tu foto para que el modelo la encuentre entre cuatro parecidas.</li></ul>`,
+        el: `<ul><li><strong>Εξάσκηση</strong> — η προεπιλεγμένη λειτουργία. Κάθε γύρος συνδυάζει νέες λέξεις και λέξεις για επανάληψη. Μια λέξη δουλεύεται πρώτα με ερωτήσεις πολλαπλής επιλογής και, μόλις πάρει δύο αστέρια, με κείμενο με κενά.</li><li><strong>Κατανεμημένη</strong> — επανάλαβε κάθε λέξη την κατάλληλη στιγμή (spaced repetition).</li><li><strong>Περίσταση</strong> — θυμήσου μια κατακτημένη λέξη από μια σκηνή.</li><li><strong>Ελεύθερη</strong> — σταθμισμένη τυχαία επιλογή.</li><li><strong>Imagen</strong> — περίγραψε τη φωτογραφία σου ώστε το μοντέλο να τη βρει ανάμεσα σε τέσσερις παρόμοιες.</li></ul>` },
       help_s4_t:        { en: `4 · Spaced repetition`, fr: `4 · La répétition espacée`, es: `4 · La repetición espaciada`, el: `4 · Η κατανεμημένη επανάληψη` },
       help_s4: {
-        en: `<ul><li>Each word earns <strong>stars</strong> (☆☆☆ → ★★★) as you succeed.</li><li>Succeeding <em>without help</em> pushes the next review further away; failing or opening the definition brings it back to tomorrow.</li><li>You choose how many <strong>new words per day</strong> in settings, and "my upcoming reviews" shows your calendar.</li></ul>`,
-        fr: `<ul><li>Chaque mot gagne des <strong>étoiles</strong> (☆☆☆ → ★★★) selon tes réussites.</li><li>Réussir <em>sans aide</em> éloigne la prochaine révision ; échouer ou afficher la définition la ramène à demain.</li><li>Tu choisis combien de <strong>nouveaux mots par jour</strong> dans réglages, et le bouton « mes révisions à venir » montre ton calendrier.</li></ul>`,
-        es: `<ul><li>Cada palabra gana <strong>estrellas</strong> (☆☆☆ → ★★★) según tus aciertos.</li><li>Acertar <em>sin ayuda</em> aleja el próximo repaso; fallar o abrir la definición lo trae de vuelta a mañana.</li><li>Eliges cuántas <strong>palabras nuevas por día</strong> en ajustes, y «mis próximos repasos» muestra tu calendario.</li></ul>`,
-        el: `<ul><li>Κάθε λέξη κερδίζει <strong>αστέρια</strong> (☆☆☆ → ★★★) με τις επιτυχίες σου.</li><li>Η επιτυχία <em>χωρίς βοήθεια</em> απομακρύνει την επόμενη επανάληψη· η αποτυχία ή ο ορισμός τη φέρνει πίσω στο αύριο.</li><li>Επιλέγεις πόσες <strong>νέες λέξεις την ημέρα</strong> στο ρυθμίσεις, και το «οι επόμενες επαναλήψεις μου» δείχνει το ημερολόγιό σου.</li></ul>` },
+        en: `<ul><li>Each word earns <strong>stars</strong> (☆☆☆ → ★★★) as you succeed.</li><li>Succeeding <em>without help</em> pushes the next review further away; failing or opening the definition brings it back to tomorrow.</li><li>At the start of each round, you choose how many words and how many <strong>new words</strong>. "my upcoming reviews" shows your calendar.</li></ul>`,
+        fr: `<ul><li>Chaque mot gagne des <strong>étoiles</strong> (☆☆☆ → ★★★) selon tes réussites.</li><li>Réussir <em>sans aide</em> éloigne la prochaine révision ; échouer ou afficher la définition la ramène à demain.</li><li>Au début de chaque manche, tu choisis combien de mots et combien de <strong>mots neufs</strong>. « mes révisions à venir » montre ton calendrier.</li></ul>`,
+        es: `<ul><li>Cada palabra gana <strong>estrellas</strong> (☆☆☆ → ★★★) según tus aciertos.</li><li>Acertar <em>sin ayuda</em> aleja el próximo repaso; fallar o abrir la definición lo trae de vuelta a mañana.</li><li>Al empezar cada ronda, eliges cuántas palabras y cuántas <strong>palabras nuevas</strong>. «mis próximos repasos» muestra tu calendario.</li></ul>`,
+        el: `<ul><li>Κάθε λέξη κερδίζει <strong>αστέρια</strong> (☆☆☆ → ★★★) με τις επιτυχίες σου.</li><li>Η επιτυχία <em>χωρίς βοήθεια</em> απομακρύνει την επόμενη επανάληψη· η αποτυχία ή ο ορισμός τη φέρνει πίσω στο αύριο.</li><li>Στην αρχή κάθε γύρου, επιλέγεις πόσες λέξεις και πόσες <strong>νέες λέξεις</strong>. Το «οι επόμενες επαναλήψεις μου» δείχνει το ημερολόγιό σου.</li></ul>` },
     };
 
     const UI_LOCALE = { en: 'en-GB', fr: 'fr-FR', es: 'es-ES', el: 'el-GR' };
@@ -2727,6 +2735,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       const sel = document.getElementById('app-lang-select');
       if (sel) sel.value = appLang;
       document.querySelectorAll('.app-lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === appLang));
+      renderGoogleButton();
     }
     function applyPracticeLangUI() {
       const code = pracCode();
@@ -3228,9 +3237,18 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         return;
       }
       google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
-      google.accounts.id.renderButton(
-        document.getElementById('google-signin-btn'),
-        { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'pill', width: 240 }
+      _googleReady = true;
+      renderGoogleButton();
+    }
+
+    // Google prend sinon la langue du navigateur : redessiné à chaque changement de langue de l'appli
+    let _googleReady = false;
+    function renderGoogleButton() {
+      if (!_googleReady) return;
+      const el = document.getElementById('google-signin-btn');
+      el.innerHTML = '';
+      google.accounts.id.renderButton(el,
+        { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'pill', width: 240, locale: appLang }
       );
     }
 
