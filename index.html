@@ -518,41 +518,23 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
        proposé : le QCM sert les mots qui n'en ont pas encore deux, le texte à trous
        les autres. Reprises du mode espacé, mêmes classes de couleur. */
     .session-stars { margin-bottom: 0.7rem; }
-    .cloze-recap     { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.9rem; }
-    .cloze-recap-row { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline;
-                       gap: 0.5rem; font-size: 0.92rem; text-align: left; }
-    .cloze-recap-row .rc-mark.ok { color: var(--verde); }
-    .cloze-recap-row .rc-mark.ko { color: var(--rojo); }
-    .cloze-recap-row .rc-flex    { display: block; font-size: 0.78rem; color: var(--gris); }
-    .cloze-recap-row .rc-due     { display: block; font-family: var(--serif);
-                                   font-size: 0.7rem; color: var(--gris); opacity: 0.8; }
-    .cloze-recap-row .stars      { font-size: 0.85rem; }
-    .cloze-recap-row .rc-def     { display: block; margin-top: 0.1rem; }
     .session-q     { font-size: 0.95rem; margin-bottom: 1rem; color: var(--gris); }
     .session-actions { display: flex; margin-top: 1.1rem; }
     .session-note  { font-size: 0.85rem; color: var(--gris); margin-top: 0.8rem; }
-    .cloze-text    { font-size: 1.02rem; line-height: 2.05; margin-bottom: 1.3rem; }
-    .cloze-blank {
-      display: inline-block; min-width: 4.2em; padding: 0.05em 0.35em;
-      border: none; border-bottom: 1px solid var(--linea-fuerte); border-radius: 0;
-      background: none;
-      color: var(--tinta); font: inherit; font-size: 0.95rem; cursor: pointer; text-align: center;
-      vertical-align: baseline;
-    }
-    /* base.css colore le survol de tout bouton : un trou n'est pas une pastille */
-    .cloze-blank:hover:not(:disabled) { background: none; color: var(--tinta); border-color: var(--linea-fuerte); }
-    .cloze-blank.active:hover:not(:disabled) { border-color: var(--tinta); }
-    .cloze-blank.empty { color: var(--gris); letter-spacing: 0.1em; }
-    .cloze-blank.active { border-bottom: 2px solid var(--tinta); }
-    .cloze-blank.ok  { border-bottom-color: var(--verde); color: var(--verde); }
-    .cloze-blank.ko  { border-bottom-color: var(--rojo); color: var(--rojo); text-decoration: line-through; }
-    .cloze-fix { color: var(--verde); font-weight: 600; font-size: 0.92rem; }
-    .cloze-bank { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-    .cloze-chip {
-      font-size: var(--t-nav); padding: 5px 14px;
-    }
-    .cloze-chip.used { opacity: 0.3; }
-    .cloze-chip:active { opacity: 0.6; }
+    /* « Quel mot ? » : la situation se lit comme une citation (filet à gauche) */
+    .session-situation { font-size: 1rem; line-height: 1.7; margin-bottom: 1.1rem;
+                         border-left: 1px solid var(--linea-fuerte); padding-left: 16px; }
+    /* « Tape le mot » */
+    .type-sentence { font-size: 1.02rem; line-height: 1.9; margin-bottom: 1rem; }
+    .type-gap { display: inline-block; min-width: 4em; padding: 0 0.3em; border-bottom: 1px solid var(--tinta); }
+    .type-gap.ok { color: var(--verde); border-bottom-color: var(--verde); }
+    .type-gap.ko { color: var(--tinta); border-bottom-color: var(--rojo); } /* la bonne forme, sur un trait rouge */
+    .type-row { display: flex; gap: 0.6rem; align-items: stretch; }
+    #type-input { flex: 1; min-width: 0; font-size: 1rem; } /* 16 px : sinon iOS zoome au focus */
+    .session-below { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 0.7rem; }
+    .type-diff { color: var(--verde); font-style: normal; }
+    .type-diff u { text-decoration-color: currentColor; text-underline-offset: 3px; }
+    .type-note, .type-why { color: var(--gris); }
 
     .mode-btn {
       flex: 1;
@@ -2575,6 +2557,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_waiting_one: { en: `1 recall waiting`, fr: `1 rappel en attente`, es: `1 repaso pendiente`, el: `1 επανάληψη σε αναμονή` },
       sess_waiting_no:  { en: `Nothing waiting`, fr: `Rien en attente`, es: `Nada pendiente`, el: `Τίποτα σε αναμονή` },
       badge_waiting:    { en: `{n} waiting`, fr: `{n} en attente`, es: `{n} pendientes`, el: `{n} σε αναμονή` },
+      pick_q:           { en: `Which of these words would you use here?`, fr: `Quel mot emploierais-tu ici ?`, es: `¿Qué palabra usarías aquí?`, el: `Ποια λέξη θα χρησιμοποιούσες εδώ;` },
+      type_q:           { en: `Type the missing word`, fr: `Écris le mot qui manque`, es: `Escribe la palabra que falta`, el: `Γράψε τη λέξη που λείπει` },
+      type_hint:        { en: `hint`, fr: `indice`, es: `pista`, el: `βοήθεια` },
+      type_hint_note:   { en: `with a hint — counts, but no star`, fr: `avec indice — compte, mais sans étoile`, es: `con pista — cuenta, pero sin estrella`, el: `με βοήθεια — μετράει, αλλά χωρίς αστέρι` },
       sess_pick_words:  { en: `choose words`, fr: `choisir des mots`, es: `elegir palabras`, el: `διάλεξε λέξεις` },
       sess_clear_pick:  { en: `clear`, fr: `retirer`, es: `quitar`, el: `καθαρισμός` },
       sess_chosen_head: { en: `{n} chosen words in this round:`, fr: `{n} mots choisis pour cette manche :`, es: `{n} palabras elegidas para esta ronda:`, el: `{n} επιλεγμένες λέξεις για αυτόν τον γύρο:` },
@@ -7155,13 +7141,14 @@ Write all scenarios and explanations in ${langName}.`;
       return Number.isFinite(v) && v >= 0 ? v : DEFAULT_ROUND_NEW;
     }
     function roundNew() { return roundNewFor(currentLang); }
-    const CLOZE_MAX           = 8;  // trous dans un texte
-    const CLOZE_MIN           = 4;  // en dessous, on complète avec des mots plus avancés
-    // Palier lu sur le NET (correct - incorrect), c'est-à-dire les étoiles : ★★☆ → trous.
+    // Palier lu sur le NET (correct - incorrect), c'est-à-dire les étoiles :
+    //   net < 2 → QCM · 2 ≤ net < 6 → « quel mot ? » · net ≥ 6 → « tape le mot ».
     // Un mot neuf réussi passe par saveProgressNew, qui laisse le net à 0 — le seuil 2
-    // vaut donc bien TROIS rencontres réussies. Et comme un échec retire 1, un mot raté
-    // deux fois redescend tout seul au QCM : pas de compteur d'échecs à tenir.
-    const CLOZE_AT_NET        = 2;
+    // vaut donc TROIS rencontres réussies, et le seuil 6 trois réussites de plus que
+    // ★★★. Comme un échec retire 1, un mot raté redescend tout seul d'un palier :
+    // pas de compteur d'échecs à tenir.
+    const PICK_AT_NET         = 2;
+    const TYPE_AT_NET         = 6;
 
     // Le compteur des mots neufs AFFICHÉS mais pas répondus a été retiré avec le
     // compteur local des mots faits : c'était le dernier chiffre de la journée à ne
@@ -7219,7 +7206,7 @@ Write all scenarios and explanations in ${langName}.`;
     // l'écran. Chaque jauge une seule chose.
     function roundProgress() {
       let done = 0;
-      sessionItems.slice(0, sessionIdx).forEach(it => { done += it.kind === 'cloze' ? it.words.length : 1; });
+      done = Math.min(sessionIdx, sessionItems.length);
       return { done, total: sessionTotal() };
     }
     // Aide autorisée sur le mot à l'écran (définition, traduction, image) : vraie
@@ -7265,8 +7252,6 @@ Write all scenarios and explanations in ${langName}.`;
     let sessionIdx     = 0;
     let sessionOk      = 0;
     let _sessionBusy   = false;
-    let _clozePromise  = null;
-    let _clozeState    = null; // { text, blanks[], bank[], filled{}, active }
     let _roundSkipped  = new Set(); // mots neufs écartés de la manche (« autre mot neuf »)
 
     const MODE_KEYS = ['practice', 'spaced', 'situation', 'free', 'image'];
@@ -7299,10 +7284,10 @@ Write all scenarios and explanations in ${langName}.`;
       return p ? (p.correct || 0) - (p.incorrect || 0) : 0;
     }
 
+    // Le palier d'un mot = le genre de son exercice : 'qcm' | 'pick' | 'type'.
     function sessionLevel(word) {
-      const p = progressMap[lc(word)];
-      const net = p ? (p.correct || 0) - (p.incorrect || 0) : 0;
-      return net >= CLOZE_AT_NET ? 'cloze' : 'qcm';
+      const net = netOf(word);
+      return net >= TYPE_AT_NET ? 'type' : net >= PICK_AT_NET ? 'pick' : 'qcm';
     }
 
     // Ce qui est encore dû après une manche est exactement ce qui reste à
@@ -7366,49 +7351,34 @@ Write all scenarios and explanations in ${langName}.`;
 
       // Places libres : des mots déjà travaillés, pas encore dus, les plus proches
       // de leur date. Réviser un peu en avance ne coûte rien ; une manche qui
-      // rétrécit sans le dire, si — et trois jours de QCM sans jamais voir un texte
-      // non plus, d'où le fait de servir EN PREMIER ceux qui sont au palier des
-      // trous quand il en manque pour en fabriquer un.
+      // rétrécit sans le dire, si.
       const ahead = [];
       if (dus.length < budget) {
         const inRound = new Set(picked.map(w => lc(w)));
         const pool = allWords
           .filter(w => !inRound.has(lc(w)) && !isNewWord(w))
           .sort(byDue);
-        const need = Math.min(budget - dus.length,
-                              Math.max(0, CLOZE_MIN - picked.filter(w => sessionLevel(w) === 'cloze').length));
-        for (const w of pool) { if (ahead.length >= need) break; if (sessionLevel(w) === 'cloze') ahead.push(w); }
-        const taken = new Set(ahead.map(w => lc(w)));
         for (const w of pool) {
           if (dus.length + ahead.length >= budget) break;
-          if (!taken.has(lc(w))) ahead.push(w);
+          ahead.push(w);
         }
         picked = [...picked, ...ahead];
       }
-
-      // Moins de deux mots au palier : pas de texte, ils repassent tous en QCM.
-      const cloze = picked.filter(w => sessionLevel(w) === 'cloze').slice(0, CLOZE_MAX);
 
       const chosenNew  = chosen.filter(w => isNewWord(w));
       const fresh      = [...chosenNew, ...(newPool ? newPool.slice(0, reserve) : [])];
       const freshCount = reserve; // les neufs DEMANDÉS au curseur ; les choisis sont comptés à part
 
-      return { picked, cloze, fresh, freshCount, chosenCount: chosen.length,
+      return { picked, fresh, freshCount, chosenCount: chosen.length,
                dueCount: dus.length, aheadCount: ahead.length, waiting: due.length - dus.length };
     }
 
+    // Un item par mot, l'exercice fixé par son palier au moment où la manche se
+    // compose (le mot ne passe qu'une fois : le palier ne peut pas bouger en route).
     function buildSessionItems() {
-      const { picked, cloze, fresh } = planRound();
-
-      // Moins de deux mots au palier : pas de texte, ils repassent tous en QCM.
-      const hasText = cloze.length >= 2;
-      const inText  = hasText ? new Set(cloze.map(w => lc(w))) : new Set();
-      const qcmDue  = picked.filter(w => !inText.has(lc(w)));
-
+      const { picked, fresh } = planRound();
       // Mélangés : huit mots inconnus à la file font décrocher avant le 1er rappel.
-      const items = shuffleInPlace([...fresh, ...qcmDue]).map(w => ({ kind: 'qcm', word: w }));
-      if (hasText) items.push({ kind: 'cloze', words: cloze });
-      return items;
+      return shuffleInPlace([...fresh, ...picked]).map(w => ({ kind: sessionLevel(w), word: w }));
     }
 
     // ── Manche interrompue : on la reprend au lieu de la refaire ────────
@@ -7484,12 +7454,10 @@ Write all scenarios and explanations in ${langName}.`;
           dev:   deviceId(),
           idx:   sessionIdx,
           ok:    sessionOk,
-          cloze: _clozeState,
           // L'échéance de chaque mot est notée telle qu'elle est AVANT sa réponse :
           // c'est elle qui dira, à la reprise, si le mot a été fait entre-temps.
-          items: sessionItems.map(it => it.kind === 'cloze'
-            ? { kind: 'cloze', words: it.words, nr: it.words.map(nrOf) }
-            : { kind: 'qcm', word: it.word, served: !!it.served, wasNew: !!it.wasNew, nr: nrOf(it.word) }),
+          items: sessionItems.map(it =>
+            ({ kind: it.kind, word: it.word, served: !!it.served, wasNew: !!it.wasNew, nr: nrOf(it.word) })),
         };
         localStorage.setItem(roundStateKey(lang), JSON.stringify(state));
         pushRoundToServer(state, lang, now);
@@ -7520,28 +7488,26 @@ Write all scenarios and explanations in ${langName}.`;
       // reprise reviendrait à tirer un mot que l'utilisateur n'a jamais vu arriver.
       const alive    = w => known.has(lc(w));
       const untouched = (w, nr) => nrOf(w) === (nr || null);
-      const rest = d.items.slice(d.idx || 0).filter(it => it.kind === 'cloze'
-        // Un seul mot du texte déjà fait ailleurs et le texte entier tombe : ses
-        // trous sont écrits, on ne peut pas en retirer un sans casser la phrase.
-        ? it.words.every(alive) && it.words.every((w, i) => untouched(w, (it.nr || [])[i]))
-        : alive(it.word) && untouched(it.word, it.nr));
+      // Une manche sauvée avant le 2026-10-22 peut porter un texte à trous : ses
+      // mots repartent un par un, chacun avec l'exercice de son palier.
+      const rest = d.items.slice(d.idx || 0)
+        .flatMap(it => it.kind === 'cloze'
+          ? (it.words || []).map((w, i) => ({ kind: sessionLevel(w), word: w, nr: (it.nr || [])[i] }))
+          : [it])
+        .filter(it => alive(it.word) && untouched(it.word, it.nr));
       if (!rest.length) return null;
-      const left = rest.reduce((n, it) => n + (it.kind === 'cloze' ? it.words.length : 1), 0);
+      const left = rest.length;
       return { data: d, rest, left, elsewhere: !!d.dev && d.dev !== deviceId() };
     }
 
     function resumeRound() {
       const saved = savedRound();
       if (!saved) return void showSessionStart();
-      sessionItems = saved.rest.map(it => it.kind === 'cloze'
-        ? { kind: 'cloze', words: it.words }
-        : { kind: 'qcm', word: it.word, served: it.served, wasNew: it.wasNew });
+      sessionItems = saved.rest.map(it =>
+        ({ kind: ['qcm', 'pick', 'type'].includes(it.kind) ? it.kind : sessionLevel(it.word),
+           word: it.word, served: it.served, wasNew: it.wasNew }));
       sessionIdx = 0;
       sessionOk  = saved.data.ok || 0;
-      // Le texte à trous repart tel quel, avec les trous déjà remplis : c'est tout
-      // l'intérêt de la reprise, et `launchRound` ne le redemandera pas.
-      _clozeState   = sessionItems.some(i => i.kind === 'cloze') ? (saved.data.cloze || null) : null;
-      _clozePromise = null;
       launchRound();
     }
 
@@ -7679,8 +7645,6 @@ Write all scenarios and explanations in ${langName}.`;
       sessionItems   = [];
       sessionIdx     = 0;
       sessionOk      = 0;
-      _clozeState    = null;
-      _clozePromise  = null;
       renderSessionStart();
     }
 
@@ -7731,8 +7695,6 @@ Write all scenarios and explanations in ${langName}.`;
       _roundChosen = []; // consommé : la manche suivante repart du remplissage automatique
       sessionIdx   = 0;
       sessionOk    = 0;
-      _clozeState  = null;
-      _clozePromise = null;
       launchRound();
     }
 
@@ -7744,17 +7706,13 @@ Write all scenarios and explanations in ${langName}.`;
       if (start) start.style.display = 'none';
       lockRoundDials();
 
-      // Le texte à trous met 20 à 50 s à venir. On le lance MAINTENANT : il se
-      // prépare pendant les QCM et il est là quand on y arrive.
-      const clozeItem = sessionItems.find(i => i.kind === 'cloze');
-      if (clozeItem && !_clozeState) _clozePromise = fetchCloze(clozeItem.words).catch(e => ({ error: e.message }));
-      prefetchQCM(sessionIdx); prefetchQCM(sessionIdx + 1);
+      prefetchItem(sessionIdx); prefetchItem(sessionIdx + 1);
       saveRound();
       renderSession();
     }
 
     function sessionTotal() {
-      return sessionItems.reduce((n, i) => n + (i.kind === 'cloze' ? i.words.length : 1), 0);
+      return sessionItems.length;
     }
 
     function renderSession() {
@@ -7791,8 +7749,8 @@ Write all scenarios and explanations in ${langName}.`;
         `<p class="session-note">${tPrac('sess_empty')}</p>${sessionEndActions()}`);
       if (sessionIdx >= sessionItems.length) return renderSessionEnd();
       const item = sessionItems[sessionIdx];
-      if (item.kind === 'qcm') renderSessionQCM(item);
-      else                     renderSessionCloze(item);
+      if (item.kind === 'type') renderSessionType(item);
+      else                      renderSessionQCM(item); // QCM et « quel mot ? » : quatre ou cinq choix
     }
 
     // Le bouton de sortie de manche : « une autre manche », et c'est tout. Il y avait
@@ -7968,9 +7926,11 @@ Write all scenarios and explanations in ${langName}.`;
 
     // Un QCM met ~10 s à venir. On lance celui de l'item suivant dès que le
     // courant est à l'écran : l'attente disparaît sauf sur le tout premier.
-    function prefetchQCM(i) {
+    function prefetchItem(i) {
       const it = sessionItems[i];
-      if (!it || it.kind !== 'qcm' || it.choicesPromise) return;
+      if (!it || it.choicesPromise) return;
+      if (it.kind === 'pick') { it.choicesPromise = fetchPick(it.word).catch(e => ({ error: e.message })); return; }
+      if (it.kind === 'type') { it.choicesPromise = fetchType(it.word).catch(e => ({ error: e.message })); return; }
       const why = unknownWhy(it.word);
       if (why !== null) { it.choicesPromise = Promise.resolve({ unknown: true, why }); return; }
       console.log(`[Séance] QCM ${i + 1} lancé en avance : ${it.word}`);
@@ -7988,7 +7948,16 @@ Write all scenarios and explanations in ${langName}.`;
       // elle donnerait le mot. Même règle que partout ailleurs dans l'app.
       _sessionHelpOpen = isNewWord(item.word) || !!item.answered;
       const esc = item.word.replace(/'/g, "\\'");
-      body.innerHTML =
+      // « Quel mot ? » : le mot EST la réponse — il ne s'affiche qu'une fois répondu.
+      if (item.kind === 'pick') body.innerHTML =
+        `<div id="session-word-slot"></div>
+         <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
+         <p class="session-q">${tPrac('pick_q')} <span class="card-action-btn" id="qcm-regen" onclick="regenQCM()">${tPrac('qcm_regen')}</span></p>
+         <div class="session-situation" id="session-situation"></div>
+         <div id="session-choices"><div style="padding:0.6rem;color:var(--gris)"><span class="spinner"></span></div></div>
+         <div id="session-result"></div>
+         <div class="session-actions" id="session-help">${sessionDefButton(esc)}</div>`;
+      else body.innerHTML =
         `<div class="session-word"><span>${lc(wordBase(item.word))}</span>${item.wasNew ? `<span class="session-new">${tPrac('sess_new_one')}</span>` : ''}<span class="card-action-btn" id="qcm-regen" title="${tPrac('qcm_regen')}" onclick="regenQCM()">${tPrac('qcm_regen')}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tPrac('btn_options')}</span></div>
          <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
          ${wordNote(item.word) ? `<div class="session-def">${wordNote(item.word)}</div>` : ''}
@@ -7996,9 +7965,9 @@ Write all scenarios and explanations in ${langName}.`;
          <div id="session-choices"><div style="padding:0.6rem;color:var(--gris)"><span class="spinner"></span></div></div>
          <div id="session-result"></div>
          <div class="session-actions" id="session-help">${sessionDefButton(esc)}</div>`;
-      prefetchQCM(sessionIdx + 1);
+      prefetchItem(sessionIdx + 1);
       try {
-        if (!item.choicesPromise) prefetchQCM(sessionIdx);
+        if (!item.choicesPromise) prefetchItem(sessionIdx);
         const _tWait = Date.now();
         const choices = await item.choicesPromise;
         console.log(`[Séance] attente à l'écran : ${((Date.now() - _tWait) / 1000).toFixed(1)}s`);
@@ -8008,9 +7977,12 @@ Write all scenarios and explanations in ${langName}.`;
         // d'écrire son sens entre parenthèses : la note repart dans tous les
         // prompts, et l'entrée changée est réessayée d'elle-même.
         if (choices && choices.unknown) return renderSessionUnknown(item, choices.why);
-        item.choices = choices;
+        if (item.kind === 'pick') {
+          document.getElementById('session-situation').textContent = choices.situation;
+          item.choices = choices.options;
+        } else item.choices = choices;
         document.getElementById('session-choices').innerHTML =
-          choices.map((c, i) => `<button class="qcm-choice" onclick="answerSessionQCM(this, ${i})">${c.text}</button>`).join('')
+          item.choices.map((c, i) => `<button class="qcm-choice" onclick="answerSessionQCM(this, ${i})">${c.text}</button>`).join('')
           + `<button class="btn-ghost" id="session-dunno" style="margin-top:0.5rem" onclick="sessionDunno()">${tPrac('sess_dunno')}</button>`
           + (item.wasNew && !item.answered
               ? `<button class="btn-ghost" id="session-swap" onclick="swapNewWord()">${tPrac('sess_swap_new')}</button>` : '');
@@ -8057,11 +8029,13 @@ Write all scenarios and explanations in ${langName}.`;
     // des QCM servis, donc la suivante ne lui ressemblera pas.
     function regenQCM() {
       const item = sessionItems[sessionIdx];
-      if (!item || item.kind !== 'qcm' || _sessionBusy || item.answered) return;
+      if (!item || _sessionBusy || item.answered) return;
       item.choices        = null;
       item.choicesPromise = null;
-      forgetUnknown(item.word);
-      renderSessionQCM(item);
+      item.data           = null;
+      item.hints          = 0;
+      if (item.kind === 'qcm') forgetUnknown(item.word);
+      renderSession();
     }
 
     // L'état « répondu » d'une question, sans rien enregistrer : sert à la réponse
@@ -8089,10 +8063,11 @@ Write all scenarios and explanations in ${langName}.`;
         ? (right?.explanation || '')
         : isCorrect
           ? `${chosen.explanation || ''}`
-          : `${chosen.explanation || ''}` + (right?.explanation ? `<br>${right.explanation}` : '');
+          : [chosen.explanation, right?.explanation].filter(Boolean).join('<br>');
       const rg = document.getElementById('qcm-regen');     if (rg) rg.style.display = 'none';
       const dk = document.getElementById('session-dunno'); if (dk) dk.style.display = 'none';
       const sw = document.getElementById('session-swap');  if (sw) sw.style.display = 'none';
+      if (item.kind === 'pick') revealSessionWord(item);
     }
 
     // Un mot neuf qui ne vaut pas la peine aujourd'hui cède sa place à un autre mot
@@ -8108,7 +8083,7 @@ Write all scenarios and explanations in ${langName}.`;
         const sw = document.getElementById('session-swap'); if (sw) sw.style.display = 'none';
         return;
       }
-      sessionItems[sessionIdx] = { kind: 'qcm', word: repl };
+      sessionItems[sessionIdx] = { kind: sessionLevel(repl), word: repl };
       saveRound();
       renderSession();
     }
@@ -8195,8 +8170,12 @@ Write all scenarios and explanations in ${langName}.`;
     // montré sa définition et proposé un QCM : le laisser tel quel le renvoyait
     // dans le sac des ~9 700 jamais pratiqués, d'où il ne ressortait jamais —
     // l'échec faisait disparaître le mot au lieu de le ramener.
-    async function recordSessionAnswer(word, ok) {
-      if (isNewWord(word)) {
+    // `hinted` : réussi avec l'indice du trou à taper — compte (historique ✓), mais
+    // sans étoile : le mot revient demain, net inchangé (même règle que le mode espacé).
+    async function recordSessionAnswer(word, ok, hinted) {
+      if (hinted && ok) {
+        await saveProgressReviewHint(word);
+      } else if (isNewWord(word)) {
         await saveProgressNew(word);
         todayNewCount++;
         saveTodayCount(currentLang, todayNewCount);
@@ -8208,257 +8187,272 @@ Write all scenarios and explanations in ${langName}.`;
       saveHistory(word, ok);
     }
 
-    // ── Texte à trous ───────────────────────────────────────────────────
-    // Le texte emploie la forme que la phrase demande, pas celle stockée en base :
-    // l'apprenant clique son entrée, l'app écrit la forme fléchie et montre l'écart.
-    // C'est ce qui lui fait apprendre le MOT et non la forme où il l'a rencontré.
-    // Le modèle ne voit pas les textes déjà produits : sans cadre imposé, il
-    // repart chaque fois sur la même scène (« At Tuesday's hearing… »). Le tirage
-    // fait aussi voir les mêmes mots dans des registres différents.
-    const CLOZE_SETTINGS = [
-      'a news report', 'a personal letter to a friend', 'a diary entry',
-      'a scene in a novel', 'a book or film review', 'a workplace email',
-      'a radio interview', 'a travel account', 'a family scene', 'a courtroom account'
-    ];
-
-    function clozePrompt(targets, candidates) {
-      const langName = getLang().mistralName;
-      const setting  = CLOZE_SETTINGS[Math.floor(Math.random() * CLOZE_SETTINGS.length)];
-      return `You write cloze (fill-in-the-blank) exercises for a learner of ${langName}.
-
-TARGET ENTRIES (each must appear exactly once, as a blank):
-${targets.map(w => '- ' + w).join('\n')}
-
-CANDIDATE DECOYS — pick exactly ${Math.max(2, Math.round(targets.length * 0.25))} of these
-(no others, and they must NOT appear anywhere in the text):
-${candidates.join(', ')}
-
-Choose decoys that are GRAMMATICALLY PLAUSIBLE in at least one blank — same part of speech,
-and where the language marks it, same gender, number and case as the target they compete with —
-but semantically wrong there. A decoy the learner can rule out by agreement alone teaches
-nothing: it lets them pick the right word without knowing what it means. That is the single
-most important thing to get right.
-
-BUT A DECOY IS NEVER A SYNONYM, OR A NEAR-SYNONYM, OF ANY TARGET PLACED IN THE TEXT.
-Grammatical plausibility pulls you toward the closest word on the list — and that is exactly
-the word that makes the blank unfair. Test each decoy against each blank: if a native speaker
-could write it there and the sentence would still be true and idiomatic, that blank has two
-answers and the learner is marked wrong for knowing the word. Pick a less close candidate
-instead; if none of them works, use fewer decoys.
-
-Write 80-150 words of ${langName}. It does NOT have to be one single situation: you may
-write two or three short connected moments (same narrator, same day) so that each target
-lands where it naturally belongs. Cramming unrelated words into one scene is the main
-cause of contorted sentences — never do it.
-
-FORM: write it as ${setting}. Keep that register throughout. If the target words really
-cannot live in it, pick another everyday setting — but never default to a hearing,
-a briefing or a council meeting.
-
-RULES
-1. Each target entry appears EXACTLY ONCE. Replace it with a numbered marker {1}, {2}, ...
-   in reading order. Nothing else is replaced.
-2. INFLECT FREELY. The learner stored the entry in one particular form, but your sentence
-   must use whatever form grammar requires (case, number, tense, person). Report both.
-   A multi-word VERBAL expression conjugates normally; a multi-word NOMINAL expression
-   keeps its words in order and only changes case.
-3. ONE ANSWER PER BLANK. No other word from the target list or the decoy list may fit
-   grammatically AND semantically in a given blank. If two could fit, rewrite that sentence.
-3b. If two TARGET entries are near-synonyms that could fill each other's blank, place only
-   ONE of them and leave the other out of the text entirely. A blank that two targets both
-   fit is unfair, and no context can reliably separate them. List what you left out in
-   "dropped" — never force a word in.
-3c. MORE GENERALLY, YOU MAY DROP ANY TARGET you cannot place in a sentence a native speaker
-   would actually write. List it in "dropped". A dropped word costs nothing — it comes back
-   another day; a contorted sentence teaches wrong ${langName}.
-4. NEVER two adjacent blanks, and at least four ordinary words between two blanks.
-4b. THE BANK MUST NOT GIVE A BLANK AWAY BY AGREEMENT. The learner sees ONE single bank
-   holding every target and every decoy. For each blank, at least TWO OTHER bank entries
-   must match it in part of speech and, where the language marks them, in gender and number.
-   If you cannot manage that for some blank, rewrite its sentence so that nothing around it
-   marks agreement — or apply 4c. A blank solvable by agreement alone is solvable without
-   knowing a single meaning, and the whole exercise is then worthless.
-4c. NEVER WRITE "a" / "an" IMMEDIATELY BEFORE A BLANK, nor any other form that changes with
-   the word that follows it. "Leo arrived with an {3} grin" hands over the initial sound, and
-   4b cannot protect against that — no bank entry agreement is involved. Write "the", a
-   possessive, a demonstrative, a plural or a numeral instead. Keep the article VISIBLE and
-   outside the blank: a learner cannot supply a word that is not on screen.
-5. The surrounding text must be natural, correct ${langName}. Never write a clumsy sentence
-   just to accommodate a word.
-6. Give enough context to identify each missing word, without naming it or an obvious synonym.
-7. Name people and places concretely, and do not reuse the opening of a typical news lede.
-
-LAST STEP, before you answer: reread the whole text as a native speaker. Any sentence you
-would not write yourself — fix it, or drop the target that forced it into "dropped".
-
-Answer ONLY with JSON, no markdown fence:
-{"text": "…paragraph with {1} … {n} markers…",
- "decoys": ["<the decoys you picked, exactly as listed>"],
- "dropped": ["<target entries you deliberately left out, if any>"],
- "blanks": [{"n": 1, "entry": "<target entry exactly as given above>",
-             "form": "<the inflected form the sentence needs>"}]}`;
+    // ── Paliers ★★ et au-delà (2026-10-22) ─────────────────────────────
+    // Le texte à trous a été retiré : la réserve de mots se laissait trier par le
+    // genre, le nombre ou la nature autour de chaque trou, et l'on trouvait la bonne
+    // réponse sans connaître le sens. À sa place, deux exercices PAR MOT, préparés
+    // pendant la question précédente comme le QCM :
+    //  - « quel mot ? » (★★) : une situation décrite SANS trou, et cinq de ses mots
+    //    de même nature. Aucune grammaire autour d'un trou ne peut plus trahir la
+    //    réponse : il faut savoir ce que les mots veulent dire ;
+    //  - « tape le mot » (six réussites nettes) : une phrase à trou, sans liste. La
+    //    première fois que le mot doit sortir de sa tête — la mémoire ACTIVE, celle
+    //    que des semaines de QCM n'entraînaient pas.
+    // Les intrus sortent du stock de l'utilisateur, jamais inventés, mais c'est le
+    // MODÈLE qui les choisit : lui seul sait lesquels ont la même nature que la cible.
+    function pickCandidates(word) {
+      const k      = lc(word), base = lc(wordBase(word));
+      const others = allWords.filter(w => lc(w) !== k && lc(wordBase(w)) !== base);
+      const known  = others.filter(w => netOf(w) >= 1);
+      return shuffleInPlace((known.length >= 12 ? known : others).slice()).slice(0, 40);
     }
 
-    async function fetchCloze(words) {
-      // Les intrus sortent du stock de l'utilisateur, jamais inventés — mais c'est
-      // le MODÈLE qui les choisit dans une liste de candidats : lui seul sait quel
-      // mot est grammaticalement compatible avec un trou donné. Tirés au hasard,
-      // ils se laissaient éliminer par le genre ou le nombre, et on trouvait la
-      // bonne réponse sans connaître le sens.
-      const taken   = new Set(words.map(lc));
-      const known   = allWords.filter(w => !taken.has(lc(w)) && netOf(w) >= 1);
-      const source  = known.length >= 8 ? known : allWords.filter(w => !taken.has(lc(w)));
-      const candidates = shuffleInPlace(source.slice()).slice(0, 40);
+    function pickPrompt(word, candidates) {
+      const langName = getLang().mistralName;
+      const base     = lc(wordBase(word));
+      return `You write a vocabulary exercise for a learner of ${langName}.
 
-      const reply    = await callAI(clozePrompt(words, candidates), isGemini() ? 2000 : 16000);
+TARGET: "${base}"${entryContext(word)}
+
+1. TEXT — write 2 to 4 sentences of ${langName} (35-70 words) describing one concrete situation
+in which a native speaker would naturally reach for "${base}". The learner will read the text and
+choose, among five words, the one they would use to talk about it.
+- The text must NOT contain "${base}" or any of its forms, and must NOT leave a blank or a dash
+  where it would go: it is a complete, natural text a native speaker could have written.
+- It must NOT define the word, paraphrase it, or contain a synonym of it. Let the situation carry
+  the meaning, so that only someone who knows what "${base}" means can match it.
+
+2. DECOYS — choose exactly 4 entries from this list (copy them exactly, invent none):
+${candidates.join(' | ')}
+- SAME PART OF SPEECH as "${base}" (a verb against verbs, an adjective against adjectives, an
+  expression against expressions): the learner must not be able to rule one out by its form.
+- NONE may be a synonym or near-synonym of "${base}", and none may describe the situation
+  acceptably — test each against the text. If too few candidates qualify, prefer an unrelated
+  word of the same part of speech over a close one.
+
+3. WHY — one short sentence in ${langName} saying why "${base}" fits this situation.
+
+Return ONLY this JSON object, no markdown:
+{"text": "...", "decoys": ["...", "...", "...", "..."], "why": "..."}`;
+    }
+
+    async function fetchPick(word) {
+      const candidates = pickCandidates(word);
+      const reply    = await callAI(pickPrompt(word, candidates), isGemini() ? 1500 : 16000);
       const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
       const a = stripped.indexOf('{'), b = stripped.lastIndexOf('}');
       if (a === -1 || b <= a) throw new Error('Format inattendu');
       const d = JSON.parse(stripped.slice(a, b + 1));
-      if (!d.text || !Array.isArray(d.blanks) || !d.blanks.length) throw new Error('Réponse incomplète');
-      // On ne garde que les trous dont l'entrée est bien une des cibles demandées.
-      d.blanks = d.blanks.filter(x => words.some(w => lc(w) === lc(x.entry || '')));
-      if (!d.blanks.length) throw new Error('Aucune cible placée');
-      const dropped = words.filter(w => !d.blanks.some(b => lc(b.entry) === lc(w)));
-      if (dropped.length) console.log('[Séance] mots écartés du texte (synonymes) :', dropped.join(', '));
-      // On ne garde que des intrus réellement issus de la liste envoyée.
-      const picked = (Array.isArray(d.decoys) ? d.decoys : [])
-        .map(x => candidates.find(c => lc(c) === lc(x)))
-        .filter(Boolean).slice(0, 4);
-      d.bank = shuffleInPlace([...d.blanks.map(x => x.entry), ...picked]);
-      return d;
-    }
-
-    async function renderSessionCloze(item) {
-      const body = document.getElementById('session-body');
-      // Le QCM précédent avait pu ouvrir l'aide : elle se referme tant que le
-      // texte n'est pas corrigé, sinon la traduction donnerait les réponses.
-      _sessionHelpOpen = !!(_clozeState && _clozeState.checked);
-      if (!_clozeState) {
-        body.innerHTML = `<p class="session-note"><span class="spinner"></span> ${tPrac('sess_writing')}</p>`;
-        try {
-          const d = await (_clozePromise || fetchCloze(item.words));
-          if (d && d.error) throw new Error(d.error);
-          _clozeState = { ...d, filled: {}, active: Math.min(...d.blanks.map(b => b.n)), checked: false };
-        } catch (err) {
-          body.innerHTML = `<p style="color:var(--rojo)">${tPrac('err_prefix')} ${err.message}</p>
-            <div class="session-actions"><button class="btn-secondary" onclick="retryCloze()">${tPrac('retry')}</button></div>`;
-          return;
-        }
-      }
-      paintCloze();
-    }
-
-    function retryCloze() {
-      const item = sessionItems[sessionIdx];
-      _clozeState  = null;
-      _clozePromise = fetchCloze(item.words).catch(e => ({ error: e.message }));
-      renderSessionCloze(item);
-    }
-
-    function paintCloze() {
-      const st   = _clozeState;
-      const body = document.getElementById('session-body');
-      const html = st.text.replace(/\{(\d+)\}/g, (m, n) => {
-        const i    = +n;
-        const val  = st.filled[i];
-        const bl   = st.blanks.find(b => b.n === i);
-        if (!st.checked) {
-          return `<button class="cloze-blank ${val ? '' : 'empty'} ${st.active === i ? 'active' : ''}" onclick="clozeBlank(${i})">${val || '·····'}</button>`;
-        }
-        const ok = bl && val && lc(val) === lc(bl.entry);
-        // Le mot corrigé ouvre son menu ⋯ : c'est le seul endroit où on le voit,
-        // donc le seul endroit d'où on peut le vérifier, le corriger ou le jeter.
-        const esc = bl ? bl.entry.replace(/'/g, "\\'") : '';
-        const menu = bl ? ` onclick="openWordMenu('${esc}', event)" title="Options"` : '';
-        return `<span class="cloze-blank ${ok ? 'ok' : 'ko'}"${menu}>${ok ? bl.form : (val || '—')}</span>`
-             + (ok || !bl ? '' : ` <span class="cloze-fix"${menu}>→ ${bl.form}</span>`);
+      if (!d.text) throw new Error('Réponse incomplète');
+      // Seuls des intrus réellement issus de la liste envoyée ; complétés au hasard
+      // dans la même liste si le modèle en a rendu moins de quatre.
+      const decoys = [];
+      (Array.isArray(d.decoys) ? d.decoys : []).forEach(x => {
+        const c = candidates.find(w => lc(w) === lc(x) || lc(wordBase(w)) === lc(x));
+        if (c && !decoys.includes(c)) decoys.push(c);
       });
+      for (const c of candidates) { if (decoys.length >= 4) break; if (!decoys.includes(c)) decoys.push(c); }
+      const options = shuffleInPlace([
+        { text: lc(wordBase(word)), correct: true, explanation: d.why || '' },
+        ...decoys.slice(0, 4).map(w => ({ text: lc(wordBase(w)), correct: false, explanation: '' })),
+      ]);
+      return { situation: String(d.text), options };
+    }
 
-      const used = new Set(Object.values(st.filled).map(lc));
-      const bank = st.checked ? '' :
-        `<div class="cloze-bank">${st.bank.map((w, i) =>
-          `<button class="cloze-chip ${used.has(lc(w)) ? 'used' : ''}" onclick="clozePick(${i})">${lc(w)}</button>`).join('')}</div>`;
+    // ── « Tape le mot » ─────────────────────────────────────────────────
+    const TYPE_HINT_MAX = 3; // lettres révélées au plus, une par appui
 
-      let tail = '';
-      if (st.checked) {
-        const n = st.blanks.filter(b => lc(st.filled[b.n] || '') === lc(b.entry)).length;
-        // Récapitulatif de TOUS les mots visés, pas seulement de ceux dont la forme
-        // employée différait de l'entrée : c'est le seul endroit du texte à trous où
-        // l'on voit où en est chaque mot, et donc pourquoi il tombera en QCM ou en
-        // texte la prochaine fois.
-        tail = `<p class="session-note"><strong>${n} / ${st.blanks.length}</strong></p>`
-             + `<div class="cloze-recap">${st.blanks.map(b => {
-                 const okB  = lc(st.filled[b.n] || '') === lc(b.entry);
-                 const flex = lc(b.form) !== lc(b.entry)
-                   ? `<span class="rc-flex">${tPrac('sess_inbase').replace('{w}', lc(b.entry))}</span>` : '';
-                 const due = sessionDueLabel(b.entry);
-                 // La définition de chaque mot, une fois le texte corrigé : c'est là
-                 // qu'on découvre ceux qu'on ne connaissait pas.
-                 const def = `<button class="btn-link rc-def" onclick="fetchHint('${b.entry.replace(/'/g, "\\'")}')">${tPrac('sess_def')}</button>`;
-                 return `<div class="cloze-recap-row">
-                           <span class="rc-mark ${okB ? 'ok' : 'ko'}">${tPrac(okB ? 'mark_ok' : 'mark_ko')}</span>
-                           <span>${lc(b.form)}${flex}${due ? `<span class="rc-due">${due}</span>` : ''}${def}</span>
-                           ${starsHtml(b.entry)}
-                         </div>`;
-               }).join('')}</div>`;
+    function typePrompt(word) {
+      const langName = getLang().mistralName;
+      const base     = lc(wordBase(word));
+      return `You write a fill-in-the-blank sentence for a learner of ${langName}.
+
+TARGET: "${base}"${entryContext(word)}
+
+Write one or two natural sentences of ${langName} (15-35 words) in which "${base}" is the word a
+native speaker would use, then replace it with ___ (three underscores), exactly once.
+- Use the FORM the sentence requires (conjugated, agreed, with its clitics or article as the
+  grammar demands), and return exactly the removed text in "form". For a multi-word expression
+  the blank covers the whole expression as used.
+- The context must let someone who knows "${base}" recover it with confidence: a clear, specific
+  situation. Never put a definition, a paraphrase or a synonym of it next to the blank.
+- The learner types the answer, so the blank must have ONE natural answer: avoid sentences where
+  a common synonym fits just as well.
+- "why": one short sentence in ${langName} on what the word means here.
+
+Return ONLY this JSON object, no markdown:
+{"sentence": "... ___ ...", "form": "...", "why": "..."}`;
+    }
+
+    async function fetchType(word) {
+      const reply    = await callAI(typePrompt(word), isGemini() ? 1000 : 16000);
+      const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+      const a = stripped.indexOf('{'), b = stripped.lastIndexOf('}');
+      if (a === -1 || b <= a) throw new Error('Format inattendu');
+      const d = JSON.parse(stripped.slice(a, b + 1));
+      const sentence = String(d.sentence || '');
+      if (sentence.split('___').length !== 2 || !String(d.form || '').trim()) throw new Error('Réponse incomplète');
+      return { sentence, form: String(d.form).trim(), why: String(d.why || '') };
+    }
+
+    // Comparaison stricte sur le mot, souple sur l'enveloppe : casse, espaces et
+    // apostrophes typographiques ne comptent pas. Un accent, si (choix du 2026-10-22).
+    const normType = s => lc(String(s || '')).replace(/[‘’`ʼ]/g, "'").replace(/\s+/g, ' ').trim();
+
+    // La bonne forme, lettres manquées ou fausses soulignées (alignement LCS).
+    function typeDiffHtml(typed, form) {
+      const a = [...normType(typed)], b = [...form];
+      const bl = b.map(c => normType(c));
+      const n = a.length, m = b.length;
+      const L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+      for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+        L[i][j] = a[i] === bl[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+      const keep = new Array(m).fill(false);
+      for (let i = 0, j = 0; i < n && j < m;) {
+        if (a[i] === bl[j]) { keep[j] = true; i++; j++; }
+        else if (L[i + 1][j] >= L[i][j + 1]) i++;
+        else j++;
+      }
+      return b.map((c, j) => keep[j] ? escapeHtml(c) : `<u>${escapeHtml(c)}</u>`).join('');
+    }
+
+    function typeHintMax(item) {
+      return Math.min(TYPE_HINT_MAX, Math.max(0, ((item.data && item.data.form) || '').length - 1));
+    }
+
+    function paintTypeSentence(item) {
+      const d  = item.data;
+      const el = document.getElementById('type-sentence');
+      if (!el || !d) return;
+      const [before, after] = d.sentence.split('___');
+      let gap;
+      if (item.answered) {
+        gap = `<span class="type-gap ${item.ok ? 'ok' : 'ko'}">${escapeHtml(d.form)}</span>`;
       } else {
-        tail = `<div class="session-actions"><button class="btn-secondary" onclick="checkCloze()">${tPrac('sess_check')}</button></div>`;
+        const shown = d.form.slice(0, item.hints || 0);
+        gap = `<span class="type-gap">${shown ? escapeHtml(shown) + '…' : '&nbsp;'}</span>`;
       }
-      body.innerHTML = `<div class="cloze-text">${html}</div>${bank}${tail}`;
-      if (st.checked) addSessionNextButton();
+      el.innerHTML = escapeHtml(before) + gap + escapeHtml(after);
     }
 
-    function clozeBlank(i) {
-      const st = _clozeState;
-      if (st.checked) return;
-      if (st.filled[i]) delete st.filled[i]; // un trou plein se vide au clic
-      st.active = i;
-      paintCloze();
+    function typeHintLabel(item) {
+      const h = item.hints || 0;
+      return tPrac('type_hint') + (h ? ` (${h}/${typeHintMax(item)})` : '');
     }
 
-    function clozePick(idx) {
-      const st = _clozeState;
-      if (st.checked) return;
-      const word = st.bank[idx];
-      if (Object.values(st.filled).some(v => lc(v) === lc(word))) return; // déjà placé
-      const target = st.active && !st.filled[st.active]
-        ? st.active
-        : (st.blanks.map(b => b.n).sort((a, b) => a - b).find(n => !st.filled[n]));
-      if (!target) return;
-      st.filled[target] = word;
-      // ⚠️ Le trou vide qui SUIT celui qu'on vient de remplir, pas le premier du
-      // texte. Sauter un mot qu'on ne sait pas puis remplir le suivant ramenait
-      // au trou sauté, à chaque fois : on avançait d'un mot et on reculait de
-      // deux. On ne revient au début que lorsqu'il n'y a plus rien devant.
-      // Rien n'oblige pour autant à remplir dans l'ordre : un clic sur un trou
-      // l'allume (`clozeBlank`).
-      const empty = st.blanks.map(b => b.n).sort((a, b) => a - b).filter(n => !st.filled[n]);
-      st.active = empty.find(n => n > target) ?? empty[0] ?? null;
-      paintCloze();
+    function typeHint() {
+      const item = sessionItems[sessionIdx];
+      if (!item || item.kind !== 'type' || item.answered || !item.data) return;
+      if ((item.hints || 0) >= typeHintMax(item)) return;
+      item.hints = (item.hints || 0) + 1;
+      paintTypeSentence(item);
+      const b = document.getElementById('type-hint');
+      if (b) { b.textContent = typeHintLabel(item); b.disabled = item.hints >= typeHintMax(item); }
     }
 
-    async function checkCloze() {
-      const st = _clozeState;
-      if (st.checked) return;
-      const item = sessionItems[sessionIdx]; // l'item auquel ce texte appartient
-      st.checked = true;
-      unlockSessionHelp(); // la correction est faite : définition et traduction s'ouvrent
-      paintCloze();
-      for (const b of st.blanks) {
-        const ok = lc(st.filled[b.n] || '') === lc(b.entry);
-        if (ok) sessionOk++;
-        // Mot supprimé pendant le texte : ne pas lui recréer une progression.
-        if (!allWords.some(w => lc(w) === lc(b.entry))) continue;
-        await recordSessionAnswer(b.entry, ok);
+    async function renderSessionType(item) {
+      const body = document.getElementById('session-body');
+      if (!item.served) { item.wasNew = false; item.served = true; }
+      _sessionHelpOpen = !!item.answered; // la définition donnerait le mot
+      const esc = item.word.replace(/'/g, "\\'");
+      body.innerHTML =
+        `<div id="session-word-slot"></div>
+         <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
+         <p class="session-q">${tPrac('type_q')} <span class="card-action-btn" id="qcm-regen" onclick="regenQCM()">${tPrac('qcm_regen')}</span></p>
+         <div class="type-sentence" id="type-sentence"><span class="spinner"></span></div>
+         <div id="type-zone"></div>
+         <div id="session-result"></div>
+         <div class="session-actions" id="session-help">${sessionDefButton(esc)}</div>`;
+      prefetchItem(sessionIdx + 1);
+      try {
+        if (!item.choicesPromise) prefetchItem(sessionIdx);
+        const d = await item.choicesPromise;
+        if (d && d.error) throw new Error(d.error);
+        if (sessionItems[sessionIdx] !== item) return; // on est passé à la suite entre-temps
+        item.data = d;
+        paintTypeSentence(item);
+        document.getElementById('type-zone').innerHTML =
+          `<div class="type-row">
+             <input type="text" id="type-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"
+               onkeydown="if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); checkType(); }">
+             <button class="btn-secondary" id="type-check" onclick="checkType()">${tPrac('sess_check')}</button>
+           </div>
+           <div class="session-below">
+             <button class="btn-ghost" id="type-hint" onclick="typeHint()">${typeHintLabel(item)}</button>
+             <button class="btn-ghost" id="session-dunno" onclick="typeDunno()">${tPrac('sess_dunno')}</button>
+           </div>`;
+        if (item.answered) {
+          paintTypeAnswer(item);
+          const st = document.getElementById('session-stars');
+          if (st) st.innerHTML = starsHtml(item.word) + sessionDueSuffix(item.word);
+          addSessionNextButton();
+        }
+        requestAnimationFrame(alignSessionTop);
+      } catch (err) {
+        item.choicesPromise = null;
+        document.getElementById('type-sentence').innerHTML =
+          `<p style="color:var(--rojo)">${tPrac('err_prefix')} ${err.message}</p>
+           <button class="btn-secondary" style="margin-top:0.5rem" onclick="renderSession()">${tPrac('retry')}</button>`;
       }
-      // ⚠️ Le premier `paintCloze()` a lieu AVANT ces écritures : sans ce second
-      // rendu, le récapitulatif montrerait les étoiles d'avant la réponse.
-      // ⚠️ Mais ces écritures prennent une seconde, et « Suivant » est déjà à
-      // l'écran : le texte à trous étant TOUJOURS le dernier item de la manche,
-      // appuyer pendant ce temps affichait la carte « terminé »… que ce second
-      // rendu écrasait aussitôt par le texte. On ne repeint que si l'on y est encore.
-      if (sessionRunning && sessionItems[sessionIdx] === item) paintCloze();
+    }
+
+    // L'état « répondu » du trou à taper, sans rien enregistrer (même rôle que
+    // paintQcmAnswer : sert aussi au re-rendu après un renommage).
+    function paintTypeAnswer(item) {
+      const d = item.data;
+      paintTypeSentence(item);
+      const inp = document.getElementById('type-input');
+      if (inp) { inp.value = item.typed || ''; inp.disabled = true; }
+      ['type-check', 'type-hint', 'session-dunno', 'qcm-regen'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.style.display = 'none';
+      });
+      const base = lc(wordBase(item.word));
+      const lines = [];
+      if (item.ok) {
+        lines.push(`✓ ${escapeHtml(d.form)}`);
+        if (item.hints) lines.push(`<span class="type-note">${tPrac('type_hint_note')}</span>`);
+      } else {
+        if (item.typed) lines.push(`✗ <s>${escapeHtml(item.typed)}</s>`);
+        lines.push(`<span class="type-diff">${item.typed ? typeDiffHtml(item.typed, d.form) : escapeHtml(d.form)}</span>`);
+      }
+      if (lc(d.form) !== base) lines.push(`<span class="type-note">${tPrac('sess_inbase').replace('{w}', escapeHtml(base))}</span>`);
+      if (d.why) lines.push(`<span class="type-why">${escapeHtml(d.why)}</span>`);
+      const res = document.getElementById('session-result');
+      res.className = 'qcm-result ' + (item.ok ? 'correct' : 'incorrect');
+      res.innerHTML = lines.join('<br>');
+      revealSessionWord(item);
+    }
+
+    async function checkType(dunno) {
+      const item = sessionItems[sessionIdx];
+      if (_sessionBusy || !item || item.kind !== 'type' || item.answered || !item.data) return;
+      const val = dunno ? '' : (document.getElementById('type-input')?.value || '');
+      if (!dunno && !val.trim()) return;
+      _sessionBusy = true;
+      item.answered = true;
+      item.typed    = val.trim();
+      item.ok       = !dunno && normType(val) === normType(item.data.form);
+      if (item.ok) sessionOk++;
+      paintTypeAnswer(item);
+      unlockSessionHelp();
+      // Réussi avec indice : compte, mais sans étoile (le mot revient demain).
+      await recordSessionAnswer(item.word, item.ok, item.ok && item.hints > 0);
+      const st = document.getElementById('session-stars');
+      if (st) st.innerHTML = starsHtml(item.word) + sessionDueSuffix(item.word);
+      addSessionNextButton();
+      _sessionBusy = false;
+    }
+    function typeDunno() { checkType(true); }
+
+    // Les exercices où le mot EST la réponse (quel mot ?, tape le mot) ne l'affichent
+    // qu'une fois répondus — avec sa note et son menu ⋯, comme le QCM.
+    function revealSessionWord(item) {
+      const slot = document.getElementById('session-word-slot');
+      if (!slot) return;
+      const esc = item.word.replace(/'/g, "\\'");
+      slot.innerHTML =
+        `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tPrac('btn_options')}</span></div>`
+        + (wordNote(item.word) ? `<div class="session-def">${escapeHtml(wordNote(item.word))}</div>` : '');
     }
 
     async function saveHistory(word, isCorrect) {
@@ -10696,13 +10690,11 @@ Reply with ONLY this JSON object, nothing else:
     // dans la manche.
     function pickRoundReplacement(excludeKey, prefer) {
       const inRound = new Set([excludeKey]);
-      sessionItems.forEach(it => it.kind === 'qcm'
-        ? inRound.add(lc(it.word))
-        : it.words.forEach(w => inRound.add(lc(w))));
+      sessionItems.forEach(it => inRound.add(lc(it.word)));
 
       const freshOnes = () => shuffleInPlace(allWords.filter(w => isNewWord(w) && !inRound.has(lc(w)) && !_roundSkipped.has(lc(w))));
       const dueOnes = () => dueWords()
-        .filter(w => !inRound.has(lc(w)) && sessionLevel(w) === 'qcm')
+        .filter(w => !inRound.has(lc(w)))
         .sort((a, b) => (progressMap[lc(a)].nextReview || '').localeCompare(progressMap[lc(b)].nextReview || ''));
 
       const first  = prefer === 'new' ? freshOnes() : dueOnes();
@@ -10716,7 +10708,7 @@ Reply with ONLY this JSON object, nothing else:
       const k = lc(word);
       // Un mot qu'on jette n'a pas été appris : il sort du compte des mots neufs
       // du jour, qui ne doit dire que des mots encore en base.
-      const served = sessionItems.find(it => it.kind === 'qcm' && lc(it.word) === k && it.served && it.wasNew);
+      const served = sessionItems.find(it => lc(it.word) === k && it.served && it.wasNew);
       // Le compteur n'a bougé que si le mot avait reçu une réponse : un mot
       // seulement entrevu n'y était jamais entré.
       if (served && hadProgress && todayNewCount > 0) {
@@ -10726,23 +10718,18 @@ Reply with ONLY this JSON object, nothing else:
       // Un mot pas encore passé est REMPLACÉ sur place : le jeter ne doit pas
       // raccourcir la manche (ni la journée), il doit juste céder son tour.
       // (La manche sauvegardée est renotée en fin de fonction.)
-      const idx = sessionItems.findIndex(it => it.kind === 'qcm' && lc(it.word) === k);
+      const idx = sessionItems.findIndex(it => lc(it.word) === k);
       if (idx >= sessionIdx) {
         const repl = pickRoundReplacement(k, served ? 'new' : 'due');
-        if (repl) sessionItems[idx] = { kind: 'qcm', word: repl };
+        if (repl) sessionItems[idx] = { kind: sessionLevel(repl), word: repl };
       }
 
       let removedBefore = 0;
       sessionItems = sessionItems.filter((it, i) => {
-        const hit = it.kind === 'qcm' && lc(it.word) === k;
+        const hit = lc(it.word) === k;
         if (hit && i < sessionIdx) removedBefore++;
         return !hit;
       });
-      sessionItems.forEach(it => {
-        if (it.kind === 'cloze') it.words = it.words.filter(w => lc(w) !== k);
-      });
-      // Un texte tombé sous deux mots n'a plus de sens.
-      sessionItems = sessionItems.filter(it => it.kind !== 'cloze' || it.words.length >= 2);
       sessionIdx = Math.max(0, sessionIdx - removedBefore);
       saveRound();
       renderSession();
@@ -10847,17 +10834,7 @@ Reply with ONLY this JSON object, nothing else:
       // La séance tient sa propre liste : sans ça, le mot corrigé restait affiché
       // sous son ancienne graphie et sa réponse s'écrivait sur un mot disparu.
       if (practiceMode === 'practice') {
-        sessionItems.forEach(it => {
-          if (it.kind === 'qcm' && it.word === word) it.word = newWord;
-          if (it.kind === 'cloze') it.words = it.words.map(w => w === word ? newWord : w);
-        });
-        // Le texte à trous en cours garde ses propres copies du mot (réponse
-        // attendue, réserve, trous remplis) : sinon le mot renommé était compté faux.
-        if (_clozeState) {
-          _clozeState.blanks.forEach(b => { if (b.entry === word) b.entry = newWord; });
-          _clozeState.bank = _clozeState.bank.map(w => w === word ? newWord : w);
-          Object.keys(_clozeState.filled).forEach(k => { if (_clozeState.filled[k] === word) _clozeState.filled[k] = newWord; });
-        }
+        sessionItems.forEach(it => { if (it.word === word) it.word = newWord; });
         saveRound(); // sinon la reprise chercherait encore l'ancienne graphie
         renderSession();
         return;
