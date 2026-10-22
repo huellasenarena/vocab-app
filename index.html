@@ -483,6 +483,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     /* Les curseurs restent VISIBLES pendant la manche — les masquer ferait sauter
        l'écran —, mais inertes : on change le nombre en repartant d'une manche. */
     .round-dials.locked { opacity: 0.4; pointer-events: none; }
+    /* Mots choisis à la main : facultatif, une ligne sous la composition */
+    .round-chosen { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.9rem; font-size: 0.82rem; color: var(--gris); }
+    .round-chosen .rc-list { color: var(--tinta); flex-basis: 100%; }
     /* Les boutons de départ s'empilent (« commencer », et « reprendre » quand une
        manche attend) : côte à côte, le second se faisait écraser par le premier. */
     #session-start .session-actions { flex-wrap: wrap; gap: 0.5rem; }
@@ -1933,6 +1936,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
             <span class="derived-sub" id="round-derived-sub"></span>
             <span class="day-mirror" id="round-day-mirror"></span>
           </div>
+          <div class="round-chosen" id="round-chosen"></div>
         </div>
         <div class="session-actions">
           <button class="btn-secondary" id="btn-session-resume" onclick="resumeRound()" style="display:none;"></button>
@@ -2571,6 +2575,14 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_waiting_one: { en: `1 recall waiting`, fr: `1 rappel en attente`, es: `1 repaso pendiente`, el: `1 επανάληψη σε αναμονή` },
       sess_waiting_no:  { en: `Nothing waiting`, fr: `Rien en attente`, es: `Nada pendiente`, el: `Τίποτα σε αναμονή` },
       badge_waiting:    { en: `{n} waiting`, fr: `{n} en attente`, es: `{n} pendientes`, el: `{n} σε αναμονή` },
+      sess_pick_words:  { en: `choose words`, fr: `choisir des mots`, es: `elegir palabras`, el: `διάλεξε λέξεις` },
+      sess_clear_pick:  { en: `clear`, fr: `retirer`, es: `quitar`, el: `καθαρισμός` },
+      sess_chosen_head: { en: `{n} chosen words in this round:`, fr: `{n} mots choisis pour cette manche :`, es: `{n} palabras elegidas para esta ronda:`, el: `{n} επιλεγμένες λέξεις για αυτόν τον γύρο:` },
+      sess_chosen_head_one:{ en: `1 chosen word in this round:`, fr: `1 mot choisi pour cette manche :`, es: `1 palabra elegida para esta ronda:`, el: `1 επιλεγμένη λέξη για αυτόν τον γύρο:` },
+      sess_chosen_one:  { en: `chosen`, fr: `choisi`, es: `elegida`, el: `επιλεγμένη` },
+      sess_chosen_n:    { en: `chosen`, fr: `choisis`, es: `elegidas`, el: `επιλεγμένες` },
+      sf_use:           { en: `Use`, fr: `Valider`, es: `Aceptar`, el: `Εντάξει` },
+      sf_intro_round:   { en: `Tick the words to put in this round. If places are left, the round fills up as usual.`, fr: `Coche les mots à mettre dans la manche. S'il reste des places, la manche se complète comme d'habitude.`, es: `Marca las palabras que quieres en esta ronda. Si quedan plazas, la ronda se completa como siempre.`, el: `Διάλεξε τις λέξεις για αυτόν τον γύρο. Αν μένουν θέσεις, ο γύρος συμπληρώνεται όπως πάντα.` },
       sess_after_answer:{ en: `after you answer`, fr: `après ta réponse`, es: `después de responder`, el: `μετά την απάντηση` },
       sess_swap_new:    { en: `Another new word`, fr: `Autre mot neuf`, es: `Otra palabra nueva`, el: `Άλλη νέα λέξη` },
       sess_plan_prefix: { en: `this round:`, fr: `dans cette manche :`, es: `en esta ronda:`, el: `σε αυτόν τον γύρο:` },
@@ -2901,6 +2913,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       return p ? (p.correct || 0) - (p.incorrect || 0) : 0;
     }
     let _freePickOrder     = [];    // mots cochés dans le sélecteur de recherche (ordre de sélection)
+    let _freeSearchFor     = 'free'; // 'free' : file du mode libre · 'round' : mots choisis pour la manche
+    let _roundChosen       = [];    // mots choisis à la main pour la prochaine manche (pratique quotidienne)
     let _freeFiltered      = [];    // liste affichée dans le sélecteur (après filtre texte)
     // Réinitialisation de la progression (⚙️ réglages globaux)
     let _resetMode         = 'langs';     // 'langs' (langues entières) | 'words' (mots précis)
@@ -3530,6 +3544,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       onSliderChange(wordCount());
       document.getElementById('word-count-label').textContent = tPrac('loading');
       document.getElementById('lang-total').textContent = ''; // sinon le total de la langue précédente
+      _roundChosen = []; // des mots choisis dans une autre langue
       // Les formes grammaticales existent pour n'importe laquelle des 4 langues
       // (table `grammar_forms` par langue) — la section s'affiche s'il y en a.
       const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(lang), loadTodayTokens(), loadBlacklist(lang), loadGrammarForms() ];
@@ -4892,6 +4907,8 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
     // `pool` restreint la liste aux mots d'un ou plusieurs groupes ; sans lui,
     // on cherche dans toute la langue (comportement d'origine).
     function openFreeSearch(pool, label) {
+      _freeSearchFor = 'free';
+      document.getElementById('free-search-intro').textContent = tPrac('sf_intro');
       _freePool = (pool && pool.length) ? pool : null;
       _freePoolLabel = _freePool ? (label || groupPickLabel()) : '';
       _freePickOrder = [];
@@ -4963,10 +4980,18 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
     function updateFreeStartBtn() {
       const btn = document.getElementById('free-search-start');
       const n = _freePickOrder.length;
-      btn.disabled = n === 0;
-      btn.textContent = n > 1 ? `${tPrac('sess_start')} (${n})` : tPrac('sess_start');
+      const lab = tPrac(_freeSearchFor === 'round' ? 'sf_use' : 'sess_start');
+      // En manche, valider avec zéro mot coché est permis : c'est retirer le choix.
+      btn.disabled = n === 0 && _freeSearchFor !== 'round';
+      btn.textContent = n > 1 ? `${lab} (${n})` : lab;
     }
     function startFreeQueue() {
+      if (_freeSearchFor === 'round') {
+        _roundChosen = [..._freePickOrder];
+        closeFreeSearch();
+        syncRoundDials();
+        return;
+      }
       if (_freePickOrder.length === 0) return;
       closeFreeSearch();
       usePool([..._freePickOrder], _freePool ? _freePoolLabel : '');
@@ -7307,16 +7332,22 @@ Write all scenarios and explanations in ${langName}.`;
     // dix mille mots soixante fois par seconde rendrait le curseur injouable — même
     // piège que le slider du mode libre. On compte alors sans mélanger.
     function planRound(countOnly) {
-      const size   = roundSize();
+      // Les mots choisis à la main passent d'abord ; le reste de la manche se
+      // remplit comme d'habitude dans les places qu'ils laissent. Plus de mots
+      // choisis que de places : la manche les prend tous, et rien d'autre.
+      const chosen    = _roundChosen.filter(w => allWords.includes(w));
+      const chosenSet = new Set(chosen.map(w => lc(w)));
+      const free      = w => !chosenSet.has(lc(w));
+      const size   = Math.max(0, roundSize() - chosen.length);
       const wanted = Math.min(roundNew(), size);
 
       // ⚠️ On ne réserve que ce que le stock peut tenir : une place gardée pour un
       // mot neuf qui n'existe pas est une place perdue.
       let newPool = null, avail = 0;
       if (wanted > 0 && countOnly) {
-        for (const w of allWords) { if (isNewWord(w) && ++avail >= wanted) break; }
+        for (const w of allWords) { if (isNewWord(w) && free(w) && ++avail >= wanted) break; }
       } else if (wanted > 0) {
-        newPool = shuffleInPlace(allWords.filter(w => isNewWord(w)));
+        newPool = shuffleInPlace(allWords.filter(w => isNewWord(w) && free(w)));
         avail   = newPool.length;
       }
       const reserve = Math.min(wanted, avail);
@@ -7328,9 +7359,10 @@ Write all scenarios and explanations in ${langName}.`;
       // quatre places, un texte les mangeait toutes et les mots à zéro ou une
       // étoile — l'essentiel du retard — n'étaient plus jamais rappelés.
       const byDue = (a, b) => (progressMap[lc(a)]?.nextReview || '').localeCompare(progressMap[lc(b)]?.nextReview || '');
-      const due   = dueWords().sort(byDue);
+      const due   = dueWords().filter(free).sort(byDue);
       const dus   = due.slice(0, budget);
-      let picked  = dus.slice();
+      const chosenOld = chosen.filter(w => !isNewWord(w));
+      let picked  = [...chosenOld, ...dus];
 
       // Places libres : des mots déjà travaillés, pas encore dus, les plus proches
       // de leur date. Réviser un peu en avance ne coûte rien ; une manche qui
@@ -7338,17 +7370,17 @@ Write all scenarios and explanations in ${langName}.`;
       // non plus, d'où le fait de servir EN PREMIER ceux qui sont au palier des
       // trous quand il en manque pour en fabriquer un.
       const ahead = [];
-      if (picked.length < budget) {
+      if (dus.length < budget) {
         const inRound = new Set(picked.map(w => lc(w)));
         const pool = allWords
           .filter(w => !inRound.has(lc(w)) && !isNewWord(w))
           .sort(byDue);
-        const need = Math.min(budget - picked.length,
+        const need = Math.min(budget - dus.length,
                               Math.max(0, CLOZE_MIN - picked.filter(w => sessionLevel(w) === 'cloze').length));
         for (const w of pool) { if (ahead.length >= need) break; if (sessionLevel(w) === 'cloze') ahead.push(w); }
         const taken = new Set(ahead.map(w => lc(w)));
         for (const w of pool) {
-          if (picked.length + ahead.length >= budget) break;
+          if (dus.length + ahead.length >= budget) break;
           if (!taken.has(lc(w))) ahead.push(w);
         }
         picked = [...picked, ...ahead];
@@ -7357,10 +7389,11 @@ Write all scenarios and explanations in ${langName}.`;
       // Moins de deux mots au palier : pas de texte, ils repassent tous en QCM.
       const cloze = picked.filter(w => sessionLevel(w) === 'cloze').slice(0, CLOZE_MAX);
 
-      const fresh      = newPool ? newPool.slice(0, reserve) : [];
-      const freshCount = newPool ? fresh.length : reserve;
+      const chosenNew  = chosen.filter(w => isNewWord(w));
+      const fresh      = [...chosenNew, ...(newPool ? newPool.slice(0, reserve) : [])];
+      const freshCount = reserve; // les neufs DEMANDÉS au curseur ; les choisis sont comptés à part
 
-      return { picked, cloze, fresh, freshCount,
+      return { picked, cloze, fresh, freshCount, chosenCount: chosen.length,
                dueCount: dus.length, aheadCount: ahead.length, waiting: due.length - dus.length };
     }
 
@@ -7574,8 +7607,11 @@ Write all scenarios and explanations in ${langName}.`;
       const line = document.getElementById('round-derived-line');
       // « dans cette manche » : à côté, « N rappels en attente » parle de ce qui
       // RESTE après elle — sans le préfixe, deux « rappels » se lisaient côte à côte.
+      const cho  = plan.chosenCount;
       if (line) line.textContent =
-        `${tPrac('sess_plan_prefix')} ${rap} ${tPrac(rap === 1 ? 'sess_rev_one' : 'sess_rev_n')}`
+        `${tPrac('sess_plan_prefix')} `
+        + (cho ? `${cho} ${tPrac(cho === 1 ? 'sess_chosen_one' : 'sess_chosen_n')} + ` : '')
+        + `${rap} ${tPrac(rap === 1 ? 'sess_rev_one' : 'sess_rev_n')}`
         + ` + ${neu} ${tPrac(neu === 1 ? 'sess_new_one' : 'sess_new_n')}`;
 
       const sub = document.getElementById('round-derived-sub');
@@ -7590,9 +7626,41 @@ Write all scenarios and explanations in ${langName}.`;
 
       // Ce que cette manche laisse en retard derrière elle.
       const wait = document.getElementById('session-waiting');
+      renderRoundChosen();
       if (wait) wait.textContent = !plan.waiting
         ? tPrac('sess_waiting_no')
         : (plan.waiting === 1 ? tPrac('sess_waiting_one') : tPrac('sess_waiting').replace('{n}', plan.waiting));
+    }
+
+    // ── Composer la manche (facultatif) ─────────────────────────────────
+    // Le sélecteur « chercher un mot » du mode libre, réutilisé tel quel : les mots
+    // cochés prennent les premières places de la prochaine manche, et le curseur
+    // « mots par manche » la complète comme d'habitude s'il en reste.
+    function openRoundPicker() {
+      _freeSearchFor = 'round';
+      document.getElementById('free-search-intro').textContent = tPrac('sf_intro_round');
+      _freePool = null; _freePoolLabel = '';
+      _freePickOrder = [..._roundChosen];
+      document.getElementById('free-search-input').value = '';
+      renderFreeSearchList('');
+      updateFreeStartBtn();
+      document.getElementById('free-search-modal').classList.add('visible');
+    }
+    function clearRoundChosen() { _roundChosen = []; syncRoundDials(); }
+
+    function renderRoundChosen() {
+      const el = document.getElementById('round-chosen');
+      if (!el) return;
+      _roundChosen = _roundChosen.filter(w => allWords.includes(w)); // un mot supprimé entre-temps
+      const n = _roundChosen.length;
+      if (!n) {
+        el.innerHTML = `<button class="btn-ghost" onclick="openRoundPicker()">${tPrac('sess_pick_words')}</button>`;
+        return;
+      }
+      const shown = _roundChosen.slice(0, 6).map(w => escapeHtml(lc(wordBase(w)))).join(', ') + (n > 6 ? '…' : '');
+      el.innerHTML = `<span class="rc-list">${tPrac(n === 1 ? 'sess_chosen_head_one' : 'sess_chosen_head').replace('{n}', n)} ${shown}</span>
+        <button class="btn-ghost" onclick="openRoundPicker()">${tPrac('act_edit')}</button>
+        <button class="btn-ghost" onclick="clearRoundChosen()">${tPrac('sess_clear_pick')}</button>`;
     }
 
     function lockRoundDials() {
@@ -7660,6 +7728,7 @@ Write all scenarios and explanations in ${langName}.`;
       clearSavedRound();                    // on repart de zéro : l'ancienne est jetée
       _roundSkipped = new Set();
       sessionItems = buildSessionItems();
+      _roundChosen = []; // consommé : la manche suivante repart du remplissage automatique
       sessionIdx   = 0;
       sessionOk    = 0;
       _clozeState  = null;
@@ -10932,7 +11001,7 @@ Reply with ONLY this JSON object, nothing else:
     <div class="modal-card">
       <button class="modal-close" onclick="closeFreeSearch()" data-i18n="verify_close">fermer</button>
       <h2 class="modal-title" data-i18n="sf_title">Chercher un mot</h2>
-      <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem" data-i18n="sf_intro">Coche un ou plusieurs mots à pratiquer (dans l'ordre choisi), puis « commencer ».</p>
+      <p style="color:var(--gris);font-size:0.85rem;margin:-0.5rem 0 1rem" id="free-search-intro" data-i18n="sf_intro">Coche un ou plusieurs mots à pratiquer (dans l'ordre choisi), puis « commencer ».</p>
       <input type="text" id="free-search-input" placeholder="filtrer…" data-i18n-ph="sf_filter" autocomplete="off" autocapitalize="off"
         oninput="renderFreeSearchList(this.value)"
         style="width:100%;box-sizing:border-box;margin-bottom:0.6rem;">
