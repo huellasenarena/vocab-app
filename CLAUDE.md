@@ -431,7 +431,7 @@ Décrire une photo n'avait ni but ni fin vérifiable (idée tirée du *task-base
 - **Après la tâche** : ≤3 erreurs confirmées (pas de majuscules ni de ponctuation) + 3 mots utiles, ajoutables (`_imgWords`, jamais par l'attribut `onclick`). Rien dans la progression ni l'historique.
 - Une manche répondue **verrouille** le champ et le bouton (le secret est révélé) jusqu'à « otras fotos » ; `resetPracticeUI` les rend aux autres modes.
 - Toute l'interface en langue **pratiquée** (`img_*`), les réponses en `feedbackLang` — plus rien d'écrit en espagnol en dur.
-- ⚠️ **État au 2026-09-29 : poussé mais PAS ENCORE ESSAYÉ, et Worker NON DÉPLOYÉ.** Tant que `wrangler deploy` n'est pas fait, le mode Imagen en prod ne charge aucune photo (l'ancien Worker ignore `count` et ne renvoie pas `photos`). Rien d'autre n'en dépend : « voir une image » d'un mot marche avec les deux Worker. En local, `UNSPLASH_KEY` manque dans `.dev.vars`. **Prochaine fois** : déployer le Worker, jouer quelques manches, et juger (1) si quatre photos du même sujet se ressemblent assez pour que la tâche soit un défi — sinon, premier appel qui choisit les 4 plus proches parmi ~10 ; (2) si le modèle devine juste.
+- ⚠️ **État : poussé le 2026-09-29, Worker déployé le 2026-10-22, PAS ENCORE ESSAYÉ.** En local, `UNSPLASH_KEY` manque dans `.dev.vars`. **Prochaine fois** : jouer quelques manches, et juger (1) si quatre photos du même sujet se ressemblent assez pour que la tâche soit un défi — sinon, premier appel qui choisit les 4 plus proches parmi ~10 ; (2) si le modèle devine juste.
 
 ---
 
