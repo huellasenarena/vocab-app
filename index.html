@@ -500,6 +500,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .session-due { font-family: var(--serif); font-size: 0.7rem; opacity: 0.75; margin-left: 0.45rem; }
     #session-choices { display: flex; flex-direction: column; gap: 0.6rem; }
     #session-choices > .btn-ghost { align-self: flex-start; }
+    /* Aide pas encore offerte (rappel avant la réponse) : grisée, avec sa raison */
+    .btn-ghost:disabled, .ctx-menu-btn:disabled { color: var(--gris-claro); cursor: default; }
+    .btn-ghost .why, .ctx-menu-btn .why { font-style: italic; margin-left: 0.4rem; }
+    .session-new { font-size: 0.9rem; font-style: italic; color: var(--gris); }
     #session-result:not(:empty) { margin-top: 0.9rem; }
     .session-count { font-size: 0.82rem; color: var(--gris); }
     .session-track { height: 2px; background: var(--linea-suave); overflow: hidden; }
@@ -900,6 +904,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       padding: 0 0 1rem;
     }
     .hint-box.collapsed .hint-body { display: none; }
+    /* La boîte définition se plie : une flèche le dit (▾ ouverte, ▸ pliée) */
+    #hint-box .hint-label::after { content: '▾'; color: var(--gris); font-size: 0.9rem; letter-spacing: 0; text-transform: none; }
+    #hint-box.collapsed .hint-label::after { content: '▸'; }
 
     /* ── Bas de la boîte définition : traduire / étudier ── */
     .hint-extra { padding: 0 0 1rem; }
@@ -1121,8 +1128,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       .qcm-choice:hover:not(:disabled)  { border-left-color: var(--linea-fuerte); }
     }
     .qcm-choice:disabled                { cursor: default; }
-    /* « juste » / « faux » en toutes lettres au-dessus du scénario choisi */
-    .qcm-mark { display: block; font-size: var(--t-etiqueta); letter-spacing: 0.13em; text-transform: uppercase; }
+    /* ✓ / ✗ dans la marge gauche, hors du texte : rien ne bouge à la réponse */
+    .qcm-choice { position: relative; }
+    .qcm-mark { position: absolute; left: -1.1rem; top: 0.8rem; font-size: 0.92rem; line-height: 1.55; }
     .qcm-choice.correct-answer          { border-left-color: var(--verde); color: var(--verde); }
     .qcm-choice.wrong-answer            { border-left-color: var(--rojo);  color: var(--rojo); }
 
@@ -2563,6 +2571,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_waiting_one: { en: `1 recall waiting`, fr: `1 rappel en attente`, es: `1 repaso pendiente`, el: `1 επανάληψη σε αναμονή` },
       sess_waiting_no:  { en: `Nothing waiting`, fr: `Rien en attente`, es: `Nada pendiente`, el: `Τίποτα σε αναμονή` },
       badge_waiting:    { en: `{n} waiting`, fr: `{n} en attente`, es: `{n} pendientes`, el: `{n} σε αναμονή` },
+      sess_after_answer:{ en: `after you answer`, fr: `après ta réponse`, es: `después de responder`, el: `μετά την απάντηση` },
       sess_swap_new:    { en: `Another new word`, fr: `Autre mot neuf`, es: `Otra palabra nueva`, el: `Άλλη νέα λέξη` },
       sess_plan_prefix: { en: `this round:`, fr: `dans cette manche :`, es: `en esta ronda:`, el: `σε αυτόν τον γύρο:` },
       sess_rev_one:     { en: `recall`, fr: `rappel`, es: `repaso`, el: `επανάληψη` },
@@ -6878,12 +6887,16 @@ Write all scenarios and explanations in ${langName}.`;
       }
     }
 
-    // L'état d'une réponse se dit en toutes lettres, pas seulement en couleur :
-    // une étiquette « juste » / « faux » au-dessus du texte du scénario.
-    function markQcmChoice(b, label) {
+    // L'état d'une réponse : la couleur, et ✓ / ✗ dans la marge gauche, HORS du
+    // texte (choix du 2026-10-22, page de test du lot B). L'étiquette « juste » /
+    // « faux » posée au-dessus du scénario faisait descendre le texte et toutes les
+    // réponses suivantes. Le mot reste lu par les lecteurs d'écran (`aria-label`).
+    function markQcmChoice(b, ok) {
       if (b.querySelector('.qcm-mark')) return;
       const m = document.createElement('span');
-      m.className = 'qcm-mark'; m.textContent = label;
+      m.className = 'qcm-mark';
+      m.textContent = ok ? '✓' : '✗';
+      m.setAttribute('aria-label', tPrac(ok ? 'mark_ok' : 'mark_ko'));
       b.prepend(m);
     }
 
@@ -6897,10 +6910,10 @@ Write all scenarios and explanations in ${langName}.`;
         const c = _qcmChoices[i];
         if (b === btn) {
           b.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
-          markQcmChoice(b, tPrac(isCorrect ? 'mark_ok' : 'mark_ko'));
+          markQcmChoice(b, isCorrect);
         } else if (c && c.correct && !isCorrect) {
           b.classList.add('correct-answer'); // révèle la bonne réponse
-          markQcmChoice(b, tPrac('mark_ok'));
+          markQcmChoice(b, true);
         }
       });
 
@@ -7204,8 +7217,16 @@ Write all scenarios and explanations in ${langName}.`;
 
     function unlockSessionHelp() {
       _sessionHelpOpen = true;
-      const h = document.getElementById('session-help');
-      if (h) h.style.display = '';
+      const b = document.getElementById('session-def-btn');
+      if (!b) return;
+      b.disabled = false;
+      const why = b.querySelector('.why'); if (why) why.remove();
+    }
+
+    // Avant la réponse sur un rappel, la définition donnerait le mot : le bouton
+    // reste à sa place, grisé, et dit pourquoi (un vide laissait croire à un bug).
+    function sessionDefButton(esc) {
+      return `<button class="btn-ghost" id="session-def-btn" onclick="fetchHint('${esc}')"${_sessionHelpOpen ? '' : ' disabled'}>${tPrac('sess_def')}${_sessionHelpOpen ? '' : `<span class="why">${tPrac('sess_after_answer')}</span>`}</button>`;
     }
 
     let sessionItems   = [];
@@ -7897,15 +7918,13 @@ Write all scenarios and explanations in ${langName}.`;
       _sessionHelpOpen = isNewWord(item.word) || !!item.answered;
       const esc = item.word.replace(/'/g, "\\'");
       body.innerHTML =
-        `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn" id="qcm-regen" title="${tPrac('qcm_regen')}" onclick="regenQCM()">${tPrac('qcm_regen')}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tPrac('btn_options')}</span></div>
+        `<div class="session-word"><span>${lc(wordBase(item.word))}</span>${item.wasNew ? `<span class="session-new">${tPrac('sess_new_one')}</span>` : ''}<span class="card-action-btn" id="qcm-regen" title="${tPrac('qcm_regen')}" onclick="regenQCM()">${tPrac('qcm_regen')}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tPrac('btn_options')}</span></div>
          <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
          ${wordNote(item.word) ? `<div class="session-def">${wordNote(item.word)}</div>` : ''}
          <p class="session-q">${tPrac('sess_which')}</p>
          <div id="session-choices"><div style="padding:0.6rem;color:var(--gris)"><span class="spinner"></span></div></div>
          <div id="session-result"></div>
-         <div class="session-actions" id="session-help"${_sessionHelpOpen ? '' : ' style="display:none"'}>
-           <button class="btn-ghost" onclick="fetchHint('${esc}')">${tPrac('sess_def')}</button>
-         </div>`;
+         <div class="session-actions" id="session-help">${sessionDefButton(esc)}</div>`;
       prefetchQCM(sessionIdx + 1);
       try {
         if (!item.choicesPromise) prefetchQCM(sessionIdx);
@@ -7987,10 +8006,10 @@ Write all scenarios and explanations in ${langName}.`;
         const c = item.choices[i];
         if (i === idx) {
           b.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
-          markQcmChoice(b, tPrac(isCorrect ? 'mark_ok' : 'mark_ko'));
+          markQcmChoice(b, isCorrect);
         } else if (c && c.correct && !isCorrect) {
           b.classList.add('correct-answer');
-          markQcmChoice(b, tPrac('mark_ok'));
+          markQcmChoice(b, true);
         }
       });
       const res = document.getElementById('session-result');
@@ -10204,10 +10223,15 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       document.getElementById('word-ctx-label').textContent = lc(word);
       // En Situation le mot est la réponse à trouver : ni traduction ni image.
       // En séance, même règle avant d'avoir répondu sur un mot déjà vu.
-      const _hideGloss = practiceMode === 'situation'
-        || (practiceMode === 'practice' && !_sessionHelpOpen);
+      // En séance, ces entrées restent à leur place, grisées avec leur raison
+      // (même règle que le bouton « Définition » sous les réponses).
+      const _hideGloss = practiceMode === 'situation';
+      const _lockGloss = practiceMode === 'practice' && !_sessionHelpOpen;
       document.querySelectorAll('.ctx-gloss-btn').forEach(b => {
         b.style.display = _hideGloss ? 'none' : '';
+        b.disabled = _lockGloss;
+        b.querySelectorAll('.why').forEach(w => w.remove());
+        if (_lockGloss) b.insertAdjacentHTML('beforeend', `<span class="why">${tPrac('sess_after_answer')}</span>`);
       });
       ctxMenuBack(); // toujours au premier niveau
       positionCtxMenu(x, y);
