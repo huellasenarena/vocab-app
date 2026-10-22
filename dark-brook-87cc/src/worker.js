@@ -502,7 +502,7 @@ function cleanNote(s) {
     .toLowerCase();
 }
 
-const NOTE_MAX = 120;
+const NOTE_MAX = 300; // jumeau de NOTE_MAX dans index.html (fenêtre « modifier un mot »)
 
 // Une seule paire de parenthèses, équilibrée. Si elle est détachée du mot par un
 // espace, c'est une NOTE : elle doit alors clore l'entrée et ne pas être vide.

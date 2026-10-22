@@ -448,12 +448,20 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     #screen-practice.session-mode #related-box,
     #screen-practice.session-mode #confirm-panel,
     #screen-practice.session-mode #spaced-done-card { display: none !important; }
+    /* Le vide entre « Définition » et « mes révisions à venir » : en séance, le
+       bloc des boîtes (définition, image) reste un enfant de hauteur nulle quand
+       elles sont fermées, et le gap de l'écran s'ajoutait deux fois, plus la
+       marge propre à la barre des révisions. */
+    #screen-practice.session-mode #kb-fold-actions:not(:has(.hint-box.visible)) { display: none; }
+    #screen-practice.session-mode #revisions-bar { padding-top: 0 !important; }
 
     .mode-current {
       display: inline-flex; align-items: center; gap: 0.45rem;
       color: var(--tinta); padding: 6px 16px; font-size: var(--t-nav);
     }
     .mode-chev { color: var(--gris); font-size: 0.7rem; }
+    /* Total des mots de la langue, au bout de la ligne du mode */
+    .lang-total { margin-left: auto; align-self: center; color: var(--gris); font-size: var(--t-pequeno); font-variant-numeric: tabular-nums; }
 
     /* ── Séance (mode pratique) ── */
     #session-section { width: 100%; }
@@ -512,6 +520,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .cloze-recap-row .rc-due     { display: block; font-family: var(--serif);
                                    font-size: 0.7rem; color: var(--gris); opacity: 0.8; }
     .cloze-recap-row .stars      { font-size: 0.85rem; }
+    .cloze-recap-row .rc-def     { display: block; margin-top: 0.1rem; }
     .session-q     { font-size: 0.95rem; margin-bottom: 1rem; color: var(--gris); }
     .session-actions { display: flex; margin-top: 1.1rem; }
     .session-note  { font-size: 0.85rem; color: var(--gris); margin-top: 0.8rem; }
@@ -1189,6 +1198,12 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     }
     .modal-close:hover:not(:disabled) { background: none; color: var(--tinta); }
     .modal-title { font-size: 1.4rem; color: var(--tinta); margin: 0 0 1rem; font-weight: normal; }
+    /* Fenêtre « modifier un mot » : une boîte de texte qui grandit avec l'entrée
+       (une note peut faire deux ou trois lignes), le compte de la note dessous. */
+    #edit-input   { width: 100%; resize: none; overflow: hidden; line-height: 1.5; }
+    .edit-count   { font-size: var(--t-pequeno); color: var(--gris); margin: 0.4rem 0 0; min-height: 1.2em; font-variant-numeric: tabular-nums; }
+    .edit-count.over { color: var(--rojo); }
+    .edit-actions { display: flex; gap: 0.6rem; margin-top: 0.6rem; }
     .help-section { margin-bottom: 1.15rem; }
     .help-section h3 {
       font-family: var(--serif); font-size: 0.74rem; text-transform: uppercase;
@@ -1819,6 +1834,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       <button class="mode-current" id="mode-current-btn" onclick="openModeMenu(event)">
         <span id="mode-current-label">mode : espacée</span>
       </button>
+      <span class="lang-total" id="lang-total"></span>
     </div>
     </div></div>
     <!-- Section vocab (cachée en mode image) -->
@@ -1892,7 +1908,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
               <span id="round-size-label"></span>
               <span id="round-size-value"></span>
             </div>
-            <input type="range" id="round-size-slider" min="0" max="10" step="1"
+            <input type="range" id="round-size-slider" min="0" max="39" step="1"
               oninput="setRoundSize(ROUND_SIZE_VALUES[+this.value])">
           </div>
           <div class="round-dial">
@@ -2384,6 +2400,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       btn_delete:       { en: `Delete`, fr: `Supprimer`, es: `Eliminar`, el: `Διαγραφή` },
       confirm_delete_n: { en: `Permanently delete {n} word(s)?`, fr: `Supprimer {n} mot(s) définitivement ?`, es: `¿Eliminar {n} palabra(s) definitivamente?`, el: `Οριστική διαγραφή {n} λέξεων;` },
       confirm_delete_w: { en: `Delete "{w}"?`, fr: `Supprimer « {w} » ?`, es: `¿Eliminar «{w}»?`, el: `Διαγραφή «{w}»;` },
+      btn_save:         { en: `Save`, fr: `Enregistrer`, es: `Guardar`, el: `Αποθήκευση` },
+      edit_note_len:    { en: `note: {n} / {max} characters`, fr: `note : {n} / {max} caractères`, es: `nota: {n} / {max} caracteres`, el: `σημείωση: {n} / {max} χαρακτήρες` },
       rename_prompt:    { en: `Rename "{w}":`, fr: `Renommer « {w} » :`, es: `Renombrar «{w}»:`, el: `Μετονομασία «{w}»:` },
       title_rename:     { en: `Rename`, fr: `Renommer`, es: `Renombrar`, el: `Μετονομασία` },
       title_delete:     { en: `Delete`, fr: `Supprimer`, es: `Eliminar`, el: `Διαγραφή` },
@@ -2545,6 +2563,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_waiting_one: { en: `1 recall waiting`, fr: `1 rappel en attente`, es: `1 repaso pendiente`, el: `1 επανάληψη σε αναμονή` },
       sess_waiting_no:  { en: `Nothing waiting`, fr: `Rien en attente`, es: `Nada pendiente`, el: `Τίποτα σε αναμονή` },
       badge_waiting:    { en: `{n} waiting`, fr: `{n} en attente`, es: `{n} pendientes`, el: `{n} σε αναμονή` },
+      sess_swap_new:    { en: `Another new word`, fr: `Autre mot neuf`, es: `Otra palabra nueva`, el: `Άλλη νέα λέξη` },
+      sess_plan_prefix: { en: `this round:`, fr: `dans cette manche :`, es: `en esta ronda:`, el: `σε αυτόν τον γύρο:` },
       sess_rev_one:     { en: `recall`, fr: `rappel`, es: `repaso`, el: `επανάληψη` },
       sess_rev_n:       { en: `recalls`, fr: `rappels`, es: `repasos`, el: `επαναλήψεις` },
       sess_ahead:       { en: `including {n} recalls taken early`, fr: `dont {n} révisions en avance`, es: `de ellos {n} repasos por adelantado`, el: `από αυτές {n} νωρίτερα` },
@@ -3500,6 +3520,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       resetPracticeUI();
       onSliderChange(wordCount());
       document.getElementById('word-count-label').textContent = tPrac('loading');
+      document.getElementById('lang-total').textContent = ''; // sinon le total de la langue précédente
       // Les formes grammaticales existent pour n'importe laquelle des 4 langues
       // (table `grammar_forms` par langue) — la section s'affiche s'il y en a.
       const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(lang), loadTodayTokens(), loadBlacklist(lang), loadGrammarForms() ];
@@ -4062,7 +4083,7 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
       btn.textContent = '…';
       try {
         await authFetch('/api/words', { method: 'POST', body: JSON.stringify({ lang: currentLang, word }) });
-        allWords.push(word);
+        allWords.push(word); updateLangTotal();
         btn.textContent = tPrac('act_added');
         btn.style.color = 'var(--verde)';
       } catch (err) {
@@ -4184,6 +4205,15 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
           [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
         }
       } catch (e) { allWords = []; }
+      updateLangTotal();
+    }
+
+    // Nombre total d'entrées de la langue ouverte, en haut de la page de pratique.
+    function updateLangTotal() {
+      const el = document.getElementById('lang-total');
+      if (!el) return;
+      const n = allWords.length;
+      el.textContent = n === 1 ? tPrac('one_word') : `${n.toLocaleString(UI_LOCALE[pracCode()])} ${tPrac('words_suffix')}`;
     }
 
     // ── Lecture progression ───────────────────────────────────
@@ -5930,8 +5960,20 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
       spacer.style.display = '';
     }
 
+    // Un doigt posé sur l'écran, c'est l'utilisateur qui tient la page : aucun
+    // défilement automatique ne doit la lui reprendre. On compte les doigts
+    // en continu, parce qu'il faut le savoir AU MOMENT où un défilement démarre
+    // (un doigt déjà posé ne produit aucun nouvel événement).
+    let _fingerDown = false;
+    ['touchstart', 'touchend', 'touchcancel'].forEach(t =>
+      window.addEventListener(t, e => { _fingerDown = e.touches.length > 0; }, { passive: true, capture: true }));
+
     function startAutoScroll(box, spacer) {
-      let active = true;
+      // ⚠️ Doigt déjà sur l'écran au départ → pas d'autoscroll du tout. Et il
+      // s'arrête au premier CONTACT (`touchstart`), pas seulement au glissé :
+      // poser le doigt pour lire, sans bouger, le laissait continuer.
+      let active = !_fingerDown;
+      let interrupted = !active;
       let stoppedAtTop = false;
       const PAD_BOT = 48;
       const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
@@ -5942,9 +5984,10 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
       const PAD_TOP = Math.max(safeTop + 20, _sbH + 16);
       // topTarget : position de scroll où le haut de la boîte touche le bas du rideau status bar
       const topTarget = box.getBoundingClientRect().top + window.scrollY - PAD_TOP;
-      function stop() { active = false; }
-      window.addEventListener('wheel',     stop, { passive: true });
-      window.addEventListener('touchmove', stop, { passive: true });
+      function stop() { active = false; interrupted = true; }
+      window.addEventListener('wheel',      stop, { passive: true });
+      window.addEventListener('touchstart', stop, { passive: true });
+      window.addEventListener('touchmove',  stop, { passive: true });
       function onChunk() {
         if (!active) return;
         const rect = box.getBoundingClientRect();
@@ -5975,10 +6018,13 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
         _updateStickyVisibility();
       }
       function cleanup() {
-        window.removeEventListener('wheel',     stop);
-        window.removeEventListener('touchmove', stop);
+        window.removeEventListener('wheel',      stop);
+        window.removeEventListener('touchstart', stop);
+        window.removeEventListener('touchmove',  stop);
       }
-      return { onChunk, cleanup, get stoppedAtTop() { return stoppedAtTop; } };
+      return { onChunk, cleanup,
+               get stoppedAtTop() { return stoppedAtTop; },
+               get interrupted()  { return interrupted; } };
     }
 
     async function fetchHint(word) {
@@ -6054,8 +6100,8 @@ Respond entirely in ${langName}.`;
         scroller.cleanup();
 
         // Fin du streaming : on remonte le haut de la définition près du haut de l'écran
-        // pour la lire depuis le début (sauf si l'utilisateur a scrollé lui-même).
-        if (!scroller.stoppedAtTop) {
+        // pour la lire depuis le début (sauf si l'utilisateur a touché l'écran).
+        if (!scroller.stoppedAtTop && !scroller.interrupted && !_fingerDown) {
           requestAnimationFrame(() => {
             const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
             const top = hintBox.getBoundingClientRect().top + window.scrollY - (safeTop + 16);
@@ -6233,7 +6279,8 @@ Reply with ONLY this JSON object, nothing else:
     function hintTranslate() { if (_hintBoxWord) requestGloss(_hintBoxWord, 'translate'); }
 
     async function runGloss(word, kind) {
-      if (kind === 'photo') return runWordImage(word);
+      if (kind === 'photo')  return runWordImage(word);
+      if (kind === 'define') return fetchHint(word);
 
       // La traduction vit dans la boîte définition : elle en est le filet.
       const box = document.getElementById('hint-box');
@@ -7037,7 +7084,7 @@ Write all scenarios and explanations in ${langName}.`;
     // fin disait dix-neuf. La manche fait maintenant le nombre affiché, quel que
     // soit l'exercice qui sert les mots.
     const DEFAULT_ROUND_SIZE  = 12;
-    const ROUND_SIZE_VALUES   = [4,6,8,10,12,14,16,18,20,25,30];
+    const ROUND_SIZE_VALUES   = Array.from({ length: 40 }, (_, i) => i + 1); // 1 à 40, de un en un
     function roundSizeFor(lang) {
       const v = parseInt(localStorage.getItem(KEY_ROUND_SIZE + '_' + lang));
       return Number.isFinite(v) && v > 0 ? v : DEFAULT_ROUND_SIZE;
@@ -7167,6 +7214,7 @@ Write all scenarios and explanations in ${langName}.`;
     let _sessionBusy   = false;
     let _clozePromise  = null;
     let _clozeState    = null; // { text, blanks[], bank[], filled{}, active }
+    let _roundSkipped  = new Set(); // mots neufs écartés de la manche (« autre mot neuf »)
 
     const MODE_KEYS = ['practice', 'spaced', 'situation', 'free', 'image'];
 
@@ -7496,8 +7544,10 @@ Write all scenarios and explanations in ${langName}.`;
       const rap  = plan.dueCount + plan.aheadCount;
       const neu  = plan.freshCount; // pas `nw` : l'abréviation au-dessus est une fonction
       const line = document.getElementById('round-derived-line');
+      // « dans cette manche » : à côté, « N rappels en attente » parle de ce qui
+      // RESTE après elle — sans le préfixe, deux « rappels » se lisaient côte à côte.
       if (line) line.textContent =
-        `→ ${rap} ${tPrac(rap === 1 ? 'sess_rev_one' : 'sess_rev_n')}`
+        `${tPrac('sess_plan_prefix')} ${rap} ${tPrac(rap === 1 ? 'sess_rev_one' : 'sess_rev_n')}`
         + ` + ${neu} ${tPrac(neu === 1 ? 'sess_new_one' : 'sess_new_n')}`;
 
       const sub = document.getElementById('round-derived-sub');
@@ -7580,6 +7630,7 @@ Write all scenarios and explanations in ${langName}.`;
     function beginRound() {
       if (!currentLang || !allWords.length) return;
       clearSavedRound();                    // on repart de zéro : l'ancienne est jetée
+      _roundSkipped = new Set();
       sessionItems = buildSessionItems();
       sessionIdx   = 0;
       sessionOk    = 0;
@@ -7692,7 +7743,7 @@ Write all scenarios and explanations in ${langName}.`;
     // Ces boîtes vivent SOUS la zone de séance : ouvertes, elles tombent hors de
     // l'écran derrière quatre réponses, et l'on croit que le bouton ne fait rien.
     function revealSessionBox(el, block) {
-      if (practiceMode !== 'practice' || !el) return;
+      if (practiceMode !== 'practice' || !el || _fingerDown) return;
       requestAnimationFrame(() => block
         ? el.scrollIntoView({ behavior: 'smooth', block })
         : scrollElToTop(el));
@@ -7843,7 +7894,7 @@ Write all scenarios and explanations in ${langName}.`;
       // La définition est offerte d'emblée sur un mot neuf — c'est justement ce
       // qu'on vient apprendre — et seulement APRÈS la réponse sur un rappel, où
       // elle donnerait le mot. Même règle que partout ailleurs dans l'app.
-      _sessionHelpOpen = isNewWord(item.word);
+      _sessionHelpOpen = isNewWord(item.word) || !!item.answered;
       const esc = item.word.replace(/'/g, "\\'");
       body.innerHTML =
         `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn" id="qcm-regen" title="${tPrac('qcm_regen')}" onclick="regenQCM()">${tPrac('qcm_regen')}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tPrac('btn_options')}</span></div>
@@ -7870,7 +7921,19 @@ Write all scenarios and explanations in ${langName}.`;
         item.choices = choices;
         document.getElementById('session-choices').innerHTML =
           choices.map((c, i) => `<button class="qcm-choice" onclick="answerSessionQCM(this, ${i})">${c.text}</button>`).join('')
-          + `<button class="btn-ghost" style="margin-top:0.5rem" onclick="sessionDunno()">${tPrac('sess_dunno')}</button>`;
+          + `<button class="btn-ghost" id="session-dunno" style="margin-top:0.5rem" onclick="sessionDunno()">${tPrac('sess_dunno')}</button>`
+          + (item.wasNew && !item.answered
+              ? `<button class="btn-ghost" id="session-swap" onclick="swapNewWord()">${tPrac('sess_swap_new')}</button>` : '');
+        // ⚠️ Un re-rendu (mot renommé ou transféré pendant la question) redessinait
+        // une question NEUVE alors qu'elle avait déjà reçu sa réponse : la réussir
+        // une seconde fois faisait gagner une seconde étoile. Elle revient telle
+        // qu'on l'a laissée, et la réponse n'est jamais réenregistrée.
+        if (item.answered) {
+          paintQcmAnswer(item);
+          const st = document.getElementById('session-stars');
+          if (st) st.innerHTML = starsHtml(item.word) + sessionDueSuffix(item.word);
+          addSessionNextButton();
+        }
         requestAnimationFrame(alignSessionTop);
       } catch (err) {
         item.choicesPromise = null;
@@ -7904,29 +7967,75 @@ Write all scenarios and explanations in ${langName}.`;
     // des QCM servis, donc la suivante ne lui ressemblera pas.
     function regenQCM() {
       const item = sessionItems[sessionIdx];
-      if (!item || item.kind !== 'qcm' || _sessionBusy) return;
+      if (!item || item.kind !== 'qcm' || _sessionBusy || item.answered) return;
       item.choices        = null;
       item.choicesPromise = null;
       forgetUnknown(item.word);
       renderSessionQCM(item);
     }
 
+    // L'état « répondu » d'une question, sans rien enregistrer : sert à la réponse
+    // elle-même ET au re-rendu d'une question déjà répondue. `picked` = -1 pour
+    // « je ne sais pas ».
+    function paintQcmAnswer(item) {
+      const idx       = item.picked;
+      const chosen    = idx >= 0 ? (item.choices[idx] || {}) : null;
+      const isCorrect = !!(chosen && chosen.correct);
+      const right     = item.choices.find(c => c.correct);
+      document.querySelectorAll('#session-choices .qcm-choice').forEach((b, i) => {
+        b.disabled = true;
+        const c = item.choices[i];
+        if (i === idx) {
+          b.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
+          markQcmChoice(b, tPrac(isCorrect ? 'mark_ok' : 'mark_ko'));
+        } else if (c && c.correct && !isCorrect) {
+          b.classList.add('correct-answer');
+          markQcmChoice(b, tPrac('mark_ok'));
+        }
+      });
+      const res = document.getElementById('session-result');
+      res.className = 'qcm-result ' + (isCorrect ? 'correct' : 'incorrect');
+      res.innerHTML = !chosen
+        ? (right?.explanation || '')
+        : isCorrect
+          ? `${chosen.explanation || ''}`
+          : `${chosen.explanation || ''}` + (right?.explanation ? `<br>${right.explanation}` : '');
+      const rg = document.getElementById('qcm-regen');     if (rg) rg.style.display = 'none';
+      const dk = document.getElementById('session-dunno'); if (dk) dk.style.display = 'none';
+      const sw = document.getElementById('session-swap');  if (sw) sw.style.display = 'none';
+    }
+
+    // Un mot neuf qui ne vaut pas la peine aujourd'hui cède sa place à un autre mot
+    // neuf. Il quitte la MANCHE, pas la liste : il reste neuf et pourra revenir un
+    // autre jour. Rien n'est enregistré — il n'a pas été travaillé.
+    function swapNewWord() {
+      const item = sessionItems[sessionIdx];
+      if (!item || item.kind !== 'qcm' || item.answered || _sessionBusy) return;
+      _roundSkipped.add(lc(item.word)); // sinon un second échange pourrait le ramener
+      const repl = pickRoundReplacement(lc(item.word), 'new');
+      if (!repl) { // plus aucun mot pour le remplacer : le bouton n'a plus d'objet
+        _roundSkipped.delete(lc(item.word));
+        const sw = document.getElementById('session-swap'); if (sw) sw.style.display = 'none';
+        return;
+      }
+      sessionItems[sessionIdx] = { kind: 'qcm', word: repl };
+      saveRound();
+      renderSession();
+    }
+
     // « Je ne sais pas » : compte ✗ comme une mauvaise réponse, révèle la bonne
     // et ouvre la définition. Sans ça, un mot inconnu n'a d'autre issue qu'un
     // clic au hasard — et un ✓ obtenu au hasard fait monter le mot d'un palier.
+    // ⚠️ Une question ne reçoit qu'UNE réponse. « Je ne sais pas » restait
+    // cliquable après une réussite : la réponse s'enregistrait une seconde fois
+    // (✗ par-dessus le ✓) et un second « Suivant » apparaissait.
     async function sessionDunno() {
-      if (_sessionBusy) return;
+      const item = sessionItems[sessionIdx];
+      if (_sessionBusy || !item || item.answered) return;
       _sessionBusy = true;
-      const item  = sessionItems[sessionIdx];
-      const right = (item.choices || []).find(c => c.correct);
-      document.querySelectorAll('#session-choices .qcm-choice').forEach((b, i) => {
-        b.disabled = true;
-        if (item.choices[i] && item.choices[i].correct) { b.classList.add('correct-answer'); markQcmChoice(b, tPrac('mark_ok')); }
-      });
-      const res = document.getElementById('session-result');
-      res.className = 'qcm-result incorrect';
-      res.innerHTML = right?.explanation ? right.explanation : '';
-      const rg = document.getElementById('qcm-regen'); if (rg) rg.style.display = 'none';
+      item.answered = true;
+      item.picked   = -1;
+      paintQcmAnswer(item);
       unlockSessionHelp();
       await recordSessionAnswer(item.word, false);
       const stD = document.getElementById('session-stars');
@@ -7936,33 +8045,14 @@ Write all scenarios and explanations in ${langName}.`;
     }
 
     async function answerSessionQCM(btn, idx) {
-      if (_sessionBusy) return;
+      const item = sessionItems[sessionIdx];
+      if (_sessionBusy || !item || item.answered) return;
       _sessionBusy = true;
-      const item      = sessionItems[sessionIdx];
-      const chosen    = item.choices[idx] || {};
-      const isCorrect = !!chosen.correct;
+      const isCorrect = !!(item.choices[idx] || {}).correct;
       if (isCorrect) sessionOk++;
-
-      document.querySelectorAll('#session-choices .qcm-choice').forEach((b, i) => {
-        b.disabled = true;
-        const c = item.choices[i];
-        if (b === btn) {
-          b.classList.add(isCorrect ? 'correct-answer' : 'wrong-answer');
-          markQcmChoice(b, tPrac(isCorrect ? 'mark_ok' : 'mark_ko'));
-        } else if (c && c.correct && !isCorrect) {
-          b.classList.add('correct-answer');
-          markQcmChoice(b, tPrac('mark_ok'));
-        }
-      });
-
-      const right = item.choices.find(c => c.correct);
-      const res   = document.getElementById('session-result');
-      res.className = 'qcm-result ' + (isCorrect ? 'correct' : 'incorrect');
-      res.innerHTML = isCorrect
-        ? `${chosen.explanation || ''}`
-        : `${chosen.explanation || ''}` + (right?.explanation ? `<br>${right.explanation}` : '');
-
-      const rg = document.getElementById('qcm-regen'); if (rg) rg.style.display = 'none';
+      item.answered = true;
+      item.picked   = idx;
+      paintQcmAnswer(item);
       unlockSessionHelp();
       await recordSessionAnswer(item.word, isCorrect);
       // La progression vient de bouger : le mot montre son nouvel état tout de suite,
@@ -8213,9 +8303,12 @@ Answer ONLY with JSON, no markdown fence:
                  const flex = lc(b.form) !== lc(b.entry)
                    ? `<span class="rc-flex">${tPrac('sess_inbase').replace('{w}', lc(b.entry))}</span>` : '';
                  const due = sessionDueLabel(b.entry);
+                 // La définition de chaque mot, une fois le texte corrigé : c'est là
+                 // qu'on découvre ceux qu'on ne connaissait pas.
+                 const def = `<button class="btn-link rc-def" onclick="fetchHint('${b.entry.replace(/'/g, "\\'")}')">${tPrac('sess_def')}</button>`;
                  return `<div class="cloze-recap-row">
                            <span class="rc-mark ${okB ? 'ok' : 'ko'}">${tPrac(okB ? 'mark_ok' : 'mark_ko')}</span>
-                           <span>${lc(b.form)}${flex}${due ? `<span class="rc-due">${due}</span>` : ''}</span>
+                           <span>${lc(b.form)}${flex}${due ? `<span class="rc-due">${due}</span>` : ''}${def}</span>
                            ${starsHtml(b.entry)}
                          </div>`;
                }).join('')}</div>`;
@@ -8660,21 +8753,23 @@ Answer ONLY with JSON, no markdown fence:
       } catch (e) { alert('Erreur : ' + e.message); }
     }
 
-    async function editMot(lang, word, prefill) {
-      const nw = prompt(tApp('rename_prompt').replace('{w}', word), prefill || word);
-      if (nw === null) return;
-      const newWord = nw.trim();
-      if (!newWord || newWord === word) return;
-      try {
-        const r = await authFetch('/api/words', { method: 'PUT', body: JSON.stringify({ lang, oldWord: word, newWord }) });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error?.message || 'erreur');
-        const m = motsData.find(x => x.lang === lang && x.word === word);
-        if (m) m.word = newWord;
-        clearMotGroupsCache();   // la clé du cache porte le mot
-        sortMots();
-        renderMots();
-      } catch (e) { alert('Erreur : ' + e.message); }
+    function editMot(lang, word, prefill) {
+      openEditModal({
+        title: tApp('rename_prompt').replace('{w}', wordBase(word)),
+        value: prefill || word,
+        t:     tApp,
+        onSave: async newWord => {
+          if (newWord === word) return;
+          const r = await authFetch('/api/words', { method: 'PUT', body: JSON.stringify({ lang, oldWord: word, newWord }) });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error?.message || 'erreur');
+          const m = motsData.find(x => x.lang === lang && x.word === word);
+          if (m) m.word = newWord;
+          clearMotGroupsCache();   // la clé du cache porte le mot
+          sortMots();
+          renderMots();
+        },
+      });
     }
 
     // Transfert d'un mot vers une autre langue (mes mots) : popup de choix,
@@ -9633,7 +9728,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         await authFetch('/api/words', { method: 'POST', body: JSON.stringify({ lang: currentLang, word }) });
         btn.textContent = tPrac('act_added');
         btn.style.color = 'var(--verde)';
-        allWords.push(word); // ajoute en mémoire pour éviter un double-ajout immédiat
+        allWords.push(word); updateLangTotal(); // ajoute en mémoire pour éviter un double-ajout immédiat
         _relatedWordsAdded.add(word.toLowerCase());
         console.log(`[Sheets] ✓ Mot ajouté : ${word} → ${currentLang}`);
       } catch (err) {
@@ -10398,6 +10493,14 @@ Reply with ONLY this JSON object, nothing else:
     }
 
     // Depuis le menu ⋯ de la carte / des chips (menu déjà ouvert et positionné)
+    // Même porte que la traduction : gratuite sur un mot neuf, passe par « je ne
+    // sais pas » sur un mot à réviser (mode espacé), cachée avant la réponse en séance.
+    function ctxMenuDefine() {
+      const w = _ctxWord;
+      closeWordContextMenu();
+      if (w) requestGloss(w, 'define');
+    }
+
     function ctxMenuTranslate() {
       const w = _ctxWord;
       closeWordContextMenu();
@@ -10452,6 +10555,7 @@ Reply with ONLY this JSON object, nothing else:
       const wordLow = word.toLowerCase();
       const hadProgress = !!progressMap[wordLow]; // lu AVANT la suppression
       allWords          = allWords.filter(w => w.toLowerCase() !== wordLow);
+      updateLangTotal();
       delete progressMap[wordLow];
       Object.keys(definitionCache).forEach(k => { if (k.startsWith(wordLow + '|')) delete definitionCache[k]; });
       currentWords      = currentWords.filter(w => w.toLowerCase() !== wordLow);
@@ -10501,7 +10605,7 @@ Reply with ONLY this JSON object, nothing else:
         ? inRound.add(lc(it.word))
         : it.words.forEach(w => inRound.add(lc(w))));
 
-      const freshOnes = () => shuffleInPlace(allWords.filter(w => isNewWord(w) && !inRound.has(lc(w))));
+      const freshOnes = () => shuffleInPlace(allWords.filter(w => isNewWord(w) && !inRound.has(lc(w)) && !_roundSkipped.has(lc(w))));
       const dueOnes = () => dueWords()
         .filter(w => !inRound.has(lc(w)) && sessionLevel(w) === 'qcm')
         .sort((a, b) => (progressMap[lc(a)].nextReview || '').localeCompare(progressMap[lc(b)].nextReview || ''));
@@ -10559,35 +10663,111 @@ Reply with ONLY this JSON object, nothing else:
       deleteWordFromSheets(word);
     }
 
-    async function editWordOnCard(word, prefill) {
-      const nw = prompt(`Modifier « ${lc(word)} » :`, lc(prefill || word));
-      if (nw === null) return;
-      const newWord = nw.trim();
-      if (!newWord || newWord === word) return;
+    // ── Fenêtre « modifier un mot » ───────────────────────────────────
+    // Remplace le `prompt()` du système : une seule ligne où une note longue ne se
+    // voyait pas, et surtout, sur une erreur du serveur (note trop longue…), tout
+    // ce qu'on avait tapé était perdu. Ici la fenêtre reste ouverte avec le texte
+    // et l'erreur : on corrige au lieu de tout réécrire.
+    const NOTE_MAX = 300; // jumeau de NOTE_MAX dans le Worker
+    let _editSave = null;
+
+    function openEditModal({ title, value, t, onSave }) {
+      _editSave = onSave;
+      document.getElementById('edit-title').textContent  = title;
+      document.getElementById('edit-close').textContent  = t('verify_close');
+      document.getElementById('edit-save').textContent   = t('btn_save');
+      document.getElementById('edit-cancel').textContent = t('btn_cancel');
+      document.getElementById('edit-error').textContent  = '';
+      const inp = document.getElementById('edit-input');
+      inp.value = value;
+      inp.dataset.lang = t === tApp ? 'app' : 'prac';
+      document.getElementById('edit-modal').classList.add('visible');
+      onEditInput();
+      inp.focus();
+      // « mot () » (sens à écrire entre parenthèses) : le curseur se pose DEDANS.
+      const pos = inp.value.endsWith('()') ? inp.value.length - 1 : inp.value.length;
+      inp.setSelectionRange(pos, pos);
+    }
+
+    function closeEditModal() {
+      _editSave = null;
+      document.getElementById('edit-modal').classList.remove('visible');
+    }
+
+    function onEditInput() {
+      const inp = document.getElementById('edit-input');
+      inp.style.height = 'auto';
+      inp.style.height = inp.scrollHeight + 'px';
+      const t    = inp.dataset.lang === 'app' ? tApp : tPrac;
+      const note = wordNote(inp.value.replace(/\s+/g, ' ').trim());
+      const cnt  = document.getElementById('edit-count');
+      cnt.textContent = note ? t('edit_note_len').replace('{n}', note.length).replace('{max}', NOTE_MAX) : '';
+      cnt.classList.toggle('over', note.length > NOTE_MAX);
+    }
+
+    // Entrée enregistre : une entrée n'a pas de retour à la ligne, la boîte passe
+    // à la ligne d'elle-même quand le texte est long.
+    function onEditKey(ev) {
+      if (ev.key === 'Enter' && !ev.isComposing) { ev.preventDefault(); submitEditModal(); }
+      else if (ev.key === 'Escape') closeEditModal();
+    }
+
+    async function submitEditModal() {
+      const val = document.getElementById('edit-input').value.replace(/\s+/g, ' ').trim();
+      if (!val || !_editSave) return;
+      const btn = document.getElementById('edit-save');
+      btn.disabled = true;
       try {
-        const r = await authFetch('/api/words', { method: 'PUT', body: JSON.stringify({ lang: currentLang, oldWord: word, newWord }) });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error?.message || 'erreur');
-        // Met à jour l'état local (mot + progression + cache définition)
-        const lowOld = word.toLowerCase(), lowNew = newWord.toLowerCase();
-        allWords          = allWords.map(w => w === word ? newWord : w);
-        currentWords      = currentWords.map(w => w === word ? newWord : w);
-        previousWordsPool = previousWordsPool.map(w => w === word ? newWord : w);
-        if (progressMap[lowOld]) { progressMap[lowNew] = progressMap[lowOld]; if (lowNew !== lowOld) delete progressMap[lowOld]; }
-        Object.keys(definitionCache).forEach(k => { if (k.startsWith(lowOld + '|')) delete definitionCache[k]; });
-        // La séance tient sa propre liste : sans ça, le mot corrigé restait affiché
-        // sous son ancienne graphie et sa réponse s'écrivait sur un mot disparu.
-        if (practiceMode === 'practice') {
-          sessionItems.forEach(it => {
-            if (it.kind === 'qcm' && it.word === word) it.word = newWord;
-            if (it.kind === 'cloze') it.words = it.words.map(w => w === word ? newWord : w);
-          });
-          saveRound(); // sinon la reprise chercherait encore l'ancienne graphie
-          renderSession();
-          return;
+        await _editSave(val);
+        closeEditModal();
+      } catch (e) {
+        // La fenêtre reste ouverte, le texte aussi : on corrige et on renvoie.
+        document.getElementById('edit-error').textContent = e.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function editWordOnCard(word, prefill) {
+      openEditModal({
+        title: tPrac('rename_prompt').replace('{w}', lc(wordBase(word))), // la note est déjà dans la boîte
+        value: prefill ? lc(prefill) : word, // la graphie réelle : enregistrer sans rien changer ne doit pas la réécrire
+        t:     tPrac,
+        onSave: newWord => renameWordOnCard(word, newWord),
+      });
+    }
+
+    async function renameWordOnCard(word, newWord) {
+      if (newWord === word) return;
+      const r = await authFetch('/api/words', { method: 'PUT', body: JSON.stringify({ lang: currentLang, oldWord: word, newWord }) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error?.message || 'erreur');
+      // Met à jour l'état local (mot + progression + cache définition)
+      const lowOld = word.toLowerCase(), lowNew = newWord.toLowerCase();
+      allWords          = allWords.map(w => w === word ? newWord : w);
+      currentWords      = currentWords.map(w => w === word ? newWord : w);
+      previousWordsPool = previousWordsPool.map(w => w === word ? newWord : w);
+      if (progressMap[lowOld]) { progressMap[lowNew] = progressMap[lowOld]; if (lowNew !== lowOld) delete progressMap[lowOld]; }
+      Object.keys(definitionCache).forEach(k => { if (k.startsWith(lowOld + '|')) delete definitionCache[k]; });
+      // La séance tient sa propre liste : sans ça, le mot corrigé restait affiché
+      // sous son ancienne graphie et sa réponse s'écrivait sur un mot disparu.
+      if (practiceMode === 'practice') {
+        sessionItems.forEach(it => {
+          if (it.kind === 'qcm' && it.word === word) it.word = newWord;
+          if (it.kind === 'cloze') it.words = it.words.map(w => w === word ? newWord : w);
+        });
+        // Le texte à trous en cours garde ses propres copies du mot (réponse
+        // attendue, réserve, trous remplis) : sinon le mot renommé était compté faux.
+        if (_clozeState) {
+          _clozeState.blanks.forEach(b => { if (b.entry === word) b.entry = newWord; });
+          _clozeState.bank = _clozeState.bank.map(w => w === word ? newWord : w);
+          Object.keys(_clozeState.filled).forEach(k => { if (_clozeState.filled[k] === word) _clozeState.filled[k] = newWord; });
         }
-        renderWordDisplay();
-      } catch (e) { alert('Erreur : ' + e.message); }
+        saveRound(); // sinon la reprise chercherait encore l'ancienne graphie
+        renderSession();
+        return;
+      }
+      renderWordDisplay();
     }
 
     // ── SHA-256 ───────────────────────────────────────────────
@@ -10668,6 +10848,21 @@ Reply with ONLY this JSON object, nothing else:
   </div>
 
   <!-- ── Modale : choix des langues ── -->
+  <!-- Modifier un mot (carte, menu ⋯, « mes mots ») -->
+  <div class="modal-overlay" id="edit-modal" onclick="if(event.target===this)closeEditModal()">
+    <div class="modal-card">
+      <button class="modal-close" id="edit-close" onclick="closeEditModal()">fermer</button>
+      <h2 class="modal-title" id="edit-title"></h2>
+      <textarea id="edit-input" rows="2" oninput="onEditInput()" onkeydown="onEditKey(event)"></textarea>
+      <p class="edit-count" id="edit-count"></p>
+      <p class="error-msg" id="edit-error"></p>
+      <div class="edit-actions">
+        <button class="btn-primary" id="edit-save" onclick="submitEditModal()">enregistrer</button>
+        <button class="btn-secondary" id="edit-cancel" onclick="closeEditModal()">annuler</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="lang-picker-modal" onclick="if(event.target===this)closeLangPicker()">
     <div class="modal-card">
       <button class="modal-close" id="lang-picker-close" onclick="closeLangPicker()" data-i18n="verify_close">fermer</button>
@@ -10766,6 +10961,7 @@ Reply with ONLY this JSON object, nothing else:
     <div class="ctx-word-label" id="word-ctx-label"></div>
     <div id="ctx-main">
       <button class="ctx-menu-btn" onclick="ctxMenuVerify()" data-i18n="ctx_verify">Vérifier le mot</button>
+      <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuDefine()" data-i18n="label_definition">Définition</button>
       <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuTranslate()" data-i18n="ctx_translate">Traduire</button>
       <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuPhoto()" data-i18n="ctx_photo">Voir une image</button>
       <button class="ctx-menu-btn" onclick="ctxMenuEdit()" data-i18n="ctx_edit">Modifier</button>
