@@ -6767,11 +6767,19 @@ ${seen.map(t => '- ' + t).join('\n')}\n`
 
 The word to test is: "${qcmBase}"${entryContext(word)}
 
-Generate exactly 4 short scenarios (1-2 sentences each):
+Generate exactly 7 short scenarios (1-2 sentences each):
 - 1 scenario where "${qcmBase}" is the natural, correct word to use
-- 3 distractor scenarios: situations that sound plausible but where "${qcmBase}" would be wrong or unnatural — use semantically close contexts that could genuinely fool a learner who doesn't know the word well
+- 6 distractor scenarios: situations that sound plausible but where "${qcmBase}" would be wrong or unnatural — use semantically close contexts that could genuinely fool a learner who doesn't know the word well
+The learner will be shown the correct scenario and THREE of the six distractors, chosen by the app.
 
-CRITICAL: Do NOT include the word "${qcmBase}" (or any of its inflected forms) in any of the 4 scenarios. The learner must identify the correct context without seeing the word.
+CRITICAL: Do NOT include the word "${qcmBase}" (or any of its inflected forms) in any of the 7 scenarios. The learner must identify the correct context without seeing the word.
+
+CRITICAL — THE CORRECT SCENARIO MUST NOT DEFINE THE WORD. Never paraphrase its meaning, gloss it
+or slip in a synonym of it (for "alloy", never "a mixture of metals"; for "to seize", never "took
+control of something that belonged to others"). A scenario that restates the definition is found by
+matching words, without knowing "${qcmBase}" at all. Describe a situation in which a native speaker
+would reach for the word, and let the situation carry the meaning. The same holds for every
+distractor: none may spell out the definition of the word that would fit it.
 
 CRITICAL — DO NOT LEAVE A HOLE WHERE THE WORD WOULD BE. Never replace it with a gap, a dash,
 or a bare modifier left hanging ("they rented a small ___ to go to the island"). Describe the
@@ -6784,19 +6792,19 @@ of it, or if the scenario is a textbook illustration of "${qcmBase}", the distra
 replace it. The correct scenario must be the most prototypical use of "${qcmBase}"; a distractor
 must never be a BETTER example of it than the correct one.${avoid}
 
-FORM — the four scenarios must be indistinguishable by shape alone. A learner who
-does not know "${qcmBase}" must have NO formal clue as to which one is correct:
-- SAME LENGTH, AND CHECK IT. Fix a length in words before writing (somewhere between 12
-  and 22), write all four to it, then COUNT the four words-per-scenario before answering:
-  the longest must not exceed the shortest by more than three words. Trim the longest;
-  never pad the others. A learner who notices once that the longest option is the right
-  one stops reading and simply picks the biggest — the word is then never tested
+FORM — a learner who does not know "${qcmBase}" must have NO formal clue as to which
+scenario is correct:
+- LENGTHS: the app picks which three distractors to show so that the length of the correct
+  scenario gives nothing away — sometimes it is the longest, sometimes the shortest. For that
+  it needs variety around it: write THREE distractors a little SHORTER than the correct
+  scenario and THREE a little LONGER (a few words either way). Every scenario stays a
+  natural sentence of 12 to 26 words; never pad or clip one to reach this
 - same level of detail. Do NOT make the correct scenario richer, more specific, more
   vivid or more carefully written than the distractors — this is the most common
   giveaway, and it lets the word be found without knowing its meaning
 - same register throughout
-- FOUR GENUINELY DIFFERENT SITUATIONS: different people, different places, different
-  actions. Never write one sentence four times with a single element swapped — the
+- SEVEN GENUINELY DIFFERENT SITUATIONS: different people, different places, different
+  actions. Never write one sentence several times with a single element swapped — the
   learner then compares the swapped elements instead of weighing what the word means.
 
 DO YOU ACTUALLY KNOW THIS ITEM? The danger is the rare SINGLE WORD you have never actually
@@ -6815,12 +6823,12 @@ meaning, and test the situations where a native speaker would naturally use that
 combination rather than another. Not being a set expression is never a reason to admit
 ignorance — only genuinely not knowing what the item means is.
 
-Otherwise return ONLY a JSON array of 4 objects, no other text, no markdown:
+Otherwise return ONLY a JSON array of 7 objects (the correct one first, then the six
+distractors), no other text, no markdown:
 [
   {"text": "...", "correct": true, "explanation": "..."},
   {"text": "...", "correct": false, "explanation": "..."},
-  {"text": "...", "correct": false, "explanation": "..."},
-  {"text": "...", "correct": false, "explanation": "..."}
+  ... five more distractors in the same shape ...
 ]
 
 "explanation" = ONE short sentence in ${langName} explaining WHY "${qcmBase}" fits that scenario (for the correct one) or why it would be wrong/unnatural there (for the distractors). The explanation MAY mention the word and what the natural word would be instead.
@@ -6854,18 +6862,17 @@ Write all scenarios and explanations in ${langName}.`;
       const prompt = qcmPrompt(qcmWord);
 
       try {
-        // GPT-5.4 : 2000 min (reasoning ~1024 + texte) ; Gemini : 1500 (4 scénarios longs)
-        const reply = await callAI(prompt, isGemini() ? 1500 : 16000);
+        // GPT : reasoning + texte dans le même budget ; Gemini : 7 scénarios avec explications
+        const reply = await callAI(prompt, isGemini() ? 2600 : 16000);
         // Extrait le JSON — enlève les blocs markdown éventuels, puis cherche [{…}]
         const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
         const jsonStart = stripped.search(/\[\s*\{/);
         const jsonEnd   = stripped.lastIndexOf(']');
         if (jsonStart === -1 || jsonEnd <= jsonStart) throw new Error('Format inattendu — ' + stripped.slice(0, 120));
-        const choices = JSON.parse(stripped.slice(jsonStart, jsonEnd + 1));
+        const all = JSON.parse(stripped.slice(jsonStart, jsonEnd + 1));
 
-        rememberQCM(qcmWord, choices);
-        // Shuffle so the correct answer isn't always first
-        shuffleInPlace(choices);
+        rememberQCM(qcmWord, all);
+        const choices = pickQcmFour(all); // 4 sur 7, la longueur ne trahit plus la bonne
         _qcmChoices = choices;
 
         choicesEl.innerHTML = choices.map((c, i) =>
@@ -7838,44 +7845,39 @@ Write all scenarios and explanations in ${langName}.`;
     function rememberUnknown(word, why) { const a = _unknownAll(); a[lc(word)] = why || ''; _unknownSave(a); }
     function forgetUnknown(word)        { const a = _unknownAll(); delete a[lc(word)]; _unknownSave(a); }
 
-    // ⚠️ LA BONNE RÉPONSE NE DOIT PAS SE RECONNAÎTRE À SA LONGUEUR. Le prompt le
-    // demande depuis toujours, et le modèle soigne quand même son scénario correct :
-    // plus long, plus détaillé, mieux écrit. Un apprenant qui l'a remarqué une fois
-    // cesse de lire et prend le plus gros — le mot n'est alors jamais testé. On
-    // mesure donc, et on redemande UNE fois quand l'écart crève les yeux, en gardant
-    // ensuite le moins déséquilibré des deux jeux (un second tirage raté ne doit pas
-    // être pire que le premier). Le QCM étant préchargé, l'attente reste invisible
-    // sauf sur le tout premier de la manche.
-    const QCM_LEN_TOLERANCE = 1.3;   // la bonne réponse vs la plus courte des quatre
-    function qcmLenSkew(choices) {
-      const n    = choices.map(c => String(c.text || '').trim().split(/\s+/).length);
-      const good = choices.findIndex(c => c.correct);
-      const min  = Math.min(...n);
-      return (good === -1 || !min) ? 0 : n[good] / min;
+    // ⚠️ LA BONNE RÉPONSE NE DOIT PAS SE RECONNAÎTRE À SA LONGUEUR. Le modèle soigne
+    // son scénario correct quoi qu'on lui demande : mesuré le 2026-10-22 sur 114 QCM
+    // de vrais mots, il était le plus long 4 fois sur 10 (1 sur 4 au hasard), et le
+    // garde-fou d'alors — rejouer quand la bonne dépassait la plus courte de 30 % —
+    // ne s'était déclenché qu'une fois sur 57. On ne demande donc plus au modèle de
+    // tenir les longueurs : il écrit SIX fausses réponses, plus courtes et plus
+    // longues que la bonne, et c'est l'app qui en garde trois en tirant au sort le
+    // RANG de la bonne parmi les quatre longueurs. L'indice disparaît par construction.
+    function pickQcmFour(choices) {
+      const good   = choices.find(c => c.correct);
+      const others = shuffleInPlace(choices.filter(c => !c.correct));
+      if (!good || others.length < 3) return shuffleInPlace(choices.slice(0, 4));
+      const len     = c => String(c.text || '').trim().length;
+      const shorter = others.filter(c => len(c) <  len(good));
+      const longer  = others.filter(c => len(c) >= len(good));
+      // r = combien de réponses montrées sont plus courtes que la bonne (0 : elle est
+      // la plus courte, 3 : la plus longue), tiré parmi les rangs que le stock permet.
+      const lo = Math.max(0, 3 - longer.length), hi = Math.min(3, shorter.length);
+      const r  = lo + Math.floor(Math.random() * (hi - lo + 1));
+      return shuffleInPlace([good, ...shorter.slice(0, r), ...longer.slice(0, 3 - r)]);
     }
 
     async function fetchQCMChoices(word) {
-      const first = await qcmAttempt(word);
-      if (first.unknown) return first;
+      const res = await qcmAttempt(word);
+      if (res.unknown) return res;
       forgetUnknown(word); // il le connaît finalement : on lève l'aveu précédent
-
-      // La question retenue comme la question rejetée entrent dans la mémoire des
-      // QCM servis : c'est ce qui empêche le second tirage de refaire le premier.
-      rememberQCM(word, first.choices);
-      if (qcmLenSkew(first.choices) <= QCM_LEN_TOLERANCE) return shuffleInPlace(first.choices);
-
-      console.log(`[Séance] QCM rejoué (bonne réponse trop longue) : ${word}`);
-      let second = null;
-      try { second = await qcmAttempt(word); } catch (e) { /* on gardera le premier */ }
-      const better = second && !second.unknown && qcmLenSkew(second.choices) < qcmLenSkew(first.choices);
-      if (!better) return shuffleInPlace(first.choices);
-      rememberQCM(word, second.choices);
-      return shuffleInPlace(second.choices);
+      rememberQCM(word, res.choices);
+      return pickQcmFour(res.choices);
     }
 
     // Un tirage, rendu tel quel : soit l'aveu d'ignorance, soit les quatre scénarios.
     async function qcmAttempt(word) {
-      const reply    = await callAI(qcmPrompt(word), isGemini() ? 1500 : 16000);
+      const reply    = await callAI(qcmPrompt(word), isGemini() ? 2600 : 16000); // 7 scénarios
       const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
       const a = stripped.search(/\[\s*\{/), b = stripped.lastIndexOf(']');
       if (a === -1 || b <= a) {
