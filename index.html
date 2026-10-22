@@ -507,6 +507,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .btn-ghost:disabled, .ctx-menu-btn:disabled { color: var(--gris-claro); cursor: default; }
     .btn-ghost .why, .ctx-menu-btn .why { font-style: italic; margin-left: 0.4rem; }
     .session-new { font-size: 0.9rem; font-style: italic; color: var(--gris); }
+    .fp-meta { display: block; font-size: var(--t-pequeno); color: var(--gris); }
     #session-result:not(:empty) { margin-top: 0.9rem; }
     .session-count { font-size: 0.82rem; color: var(--gris); }
     .session-track { height: 2px; background: var(--linea-suave); overflow: hidden; }
@@ -2520,6 +2521,13 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sf_filter:        { en: `filter…`, fr: `filtrer…`, es: `filtrar…`, el: `φιλτράρισμα…` },
       sf_recent:        { en: `seen recently`, fr: `vus récemment`, es: `vistas hace poco`, el: `πρόσφατες` },
       sf_old:           { en: `oldest`, fr: `les plus anciens`, es: `las más antiguas`, el: `οι πιο παλιές` },
+      sf_added:         { en: `added recently`, fr: `ajoutés récemment`, es: `añadidas hace poco`, el: `πρόσφατες προσθήκες` },
+      sf_meta_added:    { en: `added {d}`, fr: `ajouté {d}`, es: `añadida {d}`, el: `προσθήκη: {d}` },
+      sf_meta_seen:     { en: `practised {d}`, fr: `pratiqué {d}`, es: `practicada {d}`, el: `εξάσκηση: {d}` },
+      ago_today:        { en: `today`, fr: `aujourd'hui`, es: `hoy`, el: `σήμερα` },
+      ago_yesterday:    { en: `yesterday`, fr: `hier`, es: `ayer`, el: `χθες` },
+      ago_days:         { en: `{n} days ago`, fr: `il y a {n} jours`, es: `hace {n} días`, el: `πριν από {n} ημέρες` },
+      ago_on:           { en: `on {d}`, fr: `le {d}`, es: `el {d}`, el: `στις {d}` },
       sf_never:         { en: `never seen`, fr: `jamais vus`, es: `nunca vistas`, el: `ποτέ` },
       // Mots à la place des emojis et des symboles (migration vers le style commun, 2026-09-29)
       btn_options:      { en: `options`, fr: `options`, es: `opciones`, el: `επιλογές` },
@@ -2581,7 +2589,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_new_one:     { en: `new`, fr: `neuf`, es: `nueva`, el: `νέα` },
       sess_new_n:       { en: `new`, fr: `neufs`, es: `nuevas`, el: `νέες` },
       sess_quit:        { en: `leave round`, fr: `quitter la manche`, es: `salir de la ronda`, el: `έξοδος από τον γύρο` },
-      qcm_regen:        { en: `Another question`, fr: `Autre question`, es: `Otra pregunta`, el: `Άλλη ερώτηση` },
+      // On ne voit pas de question mais des phrases : le bouton dit ce qu'il refait.
+      qcm_regen:        { en: `Other sentences`, fr: `Autres phrases`, es: `Otras frases`, el: `Άλλες προτάσεις` },
+      pick_regen:       { en: `Another situation`, fr: `Autre situation`, es: `Otra situación`, el: `Άλλη περίσταση` },
+      type_regen:       { en: `Another sentence`, fr: `Autre phrase`, es: `Otra frase`, el: `Άλλη πρόταση` },
       qcm_unknown:      { en: `The model does not reliably know this word, and says so rather than inventing a meaning.`, fr: `Le modèle ne connaît pas ce mot de façon sûre, et le dit plutôt que d'inventer un sens.`, es: `El modelo no conoce bien esta palabra, y lo dice en vez de inventar un significado.`, el: `Το μοντέλο δεν γνωρίζει με βεβαιότητα αυτή τη λέξη, και το λέει αντί να επινοήσει σημασία.` },
       qcm_add_sense:    { en: `write its meaning in brackets`, fr: `écrire son sens entre parenthèses`, es: `escribir su sentido entre paréntesis`, el: `γράψε τη σημασία σε παρένθεση` },
       mode_spaced:      { en: `Spaced`, fr: `Espacée`, es: `Espaciada`, el: `Κατανεμημένη` },
@@ -2774,6 +2785,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     // ── État global ───────────────────────────────────────────
     let allWords           = [];
+    let wordAddedAt        = {};   // lc(mot) -> date d'ajout (tri « ajoutés récemment »)
     let progressMap        = {};
     let blacklistWords     = new Set(); // mots du même univers à ne plus suggérer
     let _relatedWordsShown = []; // mots affichés dans la section "même univers"
@@ -4093,7 +4105,7 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
       btn.textContent = '…';
       try {
         await authFetch('/api/words', { method: 'POST', body: JSON.stringify({ lang: currentLang, word }) });
-        allWords.push(word); updateLangTotal();
+        allWords.push(word); updateLangTotal(); wordAddedAt[lc(word)] = new Date().toISOString();
         btn.textContent = tPrac('act_added');
         btn.style.color = 'var(--verde)';
       } catch (err) {
@@ -4207,9 +4219,14 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
     // ── Lecture mots ──────────────────────────────────────────
     async function loadWords(sheetName) {
       try {
-        const res  = await authFetch(`/api/words?lang=${encodeURIComponent(sheetName)}`);
+        const res  = await authFetch(`/api/words?lang=${encodeURIComponent(sheetName)}&detail=1`);
         const data = await res.json();
-        allWords = (data.words || []).filter(w => w && w.trim());
+        wordAddedAt = {};
+        allWords = (data.words || []).map(r => {
+          if (typeof r === 'string') return r;
+          if (r && r.word) wordAddedAt[lc(r.word)] = r.created_at || '';
+          return r && r.word;
+        }).filter(w => w && w.trim());
         for (let i = allWords.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
@@ -4248,9 +4265,13 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
     // Retenu PAR LANGUE : on ne pratique pas le grec comme l'espagnol. La clé
     // `vocab_mode_<Langue>` est ramassée par collectSettings() → elle suit sur les
     // autres appareils comme les autres réglages.
+    // Les autres modes sont CACHÉS depuis le 2026-10-22 (plus utilisés depuis des
+    // semaines) : leur code reste, il suffit de les remettre dans cette liste. Avec
+    // un seul mode, le sélecteur disparaît (cf. updateModeLabel).
+    const VISIBLE_MODES = ['practice'];
     function storedMode(lang) {
       const m = localStorage.getItem('vocab_mode_' + lang);
-      return MODE_KEYS.includes(m) ? m : 'practice';
+      return VISIBLE_MODES.includes(m) ? m : VISIBLE_MODES[0];
     }
 
     function setMode(mode) {
@@ -4916,6 +4937,19 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
         b.classList.toggle('active', b.getAttribute('onclick').includes(`'${mode}'`)));
       renderFreeSearchList(document.getElementById('free-search-input').value);
     }
+    // « hoy », « ayer », « hace 3 días », puis la date courte au-delà d'un mois.
+    function agoLabel(iso) {
+      const d = new Date(String(iso).replace(' ', 'T'));
+      if (isNaN(d)) return '';
+      const day = x => { const t = new Date(x); t.setHours(0, 0, 0, 0); return t; };
+      const n = Math.round((day(Date.now()) - day(d)) / 86400000);
+      if (n <= 0) return tPrac('ago_today');
+      if (n === 1) return tPrac('ago_yesterday');
+      if (n <= 30) return tPrac('ago_days').replace('{n}', n);
+      const opts = { day: 'numeric', month: 'short' };
+      if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+      return tPrac('ago_on').replace('{d}', d.toLocaleDateString(UI_LOCALE[pracCode()], opts));
+    }
     function lastPracticedOf(w) {
       const p = progressMap[w.toLowerCase()];
       return (p && p.lastPracticed) || '';
@@ -4926,7 +4960,10 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
         .filter(w => !q || w.toLowerCase().includes(q))
         .filter(w => _freeSort !== 'never' || !lastPracticedOf(w));
       const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
-      if (_freeSort === 'recent') {
+      if (_freeSort === 'added') {
+        const at = w => wordAddedAt[lc(w)] || '';
+        _freeFiltered.sort((a, b) => { const x = at(a), y = at(b); return x === y ? byName(a, b) : (x > y ? -1 : 1); });
+      } else if (_freeSort === 'recent') {
         _freeFiltered.sort((a, b) => { const x = lastPracticedOf(a), y = lastPracticedOf(b); return x === y ? byName(a, b) : (x > y ? -1 : 1); });
       } else if (_freeSort === 'old') {
         // Un mot jamais vu n'est pas « le plus ancien » : il passe en fin.
@@ -4948,9 +4985,13 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
       list.innerHTML = _freeFiltered.map((w, i) => {
         const pos = _freePickOrder.indexOf(w);
         const on  = pos >= 0;
-        const seen = lastPracticedOf(w);
+        // La date en clair, et celle qui correspond au tri : l'ajout pour « ajoutés
+        // récemment », la dernière pratique sinon (elle était affichée brute, en ISO).
+        const added = _freeSort === 'added';
+        const when  = added ? wordAddedAt[lc(w)] : lastPracticedOf(w);
+        const meta  = when ? tPrac(added ? 'sf_meta_added' : 'sf_meta_seen').replace('{d}', agoLabel(when)) : '';
         return `<div class="free-pick-row ${on ? 'on' : ''}" onclick="toggleFreePick(${i})">
-          <span class="fp-word">${lc(w)}${seen ? `<span class="mot-note" style="display:block">${seen}</span>` : ''}</span>
+          <span class="fp-word">${lc(w)}${meta ? `<span class="fp-meta">${meta}</span>` : ''}</span>
           <span class="fp-order">${on ? (pos + 1) : ''}</span>
         </div>`;
       }).join('');
@@ -6801,7 +6842,21 @@ CRITICAL — ONLY ONE SCENARIO MAY BE AN EXAMPLE OF THE WORD. Before you answer,
 distractor: name the word that would actually fit it. If that word is "${qcmBase}", a synonym
 of it, or if the scenario is a textbook illustration of "${qcmBase}", the distractor is wrong —
 replace it. The correct scenario must be the most prototypical use of "${qcmBase}"; a distractor
-must never be a BETTER example of it than the correct one.${avoid}
+must never be a BETTER example of it than the correct one.
+
+CRITICAL — NO ODD ONE OUT. A learner who does not know "${qcmBase}" looks for the scenario that
+stands apart: the one scene where something notable happens while the others are ordinary, the
+one on a different theme, or the one that is the reverse of all the others. Prevent all three:
+- Each distractor must be the clear, prototypical illustration of ANOTHER specific word of the
+  same part of speech, as precise and as uncommon as "${qcmBase}" — never an everyday word. Give
+  that word in "fits". Every scenario then shows something just as particular as the correct one.
+- Stay in the SAME WORLD as the correct scenario (same domain, same kind of event), so that the
+  theme points nowhere: for a word about magic, other ritual or supernatural acts; for a word
+  about haste, other specific faults of judgement (credulity, obstinacy, evasiveness).
+- Never make a distractor the mere opposite of the word (careful against hasty, generous against
+  stingy) or a scene where its quality is simply absent.
+- No scenario may contain a word that by itself points to "${qcmBase}": its typical container,
+  tool, or a collocate that only it takes (for "snuff", no snuffbox).${avoid}
 
 FORM — a learner who does not know "${qcmBase}" must have NO formal clue as to which
 scenario is correct:
@@ -6837,8 +6892,8 @@ ignorance — only genuinely not knowing what the item means is.
 Otherwise return ONLY a JSON array of 7 objects (the correct one first, then the six
 distractors), no other text, no markdown:
 [
-  {"text": "...", "correct": true, "explanation": "..."},
-  {"text": "...", "correct": false, "explanation": "..."},
+  {"text": "...", "correct": true,  "fits": "${qcmBase}", "explanation": "..."},
+  {"text": "...", "correct": false, "fits": "<the specific word this scenario illustrates>", "explanation": "..."},
   ... five more distractors in the same shape ...
 ]
 
@@ -7259,13 +7314,15 @@ Write all scenarios and explanations in ${langName}.`;
     function updateModeLabel() {
       const el = document.getElementById('mode-current-label');
       if (el) el.innerHTML = `${tPrac('mode_prefix')} ${tPrac('modem_' + practiceMode).toLowerCase()}`;
+      const btn = document.getElementById('mode-current-btn');
+      if (btn) btn.style.display = VISIBLE_MODES.length > 1 ? '' : 'none';
     }
 
     function openModeMenu(ev) {
       ev.stopPropagation(); // sinon le listener global referme aussitôt
       _ctxWord = null;
       document.getElementById('word-ctx-label').textContent = '';
-      document.getElementById('ctx-langs').innerHTML = MODE_KEYS.map(k =>
+      document.getElementById('ctx-langs').innerHTML = VISIBLE_MODES.map(k =>
         `<button class="ctx-menu-btn${k === practiceMode ? ' on' : ''}" onclick="pickMode('${k}')">${tPrac('modem_' + k)}</button>`
       ).join('');
       document.getElementById('ctx-main').style.display  = 'none';
@@ -7880,10 +7937,22 @@ Write all scenarios and explanations in ${langName}.`;
     // tenir les longueurs : il écrit SIX fausses réponses, plus courtes et plus
     // longues que la bonne, et c'est l'app qui en garde trois en tirant au sort le
     // RANG de la bonne parmi les quatre longueurs. L'indice disparaît par construction.
-    function pickQcmFour(choices) {
-      const good   = choices.find(c => c.correct);
-      const others = shuffleInPlace(choices.filter(c => !c.correct));
+    // ⚠️ ET ELLE NE DOIT PAS SE RECONNAÎTRE COMME L'INTRUS. Mesuré le 2026-10-22 : un
+    // modèle qui ne voit PAS le mot trouvait la bonne réponse 2 fois sur 3 — la seule
+    // scène où il se passe quelque chose, la seule sur un autre thème, ou la seule
+    // qui n'est pas le contraire des autres. Le prompt l'interdit désormais (34 %),
+    // et l'app demande à ce même lecteur aveugle de noter les sept scénarios
+    // (`blindScores`) : elle garde les fausses réponses qu'il trouve les plus
+    // crédibles (26 %, le hasard étant 25 %). `scores` absent → tirage sans lui.
+    function pickQcmFour(choices, scores) {
+      const good = choices.find(c => c.correct);
+      let others = shuffleInPlace(choices.filter(c => !c.correct));
       if (!good || others.length < 3) return shuffleInPlace(choices.slice(0, 4));
+      if (scores && scores.length === choices.length) {
+        const sc = new Map(choices.map((c, i) => [c, +scores[i] || 0]));
+        others = others.sort((a, b) => sc.get(b) - sc.get(a)).slice(0, 4);
+        shuffleInPlace(others);
+      }
       const len     = c => String(c.text || '').trim().length;
       const shorter = others.filter(c => len(c) <  len(good));
       const longer  = others.filter(c => len(c) >= len(good));
@@ -7899,7 +7968,30 @@ Write all scenarios and explanations in ${langName}.`;
       if (res.unknown) return res;
       forgetUnknown(word); // il le connaît finalement : on lève l'aveu précédent
       rememberQCM(word, res.choices);
-      return pickQcmFour(res.choices);
+      const scores = await blindScores(res.choices).catch(() => null);
+      return pickQcmFour(res.choices, scores);
+    }
+
+    // Le lecteur aveugle : il voit les scénarios SANS le mot et dit, pour chacun,
+    // la probabilité qu'il soit le bon — c'est-à-dire à quel point il se repère
+    // sans rien savoir. Les scénarios lui sont montrés dans le désordre.
+    async function blindScores(choices) {
+      const langName = getLang().mistralName;
+      const order = shuffleInPlace(choices.map((_, i) => i));
+      const prompt = `A learner of ${langName} is shown the scenarios below. Exactly ONE of them is a situation in which a specific ${langName} word — hidden from you — is the natural word to use. The others are decoys written to look like it.
+
+You do NOT know the word. Using only clues in the texts themselves (an odd-one-out theme, more specific or vivid detail, length, style, a phrase that sounds like a definition), estimate for each scenario the probability that it is the real one. The probabilities must sum to 100.
+
+${order.map((k, n) => `${n + 1}. ${choices[k].text}`).join('\n')}
+
+Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
+      const reply = await callAI(prompt, isGemini() ? 600 : 8000);
+      const a = reply.indexOf('['), b = reply.lastIndexOf(']');
+      const arr = JSON.parse(reply.slice(a, b + 1));
+      if (!Array.isArray(arr) || arr.length !== choices.length) return null;
+      const scores = new Array(choices.length).fill(0);
+      order.forEach((k, n) => { scores[k] = +arr[n] || 0; });
+      return scores;
     }
 
     // Un tirage, rendu tel quel : soit l'aveu d'ignorance, soit les quatre scénarios.
@@ -7952,7 +8044,7 @@ Write all scenarios and explanations in ${langName}.`;
       if (item.kind === 'pick') body.innerHTML =
         `<div id="session-word-slot"></div>
          <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
-         <p class="session-q">${tPrac('pick_q')} <span class="card-action-btn" id="qcm-regen" onclick="regenQCM()">${tPrac('qcm_regen')}</span></p>
+         <p class="session-q">${tPrac('pick_q')} <span class="card-action-btn" id="qcm-regen" onclick="regenQCM()">${tPrac('pick_regen')}</span></p>
          <div class="session-situation" id="session-situation"></div>
          <div id="session-choices"><div style="padding:0.6rem;color:var(--gris)"><span class="spinner"></span></div></div>
          <div id="session-result"></div>
@@ -8358,7 +8450,7 @@ Return ONLY this JSON object, no markdown:
       body.innerHTML =
         `<div id="session-word-slot"></div>
          <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
-         <p class="session-q">${tPrac('type_q')} <span class="card-action-btn" id="qcm-regen" onclick="regenQCM()">${tPrac('qcm_regen')}</span></p>
+         <p class="session-q">${tPrac('type_q')} <span class="card-action-btn" id="qcm-regen" onclick="regenQCM()">${tPrac('type_regen')}</span></p>
          <div class="type-sentence" id="type-sentence"><span class="spinner"></span></div>
          <div id="type-zone"></div>
          <div id="session-result"></div>
@@ -9812,7 +9904,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         await authFetch('/api/words', { method: 'POST', body: JSON.stringify({ lang: currentLang, word }) });
         btn.textContent = tPrac('act_added');
         btn.style.color = 'var(--verde)';
-        allWords.push(word); updateLangTotal(); // ajoute en mémoire pour éviter un double-ajout immédiat
+        allWords.push(word); updateLangTotal(); wordAddedAt[lc(word)] = new Date().toISOString(); // ajoute en mémoire pour éviter un double-ajout immédiat
         _relatedWordsAdded.add(word.toLowerCase());
         console.log(`[Sheets] ✓ Mot ajouté : ${word} → ${currentLang}`);
       } catch (err) {
@@ -10830,6 +10922,7 @@ Reply with ONLY this JSON object, nothing else:
       currentWords      = currentWords.map(w => w === word ? newWord : w);
       previousWordsPool = previousWordsPool.map(w => w === word ? newWord : w);
       if (progressMap[lowOld]) { progressMap[lowNew] = progressMap[lowOld]; if (lowNew !== lowOld) delete progressMap[lowOld]; }
+      if (wordAddedAt[lowOld]) { wordAddedAt[lowNew] = wordAddedAt[lowOld]; if (lowNew !== lowOld) delete wordAddedAt[lowOld]; }
       Object.keys(definitionCache).forEach(k => { if (k.startsWith(lowOld + '|')) delete definitionCache[k]; });
       // La séance tient sa propre liste : sans ça, le mot corrigé restait affiché
       // sous son ancienne graphie et sa réponse s'écrivait sur un mot disparu.
@@ -10984,6 +11077,7 @@ Reply with ONLY this JSON object, nothing else:
         style="width:100%;box-sizing:border-box;margin-bottom:0.6rem;">
       <div id="free-search-sort" style="display:flex; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.7rem;">
         <button class="filter-btn active" onclick="setFreeSearchSort('az')">A-Z</button>
+        <button class="filter-btn" onclick="setFreeSearchSort('added')" data-i18n="sf_added">ajoutés récemment</button>
         <button class="filter-btn" onclick="setFreeSearchSort('recent')" data-i18n="sf_recent">vus récemment</button>
         <button class="filter-btn" onclick="setFreeSearchSort('old')" data-i18n="sf_old">les plus anciens</button>
         <button class="filter-btn" onclick="setFreeSearchSort('never')" data-i18n="sf_never">jamais vus</button>
@@ -11035,9 +11129,7 @@ Reply with ONLY this JSON object, nothing else:
       <button class="ctx-menu-btn" onclick="ctxMenuVerify()" data-i18n="ctx_verify">Vérifier le mot</button>
       <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuDefine()" data-i18n="label_definition">Définition</button>
       <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuTranslate()" data-i18n="ctx_translate">Traduire</button>
-      <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuPhoto()" data-i18n="ctx_photo">Voir une image</button>
       <button class="ctx-menu-btn" onclick="ctxMenuEdit()" data-i18n="ctx_edit">Modifier</button>
-      <button class="ctx-menu-btn" onclick="ctxMenuGroups()" data-i18n="act_groups">Groupes</button>
       <button class="ctx-menu-btn" onclick="ctxMenuMove()" data-i18n="ctx_move">Changer de langue</button>
       <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()" data-i18n="ctx_delete">Supprimer</button>
       <button class="ctx-menu-btn" onclick="closeWordContextMenu()" data-i18n="btn_cancel">Annuler</button>
