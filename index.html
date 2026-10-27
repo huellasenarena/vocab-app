@@ -8047,6 +8047,13 @@ Write all scenarios and explanations in ${langName}.`;
     function alignSessionTop(smooth = false) {
       if (practiceMode !== 'practice') return;
       if (!document.getElementById('screen-practice').classList.contains('active')) return;
+      // Dans la manche (`.round-on`), l'en-tête est caché : au-dessus de la barre de
+      // la manche il ne reste que le compteur de tokens, que s'aligner sur la barre
+      // coupait en deux. On remonte donc tout en haut — même effet, compteur entier.
+      if (document.getElementById('screen-practice').classList.contains('round-on')) {
+        window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+        return;
+      }
       const head = document.querySelector('#session-section .session-head');
       if (head) scrollElToTop(head, smooth);
     }
