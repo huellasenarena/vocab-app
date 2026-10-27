@@ -3348,13 +3348,22 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
           ]);
           const words = (wordsR.words || []).filter(w => w && w.trim());
           const prog  = {};
-          (progR.progress || []).forEach(r => { prog[(r.word || '').toLowerCase()] = r.next_review || null; });
+          const doneSet = new Set(); // travaillés aujourd'hui
+          const midnight = localMidnightISO();
+          (progR.progress || []).forEach(r => {
+            const k = (r.word || '').toLowerCase();
+            prog[k] = r.next_review || null;
+            if (r.last_practiced && r.last_practiced >= midnight) doneSet.add(k);
+          });
           doneTodayMap[l.key] = sessR.done || 0;
-          let due = 0, neverPrac = 0;
+          let due = 0, neverPrac = 0, servable = 0;
           for (const w of words) {
             const nr = prog[w.toLowerCase()];
             if (!nr) neverPrac++;
-            else if (nr <= today) due++;
+            else {
+              if (nr <= today) due++;
+              if (!doneSet.has(w.toLowerCase())) servable++;
+            }
           }
           // ⚠️ L'objectif du jour est UNE MANCHE, pas la pile. L'anneau se remplissait
           // sur tout ce qui était dû : une manche terminée le laissait à moitié vide,
@@ -3368,7 +3377,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
           // manche. Une langue où rien n'a encore été travaillé a donc pour
           // objectif ses seuls mots neufs — et c'est exact, la manche ne servira
           // qu'eux.
-          const remaining = (words.length - neverPrac) + Math.min(roundNewFor(l.key), neverPrac);
+          // ⚠️ Sans les mots déjà faits aujourd'hui : ils étaient comptés deux fois,
+          // une fois faits, une fois « encore servables » (« 1 / 2 » pour un seul mot).
+          const remaining = servable + Math.min(roundNewFor(l.key), neverPrac);
           const doneN     = doneToday(l.key);
           const goal      = Math.min(roundSizeFor(l.key), doneN + remaining);
           const isDone    = doneN >= goal;
@@ -3579,6 +3590,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     // Upsert d'une ligne de progression (D1, par utilisateur)
     async function upsertProgress(word, fields) {
+      _practicedToday.add(lc(word));
       await authFetch('/api/progress', {
         method: 'POST',
         body: JSON.stringify({ lang: currentLang, word, ...fields })
@@ -4513,8 +4525,16 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
     }
 
     // ── Lecture progression ───────────────────────────────────
+    // Mots de la langue ouverte travaillés aujourd'hui : relus en base au chargement
+    // (`last_practiced` ≥ minuit local), complétés à chaque écriture. ⚠️ Pas dans
+    // `progressMap` : les sauvegardes y remplacent l'objet entier et perdraient la date.
+    let _practicedToday = new Set();
+    function practicedToday(w) { return _practicedToday.has(lc(w)); }
+
     async function loadProgress(lang) {
       progressMap = {};
+      _practicedToday = new Set();
+      const midnight = localMidnightISO();
       try {
         const res  = await authFetch(`/api/progress?lang=${encodeURIComponent(lang)}`);
         const data = await res.json();
@@ -4526,6 +4546,7 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
             nextReview: r.next_review || null,
             lastPracticed: r.last_practiced || ''
           };
+          if (r.last_practiced && r.last_practiced >= midnight) _practicedToday.add((r.word || '').toLowerCase());
         });
       } catch (e) {}
     }
@@ -7616,7 +7637,11 @@ Write all scenarios and explanations in ${langName}.`;
     // Le palier d'un mot = le genre de son exercice : 'qcm' | 'pick' | 'type'.
     function sessionLevel(word) {
       const net = netOf(word);
-      return net >= TYPE_AT_NET ? 'type' : net >= PICK_AT_NET ? 'pick' : 'qcm';
+      if (net >= TYPE_AT_NET) return 'type';
+      // « Quel mot ? » demande au moins un autre mot à proposer : seul dans sa
+      // langue, le mot reste au QCM (choisir un mot parmi un seul n'a pas de sens).
+      if (net >= PICK_AT_NET && allWords.length >= 2) return 'pick';
+      return 'qcm';
     }
 
     // Ce qui est encore dû après une manche est exactement ce qui reste à
@@ -7651,7 +7676,10 @@ Write all scenarios and explanations in ${langName}.`;
       // choisis que de places : la manche les prend tous, et rien d'autre.
       const chosen    = _roundChosen.filter(w => allWords.includes(w));
       const chosenSet = new Set(chosen.map(w => lc(w)));
-      const free      = w => !chosenSet.has(lc(w));
+      // Un mot fait aujourd'hui ne revient pas avant demain : une seconde manche du
+      // jour le resservait comme « révision en avance ». (Un mot choisi à la main
+      // passe quand même : c'est une demande explicite.)
+      const free      = w => !chosenSet.has(lc(w)) && !practicedToday(w);
       const size   = Math.max(0, roundSize() - chosen.length);
       const wanted = Math.min(roundNew(), size);
 
@@ -7685,7 +7713,7 @@ Write all scenarios and explanations in ${langName}.`;
       if (dus.length < budget) {
         const inRound = new Set(picked.map(w => lc(w)));
         const pool = allWords
-          .filter(w => !inRound.has(lc(w)) && !isNewWord(w))
+          .filter(w => !inRound.has(lc(w)) && !isNewWord(w) && free(w))
           .sort(byDue);
         for (const w of pool) {
           if (dus.length + ahead.length >= budget) break;
@@ -8619,13 +8647,13 @@ TARGET: "${base}"${entryContext(word)}
 
 1. TEXT — write 2 to 4 sentences of ${langName} (35-70 words) describing one concrete situation
 in which a native speaker would naturally reach for "${base}". The learner will read the text and
-choose, among five words, the one they would use to talk about it.
+choose, among ${Math.min(4, candidates.length) + 1} words, the one they would use to talk about it.
 - The text must NOT contain "${base}" or any of its forms, and must NOT leave a blank or a dash
   where it would go: it is a complete, natural text a native speaker could have written.
 - It must NOT define the word, paraphrase it, or contain a synonym of it. Let the situation carry
   the meaning, so that only someone who knows what "${base}" means can match it.
 
-2. DECOYS — choose exactly 4 entries from this list (copy them exactly, invent none):
+2. DECOYS — choose exactly ${Math.min(4, candidates.length)} ${candidates.length === 1 ? 'entry' : 'entries'} from this list (copy them exactly, invent none):
 ${candidates.join(' | ')}
 - SAME PART OF SPEECH as "${base}" (a verb against verbs, an adjective against adjectives, an
   expression against expressions): the learner must not be able to rule one out by its form.
