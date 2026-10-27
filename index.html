@@ -1962,8 +1962,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
           <div class="round-derived">
             <span class="derived-main" id="round-derived-line"></span>
             <span id="session-waiting"></span>
-            <span class="derived-sub" id="round-derived-sub"></span>
-            <span class="day-mirror" id="round-day-mirror"></span>
+            <!-- « dont N révisions en avance » et le miroir du jour : retirés le
+                 2026-10-27 (trop confus sous la ligne principale), code gardé. -->
+            <span class="derived-sub" id="round-derived-sub" style="display:none"></span>
+            <span class="day-mirror" id="round-day-mirror" style="display:none"></span>
           </div>
           <div class="round-chosen" id="round-chosen"></div>
         </div>
@@ -8171,6 +8173,9 @@ Write all scenarios and explanations in ${langName}.`;
 
     function renderSessionEnd() {
       sessionRunning = false;
+      // La manche est finie : l'en-tête revient, avec « ← langue » — sans lui, une
+      // carte de fin sans « une autre manche » (plus rien à faire) n'avait aucune sortie.
+      document.getElementById('screen-practice').classList.remove('round-on');
       clearSavedRound(); // manche finie : plus rien à reprendre
       const total = sessionTotal();
       document.getElementById('session-body').innerHTML =
@@ -8375,7 +8380,8 @@ Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
           // quatre longues réponses se voyait à peine.
           + `<button class="qcm-choice qcm-dunno" id="session-dunno" onclick="sessionDunno()">${tPrac('sess_dunno_see')}</button>`
           + (item.wasNew && !item.answered
-              ? `<button class="btn-ghost" id="session-swap" onclick="swapNewWord()">${tPrac('sess_swap_new')}</button>` : '');
+              // Passé dans le menu « options » du mot (`#ctx-swap`) ; gardé ici, masqué.
+              ? `<button class="btn-ghost" id="session-swap" onclick="swapNewWord()" style="display:none">${tPrac('sess_swap_new')}</button>` : '');
         // ⚠️ Un re-rendu (mot renommé ou transféré pendant la question) redessinait
         // une question NEUVE alors qu'elle avait déjà reçu sa réponse : la réussir
         // une seconde fois faisait gagner une seconde étoile. Elle revient telle
@@ -10699,9 +10705,15 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         b.querySelectorAll('.why').forEach(w => w.remove());
         if (_lockGloss) b.insertAdjacentHTML('beforeend', `<span class="why">${tPrac('sess_after_answer')}</span>`);
       });
+      // « Autre mot neuf » : sur le mot neuf à l'écran, tant qu'on n'a pas répondu.
+      const it = practiceMode === 'practice' && sessionRunning ? sessionItems[sessionIdx] : null;
+      const canSwap = !!it && it.kind === 'qcm' && it.wasNew && !it.answered && lc(it.word) === lc(word);
+      document.getElementById('ctx-swap').style.display = canSwap ? '' : 'none';
       ctxMenuBack(); // toujours au premier niveau
       positionCtxMenu(x, y);
     }
+
+    function ctxMenuSwap() { closeWordContextMenu(); swapNewWord(); }
 
     // Ouvre le menu (Modifier / Supprimer) près du bouton ⋯ cliqué
     function openWordMenu(word, ev) {
@@ -11450,6 +11462,8 @@ Reply with ONLY this JSON object, nothing else:
       <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuTranslate()" data-i18n="ctx_translate">Traduire</button>
       <button class="ctx-menu-btn" onclick="ctxMenuEdit()" data-i18n="ctx_edit">Modifier</button>
       <button class="ctx-menu-btn" onclick="ctxMenuMove()" data-i18n="ctx_move">Changer de langue</button>
+      <!-- Mot neuf de la manche, avant la réponse seulement (cf. showWordContextMenu) -->
+      <button class="ctx-menu-btn" id="ctx-swap" onclick="ctxMenuSwap()" data-i18n="sess_swap_new" style="display:none">Autre mot neuf</button>
       <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()" data-i18n="ctx_delete">Supprimer</button>
       <button class="ctx-menu-btn" onclick="closeWordContextMenu()" data-i18n="btn_cancel">Annuler</button>
     </div>
