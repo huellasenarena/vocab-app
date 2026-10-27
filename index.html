@@ -2634,7 +2634,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       type_q:           { en: `Type the missing word`, fr: `Écris le mot qui manque`, es: `Escribe la palabra que falta`, el: `Γράψε τη λέξη που λείπει` },
       type_hint:        { en: `hint`, fr: `indice`, es: `pista`, el: `βοήθεια` },
       type_hint_note:   { en: `with a hint — counts, but no star`, fr: `avec indice — compte, mais sans étoile`, es: `con pista — cuenta, pero sin estrella`, el: `με βοήθεια — μετράει, αλλά χωρίς αστέρι` },
-      sess_pick_words:  { en: `choose words`, fr: `choisir des mots`, es: `elegir palabras`, el: `διάλεξε λέξεις` },
+      sess_pick_words:  { en: `choose words (otherwise they will be chosen randomly)`, fr: `choisir des mots (sinon ils seront choisis au hasard)`, es: `elegir palabras (si no, se elegirán al azar)`, el: `διάλεξε λέξεις (αλλιώς θα επιλεγούν τυχαία)` },
       sess_clear_pick:  { en: `clear`, fr: `retirer`, es: `quitar`, el: `καθαρισμός` },
       sess_chosen_head: { en: `{n} chosen words in this round:`, fr: `{n} mots choisis pour cette manche :`, es: `{n} palabras elegidas para esta ronda:`, el: `{n} επιλεγμένες λέξεις για αυτόν τον γύρο:` },
       sess_chosen_head_one:{ en: `1 chosen word in this round:`, fr: `1 mot choisi pour cette manche :`, es: `1 palabra elegida para esta ronda:`, el: `1 επιλεγμένη λέξη για αυτόν τον γύρο:` },
@@ -7873,7 +7873,18 @@ Write all scenarios and explanations in ${langName}.`;
       // par la taille de la manche — même règle que le slider du mode espacé.
       // Persister la valeur bornée, c'est perdre son réglage en rétrécissant une
       // fois la manche, et ne plus jamais le retrouver.
-      const nmax = roundNewMaxIndex(size);
+      // Même règle face au STOCK : une liste d'un mot ne peut pas faire une manche
+      // de douze, ni en offrir deux neufs. Les curseurs s'arrêtent à ce qui existe,
+      // et remontent seuls jusqu'au réglage quand la liste grandit.
+      let sMax = 0;
+      ROUND_SIZE_VALUES.forEach((v, k) => { if (v <= Math.max(1, allWords.length)) sMax = k; });
+      ss.max = sMax;
+      si = Math.min(si, sMax);
+      const shown = ROUND_SIZE_VALUES[si];
+      const newCap = ROUND_NEW_VALUES[ROUND_NEW_VALUES.length - 1];
+      let newStock = 0; // compté jusqu'au plus grand cran du curseur, pas au-delà
+      for (const w of allWords) { if (isNewWord(w) && ++newStock >= newCap) break; }
+      const nmax = roundNewMaxIndex(Math.min(shown, newStock));
       let ni = ROUND_NEW_VALUES.indexOf(roundNew());
       if (ni === -1) { ni = 0; ROUND_NEW_VALUES.forEach((v, k) => { if (v <= roundNew()) ni = k; }); }
       ni = Math.min(ni, nmax);
@@ -7887,7 +7898,7 @@ Write all scenarios and explanations in ${langName}.`;
       document.getElementById('round-new-label').textContent  = tPrac('sess_set_new');
       ss.value = si;
       ns.value = ni;
-      document.getElementById('round-size-value').textContent = nw(size);
+      document.getElementById('round-size-value').textContent = nw(shown);
       document.getElementById('round-new-value').textContent  = nw(ROUND_NEW_VALUES[ni]);
 
       // ⚠️ Ce que la manche va VRAIMENT servir : on LIT le plan, on ne le refait
