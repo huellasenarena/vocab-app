@@ -9693,8 +9693,13 @@ Return ONLY this JSON object, no markdown:
         });
 
         // Filtres de langue (seulement les langues présentes dans l'historique)
+        // Une seule langue : rien à filtrer, donc aucune pastille (« All » et la
+        // langue diraient la même chose) — même règle que « my words ».
         const langs = ['all', ...new Set(historyData.map(e => e.lang))];
-        document.getElementById('history-filters').innerHTML = langs.map(l => {
+        const hf = document.getElementById('history-filters');
+        hf.style.display = langs.length <= 2 ? 'none' : '';
+        if (langs.length <= 2) historyFilter = 'all';
+        hf.innerHTML = langs.map(l => {
           const info  = LANGS.find(x => x.key === l);
           const label = l === 'all' ? tApp('filter_all') : `${info?.name || l}`;
           return `<button class="filter-btn ${l === historyFilter ? 'active' : ''}"
@@ -9788,7 +9793,10 @@ Return ONLY this JSON object, no markdown:
           else statsByLang[lang].learning++;
         });
 
-        grid.innerHTML = LANGS.map(l => {
+        // Les langues choisies, plus toute autre langue qui a encore des mots (même
+        // règle que « my words ») : on ne montre pas quatre blocs à zéro à qui n'en
+        // étudie qu'une, et on ne cache pas les chiffres d'une langue retirée.
+        grid.innerHTML = LANGS.filter(l => selectedLangs.includes(l.key) || wordCounts[l.key] > 0).map(l => {
           const s          = statsByLang[l.key];
           const practiced  = s.mastered + s.learning + s.struggling;
           const pct        = s.total > 0 ? Math.round((s.mastered / s.total) * 100) : 0;
