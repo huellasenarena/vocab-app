@@ -1974,8 +1974,12 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
           </div>
           <div class="round-chosen" id="round-chosen"></div>
         </div>
+        <!-- Rien à servir : le dire ici, sur l'écran de départ (une manche vide lancée
+             n'avait plus aucune sortie), et offrir de s'entraîner quand même. -->
+        <p class="session-note" id="session-empty-note" style="display:none"></p>
         <div class="session-actions">
           <button class="btn-secondary" id="btn-session-resume" onclick="resumeRound()" style="display:none;"></button>
+          <button class="btn-secondary" id="btn-session-extra" onclick="beginExtraRound()" style="display:none"></button>
           <button class="btn-secondary" id="btn-session-start" onclick="beginRound()"></button>
           <button class="btn-ghost" id="btn-session-compose-back" onclick="cancelComposeRound()" style="display:none" data-i18n="btn_back">retour</button>
         </div>
@@ -2624,6 +2628,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_writing:     { en: `Writing the text…`, fr: `Rédaction du texte…`, es: `Redactando el texto…`, el: `Σύνταξη κειμένου…` },
       sess_done:        { en: `Session complete`, fr: `Séance terminée`, es: `Sesión terminada`, el: `Η συνεδρία ολοκληρώθηκε` },
       sess_empty:       { en: `Nothing due today.`, fr: `Rien à faire aujourd'hui.`, es: `Nada para hoy.`, el: `Τίποτα για σήμερα.` },
+      sess_extra:       { en: `Practice anyway`, fr: `S'entraîner quand même`, es: `Practicar de todos modos`, el: `Εξάσκηση ούτως ή άλλως` },
       sess_score:       { en: `{a} of {b} correct`, fr: `{a} sur {b} justes`, es: `{a} de {b} correctas`, el: `{a} από {b} σωστά` },
       sess_inbase:      { en: `in your list: {w}`, fr: `dans ta liste : {w}`, es: `en tu lista: {w}`, el: `στη λίστα σου: {w}` },
       sess_round:       { en: `{a} / {b} this round`, fr: `{a} / {b} dans cette manche`, es: `{a} / {b} en esta ronda`, el: `{a} / {b} σε αυτόν τον γύρο` },
@@ -2866,6 +2871,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       document.querySelectorAll('.app-lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === appLang));
       const addInput = document.getElementById('add-word-input');
       if (addInput) addInput.placeholder = addWordsPlaceholder(addLang);
+      updateReasoningUI(); // son libellé porte le nom du modèle : applyI18n l'aurait écrasé
       renderGoogleButton();
     }
     function applyPracticeLangUI() {
@@ -3033,7 +3039,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     let showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
     let situationCounts     = localStorage.getItem(KEY_SITUATION_COUNTS) === 'true'; // défaut false : le mode situation ne touche pas la progression
     let currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4'; // 'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'
-    let gptEffort           = localStorage.getItem(KEY_GPT_EFFORT)      || 'low';     // 'none'|'low'|'medium'|'high'
+    let gptEffort           = localStorage.getItem(KEY_GPT_EFFORT)      || 'none';    // 'none'|'low'|'medium'|'high'|'xhigh'|'max'
     let geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';    // 'none'|'minimal'|'low'|'medium'|'high'
     let gemmaThinkingLevel  = localStorage.getItem(KEY_GEMMA_THINKING)  || 'minimal'; // 'minimal'|'high'
     // Nettoie une clé API : ne garde que l'ASCII imprimable (pas d'espace, retour à la
@@ -4029,7 +4035,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     // est reconnu à l'empreinte de son email — l'email lui-même n'a rien à faire dans
     // un dépôt public. Rien de secret là-dedans : le lien marche pour tout le monde,
     // il n'est simplement plus montré là où il ne servirait qu'à embrouiller.
-    const OWNER_EMAIL_SHA256 = 'bd3d5fa99a28d0c14c181d37f78047f866800bc6b357eeab7babb1daf07a9aec';
+    const OWNER_EMAIL_SHA256 = 'bafa96e7f3f729b98f2e651441924cbe9eb7f803f4eb77a883705124539de7d5';
     async function sha256Hex(text) {
       const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
       return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -4103,7 +4109,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       situationWordCount  = parseInt(localStorage.getItem(KEY_SITUATION_WORDS)) || 1;
       freeMix             = _readFreeMix(currentLang);
       currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4';
-      gptEffort           = localStorage.getItem(KEY_GPT_EFFORT) || 'low';
+      gptEffort           = localStorage.getItem(KEY_GPT_EFFORT) || 'none';
       geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';
       gemmaThinkingLevel  = localStorage.getItem(KEY_GEMMA_THINKING) || 'minimal';
       imageTheme          = localStorage.getItem(KEY_IMAGE_THEME) || '';
@@ -4167,16 +4173,19 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       const lbl = document.getElementById('reasoning-label');
       const sel = document.getElementById('reasoning-select');
       if (!lbl || !sel) return;
+      // Nom du modèle + « raisonnement » dans la langue de l'appli (il était écrit en
+      // français en dur, et « thinking » en anglais pour Gemini et Gemma).
+      const what = tApp('set_reasoning').toLowerCase();
       if (currentModel === 'gpt4') {
-        lbl.textContent = 'GPT-5.6 — raisonnement';
+        lbl.textContent = `GPT-5.6 — ${what}`;
         sel.innerHTML = '<option value="none">none</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option><option value="xhigh">xhigh</option><option value="max">max</option>';
         sel.value = gptEffort;
       } else if (currentModel === 'gemma') {
-        lbl.textContent = 'Gemma 4 — thinking';
+        lbl.textContent = `Gemma 4 — ${what}`;
         sel.innerHTML = '<option value="minimal">minimal</option><option value="high">high</option>';
         sel.value = gemmaThinkingLevel;
       } else {
-        lbl.textContent = 'Gemini Flash — thinking';
+        lbl.textContent = `Gemini Flash — ${what}`;
         sel.innerHTML = '<option value="none">none</option><option value="minimal">minimal</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option>';
         sel.value = geminiThinkingLevel;
       }
@@ -7606,6 +7615,10 @@ Write all scenarios and explanations in ${langName}.`;
     let _sessionBusy   = false;
     let _roundSkipped  = new Set(); // mots neufs écartés de la manche (« autre mot neuf »)
     let _roundOffset   = 0;     // mots de la manche déjà faits avant une reprise
+    // « S'entraîner quand même » : une manche qui reprend les mots déjà faits
+    // aujourd'hui. Elle compte comme une autre (choix du 2026-10-27) : étoiles et
+    // dates bougent, un mot peut donc gagner plusieurs étoiles dans la journée.
+    let _roundExtra    = false;
     let _roundComposing = false; // « Nouvelle manche » demandée alors qu'une manche attend
 
     const MODE_KEYS = ['practice', 'spaced', 'situation', 'free', 'image'];
@@ -7685,7 +7698,7 @@ Write all scenarios and explanations in ${langName}.`;
       // Un mot fait aujourd'hui ne revient pas avant demain : une seconde manche du
       // jour le resservait comme « révision en avance ». (Un mot choisi à la main
       // passe quand même : c'est une demande explicite.)
-      const free      = w => !chosenSet.has(lc(w)) && !practicedToday(w);
+      const free      = w => !chosenSet.has(lc(w)) && (_roundExtra || !practicedToday(w));
       const size   = Math.max(0, roundSize() - chosen.length);
       const wanted = Math.min(roundNew(), size);
 
@@ -8063,6 +8076,20 @@ Write all scenarios and explanations in ${langName}.`;
       startBtn.onclick     = waiting ? composeNewRound : beginRound;
       document.getElementById('btn-session-compose-back').style.display =
         saved && _roundComposing ? '' : 'none';
+
+      // Rien à servir avec les réglages actuels : pas de « Commencer » vers une
+      // manche vide. Si des mots ont déjà été faits aujourd'hui, on peut les reprendre.
+      const count = p => p.dueCount + p.aheadCount + p.freshCount + p.chosenCount;
+      const empty = !waiting && count(planRound(true)) === 0;
+      let extra = false;
+      if (empty) { _roundExtra = true; extra = count(planRound(true)) > 0; _roundExtra = false; }
+      const note = document.getElementById('session-empty-note');
+      note.style.display = empty ? '' : 'none';
+      note.textContent   = tPrac('sess_empty');
+      startBtn.style.display = empty ? 'none' : '';
+      const extraBtn = document.getElementById('btn-session-extra');
+      extraBtn.style.display = extra ? '' : 'none';
+      extraBtn.textContent   = tPrac('sess_extra');
       alignSessionTop();
 
       // La manche commencée sur l'autre appareil arrive après coup : l'écran est
@@ -8078,6 +8105,7 @@ Write all scenarios and explanations in ${langName}.`;
     }
 
     function composeNewRound()    { _roundComposing = true;  renderSessionStart(true); }
+    function beginExtraRound()    { _roundExtra = true; beginRound(); }
     function cancelComposeRound() { _roundComposing = false; renderSessionStart(true); }
 
     function beginRound() {
@@ -8087,6 +8115,10 @@ Write all scenarios and explanations in ${langName}.`;
       _roundOffset    = 0;
       _roundComposing = false;
       sessionItems = buildSessionItems();
+      _roundExtra  = false;
+      // Une manche vide lancée n'avait aucune sortie (pas d'en-tête, pas de
+      // « quitter ») : on reste sur l'écran de départ, qui le dit.
+      if (!sessionItems.length) return void renderSessionStart(true);
       _roundChosen = []; // consommé : la manche suivante repart du remplissage automatique
       sessionIdx   = 0;
       sessionOk    = 0;
@@ -8142,6 +8174,7 @@ Write all scenarios and explanations in ${langName}.`;
       //  mots » re-rend la manche en arrière-plan et ferait sauter la liste.)
       alignSessionTop();
 
+      if (!sessionItems.length) document.getElementById('screen-practice').classList.remove('round-on');
       if (!sessionItems.length) return void (body.innerHTML =
         `<p class="session-note">${tPrac('sess_empty')}</p>${sessionEndActions()}`);
       if (sessionIdx >= sessionItems.length) return renderSessionEnd();
@@ -8157,7 +8190,9 @@ Write all scenarios and explanations in ${langName}.`;
     // `nextRound()` renvoie à l'ÉCRAN DE DÉPART, pas à une manche identique : c'est
     // là que se décide « je rattrape » ou « je découvre ».
     function sessionEndActions() {
-      if (!dueWords().length && !allWords.some(w => isNewWord(w))) return '';
+      // Toujours offert dès qu'il y a des mots : l'écran de départ propose ensuite
+      // « s'entraîner quand même » s'il ne reste rien de dû.
+      if (!allWords.length) return '';
       return `<div class="session-actions">
                 <button class="btn-secondary" onclick="nextRound()">${tPrac('sess_again')}</button>
               </div>`;
