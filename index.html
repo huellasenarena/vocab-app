@@ -2244,7 +2244,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       <h1 class="app-title" data-i18n="add_title">Ajouter</h1>
       <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">retour</button>
     </div>
-    <div class="history-filters" id="add-mode-tabs">
+    <!-- « Mot / Forme grammaticale » masqué le 2026-10-27 (l'app reste simple pour
+         l'instant) : l'écran n'ajoute que des mots. Code des formes intact. -->
+    <div class="history-filters" id="add-mode-tabs" style="display:none">
       <button class="filter-btn active" onclick="setAddMode('word')" data-i18n="tab_word">Mot</button>
       <button class="filter-btn" onclick="setAddMode('grammar')" data-i18n="tab_grammar">Forme grammaticale</button>
     </div>
@@ -2255,7 +2257,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     <!-- Panneau : ajouter un mot -->
     <div id="add-word-panel">
       <label class="add-field-label" data-i18n="label_words">Mot(s) ou expression(s)</label>
-      <textarea id="add-word-input" class="add-input" rows="4" autocapitalize="off" autocomplete="off" placeholder="ex. resilience&#10;plusieurs mots : un par ligne, ou séparés par des « ; »&#10;expression : hacer el oso (expresión colombiana)" data-i18n-ph="add_words_ph"></textarea>
+      <textarea id="add-word-input" class="add-input" rows="4" autocapitalize="off" autocomplete="off"></textarea>
       <button class="btn-primary" style="margin-top:0.7rem" onclick="addWordFromApp()" data-i18n="btn_add">Ajouter</button>
       <div id="add-word-result" class="add-result"></div>
     </div>
@@ -2476,7 +2478,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       tab_grammar:      { en: `Grammar form`, fr: `Forme grammaticale`, es: `Forma gramatical`, el: `Γραμματικός τύπος` },
       label_lang:       { en: `Language`, fr: `Langue`, es: `Idioma`, el: `Γλώσσα` },
       label_words:      { en: `Word(s) or expression(s)`, fr: `Mot(s) ou expression(s)`, es: `Palabra(s) o expresión(es)`, el: `Λέξη/εις ή έκφραση/εις` },
-      add_words_ph:     { en: `e.g. resilience\nseveral words: one per line, or separated by « ; »\nexpression: hacer el oso (Colombian expression)`, fr: `ex. resilience\nplusieurs mots : un par ligne, ou séparés par des « ; »\nexpression : hacer el oso (expresión colombiana)`, es: `ej. resilience\nvarias palabras: una por línea, o separadas por « ; »\nexpresión: hacer el oso (expresión colombiana)`, el: `π.χ. resilience\nπερισσότερες λέξεις: μία ανά γραμμή, ή χωρισμένες με « ; »\nέκφραση: hacer el oso (κολομβιανή έκφραση)` },
+      // {word} / {note} : exemples dans la langue où l'on ajoute (ADD_EXAMPLES)
+      add_words_ph:     { en: `e.g. {word}\nseveral words: one per line, or separated by « ; »\na note on a word goes in parentheses at the end: {note}`, fr: `ex. {word}\nplusieurs mots : un par ligne, ou séparés par des « ; »\nune note sur un mot se met entre parenthèses, à la fin : {note}`, es: `p. ej. {word}\nvarias palabras: una por línea, o separadas por « ; »\nuna nota sobre una palabra va entre paréntesis, al final: {note}`, el: `π.χ. {word}\nπερισσότερες λέξεις: μία ανά γραμμή, ή χωρισμένες με « ; »\nμια σημείωση για τη λέξη μπαίνει σε παρένθεση, στο τέλος: {note}` },
       btn_add:          { en: `Add`, fr: `Ajouter`, es: `Añadir`, el: `Προσθήκη` },
       label_category:   { en: `Category`, fr: `Catégorie`, es: `Categoría`, el: `Κατηγορία` },
       label_form:       { en: `Form`, fr: `Forme`, es: `Forma`, el: `Τύπος` },
@@ -2861,6 +2864,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       const sel = document.getElementById('app-lang-select');
       if (sel) sel.value = appLang;
       document.querySelectorAll('.app-lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === appLang));
+      const addInput = document.getElementById('add-word-input');
+      if (addInput) addInput.placeholder = addWordsPlaceholder(addLang);
       renderGoogleButton();
     }
     function applyPracticeLangUI() {
@@ -3230,7 +3235,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       const key = document.getElementById('ob-key');
       if (key) key.value = _obProvider === 'gemini' ? geminiKey : openaiKey;
       const ta = document.getElementById('ob-words');
-      if (ta) ta.placeholder = tApp('add_words_ph');
+      if (ta) ta.placeholder = addWordsPlaceholder(_obAddLang);
     }
 
     function obToggleLang(key) {
@@ -3242,6 +3247,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     function obSetAddLang(k) {
       _obAddLang = k; // sans re-rendu : la liste tapée et les résultats restent
       document.querySelectorAll('#ob-lang-pills .filter-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === k));
+      document.getElementById('ob-words').placeholder = addWordsPlaceholder(k);
     }
 
     // La clé tapée est enregistrée, et le modèle suit : on vient de choisir CETTE clé,
@@ -8946,7 +8952,12 @@ Return ONLY this JSON object, no markdown:
     }
 
     function renderMotsFilters() {
-      document.getElementById('mots-filters').innerHTML = ['all', ...LANGS.map(l => l.key)].map(k => {
+      // Les langues choisies, plus toute autre langue qui a encore des mots : un mot
+      // ne doit jamais disparaître de la liste parce qu'on a retiré sa langue.
+      const shown = LANGS.map(l => l.key)
+        .filter(k => selectedLangs.includes(k) || motsData.some(m => m.lang === k));
+      if (motsFilter !== 'all' && !shown.includes(motsFilter)) motsFilter = 'all';
+      document.getElementById('mots-filters').innerHTML = ['all', ...shown].map(k => {
         const info  = LANGS.find(x => x.key === k);
         const count = k === 'all' ? motsData.length : motsData.filter(m => m.lang === k).length;
         const label = k === 'all' ? `${tApp('filter_all')} (${count})` : `${info.name} ${count}`;
@@ -9428,6 +9439,7 @@ Return ONLY this JSON object, no markdown:
       const label = document.getElementById('add-lang-label');
       const langs = selectedLangs.length ? selectedLangs : LANGS.map(l => l.key);
       if (!langs.includes(addLang)) addLang = langs[0];
+      document.getElementById('add-word-input').placeholder = addWordsPlaceholder(addLang);
       const solo = langs.length === 1;
       box.style.display   = solo ? 'none' : '';
       label.style.display = solo ? 'none' : '';
@@ -9435,6 +9447,19 @@ Return ONLY this JSON object, no markdown:
         const info = LANGS.find(l => l.key === k);
         return `<button class="filter-btn ${k === addLang ? 'active' : ''}" onclick="setAddLang('${k}')">${info.name}</button>`;
       }).join('');
+    }
+
+    // Exemples de la boîte d'ajout, dans la langue où l'on ajoute : un mot, puis
+    // une entrée avec sa note (registre, variété régionale, sens précis).
+    const ADD_EXAMPLES = {
+      English: { word: 'resilience', note: 'to table a motion (British usage: to propose it)' },
+      Spanish: { word: 'madrugar',   note: 'hacer el oso (expresión colombiana)' },
+      French:  { word: 'flâner',     note: 'avoir le cafard (familier)' },
+      Greek:   { word: 'μεράκι',     note: 'τα κάνω θάλασσα (καθομιλουμένη)' },
+    };
+    function addWordsPlaceholder(lang) {
+      const ex = ADD_EXAMPLES[lang] || ADD_EXAMPLES.English;
+      return tApp('add_words_ph').replace('{word}', ex.word).replace('{note}', ex.note);
     }
 
     function setAddLang(lang) {
