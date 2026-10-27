@@ -1975,11 +1975,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
           <div class="round-chosen" id="round-chosen"></div>
         </div>
         <!-- Rien à servir : le dire ici, sur l'écran de départ (une manche vide lancée
-             n'avait plus aucune sortie), et offrir de s'entraîner quand même. -->
+             n'avait plus aucune sortie). -->
         <p class="session-note" id="session-empty-note" style="display:none"></p>
         <div class="session-actions">
           <button class="btn-secondary" id="btn-session-resume" onclick="resumeRound()" style="display:none;"></button>
-          <button class="btn-secondary" id="btn-session-extra" onclick="beginExtraRound()" style="display:none"></button>
           <button class="btn-secondary" id="btn-session-start" onclick="beginRound()"></button>
           <button class="btn-ghost" id="btn-session-compose-back" onclick="cancelComposeRound()" style="display:none" data-i18n="btn_back">retour</button>
         </div>
@@ -2628,7 +2627,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_writing:     { en: `Writing the text…`, fr: `Rédaction du texte…`, es: `Redactando el texto…`, el: `Σύνταξη κειμένου…` },
       sess_done:        { en: `Session complete`, fr: `Séance terminée`, es: `Sesión terminada`, el: `Η συνεδρία ολοκληρώθηκε` },
       sess_empty:       { en: `Nothing due today.`, fr: `Rien à faire aujourd'hui.`, es: `Nada para hoy.`, el: `Τίποτα για σήμερα.` },
-      sess_extra:       { en: `Practice anyway`, fr: `S'entraîner quand même`, es: `Practicar de todos modos`, el: `Εξάσκηση ούτως ή άλλως` },
+      sess_repeat_today:{ en: `already practiced today — stars unchanged`, fr: `déjà entraîné aujourd'hui — étoiles inchangées`, es: `ya practicada hoy — estrellas sin cambios`, el: `ήδη εξασκήθηκε σήμερα — τα αστέρια δεν αλλάζουν` },
       sess_score:       { en: `{a} of {b} correct`, fr: `{a} sur {b} justes`, es: `{a} de {b} correctas`, el: `{a} από {b} σωστά` },
       sess_inbase:      { en: `in your list: {w}`, fr: `dans ta liste : {w}`, es: `en tu lista: {w}`, el: `στη λίστα σου: {w}` },
       sess_round:       { en: `{a} / {b} this round`, fr: `{a} / {b} dans cette manche`, es: `{a} / {b} en esta ronda`, el: `{a} / {b} σε αυτόν τον γύρο` },
@@ -7602,7 +7601,8 @@ Write all scenarios and explanations in ${langName}.`;
     }
     function sessionDueSuffix(word) {
       const lab = sessionDueLabel(word);
-      return lab ? `<span class="session-due">· ${lab}</span>` : '';
+      const rep = _sameDayRepeat.has(lc(word)) ? `<span class="session-due">· ${tPrac('sess_repeat_today')}</span>` : '';
+      return (lab ? `<span class="session-due">· ${lab}</span>` : '') + rep;
     }
 
     // La définition ne s'offre plus sous les réponses : elle est dans « options »
@@ -7615,10 +7615,9 @@ Write all scenarios and explanations in ${langName}.`;
     let _sessionBusy   = false;
     let _roundSkipped  = new Set(); // mots neufs écartés de la manche (« autre mot neuf »)
     let _roundOffset   = 0;     // mots de la manche déjà faits avant une reprise
-    // « S'entraîner quand même » : une manche qui reprend les mots déjà faits
-    // aujourd'hui. Elle compte comme une autre (choix du 2026-10-27) : étoiles et
-    // dates bougent, un mot peut donc gagner plusieurs étoiles dans la journée.
-    let _roundExtra    = false;
+    // Mots resservis le même jour dans cette session : leur réponse va dans
+    // l'historique seulement, et l'écran le dit (sessionDueSuffix).
+    const _sameDayRepeat = new Set();
     let _roundComposing = false; // « Nouvelle manche » demandée alors qu'une manche attend
 
     const MODE_KEYS = ['practice', 'spaced', 'situation', 'free', 'image'];
@@ -7695,10 +7694,10 @@ Write all scenarios and explanations in ${langName}.`;
       // choisis que de places : la manche les prend tous, et rien d'autre.
       const chosen    = _roundChosen.filter(w => allWords.includes(w));
       const chosenSet = new Set(chosen.map(w => lc(w)));
-      // Un mot fait aujourd'hui ne revient pas avant demain : une seconde manche du
-      // jour le resservait comme « révision en avance ». (Un mot choisi à la main
-      // passe quand même : c'est une demande explicite.)
-      const free      = w => !chosenSet.has(lc(w)) && (_roundExtra || !practicedToday(w));
+      // Un mot fait aujourd'hui peut revenir (révision en avance) : on s'entraîne
+      // autant qu'on veut. Ce sont ses ÉTOILES qui ne bougent qu'une fois par jour
+      // (cf. recordSessionAnswer).
+      const free      = w => !chosenSet.has(lc(w));
       const size   = Math.max(0, roundSize() - chosen.length);
       const wanted = Math.min(roundNew(), size);
 
@@ -8078,18 +8077,13 @@ Write all scenarios and explanations in ${langName}.`;
         saved && _roundComposing ? '' : 'none';
 
       // Rien à servir avec les réglages actuels : pas de « Commencer » vers une
-      // manche vide. Si des mots ont déjà été faits aujourd'hui, on peut les reprendre.
-      const count = p => p.dueCount + p.aheadCount + p.freshCount + p.chosenCount;
-      const empty = !waiting && count(planRound(true)) === 0;
-      let extra = false;
-      if (empty) { _roundExtra = true; extra = count(planRound(true)) > 0; _roundExtra = false; }
-      const note = document.getElementById('session-empty-note');
+      // manche vide (elle n'aurait aucune sortie).
+      const p     = planRound(true);
+      const empty = !waiting && p.dueCount + p.aheadCount + p.freshCount + p.chosenCount === 0;
+      const note  = document.getElementById('session-empty-note');
       note.style.display = empty ? '' : 'none';
       note.textContent   = tPrac('sess_empty');
       startBtn.style.display = empty ? 'none' : '';
-      const extraBtn = document.getElementById('btn-session-extra');
-      extraBtn.style.display = extra ? '' : 'none';
-      extraBtn.textContent   = tPrac('sess_extra');
       alignSessionTop();
 
       // La manche commencée sur l'autre appareil arrive après coup : l'écran est
@@ -8105,7 +8099,6 @@ Write all scenarios and explanations in ${langName}.`;
     }
 
     function composeNewRound()    { _roundComposing = true;  renderSessionStart(true); }
-    function beginExtraRound()    { _roundExtra = true; beginRound(); }
     function cancelComposeRound() { _roundComposing = false; renderSessionStart(true); }
 
     function beginRound() {
@@ -8115,7 +8108,6 @@ Write all scenarios and explanations in ${langName}.`;
       _roundOffset    = 0;
       _roundComposing = false;
       sessionItems = buildSessionItems();
-      _roundExtra  = false;
       // Une manche vide lancée n'avait aucune sortie (pas d'en-tête, pas de
       // « quitter ») : on reste sur l'écran de départ, qui le dit.
       if (!sessionItems.length) return void renderSessionStart(true);
@@ -8190,8 +8182,7 @@ Write all scenarios and explanations in ${langName}.`;
     // `nextRound()` renvoie à l'ÉCRAN DE DÉPART, pas à une manche identique : c'est
     // là que se décide « je rattrape » ou « je découvre ».
     function sessionEndActions() {
-      // Toujours offert dès qu'il y a des mots : l'écran de départ propose ensuite
-      // « s'entraîner quand même » s'il ne reste rien de dû.
+      // Toujours offert dès qu'il y a des mots : un mot fait aujourd'hui peut revenir.
       if (!allWords.length) return '';
       return `<div class="session-actions">
                 <button class="btn-secondary" onclick="nextRound()">${tPrac('sess_again')}</button>
@@ -8645,6 +8636,17 @@ Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
     // `hinted` : réussi avec l'indice du trou à taper — compte (historique ✓), mais
     // sans étoile : le mot revient demain, net inchangé (même règle que le mode espacé).
     async function recordSessionAnswer(word, ok, hinted) {
+      // Une fois par jour : un mot déjà travaillé aujourd'hui se refait autant qu'on
+      // veut, mais seule la première réponse du jour touche aux étoiles et à la date
+      // de révision — cinq réussites d'affilée le même jour ne disent pas qu'on le
+      // retient. La réponse reste dans l'historique ; le compte des mots faits du
+      // jour (des mots DISTINCTS) ne bouge pas.
+      if (practicedToday(word)) {
+        _sameDayRepeat.add(lc(word));
+        saveRound();
+        saveHistory(word, ok);
+        return;
+      }
       if (hinted && ok) {
         await saveProgressReviewHint(word);
       } else if (isNewWord(word)) {
@@ -9189,7 +9191,7 @@ Return ONLY this JSON object, no markdown:
           <strong>${tApp('selected_n').replace('{n}', sel)}</strong>
           <button class="btn-ghost" onclick="clearMotsSelection()">${tApp('cancel_lc')}</button>
           <button class="btn-ghost" style="margin-left:auto" onclick="groupSelectedMots(event)">${tApp('act_groups')}</button>
-          <button class="btn-ghost" onclick="moveSelectedMots(event)">${tApp('act_lang')}</button>
+          ${selectedLangs.length > 1 ? `<button class="btn-ghost" onclick="moveSelectedMots(event)">${tApp('act_lang')}</button>` : ''}
           <button class="btn-ghost" style="color:var(--rojo)" onclick="deleteSelectedMots()">${tApp('btn_delete')}</button>
         </div>` : ''}`;
     }
@@ -9233,7 +9235,7 @@ Return ONLY this JSON object, no markdown:
           <span class="mot-actions mot-acts">
             <button onclick="verifyMot('${m.lang}','${esc}', event)" title="${tApp('title_verify')}">${tApp('act_verify')}</button>
             <button onclick="editMot('${m.lang}','${esc}')" title="${tApp('title_rename')}">${tApp('act_edit')}</button>
-            <button onclick="moveMot('${m.lang}','${esc}', event)" title="${tApp('ctx_move')}">${tApp('act_lang')}</button>
+            ${selectedLangs.some(k => k !== m.lang) ? `<button onclick="moveMot('${m.lang}','${esc}', event)" title="${tApp('ctx_move')}">${tApp('act_lang')}</button>` : ''}
             <button onclick="deleteMot('${m.lang}','${esc}')" title="${tApp('title_delete')}" class="danger">${tApp('act_delete')}</button>
           </span>
         </div>`;
@@ -10804,6 +10806,9 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       const it = practiceMode === 'practice' && sessionRunning ? sessionItems[sessionIdx] : null;
       const canSwap = !!it && it.kind === 'qcm' && it.wasNew && !it.answered && lc(it.word) === lc(word);
       document.getElementById('ctx-swap').style.display = canSwap ? '' : 'none';
+      // Une seule langue choisie : nulle part où envoyer le mot
+      document.getElementById('ctx-move').style.display =
+        selectedLangs.some(k => k !== currentLang) ? '' : 'none';
       ctxMenuBack(); // toujours au premier niveau
       positionCtxMenu(x, y);
     }
@@ -11556,7 +11561,7 @@ Reply with ONLY this JSON object, nothing else:
       <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuDefine()" data-i18n="label_definition">Définition</button>
       <button class="ctx-menu-btn ctx-gloss-btn" onclick="ctxMenuTranslate()" data-i18n="ctx_translate">Traduire</button>
       <button class="ctx-menu-btn" onclick="ctxMenuEdit()" data-i18n="ctx_edit">Modifier</button>
-      <button class="ctx-menu-btn" onclick="ctxMenuMove()" data-i18n="ctx_move">Changer de langue</button>
+      <button class="ctx-menu-btn" id="ctx-move" onclick="ctxMenuMove()" data-i18n="ctx_move">Changer de langue</button>
       <!-- Mot neuf de la manche, avant la réponse seulement (cf. showWordContextMenu) -->
       <button class="ctx-menu-btn" id="ctx-swap" onclick="ctxMenuSwap()" data-i18n="sess_swap_new" style="display:none">Autre mot neuf</button>
       <button class="ctx-menu-btn danger" onclick="ctxMenuDelete()" data-i18n="ctx_delete">Supprimer</button>
