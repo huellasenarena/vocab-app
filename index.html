@@ -562,6 +562,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
        les autres. Reprises du mode espacé, mêmes classes de couleur. */
     .session-stars { margin-bottom: 0.7rem; }
     .session-q     { font-size: 0.95rem; margin-bottom: 1rem; color: var(--gris); }
+    /* La note à la place de la question (après la réponse) : une ligne, dépliée à l'appui */
+    .session-q-note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+    .session-q-note.open { white-space: normal; }
+    /* Quel mot ? / tape le mot : la question tient la place du mot jusqu'à la réponse */
+    .session-word-ph > span:first-child { color: var(--gris-claro); }
     .session-actions { display: flex; margin-top: 1.1rem; }
     .session-note  { font-size: 0.85rem; color: var(--gris); margin-top: 0.8rem; }
     /* « Quel mot ? » : la situation se lit comme une citation (filet à gauche) */
@@ -731,6 +736,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       background: var(--tinta);
       cursor: pointer;
     }
+    /* Curseur qui ne peut pas bouger (une seule valeur possible) */
+    input[type="range"].stuck { background: repeating-linear-gradient(to right, var(--linea-fuerte) 0 2px, transparent 2px 6px); cursor: default; }
+    input[type="range"].stuck::-webkit-slider-thumb { background: var(--linea-fuerte); cursor: default; }
+    input[type="range"].stuck::-moz-range-thumb { background: var(--linea-fuerte); border: 0; cursor: default; }
 
     /* ── Cartes de mots (multi) ── */
     .words-chips {
@@ -1209,6 +1218,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     /* ── Écran ajouter du contenu ── */
     .add-field-label { display:block; font-family:var(--serif); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--gris); margin:0.85rem 0 0.3rem; }
     .add-input { width:100%; box-sizing:border-box; }
+    .add-input::placeholder { white-space: pre-wrap; overflow-wrap: break-word; }
     .add-result { margin-top:0.8rem; font-size:0.88rem; min-height:1.2rem; line-height:1.5; }
     .add-result.ok   { color:var(--verde); }
     .add-result.err  { color:var(--rojo); }
@@ -1249,19 +1259,13 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .help-section ul, .help-section ol { padding-left: 1.1rem; }
     .help-section li { margin-bottom: 0.25rem; }
     .help-section code { font-family: var(--mono); font-size: 0.82em; background: var(--relleno); padding: 0.08em 0.35em; border-radius: 2px; word-break: break-word; }
-    .help-btn { font-size: 0.85rem; }
-
     /* Connexion : sous « Se connecter », tout est centré */
-    #screen-auth .help-btn { align-self: center; }
     .auth-or { display: flex; align-items: center; gap: 0.6rem; color: var(--gris); font-size: 0.8rem; margin: 0.2rem 0; }
     .auth-or::before, .auth-or::after { content: ""; flex: 1; border-top: 1px solid var(--linea); }
     /* Le bouton Google est une page de Google en thème clair : sous un parent en thème
        sombre, le navigateur peint un fond blanc opaque derrière lui. */
     #google-signin-btn { display: flex; justify-content: center; color-scheme: light; }
 
-    /* Bouton « ajouter une langue » dans la grille */
-    .lang-btn.lang-add-btn { color: var(--gris); }
-    .lang-btn.lang-add-btn:hover { opacity: 1; }
     /* Lignes du sélecteur de langues */
     .lang-pick-row {
       display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0 0.7rem 0.8rem;
@@ -1418,6 +1422,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       white-space: nowrap;
       max-width: 220px;
     }
+    /* La note de l'entrée, sous le mot : elle n'est plus écrite dans la manche */
+    .ctx-word-note { display: block; white-space: normal; font-style: normal; color: var(--gris-claro); margin-top: 0.15rem; }
     .ctx-menu-btn {
       display: block;
       width: 100%;
@@ -1553,26 +1559,37 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .progress-bar-bg   { width: 100%; height: 2px; background: var(--linea-suave); overflow: hidden; }
     .progress-bar-fill { height: 100%; background: var(--verde); }
 
-    /* ── Menu principal (sous les langues) : une ligne de liens, pas de tuiles ── */
-    .menu-grid {
-      display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem;
-      width: 100%; margin-top: 0.4rem;
+    /* ── Accueil : deux pastilles côte à côte, deux liens discrets dessous ── */
+    .home-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .home-foot { width: 100%; display: flex; justify-content: space-between; }
+    .home-link, .home-link:hover:not(:disabled) {
+      background: none; border: none; border-bottom: 1px solid var(--linea-fuerte); border-radius: 0; padding: 0.1rem 0;
+      color: var(--gris); font-family: var(--serif); font-size: var(--t-pequeno); cursor: pointer;
     }
-    .menu-tile {
-      background: none; border: none; border-bottom: 1px solid transparent; border-radius: 0; padding: 0.1rem 0;
-      display: flex; align-items: baseline; gap: 0.35rem;
-      color: var(--tinta); cursor: pointer; font-family: var(--serif); font-size: var(--t-nav);
+    .home-link:hover:not(:disabled) { color: var(--tinta); border-bottom-color: var(--tinta); }
+
+    /* ── « how it works » en haut à droite (accueil et connexion) ── */
+    .screen-top { width: 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+    .help-corner, .help-corner:hover:not(:disabled) {
+      background: none; border: none; border-radius: 0; padding: 0;
+      display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap;
+      color: var(--gris); font-family: var(--serif); font-size: var(--t-pequeno); cursor: pointer;
     }
-    .menu-tile:hover:not(:disabled) { background: none; color: var(--tinta); border-bottom-color: var(--tinta); }
-    .menu-tile .mt-icon { font-size: 0.9rem; line-height: 1; }
-    .menu-hero {
-      margin-top: 1rem;
-      display: inline-flex; align-items: baseline; gap: 0.4rem;
-      background: var(--tinta); border-color: var(--tinta); color: var(--papel);
-      padding: 6px 16px; font-size: var(--t-nav);
+    .help-corner:hover:not(:disabled) { color: var(--tinta); }
+    .help-ring {
+      width: 1.25rem; height: 1.25rem; border: 1px solid var(--linea-fuerte); border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; color: var(--tinta);
     }
-    .menu-hero:hover:not(:disabled) { background: var(--tinta); border-color: var(--tinta); color: var(--papel); opacity: 0.85; }
-    .menu-hero .mt-icon { font-size: 0.95rem; line-height: 1; }
+
+    /* ── My account : une liste, une entrée par ligne ── */
+    .account-list { width: 100%; display: flex; flex-direction: column; border-top: 1px solid var(--linea-suave); }
+    .account-row, .account-row:hover:not(:disabled) {
+      background: none; border: none; border-bottom: 1px solid var(--linea-suave); border-radius: 0;
+      padding: 0.7rem 0; display: flex; justify-content: space-between; align-items: baseline;
+      color: var(--tinta); font-family: var(--serif); font-size: var(--t-nav); text-align: left; cursor: pointer;
+    }
+    .account-row:hover:not(:disabled) span:first-child { border-bottom: 1px solid var(--tinta); }
+    .account-meta { color: var(--gris-claro); font-size: var(--t-pequeno); font-variant-numeric: tabular-nums; }
 
     /* ── Sélecteur de langue de l'appli (écran connexion) ── */
     .app-lang-row { display: flex; gap: 0.4rem; margin-bottom: 0.9rem; }
@@ -1705,7 +1722,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
   <!-- ── Écran 1 : Connexion / Inscription ── -->
   <div class="screen" id="screen-auth">
-    <h1 class="app-title">BYOV</h1>
+    <div class="screen-top">
+      <h1 class="app-title">BYOV</h1>
+      <button class="help-corner" onclick="openHelp()"><span class="help-ring">?</span><span data-i18n="help_corner">how it works</span></button>
+    </div>
     <p class="app-tagline"><span class="byov-i">B</span>ring <span class="byov-i">Y</span>our <span class="byov-i">O</span>wn <span class="byov-i">V</span>ocab</p>
     <!-- Langue de l'interface (visible sans être connecté — défaut : anglais) -->
     <div class="app-lang-row">
@@ -1723,88 +1743,25 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       <div class="auth-or" data-i18n="auth_or">ou</div>
       <div id="google-signin-btn"></div>
     </div>
-    <button class="btn-ghost help-btn" onclick="openHelp()" data-i18n="help_btn">Comment ça marche</button>
   </div>
 
   <!-- ── Écran 2 : Sélecteur de langue ── -->
   <div class="screen" id="screen-lang">
-    <h1 class="app-title">BYOV</h1>
-    <p class="app-subtitle" data-i18n="lang_subtitle">quelle langue aujourd'hui ?</p>
+    <div class="screen-top">
+      <h1 class="app-title">BYOV</h1>
+      <button class="help-corner" onclick="openHelp()"><span class="help-ring">?</span><span data-i18n="help_corner">how it works</span></button>
+    </div>
     <div class="lang-grid" id="lang-grid"></div>
 
-    <!-- Action principale : ajouter (pleine largeur) -->
-    <button class="menu-hero" onclick="showAddContent()"><span data-i18n="tile_menu_add">ajouter</span></button>
-
-    <!-- Menu principal : grille d'icônes 3×2 -->
-    <div class="menu-grid">
-      <button class="menu-tile" onclick="showMots()"><span data-i18n="tile_menu_mots">mes mots</span></button>
-      <button class="menu-tile" onclick="showStats()"><span data-i18n="tile_menu_stats">stats</span></button>
-      <button class="menu-tile" onclick="showHistory()"><span data-i18n="tile_menu_history">historique</span></button>
-      <button class="menu-tile" onclick="toggleAccountSettings()"><span data-i18n="tile_menu_settings">réglages</span></button>
-      <button class="menu-tile" onclick="openHelp()"><span data-i18n="tile_menu_help">aide</span></button>
-      <button class="menu-tile" onclick="logout()"><span data-i18n="tile_menu_logout">déconnexion</span></button>
+    <!-- Les deux actions de tous les jours ; le reste (stats, historique, langues,
+         réglages) vit dans « my account ». -->
+    <div class="home-actions">
+      <button class="btn-primary" onclick="showAddContent()" data-i18n="tile_menu_add">add words</button>
+      <button class="btn-secondary" onclick="showMots()" data-i18n="tile_menu_mots">my words</button>
     </div>
-
-    <!-- Réglages du compte (indépendants de la langue pratiquée) -->
-    <div class="settings-panel" id="account-settings-panel">
-      <div class="settings-row" style="cursor:default;">
-        <span data-i18n="set_app_lang">Langue de l'appli</span>
-        <select id="app-lang-select" onchange="setAppLang(this.value)"
-          style="font-size:0.8rem;">
-          <option value="en">English</option>
-          <option value="fr">Français</option>
-          <option value="es">Español</option>
-          <option value="el">Ελληνικά</option>
-        </select>
-      </div>
-      <!-- Réglages avancés : repliés. Les réglages de base ne gardent que la langue
-           de l'appli : le modèle est toujours Terra (MISTRAL_MODEL). -->
-      <div><button class="btn-ghost" id="adv-settings-btn" onclick="toggleAdvancedSettings()"><span data-i18n="set_advanced">réglages avancés</span> <span id="adv-settings-arrow">▸</span></button></div>
-      <div id="adv-settings" style="display:none; flex-direction:column; gap:0.9rem;">
-      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
-        <span data-i18n="set_openai_key">Clé API OpenAI (GPT)</span>
-        <input type="password" id="openai-key-input" placeholder="sk-…" autocomplete="off"
-          onchange="setOpenaiKey(this.value)"
-          style="width:100%;font-family:var(--mono);font-size:0.8rem;">
-      </div>
-      <!-- Le lien d'ajout ne sert qu'au raccourci iPhone et à l'import Kindle : sur le
-           seul compte du propriétaire (body.owner, cf. loadAccountInfo). -->
-      <div class="settings-row owner-only" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
-        <span data-i18n="set_add_link">Lien d'ajout (raccourci iPhone)</span>
-        <input type="text" id="add-url-input" readonly placeholder="connecte-toi pour générer ton lien" data-i18n-ph="set_add_link_ph"
-          onclick="this.select()"
-          style="width:100%;font-family:var(--mono);font-size:0.68rem;">
-        <span style="font-size:0.7rem;color:var(--gris);" data-i18n="set_add_link_note">Remplace <code>WORD</code> par le mot dans ton raccourci. <code>lang=auto</code> détecte la langue.</span>
-      </div>
-      <label class="settings-row">
-        <span data-i18n="set_tokens">Afficher compteur tokens</span>
-        <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
-      </label>
-      <!-- Modes Situation et Libre cachés (VISIBLE_MODES) : leurs deux réglages aussi.
-           Le code reste, il suffit de retirer le display:none. -->
-      <label class="settings-row" style="display:none">
-        <span data-i18n="set_situation_counts">Modes Situation et Libre comptent dans la progression<br><span style="font-size:0.7rem;color:var(--gris);">étoiles + révisions (l'historique compte toujours)</span></span>
-        <input type="checkbox" id="toggle-situation-counts" onchange="setSituationCounts(this.checked)">
-      </label>
-      <div class="settings-row" style="display:none">
-        <span data-i18n="set_image_theme">Thème photos (Imagen)</span>
-        <select id="image-theme-select" onchange="setImageTheme(this.value)"
-          style="font-size:0.8rem;">
-          <option value="" data-i18n="theme_random">Aléatoire</option>
-          <option value="people" data-i18n="theme_people">Personnes</option>
-          <option value="city street" data-i18n="theme_city">Ville</option>
-          <option value="nature landscape" data-i18n="theme_nature">Nature</option>
-          <option value="food" data-i18n="theme_food">Nourriture</option>
-          <option value="travel" data-i18n="theme_travel">Voyage</option>
-          <option value="architecture" data-i18n="theme_architecture">Architecture</option>
-          <option value="animals" data-i18n="theme_animals">Animaux</option>
-        </select>
-      </div>
-      <div class="settings-row" style="cursor:default;">
-        <span><span data-i18n="rs_title">Réinitialiser la progression</span><br><span style="font-size:0.7rem;color:var(--gris);" data-i18n="rs_hint">remet des mots à « nouveaux » (l'historique est conservé)</span></span>
-        <button class="btn-ghost" onclick="openResetProgress()" style="flex-shrink:0;" data-i18n="rs_btn">Réinitialiser</button>
-      </div>
-      </div><!-- /adv-settings -->
+    <div class="home-foot">
+      <button class="home-link" onclick="showAccount()" data-i18n="tile_menu_account">my account</button>
+      <button class="home-link" onclick="logout()" data-i18n="tile_menu_logout">log out</button>
     </div>
 
     <p class="error-msg" id="lang-error-msg"></p>
@@ -2137,10 +2094,87 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
   </div>
 
   <!-- ── Écran 5 : Statistiques ── -->
+  <!-- ── Mon compte : stats, historique, langues, réglages (hors de l'accueil :
+       on ne les ouvre presque jamais) ── -->
+  <div class="screen" id="screen-account">
+    <div class="stats-header">
+      <h1 class="app-title" data-i18n="account_title">my account</h1>
+      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">retour</button>
+    </div>
+    <div class="account-list">
+      <button class="account-row" onclick="showStats()"><span data-i18n="btn_stats">my statistics</span></button>
+      <button class="account-row" onclick="showHistory()"><span data-i18n="btn_history">word history</span></button>
+      <button class="account-row" onclick="openLangPicker(false)"><span data-i18n="btn_edit_langs">edit languages</span><span class="account-meta" id="account-langs"></span></button>
+      <button class="account-row" onclick="toggleAccountSettings()"><span data-i18n="tile_menu_settings">settings</span><span class="account-meta" id="account-settings-arrow">▸</span></button>
+    </div>
+
+    <!-- Réglages du compte (indépendants de la langue pratiquée) -->
+    <div class="settings-panel" id="account-settings-panel">
+      <div class="settings-row" style="cursor:default;">
+        <span data-i18n="set_app_lang">Langue de l'appli</span>
+        <select id="app-lang-select" onchange="setAppLang(this.value)"
+          style="font-size:0.8rem;">
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="es">Español</option>
+          <option value="el">Ελληνικά</option>
+        </select>
+      </div>
+      <!-- Réglages avancés : repliés. Les réglages de base ne gardent que la langue
+           de l'appli : le modèle est toujours Terra (MISTRAL_MODEL). -->
+      <div><button class="btn-ghost" id="adv-settings-btn" onclick="toggleAdvancedSettings()"><span data-i18n="set_advanced">réglages avancés</span> <span id="adv-settings-arrow">▸</span></button></div>
+      <div id="adv-settings" style="display:none; flex-direction:column; gap:0.9rem;">
+      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
+        <span data-i18n="set_openai_key">Clé API OpenAI (GPT)</span>
+        <input type="password" id="openai-key-input" placeholder="sk-…" autocomplete="off"
+          onchange="setOpenaiKey(this.value)"
+          style="width:100%;font-family:var(--mono);font-size:0.8rem;">
+      </div>
+      <!-- Le lien d'ajout ne sert qu'au raccourci iPhone et à l'import Kindle : sur le
+           seul compte du propriétaire (body.owner, cf. loadAccountInfo). -->
+      <div class="settings-row owner-only" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
+        <span data-i18n="set_add_link">Lien d'ajout (raccourci iPhone)</span>
+        <input type="text" id="add-url-input" readonly placeholder="connecte-toi pour générer ton lien" data-i18n-ph="set_add_link_ph"
+          onclick="this.select()"
+          style="width:100%;font-family:var(--mono);font-size:0.68rem;">
+        <span style="font-size:0.7rem;color:var(--gris);" data-i18n="set_add_link_note">Remplace <code>WORD</code> par le mot dans ton raccourci. <code>lang=auto</code> détecte la langue.</span>
+      </div>
+      <label class="settings-row">
+        <span data-i18n="set_tokens">Afficher compteur tokens</span>
+        <input type="checkbox" id="toggle-tokens" onchange="setShowTokens(this.checked)">
+      </label>
+      <!-- Modes Situation et Libre cachés (VISIBLE_MODES) : leurs deux réglages aussi.
+           Le code reste, il suffit de retirer le display:none. -->
+      <label class="settings-row" style="display:none">
+        <span data-i18n="set_situation_counts">Modes Situation et Libre comptent dans la progression<br><span style="font-size:0.7rem;color:var(--gris);">étoiles + révisions (l'historique compte toujours)</span></span>
+        <input type="checkbox" id="toggle-situation-counts" onchange="setSituationCounts(this.checked)">
+      </label>
+      <div class="settings-row" style="display:none">
+        <span data-i18n="set_image_theme">Thème photos (Imagen)</span>
+        <select id="image-theme-select" onchange="setImageTheme(this.value)"
+          style="font-size:0.8rem;">
+          <option value="" data-i18n="theme_random">Aléatoire</option>
+          <option value="people" data-i18n="theme_people">Personnes</option>
+          <option value="city street" data-i18n="theme_city">Ville</option>
+          <option value="nature landscape" data-i18n="theme_nature">Nature</option>
+          <option value="food" data-i18n="theme_food">Nourriture</option>
+          <option value="travel" data-i18n="theme_travel">Voyage</option>
+          <option value="architecture" data-i18n="theme_architecture">Architecture</option>
+          <option value="animals" data-i18n="theme_animals">Animaux</option>
+        </select>
+      </div>
+      <div class="settings-row" style="cursor:default;">
+        <span><span data-i18n="rs_title">Réinitialiser la progression</span><br><span style="font-size:0.7rem;color:var(--gris);" data-i18n="rs_hint">remet des mots à « nouveaux » (l'historique est conservé)</span></span>
+        <button class="btn-ghost" onclick="openResetProgress()" style="flex-shrink:0;" data-i18n="rs_btn">Réinitialiser</button>
+      </div>
+      </div><!-- /adv-settings -->
+    </div>
+  </div>
+
   <div class="screen" id="screen-stats">
     <div class="stats-header">
       <h1 class="app-title" data-i18n="stats_title">Stats</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">retour</button>
+      <button class="btn-ghost" onclick="showScreen('screen-account')" data-i18n="btn_back">retour</button>
     </div>
     <div class="stats-grid" id="stats-grid">
       <p style="color:var(--gris);font-style:italic;" data-i18n="loading">Chargement…</p>
@@ -2151,7 +2185,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
   <div class="screen" id="screen-history">
     <div class="stats-header">
       <h1 class="app-title" data-i18n="history_title">Historique</h1>
-      <button class="btn-ghost" onclick="showScreen('screen-lang')" data-i18n="btn_back">retour</button>
+      <button class="btn-ghost" onclick="showScreen('screen-account')" data-i18n="btn_back">retour</button>
     </div>
     <!-- Filtre par langue -->
     <div class="history-filters" id="history-filters"></div>
@@ -2364,17 +2398,14 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       auth_have_account:{ en: `Already have an account? Log in`, fr: `Déjà un compte ? Se connecter`, es: `¿Ya tienes cuenta? Inicia sesión`, el: `Έχεις ήδη λογαριασμό; Συνδέσου` },
       auth_or:          { en: `or`, fr: `ou`, es: `o`, el: `ή` },
       auth_required:    { en: `email and password required`, fr: `email et mot de passe requis`, es: `email y contraseña requeridos`, el: `απαιτούνται email και κωδικός` },
-      help_btn:         { en: `How it works`, fr: `Comment ça marche`, es: `Cómo funciona`, el: `Πώς λειτουργεί` },
       // — page principale —
-      lang_subtitle:    { en: `which language today?`, fr: `quelle langue aujourd'hui ?`, es: `¿qué idioma hoy?`, el: `ποια γλώσσα σήμερα;` },
-      btn_settings:     { en: `settings`, fr: `réglages`, es: `ajustes`, el: `ρυθμίσεις` },
-      btn_stats:        { en: `my statistics`, fr: `voir mes statistiques`, es: `mis estadísticas`, el: `τα στατιστικά μου` },
+      help_corner:      { en: `how it works`, fr: `comment ça marche`, es: `cómo funciona`, el: `πώς λειτουργεί` },
+      account_title:    { en: `my account`, fr: `mon compte`, es: `mi cuenta`, el: `ο λογαριασμός μου` },
+      btn_edit_langs:   { en: `edit languages`, fr: `modifier mes langues`, es: `editar idiomas`, el: `επεξεργασία γλωσσών` },
+      btn_stats:        { en: `my statistics`, fr: `mes statistiques`, es: `mis estadísticas`, el: `τα στατιστικά μου` },
       btn_history:      { en: `word history`, fr: `historique des mots`, es: `historial de palabras`, el: `ιστορικό λέξεων` },
-      btn_mots:         { en: `manage my words`, fr: `gérer mes mots`, es: `gestionar mis palabras`, el: `διαχείριση λέξεων` },
-      btn_add_content:  { en: `add content`, fr: `ajouter du contenu`, es: `añadir contenido`, el: `προσθήκη περιεχομένου` },
       btn_logout:       { en: `log out`, fr: `se déconnecter`, es: `cerrar sesión`, el: `αποσύνδεση` },
       badge_done:       { en: `done`, fr: `fait`, es: `hecho`, el: `έγινε` },
-      tile_add:         { en: `add languages`, fr: `ajouter des langues`, es: `añadir idiomas`, el: `προσθήκη γλωσσών` },
       set_advanced:     { en: `advanced settings`, fr: `réglages avancés`, es: `ajustes avanzados`, el: `σύνθετες ρυθμίσεις` },
       // Premier passage d'un nouveau compte (langues → clé → premiers mots)
       ob_step_langs:    { en: `languages`, fr: `langues`, es: `idiomas`, el: `γλώσσες` },
@@ -2384,12 +2415,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       ob_next:          { en: `next`, fr: `suivant`, es: `siguiente`, el: `επόμενο` },
       ob_later:         { en: `later`, fr: `plus tard`, es: `más tarde`, el: `αργότερα` },
       ob_finish:        { en: `finish`, fr: `terminer`, es: `terminar`, el: `τέλος` },
-      tile_menu_add:    { en: `add`, fr: `ajouter`, es: `añadir`, el: `προσθήκη` },
+      tile_menu_add:    { en: `add words`, fr: `ajouter des mots`, es: `añadir palabras`, el: `προσθήκη λέξεων` },
+      tile_menu_account:{ en: `my account`, fr: `mon compte`, es: `mi cuenta`, el: `ο λογαριασμός μου` },
       tile_menu_mots:   { en: `my words`, fr: `mes mots`, es: `mis palabras`, el: `οι λέξεις μου` },
-      tile_menu_stats:  { en: `stats`, fr: `stats`, es: `stats`, el: `στατιστικά` },
-      tile_menu_history:{ en: `history`, fr: `historique`, es: `historial`, el: `ιστορικό` },
       tile_menu_settings:{ en: `settings`, fr: `réglages`, es: `ajustes`, el: `ρυθμίσεις` },
-      tile_menu_help:   { en: `help`, fr: `aide`, es: `ayuda`, el: `βοήθεια` },
       tile_menu_logout: { en: `log out`, fr: `déconnexion`, es: `salir`, el: `αποσύνδεση` },
       // — réglages compte —
       set_openai_key:   { en: `OpenAI API key (GPT)`, fr: `Clé API OpenAI (GPT)`, es: `Clave API de OpenAI (GPT)`, el: `Κλειδί API OpenAI (GPT)` },
@@ -2421,7 +2450,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       mots_title:       { en: `My words`, fr: `Mes mots`, es: `Mis palabras`, el: `Οι λέξεις μου` },
       revisions_title:  { en: `Reviews`, fr: `Révisions`, es: `Repasos`, el: `Επαναλήψεις` },
       mastered_title:   { en: `Mastered`, fr: `Maîtrisés`, es: `Dominadas`, el: `Κατακτημένες` },
-      add_title:        { en: `Add`, fr: `Ajouter`, es: `Añadir`, el: `Προσθήκη` },
+      add_title:        { en: `Add words`, fr: `Ajouter des mots`, es: `Añadir palabras`, el: `Προσθήκη λέξεων` },
       filter_all:       { en: `All`, fr: `Tout`, es: `Todo`, el: `Όλα` },
       history_empty:    { en: `Nothing in the history yet.`, fr: `Aucun mot dans l'historique pour l'instant.`, es: `Todavía no hay nada en el historial.`, el: `Δεν υπάρχει τίποτα στο ιστορικό ακόμη.` },
       stats_total:      { en: `Total words`, fr: `Total de mots`, es: `Total de palabras`, el: `Σύνολο λέξεων` },
@@ -2451,7 +2480,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       label_lang:       { en: `Language`, fr: `Langue`, es: `Idioma`, el: `Γλώσσα` },
       label_words:      { en: `Word(s) or expression(s)`, fr: `Mot(s) ou expression(s)`, es: `Palabra(s) o expresión(es)`, el: `Λέξη/εις ή έκφραση/εις` },
       // {word} / {note} : exemples dans la langue où l'on ajoute (ADD_EXAMPLES)
-      add_words_ph:     { en: `e.g. {word}\nseveral words: one per line, or separated by « ; »\na note on a word goes in parentheses at the end: {note}`, fr: `ex. {word}\nplusieurs mots : un par ligne, ou séparés par des « ; »\nune note sur un mot se met entre parenthèses, à la fin : {note}`, es: `p. ej. {word}\nvarias palabras: una por línea, o separadas por « ; »\nuna nota sobre una palabra va entre paréntesis, al final: {note}`, el: `π.χ. {word}\nπερισσότερες λέξεις: μία ανά γραμμή, ή χωρισμένες με « ; »\nμια σημείωση για τη λέξη μπαίνει σε παρένθεση, στο τέλος: {note}` },
+      add_words_ph:     { en: `• e.g. {word}\n• several words: one per line, or separated by « ; »\n• a note on a word goes in parentheses at the end: {note}`, fr: `• ex. {word}\n• plusieurs mots : un par ligne, ou séparés par des « ; »\n• une note sur un mot se met entre parenthèses, à la fin : {note}`, es: `• p. ej. {word}\n• varias palabras: una por línea, o separadas por « ; »\n• una nota sobre una palabra va entre paréntesis, al final: {note}`, el: `• π.χ. {word}\n• περισσότερες λέξεις: μία ανά γραμμή, ή χωρισμένες με « ; »\n• μια σημείωση για τη λέξη μπαίνει σε παρένθεση, στο τέλος: {note}` },
       btn_add:          { en: `Add`, fr: `Ajouter`, es: `Añadir`, el: `Προσθήκη` },
       label_category:   { en: `Category`, fr: `Catégorie`, es: `Categoría`, el: `Κατηγορία` },
       label_form:       { en: `Form`, fr: `Forme`, es: `Forma`, el: `Τύπος` },
@@ -2616,10 +2645,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_set_new:     { en: `New words among them`, fr: `Dont mots neufs`, es: `De ellas, nuevas`, el: `Από αυτές, νέες` },
       sess_waiting:     { en: `{n} recalls waiting`, fr: `{n} rappels en attente`, es: `{n} repasos pendientes`, el: `{n} επαναλήψεις σε αναμονή` },
       sess_waiting_one: { en: `1 recall waiting`, fr: `1 rappel en attente`, es: `1 repaso pendiente`, el: `1 επανάληψη σε αναμονή` },
-      sess_waiting_no:  { en: `Nothing waiting`, fr: `Rien en attente`, es: `Nada pendiente`, el: `Τίποτα σε αναμονή` },
+      sess_due_no_more: { en: `No more words due today`, fr: `Plus aucun mot à revoir aujourd'hui`, es: `No quedan palabras por repasar hoy`, el: `Δεν μένουν λέξεις για επανάληψη σήμερα` },
+      sess_due_none:    { en: `No words due today`, fr: `Aucun mot à revoir aujourd'hui`, es: `Ninguna palabra por repasar hoy`, el: `Καμία λέξη για επανάληψη σήμερα` },
       badge_waiting:    { en: `{n} waiting`, fr: `{n} en attente`, es: `{n} pendientes`, el: `{n} σε αναμονή` },
-      pick_q:           { en: `Which of these words would you use here?`, fr: `Quel mot emploierais-tu ici ?`, es: `¿Qué palabra usarías aquí?`, el: `Ποια λέξη θα χρησιμοποιούσες εδώ;` },
-      type_q:           { en: `Type the missing word`, fr: `Écris le mot qui manque`, es: `Escribe la palabra que falta`, el: `Γράψε τη λέξη που λείπει` },
+      pick_ph:          { en: `Which word?`, fr: `Quel mot ?`, es: `¿Qué palabra?`, el: `Ποια λέξη;` },
+      type_ph:          { en: `Type the word`, fr: `Écris le mot`, es: `Escribe la palabra`, el: `Γράψε τη λέξη` },
       type_hint:        { en: `hint`, fr: `indice`, es: `pista`, el: `βοήθεια` },
       type_hint_note:   { en: `with a hint — counts, but no star`, fr: `avec indice — compte, mais sans étoile`, es: `con pista — cuenta, pero sin estrella`, el: `με βοήθεια — μετράει, αλλά χωρίς αστέρι` },
       sess_pick_words:  { en: `choose words (otherwise they will be chosen randomly)`, fr: `choisir des mots (sinon ils seront choisis au hasard)`, es: `elegir palabras (si no, se elegirán al azar)`, el: `διάλεξε λέξεις (αλλιώς θα επιλεγούν τυχαία)` },
@@ -2752,27 +2782,26 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       study_other_q:    { en: `Another question`, fr: `Autre question`, es: `Otra pregunta`, el: `Άλλη ερώτηση` },
       study_all:        { en: `All the words of this round are studied — you'll use them tomorrow.`, fr: `Tous les mots du tour sont étudiés — à employer demain.`, es: `Todas las palabras de la ronda están estudiadas — las usarás mañana.`, el: `Όλες οι λέξεις του γύρου μελετήθηκαν — θα τις χρησιμοποιήσεις αύριο.` },
       move_done:        { en: `{n} word(s) moved`, fr: `{n} mot(s) déplacé(s)`, es: `{n} palabra(s) movida(s)`, el: `{n} λέξη/-εις μετακινήθηκαν` },
-      // — modale d'aide —
+      // — modale d'aide — (les cinq étapes sont du propriétaire, 2026-10-27)
       help_title:       { en: `How it works`, fr: `Comment ça marche`, es: `Cómo funciona`, el: `Πώς λειτουργεί` },
-      help_s1_t:        { en: `1 · Get started`, fr: `1 · Démarrer`, es: `1 · Empezar`, el: `1 · Ξεκίνημα` },
-      help_s1: {
-        en: `<p>Create an account (email + password) or "Continue with Google". The app then asks for your languages and your first words. Without a key you get 10 words a day. With your own <strong>OpenAI key</strong> (<strong>settings → advanced settings</strong>) there is no limit; it stays yours and is never shared.</p>`,
-        fr: `<p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». L'app te demande ensuite tes langues et tes premiers mots. Sans clé, tu as 10 mots par jour. Avec ta propre <strong>clé OpenAI</strong> (<strong>réglages → réglages avancés</strong>), il n'y a plus de limite ; elle reste à toi et n'est jamais partagée.</p>`,
-        es: `<p>Crea una cuenta (email + contraseña) o «Continuar con Google». La app te pide luego tus idiomas y tus primeras palabras. Sin clave tienes 10 palabras al día. Con tu propia <strong>clave de OpenAI</strong> (<strong>ajustes → ajustes avanzados</strong>) no hay límite; sigue siendo tuya y nunca se comparte.</p>`,
-        el: `<p>Δημιούργησε λογαριασμό (email + κωδικός) ή «Συνέχεια με Google». Η εφαρμογή σου ζητά μετά τις γλώσσες σου και τις πρώτες σου λέξεις. Χωρίς κλειδί έχεις 10 λέξεις την ημέρα. Με δικό σου <strong>κλειδί OpenAI</strong> (<strong>ρυθμίσεις → σύνθετες ρυθμίσεις</strong>) δεν υπάρχει όριο· μένει δικό σου και δεν κοινοποιείται ποτέ.</p>` },
-      help_s2_t:        { en: `2 · Add words`, fr: `2 · Ajouter des mots`, es: `2 · Añadir palabras`, el: `2 · Προσθήκη λέξεων` },
-      help_s2: {
-        en: `<ul><li><strong>In the app</strong>: "add content" → words or a grammar form.</li></ul><p style="margin-top:0.75rem"><strong>Expressions and notes.</strong> You can add a note in parentheses at the end of an entry: <code>hacer el oso (Colombian expression)</code>. The note is never a word to practice — it tells the model how to read the entry (idiom, regional variety, register) and lets you distinguish two senses of the same word. Both parentheses are required.</p>`,
-        fr: `<ul><li><strong>Dans l'app</strong> : « ajouter du contenu » → des mots ou une forme grammaticale.</li></ul><p style="margin-top:0.75rem"><strong>Expressions et notes.</strong> Tu peux ajouter une note entre parenthèses à la fin d'une entrée : <code>hacer el oso (expresión colombiana)</code>. La note n'est jamais un mot à réviser — elle indique au modèle comment lire l'entrée (expression figée, variété régionale, registre) et permet de distinguer deux sens d'un même mot. Les deux parenthèses sont obligatoires.</p>`,
-        es: `<ul><li><strong>En la app</strong>: «añadir contenido» → palabras o una forma gramatical.</li></ul><p style="margin-top:0.75rem"><strong>Expresiones y notas.</strong> Puedes añadir una nota entre paréntesis al final de una entrada: <code>hacer el oso (expresión colombiana)</code>. La nota nunca es una palabra que practicar — le indica al modelo cómo leer la entrada (expresión fija, variedad regional, registro) y permite distinguir dos sentidos de una misma palabra. Los dos paréntesis son obligatorios.</p>`,
-        el: `<ul><li><strong>Μέσα στην εφαρμογή</strong>: «προσθήκη περιεχομένου» → λέξεις ή γραμματικός τύπος.</li></ul><p style="margin-top:0.75rem"><strong>Εκφράσεις και σημειώσεις.</strong> Μπορείς να προσθέσεις μια σημείωση σε παρένθεση στο τέλος: <code>hacer el oso (κολομβιανή έκφραση)</code>. Η σημείωση δεν είναι ποτέ λέξη προς εξάσκηση — δείχνει στο μοντέλο πώς να διαβάσει την εγγραφή (πάγια έκφραση, τοπική ποικιλία, ύφος) και σου επιτρέπει να ξεχωρίσεις δύο σημασίες της ίδιας λέξης. Και οι δύο παρενθέσεις είναι απαραίτητες.</p>` },
+      help_steps: {
+        en: `<ol><li>Sign up using email or Google.</li><li>Add words separated by semicolons or new lines. An optional note can be added in parentheses, like in <em>to table a motion (British usage: to propose it)</em>.</li><li>Click the language you are studying.</li><li>Choose how many words in total in the round and how many new words per round.</li><li>Get started!</li></ol>`,
+        fr: `<ol><li>Inscris-toi avec ton email ou avec Google.</li><li>Ajoute des mots, séparés par des « ; » ou des retours à la ligne. Une note facultative peut se mettre entre parenthèses, comme dans <em>avoir le cafard (familier)</em>.</li><li>Clique sur la langue que tu étudies.</li><li>Choisis combien de mots en tout dans la manche, et combien de mots neufs.</li><li>C'est parti !</li></ol>`,
+        es: `<ol><li>Regístrate con tu email o con Google.</li><li>Añade palabras separadas por « ; » o saltos de línea. Puedes añadir una nota opcional entre paréntesis, como en <em>hacer el oso (expresión colombiana)</em>.</li><li>Toca el idioma que estudias.</li><li>Elige cuántas palabras tendrá la ronda en total y cuántas serán nuevas.</li><li>¡A empezar!</li></ol>`,
+        el: `<ol><li>Κάνε εγγραφή με email ή με Google.</li><li>Πρόσθεσε λέξεις χωρισμένες με « ; » ή με αλλαγή γραμμής. Μπορείς να βάλεις προαιρετικά μια σημείωση σε παρένθεση, όπως στο <em>τα κάνω θάλασσα (καθομιλουμένη)</em>.</li><li>Πάτησε τη γλώσσα που μαθαίνεις.</li><li>Διάλεξε πόσες λέξεις θα έχει συνολικά ο γύρος και πόσες θα είναι νέες.</li><li>Ξεκίνα!</li></ol>` },
+      help_gtk_t:       { en: `Good to know`, fr: `Bon à savoir`, es: `Conviene saber`, el: `Καλό να ξέρεις` },
+      help_gtk: {
+        en: `<ul><li>Without a key you get 10 words a day. With your own OpenAI key (my account → settings → advanced settings) there is no limit.</li><li>A word you get right comes back later and later; a word you miss comes back tomorrow.</li><li>The code is public: <a href="https://github.com/huellasenarena/vocab-app" target="_blank" rel="noopener">github.com/huellasenarena/vocab-app</a></li></ul>`,
+        fr: `<ul><li>Sans clé, tu as 10 mots par jour. Avec ta propre clé OpenAI (mon compte → réglages → réglages avancés), il n'y a plus de limite.</li><li>Un mot réussi revient de plus en plus tard ; un mot raté revient demain.</li><li>Le code est public : <a href="https://github.com/huellasenarena/vocab-app" target="_blank" rel="noopener">github.com/huellasenarena/vocab-app</a></li></ul>`,
+        es: `<ul><li>Sin clave tienes 10 palabras al día. Con tu propia clave de OpenAI (mi cuenta → ajustes → ajustes avanzados) no hay límite.</li><li>Una palabra acertada vuelve cada vez más tarde; una palabra fallada vuelve mañana.</li><li>El código es público: <a href="https://github.com/huellasenarena/vocab-app" target="_blank" rel="noopener">github.com/huellasenarena/vocab-app</a></li></ul>`,
+        el: `<ul><li>Χωρίς κλειδί έχεις 10 λέξεις την ημέρα. Με δικό σου κλειδί OpenAI (ο λογαριασμός μου → ρυθμίσεις → σύνθετες ρυθμίσεις) δεν υπάρχει όριο.</li><li>Μια λέξη που βρίσκεις επιστρέφει όλο και αργότερα· μια λέξη που χάνεις επιστρέφει αύριο.</li><li>Ο κώδικας είναι δημόσιος: <a href="https://github.com/huellasenarena/vocab-app" target="_blank" rel="noopener">github.com/huellasenarena/vocab-app</a></li></ul>` },
       // Le raccourci iPhone et l'import Kindle n'existent que sur le compte du propriétaire
-      // (`.owner-only`) : le token et ces deux méthodes sont donc dans leur propre section.
+      // (`.owner-only`) : le token et ces deux méthodes ont leur propre section.
       help_token: {
-        en: `<p><strong>From your iPhone</strong> (shortcut) or <strong>from your Kindle</strong> (script): see below.</p><p style="margin-top:0.75rem"><strong>Your personal token.</strong> Both methods below need your <em>add token</em>. You'll find it in <strong>settings → advanced settings → "add link"</strong>: it's the value after <code>token=</code> in the URL. It only allows adding words to <em>your</em> account — keep it to yourself.</p>`,
-        fr: `<p><strong>Depuis l'iPhone</strong> (raccourci) ou <strong>depuis ta Kindle</strong> (script) : voir ci-dessous.</p><p style="margin-top:0.75rem"><strong>Ton token perso.</strong> Les deux méthodes ci-dessous ont besoin de ton <em>token d'ajout</em>. Tu le trouves dans <strong>réglages → réglages avancés → « lien d'ajout »</strong> : c'est la valeur après <code>token=</code> dans l'URL affichée. Il permet seulement d'ajouter des mots à <em>ton</em> compte — garde-le pour toi.</p>`,
-        es: `<p><strong>Desde el iPhone</strong> (atajo) o <strong>desde tu Kindle</strong> (script): ver más abajo.</p><p style="margin-top:0.75rem"><strong>Tu token personal.</strong> Los dos métodos siguientes necesitan tu <em>token</em>. Lo encuentras en <strong>ajustes → ajustes avanzados → «enlace para añadir»</strong>: es el valor después de <code>token=</code> en la URL. Solo permite añadir palabras a <em>tu</em> cuenta — guárdalo para ti.</p>`,
-        el: `<p><strong>Από το iPhone</strong> (συντόμευση) ή <strong>από το Kindle</strong> (script): δες παρακάτω.</p><p style="margin-top:0.75rem"><strong>Το προσωπικό σου token.</strong> Οι δύο μέθοδοι χρειάζονται το <em>token προσθήκης</em>. Θα το βρεις στο <strong>ρυθμίσεις → σύνθετες ρυθμίσεις → «σύνδεσμος προσθήκης»</strong>: είναι η τιμή μετά το <code>token=</code> στο URL. Επιτρέπει μόνο προσθήκη λέξεων στον <em>δικό σου</em> λογαριασμό — κράτησέ το για σένα.</p>` },
+        en: `<p><strong>From your iPhone</strong> (shortcut) or <strong>from your Kindle</strong> (script): see below.</p><p style="margin-top:0.75rem"><strong>Your personal token.</strong> Both methods below need your <em>add token</em>. You'll find it in <strong>my account → settings → advanced settings → "add link"</strong>: it's the value after <code>token=</code> in the URL. It only allows adding words to <em>your</em> account — keep it to yourself.</p>`,
+        fr: `<p><strong>Depuis l'iPhone</strong> (raccourci) ou <strong>depuis ta Kindle</strong> (script) : voir ci-dessous.</p><p style="margin-top:0.75rem"><strong>Ton token perso.</strong> Les deux méthodes ci-dessous ont besoin de ton <em>token d'ajout</em>. Tu le trouves dans <strong>mon compte → réglages → réglages avancés → « lien d'ajout »</strong> : c'est la valeur après <code>token=</code> dans l'URL affichée. Il permet seulement d'ajouter des mots à <em>ton</em> compte — garde-le pour toi.</p>`,
+        es: `<p><strong>Desde el iPhone</strong> (atajo) o <strong>desde tu Kindle</strong> (script): ver más abajo.</p><p style="margin-top:0.75rem"><strong>Tu token personal.</strong> Los dos métodos siguientes necesitan tu <em>token</em>. Lo encuentras en <strong>mi cuenta → ajustes → ajustes avanzados → «enlace para añadir»</strong>: es el valor después de <code>token=</code> en la URL. Solo permite añadir palabras a <em>tu</em> cuenta — guárdalo para ti.</p>`,
+        el: `<p><strong>Από το iPhone</strong> (συντόμευση) ή <strong>από το Kindle</strong> (script): δες παρακάτω.</p><p style="margin-top:0.75rem"><strong>Το προσωπικό σου token.</strong> Οι δύο μέθοδοι χρειάζονται το <em>token προσθήκης</em>. Θα το βρεις στο <strong>ο λογαριασμός μου → ρυθμίσεις → σύνθετες ρυθμίσεις → «σύνδεσμος προσθήκης»</strong>: είναι η τιμή μετά το <code>token=</code> στο URL. Επιτρέπει μόνο προσθήκη λέξεων στον <em>δικό σου</em> λογαριασμό — κράτησέ το για σένα.</p>` },
       help_iphone_t:    { en: `iPhone shortcut`, fr: `Raccourci iPhone`, es: `Atajo de iPhone`, el: `Συντόμευση iPhone` },
       help_iphone: {
         en: `<ol><li>Install the shortcut: <a href="https://www.icloud.com/shortcuts/5132626d81e94ca288f7d337fff60553" target="_blank" rel="noopener" style="color:var(--tinta)">open the "Vocab" shortcut</a>.</li><li>In the shortcut, open the <strong>"Text"</strong> action (the URL) and replace <code>COLLE_TON_TOKEN_ICI</code> with your token (copied from settings).</li><li>Then, from any app: <strong>Share → Vocab</strong>, or run the shortcut and type a word. If the word is invalid or looks like an existing one, it asks "add anyway?".</li></ol>`,
@@ -2785,26 +2814,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         fr: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Importe d'un coup les mots surlignés sur ta Kindle. Nécessite un Mac/PC avec Python 3.</p><ol><li>Installe la dépendance : <code>pip3 install wordfreq</code>.</li><li>Télécharge le script : <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>Dans le même dossier, crée deux fichiers : <code>.token</code> (ton token perso) et <code>.openai_key</code> (ta clé OpenAI). Chaque fichier ne contient que la valeur, rien d'autre.</li><li>Branche ta Kindle en USB, puis lance : <code>python3 kindle_import.py</code>. Choisis les mots à importer.</li><li>Besoin d'aide ? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
         es: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Importa de una vez las palabras subrayadas en tu Kindle. Requiere un Mac/PC con Python 3.</p><ol><li>Instala la dependencia: <code>pip3 install wordfreq</code>.</li><li>Descarga el script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>En la misma carpeta, crea dos archivos: <code>.token</code> (tu token personal) y <code>.openai_key</code> (tu clave OpenAI). Cada archivo contiene solo el valor, nada más.</li><li>Conecta tu Kindle por USB y ejecuta: <code>python3 kindle_import.py</code>. Elige las palabras a importar.</li><li>¿Ayuda? <code>python3 kindle_import.py --aide</code>.</li></ol>`,
         el: `<p style="color:var(--gris);font-size:0.85rem;margin-bottom:0.5rem">Εισήγαγε μονομιάς τις λέξεις που υπογράμμισες στο Kindle. Απαιτεί Mac/PC με Python 3.</p><ol><li>Εγκατέστησε την εξάρτηση: <code>pip3 install wordfreq</code>.</li><li>Κατέβασε το script: <a href="https://github.com/huellasenarena/vocab-app/blob/main/kindle_import.py" target="_blank" rel="noopener" style="color:var(--tinta)">kindle_import.py</a>.</li><li>Στον ίδιο φάκελο, δημιούργησε δύο αρχεία: <code>.token</code> (το token σου) και <code>.openai_key</code> (το κλειδί OpenAI σου). Κάθε αρχείο περιέχει μόνο την τιμή.</li><li>Σύνδεσε το Kindle με USB και τρέξε: <code>python3 kindle_import.py</code>. Διάλεξε τις λέξεις.</li><li>Βοήθεια; <code>python3 kindle_import.py --aide</code>.</li></ol>` },
-      help_s3_t:        { en: `3 · The round`, fr: `3 · La manche`, es: `3 · La ronda`, el: `3 · Ο γύρος` },
-      help_s3: {
-        en: `<p>The app has a single mode: the <strong>round</strong>. Each round mixes new words and words to review, and each word gets the exercise of its level:</p><ul><li><strong>under two stars</strong> — a multiple-choice quiz: in which situation would you use this word?</li><li><strong>two stars and more</strong> — "which word?": a situation is described, and you pick the word among five.</li><li><strong>a well-mastered word</strong> — "type the word": a sentence with a gap, no list.</li></ul>`,
-        fr: `<p>L'app n'a qu'un mode : la <strong>manche</strong>. Chaque manche mêle des mots neufs et des mots à revoir, et chaque mot reçoit l'exercice de son niveau :</p><ul><li><strong>moins de deux étoiles</strong> — un QCM : dans quelle situation emploierait-on ce mot ?</li><li><strong>deux étoiles et plus</strong> — « quel mot ? » : une situation est décrite, et tu choisis le mot parmi cinq.</li><li><strong>un mot bien maîtrisé</strong> — « tape le mot » : une phrase à trou, sans liste.</li></ul>`,
-        es: `<p>La app tiene un solo modo: la <strong>ronda</strong>. Cada ronda mezcla palabras nuevas y palabras por repasar, y cada palabra recibe el ejercicio de su nivel:</p><ul><li><strong>menos de dos estrellas</strong> — un test: ¿en qué situación usarías esta palabra?</li><li><strong>dos estrellas o más</strong> — «¿qué palabra?»: se describe una situación y eliges la palabra entre cinco.</li><li><strong>una palabra bien dominada</strong> — «escribe la palabra»: una frase con un hueco, sin lista.</li></ul>`,
-        el: `<p>Η εφαρμογή έχει μία μόνο λειτουργία: τον <strong>γύρο</strong>. Κάθε γύρος συνδυάζει νέες λέξεις και λέξεις για επανάληψη, και κάθε λέξη παίρνει την άσκηση του επιπέδου της:</p><ul><li><strong>λιγότερα από δύο αστέρια</strong> — ερώτηση πολλαπλής επιλογής: σε ποια περίσταση θα χρησιμοποιούσες αυτή τη λέξη;</li><li><strong>δύο αστέρια και πάνω</strong> — «ποια λέξη;»: περιγράφεται μια περίσταση και διαλέγεις τη λέξη ανάμεσα σε πέντε.</li><li><strong>μια καλά κατακτημένη λέξη</strong> — «γράψε τη λέξη»: μια πρόταση με κενό, χωρίς λίστα.</li></ul>` },
-      // Code source : le dépôt est public, autant le dire (transparence sur ce que
-      // l'app fait de la clé et des mots).
-      help_src_t:       { en: `Source code`, fr: `Code source`, es: `Código fuente`, el: `Πηγαίος κώδικας` },
-      help_src: {
-        en: `<p>The app's code is public: <a href="https://github.com/huellasenarena/vocab-app" target="_blank" rel="noopener">github.com/huellasenarena/vocab-app</a>. You can see there what it does with your key and your words.</p>`,
-        fr: `<p>Le code de l'app est public : <a href="https://github.com/huellasenarena/vocab-app" target="_blank" rel="noopener">github.com/huellasenarena/vocab-app</a>. Tu peux y voir ce qu'elle fait de ta clé et de tes mots.</p>`,
-        es: `<p>El código de la app es público: <a href="https://github.com/huellasenarena/vocab-app" target="_blank" rel="noopener">github.com/huellasenarena/vocab-app</a>. Puedes ver ahí qué hace con tu clave y tus palabras.</p>`,
-        el: `<p>Ο κώδικας της εφαρμογής είναι δημόσιος: <a href="https://github.com/huellasenarena/vocab-app" target="_blank" rel="noopener">github.com/huellasenarena/vocab-app</a>. Εκεί βλέπεις τι κάνει με το κλειδί και τις λέξεις σου.</p>` },
-      help_s4_t:        { en: `4 · Spaced repetition`, fr: `4 · La répétition espacée`, es: `4 · La repetición espaciada`, el: `4 · Η κατανεμημένη επανάληψη` },
-      help_s4: {
-        en: `<ul><li>Each word earns <strong>stars</strong> (☆☆☆ → ★★★) as you succeed.</li><li>Succeeding <em>without help</em> pushes the next review further away; failing or opening the definition brings it back to tomorrow.</li><li>At the start of each round, you choose how many words and how many <strong>new words</strong>. "my upcoming reviews" shows your calendar.</li></ul>`,
-        fr: `<ul><li>Chaque mot gagne des <strong>étoiles</strong> (☆☆☆ → ★★★) selon tes réussites.</li><li>Réussir <em>sans aide</em> éloigne la prochaine révision ; échouer ou afficher la définition la ramène à demain.</li><li>Au début de chaque manche, tu choisis combien de mots et combien de <strong>mots neufs</strong>. « mes révisions à venir » montre ton calendrier.</li></ul>`,
-        es: `<ul><li>Cada palabra gana <strong>estrellas</strong> (☆☆☆ → ★★★) según tus aciertos.</li><li>Acertar <em>sin ayuda</em> aleja el próximo repaso; fallar o abrir la definición lo trae de vuelta a mañana.</li><li>Al empezar cada ronda, eliges cuántas palabras y cuántas <strong>palabras nuevas</strong>. «mis próximos repasos» muestra tu calendario.</li></ul>`,
-        el: `<ul><li>Κάθε λέξη κερδίζει <strong>αστέρια</strong> (☆☆☆ → ★★★) με τις επιτυχίες σου.</li><li>Η επιτυχία <em>χωρίς βοήθεια</em> απομακρύνει την επόμενη επανάληψη· η αποτυχία ή ο ορισμός τη φέρνει πίσω στο αύριο.</li><li>Στην αρχή κάθε γύρου, επιλέγεις πόσες λέξεις και πόσες <strong>νέες λέξεις</strong>. Το «οι επόμενες επαναλήψεις μου» δείχνει το ημερολόγιό σου.</li></ul>` },
     };
 
     const UI_LOCALE = { en: 'en-GB', fr: 'fr-FR', es: 'es-ES', el: 'el-GR' };
@@ -2842,7 +2851,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       if (sel) sel.value = appLang;
       document.querySelectorAll('.app-lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === appLang));
       const addInput = document.getElementById('add-word-input');
-      if (addInput) addInput.placeholder = addWordsPlaceholder(addLang);
+      if (addInput) setAddPlaceholder(addInput, addLang);
       renderGoogleButton();
     }
     function applyPracticeLangUI() {
@@ -3041,14 +3050,17 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
           <span class="lang-name">${l.name}</span><span class="lang-badge"></span><span class="lang-bar"></span><span class="lang-sub"></span>
         </button>`;
       }).join('');
-      // Tuile « ajouter » uniquement s'il reste des langues à ajouter
-      const addTile = selectedLangs.length < LANGS.length
-        ? `<button class="lang-btn lang-add-btn" onclick="openLangPicker(false)">
-            <span class="lang-name">${tApp('tile_add')}</span>
-          </button>`
-        : '';
-      grid.innerHTML = buttons + addTile;
+      // Plus de tuile « ajouter des langues » : on change ses langues (ajouter ou
+      // retirer) depuis « my account », on ne le fait presque jamais.
+      grid.innerHTML = buttons;
+      const meta = document.getElementById('account-langs');
+      if (meta) meta.textContent = selectedLangs.map(k => LANGS.find(l => l.key === k)?.code).filter(Boolean).join(' · ');
       updateLangBadges();
+    }
+
+    function showAccount() {
+      renderLangGrid();
+      showScreen('screen-account');
     }
 
     // ── Modale instructions ──
@@ -3177,7 +3189,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       card.innerHTML = `<div class="ob-steps">${steps}</div><h2 class="modal-title">${title}</h2>${body}${nav}`;
       // Posé par le DOM, pas dans le gabarit : un guillemet casserait l'attribut.
       const ta = document.getElementById('ob-words');
-      if (ta) ta.placeholder = addWordsPlaceholder(_obAddLang);
+      if (ta) setAddPlaceholder(ta, _obAddLang);
     }
 
     function obToggleLang(key) {
@@ -3188,7 +3200,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     function obSetAddLang(k) {
       _obAddLang = k; // sans re-rendu : la liste tapée et les résultats restent
       document.querySelectorAll('#ob-lang-pills .filter-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === k));
-      document.getElementById('ob-words').placeholder = addWordsPlaceholder(k);
+      setAddPlaceholder(document.getElementById('ob-words'), k);
     }
 
     function obNext() {
@@ -3295,7 +3307,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
           const remaining = servable + Math.min(roundNewFor(l.key), neverPrac);
           const doneN     = doneToday(l.key);
           const goal      = Math.min(roundSizeFor(l.key), doneN + remaining);
-          const isDone    = doneN >= goal;
+          const isDone    = doneN >= goal || roundFinishedToday(l.key);
           // ⚠️ La pile annoncée est le nombre de RAPPELS DUS, tel quel — le même que
           // l'écran de départ du mode. Elle disait auparavant « ce qui ne tient pas
           // dans l'objectif du jour » (rappels + neufs − la manche) : 26 sur
@@ -5433,6 +5445,7 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
     function toggleAccountSettings() {
       const panel = document.getElementById('account-settings-panel');
       panel.classList.toggle('visible');
+      document.getElementById('account-settings-arrow').textContent = panel.classList.contains('visible') ? '▾' : '▸';
       if (panel.classList.contains('visible')) {
         document.getElementById('toggle-tokens').checked = showTokenCounter;
         document.getElementById('toggle-situation-counts').checked = situationCounts;
@@ -7705,19 +7718,35 @@ Write all scenarios and explanations in ${langName}.`;
       // Même règle face au STOCK : une liste d'un mot ne peut pas faire une manche
       // de douze, ni en offrir deux neufs. Les curseurs s'arrêtent à ce qui existe,
       // et remontent seuls jusqu'au réglage quand la liste grandit.
-      let sMax = 0;
-      ROUND_SIZE_VALUES.forEach((v, k) => { if (v <= Math.max(1, allWords.length)) sMax = k; });
-      ss.max = sMax;
-      si = Math.min(si, sMax);
-      const shown = ROUND_SIZE_VALUES[si];
       const newCap = ROUND_NEW_VALUES[ROUND_NEW_VALUES.length - 1];
-      let newStock = 0; // compté jusqu'au plus grand cran du curseur, pas au-delà
-      for (const w of allWords) { if (isNewWord(w) && ++newStock >= newCap) break; }
-      const nmax = roundNewMaxIndex(Math.min(shown, newStock));
+      let newStock = 0, worked = 0; // les neufs comptés jusqu'au plus grand cran du curseur, pas au-delà
+      for (const w of allWords) { if (!isNewWord(w)) worked++; else if (newStock < newCap) newStock++; }
+      const sizeCap = Math.min(size, Math.max(1, allWords.length));
+      // Les neufs se bornent à la taille DEMANDÉE, pas à la taille affichée : celle-ci
+      // dépend d'eux (ci-dessous), et les borner l'un par l'autre les bloquerait tous
+      // les deux.
+      const nmax = roundNewMaxIndex(Math.min(sizeCap, newStock));
       let ni = ROUND_NEW_VALUES.indexOf(roundNew());
       if (ni === -1) { ni = 0; ROUND_NEW_VALUES.forEach((v, k) => { if (v <= roundNew()) ni = k; }); }
       ni = Math.min(ni, nmax);
       ns.max = nmax;
+      // ⚠️ « Mots par manche » s'arrête à ce que la manche peut VRAIMENT servir : les
+      // mots déjà travaillés (dus, puis en avance), les mots neufs du second curseur
+      // — jamais plus — et les mots choisis à la main. Borné au seul stock total, il
+      // promettait onze mots quand la manche n'en servait que cinq (1 travaillé, 10
+      // neufs, « dont 4 neufs »). Monter les neufs fait remonter ce plafond.
+      const chosenNew = _roundChosen.filter(w => allWords.includes(w) && isNewWord(w)).length;
+      const servable  = worked + chosenNew + ROUND_NEW_VALUES[ni];
+      let sMax = 0;
+      ROUND_SIZE_VALUES.forEach((v, k) => { if (v <= Math.max(1, Math.min(allWords.length, servable))) sMax = k; });
+      ss.max = sMax;
+      si = Math.min(si, sMax);
+      const shown = ROUND_SIZE_VALUES[si];
+      // Une seule position possible (liste d'un mot, plus aucun mot neuf) : le
+      // curseur le montre — rond gris, ligne en pointillés — au lieu d'avoir l'air
+      // cassé quand on essaie de le bouger.
+      ss.classList.toggle('stuck', sMax === 0); ss.disabled = sMax === 0;
+      ns.classList.toggle('stuck', nmax === 0); ns.disabled = nmax === 0;
 
       // ⚠️ Tout le panneau en langue de l'APPLI (`tApp`), comme le reste de la
       // séance. `screen-practice` est par ailleurs traduit dans la langue PRATIQUÉE :
@@ -7760,9 +7789,13 @@ Write all scenarios and explanations in ${langName}.`;
       // Ce que cette manche laisse en retard derrière elle.
       const wait = document.getElementById('session-waiting');
       renderRoundChosen();
-      if (wait) wait.textContent = !plan.waiting
-        ? tPrac('sess_waiting_no')
-        : (plan.waiting === 1 ? tPrac('sess_waiting_one') : tPrac('sess_waiting').replace('{n}', plan.waiting));
+      // Rien derrière la manche : soit tout ce qui était dû est déjà fait (« plus
+      // aucun »), soit rien n'était dû (« aucun »). Si la manche prend elle-même
+      // tous les mots dus, la ligne de gauche le dit déjà : on ne dit rien.
+      if (wait) wait.textContent = plan.waiting
+        ? (plan.waiting === 1 ? tPrac('sess_waiting_one') : tPrac('sess_waiting').replace('{n}', plan.waiting))
+        : plan.dueCount ? ''
+        : tPrac(doneToday() ? 'sess_due_no_more' : 'sess_due_none');
     }
 
     // ── Composer la manche (facultatif) ─────────────────────────────────
@@ -8018,12 +8051,28 @@ Write all scenarios and explanations in ${langName}.`;
       if (head) scrollElToTop(head, smooth);
     }
 
+    // Une manche menée au bout = la journée de cette langue est faite, jusqu'à
+    // demain (carte d'accueil au vert). ⚠️ Avant, « faite » voulait dire « plus rien
+    // à servir » : ajouter des mots après sa manche rouvrait la journée (1 / 1 vert,
+    // puis 1 / 5 dès dix mots neufs ajoutés). Une date par langue, dans les réglages
+    // synchronisés : elle ne change qu'une fois par jour, et l'iPad doit la voir.
+    const KEY_ROUND_DONE = 'vocab_round_done_';
+    function markRoundFinishedToday() {
+      if (localStorage.getItem(KEY_ROUND_DONE + currentLang) === todayStrLocal()) return;
+      localStorage.setItem(KEY_ROUND_DONE + currentLang, todayStrLocal());
+      saveSettingsToServer();
+    }
+    function roundFinishedToday(lang) {
+      return localStorage.getItem(KEY_ROUND_DONE + lang) === todayStrLocal();
+    }
+
     function renderSessionEnd() {
       sessionRunning = false;
       // La manche est finie : l'en-tête revient, avec « ← langue » — sans lui, une
       // carte de fin sans « une autre manche » (plus rien à faire) n'avait aucune sortie.
       document.getElementById('screen-practice').classList.remove('round-on');
       clearSavedRound(); // manche finie : plus rien à reprendre
+      markRoundFinishedToday();
       const total = sessionTotal();
       document.getElementById('session-body').innerHTML =
         `<div class="word-card">
@@ -8191,18 +8240,18 @@ Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
       _sessionHelpOpen = isNewWord(item.word) || !!item.answered;
       const esc = item.word.replace(/'/g, "\\'");
       // « Quel mot ? » : le mot EST la réponse — il ne s'affiche qu'une fois répondu.
+      // La question tient sa place, en grand et en gris : à la réponse le mot la
+      // remplace sans rien pousser (cf. revealSessionWord).
       if (item.kind === 'pick') body.innerHTML =
-        `<div id="session-word-slot"></div>
+        `<div id="session-word-slot"><div class="session-word session-word-ph"><span>${tPrac('pick_ph')}</span><span class="card-action-btn" id="qcm-regen" onclick="regenQCM()">${tPrac('pick_regen')}</span></div></div>
          <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
-         <p class="session-q">${tPrac('pick_q')} <span class="card-action-btn" id="qcm-regen" onclick="regenQCM()">${tPrac('pick_regen')}</span></p>
          <div class="session-situation" id="session-situation"></div>
          <div id="session-choices"><div style="padding:0.6rem;color:var(--gris)"><span class="spinner"></span></div></div>
          <div id="session-result"></div>`;
       else body.innerHTML =
         `<div class="session-word"><span>${lc(wordBase(item.word))}</span>${item.wasNew ? `<span class="session-new">${tPrac('sess_new_one')}</span>` : ''}<span class="card-action-btn" id="qcm-regen" title="${tPrac('qcm_regen')}" onclick="regenQCM()" style="display:none">${tPrac('qcm_regen')}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tPrac('btn_options')}</span></div>
          <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
-         ${wordNote(item.word) ? `<div class="session-def">${wordNote(item.word)}</div>` : ''}
-         <p class="session-q">${tPrac('sess_which')}</p>
+         <p class="session-q" id="session-q">${tPrac('sess_which')}</p>
          <div id="session-choices"><div style="padding:0.6rem;color:var(--gris)"><span class="spinner"></span></div></div>
          <div id="session-result"></div>`;
       prefetchItem(sessionIdx + 1);
@@ -8311,6 +8360,19 @@ Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
       const dk = document.getElementById('session-dunno'); if (dk) dk.style.display = 'none';
       const sw = document.getElementById('session-swap');  if (sw) sw.style.display = 'none';
       if (item.kind === 'pick') revealSessionWord(item);
+      else showSessionNote(item);
+    }
+
+    // La note (« expresión colombiana… ») n'apparaît qu'après la réponse, à la place
+    // de la question, qui ne sert plus : rien ne bouge. Une ligne, « … » si elle est
+    // plus longue ; un appui la déplie. Sans note, la question reste.
+    function showSessionNote(item) {
+      const q = document.getElementById('session-q');
+      const note = wordNote(item.word);
+      if (!q || !note) return;
+      q.textContent = note;
+      q.classList.add('session-q-note');
+      q.onclick = () => q.classList.toggle('open');
     }
 
     // Un mot neuf qui ne vaut pas la peine aujourd'hui cède sa place à un autre mot
@@ -8611,9 +8673,8 @@ Return ONLY this JSON object, no markdown:
       _sessionHelpOpen = !!item.answered; // la définition donnerait le mot
       const esc = item.word.replace(/'/g, "\\'");
       body.innerHTML =
-        `<div id="session-word-slot"></div>
+        `<div id="session-word-slot"><div class="session-word session-word-ph"><span>${tPrac('type_ph')}</span><span class="card-action-btn" id="qcm-regen" onclick="regenQCM()">${tPrac('type_regen')}</span></div></div>
          <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
-         <p class="session-q">${tPrac('type_q')} <span class="card-action-btn" id="qcm-regen" onclick="regenQCM()">${tPrac('type_regen')}</span></p>
          <div class="type-sentence" id="type-sentence"><span class="spinner"></span></div>
          <div id="type-zone"></div>
          <div id="session-result"></div>`;
@@ -8699,14 +8760,14 @@ Return ONLY this JSON object, no markdown:
     function typeDunno() { checkType(true); }
 
     // Les exercices où le mot EST la réponse (quel mot ?, tape le mot) ne l'affichent
-    // qu'une fois répondus — avec sa note et son menu ⋯, comme le QCM.
+    // qu'une fois répondus, à la place de la question — avec son menu « options »,
+    // qui porte aussi la note (pas de ligne libre ici pour elle sans tout pousser).
     function revealSessionWord(item) {
       const slot = document.getElementById('session-word-slot');
       if (!slot) return;
       const esc = item.word.replace(/'/g, "\\'");
       slot.innerHTML =
-        `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tPrac('btn_options')}</span></div>`
-        + (wordNote(item.word) ? `<div class="session-def">${escapeHtml(wordNote(item.word))}</div>` : '');
+        `<div class="session-word"><span>${lc(wordBase(item.word))}</span><span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tPrac('btn_options')}</span></div>`;
     }
 
     async function saveHistory(word, isCorrect) {
@@ -8775,7 +8836,13 @@ Return ONLY this JSON object, no markdown:
       const shown = LANGS.map(l => l.key)
         .filter(k => selectedLangs.includes(k) || motsData.some(m => m.lang === k));
       if (motsFilter !== 'all' && !shown.includes(motsFilter)) motsFilter = 'all';
-      document.getElementById('mots-filters').innerHTML = ['all', ...shown].map(k => {
+      // Une seule langue : rien à filtrer, donc aucune pastille (« All » et la langue
+      // diraient la même chose). On se place quand même SUR la langue : le filtre
+      // par groupe, lui, n'existe que dans une langue.
+      const box = document.getElementById('mots-filters');
+      box.style.display = shown.length === 1 ? 'none' : '';
+      if (shown.length === 1) motsFilter = shown[0];
+      box.innerHTML = ['all', ...shown].map(k => {
         const info  = LANGS.find(x => x.key === k);
         const count = k === 'all' ? motsData.length : motsData.filter(m => m.lang === k).length;
         const label = k === 'all' ? `${tApp('filter_all')} (${count})` : `${info.name} ${count}`;
@@ -9257,7 +9324,7 @@ Return ONLY this JSON object, no markdown:
       const label = document.getElementById('add-lang-label');
       const langs = selectedLangs.length ? selectedLangs : LANGS.map(l => l.key);
       if (!langs.includes(addLang)) addLang = langs[0];
-      document.getElementById('add-word-input').placeholder = addWordsPlaceholder(addLang);
+      setAddPlaceholder(document.getElementById('add-word-input'), addLang);
       const solo = langs.length === 1;
       box.style.display   = solo ? 'none' : '';
       label.style.display = solo ? 'none' : '';
@@ -9278,6 +9345,21 @@ Return ONLY this JSON object, no markdown:
     function addWordsPlaceholder(lang) {
       const ex = ADD_EXAMPLES[lang] || ADD_EXAMPLES.English;
       return tApp('add_words_ph').replace('{word}', ex.word).replace('{note}', ex.note);
+    }
+    // La boîte grandit jusqu'à montrer ses consignes en entier : un placeholder ne
+    // fait pas grandir un textarea, et la dernière ligne (l'exemple de note) était
+    // coupée au bord. On mesure en posant le texte comme valeur le temps d'un calcul.
+    function setAddPlaceholder(ta, lang) {
+      ta.placeholder = addWordsPlaceholder(lang);
+      const fit = () => {
+        if (ta.value || !ta.offsetParent) return;
+        ta.style.minHeight = '';
+        ta.value = ta.placeholder;
+        const h = ta.scrollHeight + ta.offsetHeight - ta.clientHeight;
+        ta.value = '';
+        ta.style.minHeight = h + 'px';
+      };
+      if (ta.offsetParent) fit(); else requestAnimationFrame(fit);
     }
 
     function setAddLang(lang) {
@@ -10469,13 +10551,17 @@ Return ONLY a JSON array of exactly 3 items, no other text:
 
     function showWordContextMenu(word, x, y) {
       _ctxWord = word;
-      document.getElementById('word-ctx-label').textContent = lc(word);
       // En Situation le mot est la réponse à trouver : ni traduction ni image.
       // En séance, même règle avant d'avoir répondu sur un mot déjà vu.
       // En séance, ces entrées restent à leur place, grisées avec leur raison
       // (même règle que le bouton « Définition » sous les réponses).
       const _hideGloss = practiceMode === 'situation';
       const _lockGloss = practiceMode === 'practice' && !_sessionHelpOpen;
+      // La note n'est plus écrite sous le mot de la manche : c'est ici qu'on la lit.
+      // Même porte que la définition (elle donnerait la réponse sur un rappel).
+      const _note = wordNote(word);
+      document.getElementById('word-ctx-label').innerHTML = escapeHtml(lc(wordBase(word)))
+        + (_note && !_lockGloss ? `<span class="ctx-word-note">${escapeHtml(lc(_note))}</span>` : '');
       document.querySelectorAll('.ctx-gloss-btn').forEach(b => {
         b.style.display = _hideGloss ? 'none' : '';
         b.disabled = _lockGloss;
@@ -11049,18 +11135,15 @@ Reply with ONLY this JSON object, nothing else:
   <div class="modal-overlay" id="help-modal" onclick="if(event.target===this)closeHelp()">
     <div class="modal-card">
       <button class="modal-close" onclick="closeHelp()" data-i18n="verify_close">fermer</button>
-      <h2 class="modal-title" data-i18n="help_title">Comment ça marche</h2>
+      <h2 class="modal-title" data-i18n="help_title">How it works</h2>
       <div class="help-section">
-        <h3 data-i18n="help_s1_t">1 · Démarrer</h3>
-        <div data-i18n="help_s1"><p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». L'app te demande ensuite tes langues et tes premiers mots. Sans clé, tu as 10 mots par jour. Avec ta propre <strong>clé OpenAI</strong> (<strong>réglages → réglages avancés</strong>), il n'y a plus de limite ; elle reste à toi et n'est jamais partagée.</p></div>
+        <div data-i18n="help_steps"></div>
       </div>
       <div class="help-section">
-        <h3 data-i18n="help_s2_t">2 · Ajouter des mots</h3>
-        <div data-i18n="help_s2"><ul>
-          <li><strong>Dans l'app</strong> : « ajouter du contenu » → des mots ou une forme grammaticale.</li>
-        </ul></div>
-        <div class="owner-only" style="margin-top:0.75rem" data-i18n="help_token"></div>
+        <h3 data-i18n="help_gtk_t">Good to know</h3>
+        <div data-i18n="help_gtk"></div>
       </div>
+      <div class="help-section owner-only" data-i18n="help_token"></div>
       <div class="help-section owner-only">
         <h3 data-i18n="help_iphone_t">Raccourci iPhone</h3>
         <div data-i18n="help_iphone"><ol>
@@ -11079,27 +11162,6 @@ Reply with ONLY this JSON object, nothing else:
           <li>Branche ta Kindle en USB, puis lance : <code>python3 kindle_import.py</code>. Choisis les mots à importer.</li>
           <li>Besoin d'aide ? <code>python3 kindle_import.py --aide</code>.</li>
         </ol></div>
-      </div>
-      <div class="help-section">
-        <h3 data-i18n="help_s3_t">3 · Les 4 modes</h3>
-        <div data-i18n="help_s3"><ul>
-          <li><strong>Espacée</strong> — révise chaque mot au bon moment (répétition espacée).</li>
-          <li><strong>Situation</strong> — retrouve un mot maîtrisé à partir d'une scène.</li>
-          <li><strong>Libre</strong> — tirage aléatoire pondéré.</li>
-          <li><strong>Imagen</strong> — décris ta photo pour que le modèle la retrouve parmi quatre photos proches.</li>
-        </ul></div>
-      </div>
-      <div class="help-section">
-        <h3 data-i18n="help_s4_t">4 · La répétition espacée</h3>
-        <div data-i18n="help_s4"><ul>
-          <li>Chaque mot gagne des <strong>étoiles</strong> (☆☆☆ → ★★★) selon tes réussites.</li>
-          <li>Réussir <em>sans aide</em> éloigne la prochaine révision ; échouer ou afficher la définition la ramène à demain.</li>
-          <li>Tu choisis combien de <strong>nouveaux mots par jour</strong> dans les réglages, et le bouton « mes révisions à venir » montre ton calendrier.</li>
-        </ul></div>
-      </div>
-      <div class="help-section">
-        <h3 data-i18n="help_src_t">Code source</h3>
-        <div data-i18n="help_src"></div>
       </div>
     </div>
   </div>
