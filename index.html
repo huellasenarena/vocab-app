@@ -447,7 +447,12 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     #screen-practice.session-mode #qcm-offer,
     #screen-practice.session-mode #related-box,
     #screen-practice.session-mode #confirm-panel,
-    #screen-practice.session-mode #spaced-done-card { display: none !important; }
+    #screen-practice.session-mode #spaced-done-card,
+    /* Les réglages de la langue (mots neufs par jour du mode espacé, mélange du
+       mode libre, formes grammaticales de la zone de phrase) n'agissent sur
+       aucune manche : ni le lien ni le panneau. Ils reviennent avec les autres modes. */
+    #screen-practice.session-mode #practice-settings-btn,
+    #screen-practice.session-mode #settings-panel { display: none !important; }
     /* Le vide entre « Définition » et « mes révisions à venir » : en séance, le
        bloc des boîtes (définition, image) reste un enfant de hauteur nulle quand
        elles sont fermées, et le gap de l'écran s'ajoutait deux fois, plus la
@@ -1836,7 +1841,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         <span class="token-display" id="token-display" style="display:none"></span>
       </div>
       <div class="header-actions">
-        <button class="btn-ghost" onclick="toggleSettings()" data-i18n="tile_menu_settings">réglages</button>
+        <button class="btn-ghost" id="practice-settings-btn" onclick="toggleSettings()" data-i18n="tile_menu_settings">réglages</button>
         <span class="lang-tag" id="lang-tag" onclick="showScreen('screen-lang')">langue</span>
       </div>
     </div>
@@ -2513,6 +2518,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_dunno_see:   { en: `I don't know (show the answer)`, fr: `je ne sais pas (voir la réponse)`, es: `no lo sé (ver la respuesta)`, el: `δεν ξέρω (δείξε την απάντηση)` },
       sess_def:         { en: `Definition`, fr: `Définition`, es: `Definición`, el: `Ορισμός` },
       sess_next:        { en: `Next`, fr: `Suivant`, es: `Siguiente`, el: `Επόμενο` },
+      sess_finish:      { en: `Finish`, fr: `Terminer`, es: `Terminar`, el: `Τέλος` },
       sess_check:       { en: `Check`, fr: `Vérifier`, es: `Comprobar`, el: `Έλεγχος` },
       // Écrans ouverts depuis l'accueil : gestion des groupes, filtre par groupe de « mes mots », réinitialisation (langue de l'appli)
       gm_title:         { en: `My groups ({name})`, fr: `Mes groupes ({name})`, es: `Mis grupos ({name})`, el: `Οι ομάδες μου ({name})` },
@@ -8531,7 +8537,8 @@ Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
       wrap.className = 'session-actions';
       const b = document.createElement('button');
       b.className   = 'btn-secondary';
-      b.textContent = tPrac('sess_next');
+      // Dernière question : on ne passe pas au mot suivant, on finit la manche
+      b.textContent = tPrac(sessionIdx >= sessionItems.length - 1 ? 'sess_finish' : 'sess_next');
       b.onclick     = sessionNext;
       wrap.appendChild(b);
       document.getElementById('session-body').appendChild(wrap);
