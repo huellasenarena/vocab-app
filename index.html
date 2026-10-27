@@ -1757,36 +1757,14 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
           <option value="el">Ελληνικά</option>
         </select>
       </div>
-      <div class="settings-row" style="cursor:default;">
-        <span data-i18n="set_model">Modèle IA</span>
-        <select id="model-select" onchange="setModel(this.value)"
-          style="font-size:0.8rem;">
-          <option value="gpt4">GPT-5.6 Terra</option>
-          <option value="gemma">Gemma 4 31B</option>
-          <option value="geminiflashlite">Gemini 3.5 Flash Lite</option>
-          <option value="geminiflash">Gemini 3.7 Flash</option>
-        </select>
-      </div>
-      <div class="settings-row" style="cursor:default;">
-        <span id="reasoning-label" data-i18n="set_reasoning">Raisonnement</span>
-        <select id="reasoning-select" onchange="setReasoningLevel(this.value)"
-          style="font-size:0.8rem;">
-        </select>
-      </div>
       <!-- Réglages avancés : repliés. Les réglages de base ne gardent que la langue
-           de l'appli, le modèle et le raisonnement. -->
+           de l'appli : le modèle est toujours Terra (MISTRAL_MODEL). -->
       <div><button class="btn-ghost" id="adv-settings-btn" onclick="toggleAdvancedSettings()"><span data-i18n="set_advanced">réglages avancés</span> <span id="adv-settings-arrow">▸</span></button></div>
       <div id="adv-settings" style="display:none; flex-direction:column; gap:0.9rem;">
       <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
         <span data-i18n="set_openai_key">Clé API OpenAI (GPT)</span>
         <input type="password" id="openai-key-input" placeholder="sk-…" autocomplete="off"
           onchange="setOpenaiKey(this.value)"
-          style="width:100%;font-family:var(--mono);font-size:0.8rem;">
-      </div>
-      <div class="settings-row" style="flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: default;">
-        <span data-i18n="set_gemini_key">Clé API Gemini / Gemma</span>
-        <input type="password" id="gemini-key-input" placeholder="AIza…" autocomplete="off"
-          onchange="setGeminiKey(this.value)"
           style="width:100%;font-family:var(--mono);font-size:0.8rem;">
       </div>
       <!-- Le lien d'ajout ne sert qu'au raccourci iPhone et à l'import Kindle : sur le
@@ -2283,7 +2261,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     const API_ENDPOINT  = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
       ? 'http://localhost:8787'
       : 'https://dark-brook-87cc.georg-dreym.workers.dev';
-    const MISTRAL_MODEL = "gpt-5.6-terra";
+    const MISTRAL_MODEL = "gpt-6.1-terra"; // le seul modèle de l'app (2026-10-27)
+    // Toujours sans réflexion : le réglage de l'utilisateur était « none », et c'est le
+    // plus rapide. Le Worker impose de toute façon la même chose sur la clé du propriétaire.
+    const GPT_EFFORT    = "none";
     // Client ID OAuth Google (public, pas un secret) — ⚠️ remplace par ton Client ID
     const GOOGLE_CLIENT_ID = "742808037031-fvn2quk75f541mtn5b9vlv9merkhie41.apps.googleusercontent.com";
 
@@ -2311,20 +2292,19 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     const KEY_SITUATION_COUNTS = "vocab_situation_counts"; // mode situation affecte-t-il la progression ?
     const KEY_SITUATION_WORDS  = "vocab_situation_words";  // nombre de mots en mode situation (1-5)
     const KEY_IMAGE_THEME      = "vocab_image_theme";
-    const KEY_MODEL            = "vocab_model";
-    const KEY_GPT_EFFORT       = "vocab_gpt_effort";
-    const KEY_GEMINI_THINKING  = "vocab_gemini_thinking";
-    const KEY_GEMMA_THINKING   = "vocab_gemma_thinking";
     const KEY_OPENAI_KEY       = "vocab_openai_key";
-    const KEY_GEMINI_KEY       = "vocab_gemini_key";
+    // Réglages d'avant le modèle unique (Gemini, Gemma, choix du modèle et de la
+    // réflexion) : effacés au chargement et jamais resynchronisés — la clé Gemini
+    // surtout n'a rien à faire dans le blob des réglages.
+    const OBSOLETE_KEYS        = ["vocab_model", "vocab_gpt_effort", "vocab_gemini_thinking", "vocab_gemma_thinking", "vocab_gemini_key"];
+    OBSOLETE_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
     const KEY_DRAFT            = "vocab_draft"; // préfixe : la clé réelle est vocab_draft_<Langue>_<mode>
     const KEY_WORD_COUNT       = "vocab_word_count";
     const KEY_FREE_MIX         = "vocab_free_mix"; // mélange découverte ↔ révision (mode libre, 0-4)
     const SESSION_LANG_COLS    = { English: 1, Spanish: 2, French: 3, Greek: 4 }; // index dans la ligne [Date, En, Es, Fr, Gr]
     const KEY_GRAMMAR_COUNT    = "vocab_grammar_count";
     const KEY_LANGUAGES        = "vocab_languages"; // langues choisies par l'utilisateur (synced)
-    const GEMINI_MODEL_IDS = { gemma: 'gemma-4-31b-it', geminiflash: 'gemini-3.7-flash', geminiflashlite: 'gemini-3.5-flash-lite' };
-    const DAILY_LIMITS = { gpt4: 250000, gemma: 14400, geminiflash: 20, geminiflashlite: 500 };
+    const DAILY_TOKEN_LIMIT = 250000; // garde-fou sur SA clé ; sans clé, c'est le Worker qui plafonne
     const BLACKLIST_COLS   = { English: 'A', Spanish: 'B', French: 'C', Greek: 'D' };
 
     const LANGS = [
@@ -2398,16 +2378,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       set_advanced:     { en: `advanced settings`, fr: `réglages avancés`, es: `ajustes avanzados`, el: `σύνθετες ρυθμίσεις` },
       // Premier passage d'un nouveau compte (langues → clé → premiers mots)
       ob_step_langs:    { en: `languages`, fr: `langues`, es: `idiomas`, el: `γλώσσες` },
-      ob_step_key:      { en: `key`, fr: `clé`, es: `clave`, el: `κλειδί` },
       ob_step_words:    { en: `words`, fr: `mots`, es: `palabras`, el: `λέξεις` },
       ob_need_lang:     { en: `Choose at least one language.`, fr: `Choisis au moins une langue.`, es: `Elige al menos un idioma.`, el: `Διάλεξε τουλάχιστον μία γλώσσα.` },
-      ob_key_title:     { en: `Your key`, fr: `Ta clé`, es: `Tu clave`, el: `Το κλειδί σου` },
-      ob_one_key:       { en: `One key is enough: Gemini or OpenAI.`, fr: `Une seule clé suffit : Gemini ou OpenAI.`, es: `Basta con una clave: Gemini u OpenAI.`, el: `Αρκεί ένα κλειδί: Gemini ή OpenAI.` },
-      ob_get_key:       { en: `get a key on {host}`, fr: `obtenir une clé sur {host}`, es: `conseguir una clave en {host}`, el: `πάρε ένα κλειδί στο {host}` },
-      ob_try_key:       { en: `try the key`, fr: `essayer la clé`, es: `probar la clave`, el: `δοκίμασε το κλειδί` },
-      ob_key_empty:     { en: `Paste your key first.`, fr: `Colle d'abord ta clé.`, es: `Pega primero tu clave.`, el: `Επικόλλησε πρώτα το κλειδί σου.` },
-      ob_key_ok:        { en: `Key accepted.`, fr: `Clé acceptée.`, es: `Clave aceptada.`, el: `Το κλειδί έγινε δεκτό.` },
-      ob_key_bad:       { en: `This key doesn't work:`, fr: `Cette clé ne marche pas :`, es: `Esta clave no funciona:`, el: `Αυτό το κλειδί δεν λειτουργεί:` },
       ob_words_title:   { en: `Your first words`, fr: `Tes premiers mots`, es: `Tus primeras palabras`, el: `Οι πρώτες σου λέξεις` },
       ob_next:          { en: `next`, fr: `suivant`, es: `siguiente`, el: `επόμενο` },
       ob_later:         { en: `later`, fr: `plus tard`, es: `más tarde`, el: `αργότερα` },
@@ -2420,10 +2392,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       tile_menu_help:   { en: `help`, fr: `aide`, es: `ayuda`, el: `βοήθεια` },
       tile_menu_logout: { en: `log out`, fr: `déconnexion`, es: `salir`, el: `αποσύνδεση` },
       // — réglages compte —
-      set_model:        { en: `AI model`, fr: `Modèle IA`, es: `Modelo de IA`, el: `Μοντέλο ΤΝ` },
-      set_reasoning:    { en: `Reasoning`, fr: `Raisonnement`, es: `Razonamiento`, el: `Συλλογισμός` },
       set_openai_key:   { en: `OpenAI API key (GPT)`, fr: `Clé API OpenAI (GPT)`, es: `Clave API de OpenAI (GPT)`, el: `Κλειδί API OpenAI (GPT)` },
-      set_gemini_key:   { en: `Gemini / Gemma API key`, fr: `Clé API Gemini / Gemma`, es: `Clave API de Gemini / Gemma`, el: `Κλειδί API Gemini / Gemma` },
       set_add_link:     { en: `Add link (iPhone shortcut)`, fr: `Lien d'ajout (raccourci iPhone)`, es: `Enlace para añadir (atajo de iPhone)`, el: `Σύνδεσμος προσθήκης (συντόμευση iPhone)` },
       set_add_link_ph:  { en: `log in to generate your link`, fr: `connecte-toi pour générer ton lien`, es: `inicia sesión para generar tu enlace`, el: `συνδέσου για να δημιουργηθεί ο σύνδεσμός σου` },
       set_add_link_note:{ en: `Replace <code>WORD</code> with the word in your shortcut. <code>lang=auto</code> detects the language.`,
@@ -2627,6 +2596,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_writing:     { en: `Writing the text…`, fr: `Rédaction du texte…`, es: `Redactando el texto…`, el: `Σύνταξη κειμένου…` },
       sess_done:        { en: `Session complete`, fr: `Séance terminée`, es: `Sesión terminada`, el: `Η συνεδρία ολοκληρώθηκε` },
       sess_empty:       { en: `Nothing due today.`, fr: `Rien à faire aujourd'hui.`, es: `Nada para hoy.`, el: `Τίποτα για σήμερα.` },
+      sess_free_left:   { en: `Without a key: {n} left today.`, fr: `Sans clé : encore {n} aujourd'hui.`, es: `Sin clave: te quedan {n} hoy.`, el: `Χωρίς κλειδί: απομένουν {n} σήμερα.` },
+      sess_free_done:   { en: `Your {n} words for today are done. Come back tomorrow, or add your OpenAI key in advanced settings to keep going.`, fr: `Tes {n} mots du jour sont faits. Reviens demain, ou ajoute ta clé OpenAI dans les réglages avancés pour continuer.`, es: `Tus {n} palabras de hoy están hechas. Vuelve mañana, o añade tu clave de OpenAI en los ajustes avanzados para seguir.`, el: `Οι {n} λέξεις της ημέρας έγιναν. Έλα πάλι αύριο ή πρόσθεσε το κλειδί σου OpenAI στις σύνθετες ρυθμίσεις για να συνεχίσεις.` },
+      free_limit:       { en: `Today's limit is reached. Come back tomorrow, or add your OpenAI key in advanced settings.`, fr: `Limite du jour atteinte. Reviens demain, ou ajoute ta clé OpenAI dans les réglages avancés.`, es: `Límite de hoy alcanzado. Vuelve mañana, o añade tu clave de OpenAI en los ajustes avanzados.`, el: `Συμπληρώθηκε το όριο της ημέρας. Έλα πάλι αύριο ή πρόσθεσε το κλειδί σου OpenAI στις σύνθετες ρυθμίσεις.` },
+      token_limit:      { en: `Daily token limit reached.`, fr: `Limite journalière de tokens atteinte.`, es: `Límite diario de tokens alcanzado.`, el: `Συμπληρώθηκε το ημερήσιο όριο tokens.` },
       sess_repeat_today:{ en: `already practiced today — stars unchanged`, fr: `déjà entraîné aujourd'hui — étoiles inchangées`, es: `ya practicada hoy — estrellas sin cambios`, el: `ήδη εξασκήθηκε σήμερα — τα αστέρια δεν αλλάζουν` },
       sess_score:       { en: `{a} of {b} correct`, fr: `{a} sur {b} justes`, es: `{a} de {b} correctas`, el: `{a} από {b} σωστά` },
       sess_inbase:      { en: `in your list: {w}`, fr: `dans ta liste : {w}`, es: `en tu lista: {w}`, el: `στη λίστα σου: {w}` },
@@ -2783,10 +2756,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       help_title:       { en: `How it works`, fr: `Comment ça marche`, es: `Cómo funciona`, el: `Πώς λειτουργεί` },
       help_s1_t:        { en: `1 · Get started`, fr: `1 · Démarrer`, es: `1 · Empezar`, el: `1 · Ξεκίνημα` },
       help_s1: {
-        en: `<p>Create an account (email + password) or "Continue with Google". The app then asks for your languages, an <strong>API key</strong> and your first words. One key is enough, Gemini or OpenAI: the app uses it for the exercises and the definitions. You'll find it later in <strong>settings → advanced settings</strong>. Your key stays yours (BYOK) and is never shared.</p>`,
-        fr: `<p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». L'app te demande ensuite tes langues, une <strong>clé API</strong> et tes premiers mots. Une seule clé suffit, Gemini ou OpenAI : l'app s'en sert pour les exercices et les définitions. Tu la retrouves ensuite dans <strong>réglages → réglages avancés</strong>. Ta clé reste à toi (BYOK), elle n'est jamais partagée.</p>`,
-        es: `<p>Crea una cuenta (email + contraseña) o «Continuar con Google». La app te pide luego tus idiomas, una <strong>clave API</strong> y tus primeras palabras. Basta con una clave, Gemini u OpenAI: la app la usa para los ejercicios y las definiciones. Luego la encuentras en <strong>ajustes → ajustes avanzados</strong>. Tu clave es tuya (BYOK), nunca se comparte.</p>`,
-        el: `<p>Δημιούργησε λογαριασμό (email + κωδικός) ή «Συνέχεια με Google». Η εφαρμογή σου ζητά μετά τις γλώσσες σου, ένα <strong>κλειδί API</strong> και τις πρώτες σου λέξεις. Αρκεί ένα κλειδί, Gemini ή OpenAI: η εφαρμογή το χρησιμοποιεί για τις ασκήσεις και τους ορισμούς. Το βρίσκεις μετά στο <strong>ρυθμίσεις → σύνθετες ρυθμίσεις</strong>. Το κλειδί μένει δικό σου (BYOK), δεν κοινοποιείται ποτέ.</p>` },
+        en: `<p>Create an account (email + password) or "Continue with Google". The app then asks for your languages and your first words. Without a key you get 10 words a day. With your own <strong>OpenAI key</strong> (<strong>settings → advanced settings</strong>) there is no limit; it stays yours and is never shared.</p>`,
+        fr: `<p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». L'app te demande ensuite tes langues et tes premiers mots. Sans clé, tu as 10 mots par jour. Avec ta propre <strong>clé OpenAI</strong> (<strong>réglages → réglages avancés</strong>), il n'y a plus de limite ; elle reste à toi et n'est jamais partagée.</p>`,
+        es: `<p>Crea una cuenta (email + contraseña) o «Continuar con Google». La app te pide luego tus idiomas y tus primeras palabras. Sin clave tienes 10 palabras al día. Con tu propia <strong>clave de OpenAI</strong> (<strong>ajustes → ajustes avanzados</strong>) no hay límite; sigue siendo tuya y nunca se comparte.</p>`,
+        el: `<p>Δημιούργησε λογαριασμό (email + κωδικός) ή «Συνέχεια με Google». Η εφαρμογή σου ζητά μετά τις γλώσσες σου και τις πρώτες σου λέξεις. Χωρίς κλειδί έχεις 10 λέξεις την ημέρα. Με δικό σου <strong>κλειδί OpenAI</strong> (<strong>ρυθμίσεις → σύνθετες ρυθμίσεις</strong>) δεν υπάρχει όριο· μένει δικό σου και δεν κοινοποιείται ποτέ.</p>` },
       help_s2_t:        { en: `2 · Add words`, fr: `2 · Ajouter des mots`, es: `2 · Añadir palabras`, el: `2 · Προσθήκη λέξεων` },
       help_s2: {
         en: `<ul><li><strong>In the app</strong>: "add content" → words or a grammar form.</li></ul><p style="margin-top:0.75rem"><strong>Expressions and notes.</strong> You can add a note in parentheses at the end of an entry: <code>hacer el oso (Colombian expression)</code>. The note is never a word to practice — it tells the model how to read the entry (idiom, regional variety, register) and lets you distinguish two senses of the same word. Both parentheses are required.</p>`,
@@ -2870,7 +2843,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       document.querySelectorAll('.app-lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === appLang));
       const addInput = document.getElementById('add-word-input');
       if (addInput) addInput.placeholder = addWordsPlaceholder(addLang);
-      updateReasoningUI(); // son libellé porte le nom du modèle : applyI18n l'aurait écrasé
       renderGoogleButton();
     }
     function applyPracticeLangUI() {
@@ -3026,27 +2998,16 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     let todayInputTokens        = 0; // total du jour (affiché)
     let todayOutputTokens       = 0;
     let todayGptRequests             = 0;
-    let todayGemmaRequests           = 0;
-    let todayGeminiFlashRequests     = 0;
-    let todayGeminiFlashLiteRequests = 0;
     let _pendingInput   = 0; // tokens/requêtes accumulés depuis le dernier save
     let _pendingOutput  = 0;
     let _pendingGptReq  = 0;
-    let _pendingGemma   = 0;
-    let _pendingFlash   = 0;
-    let _pendingFlashLite = 0;
     let showTokenCounter    = localStorage.getItem(KEY_SHOW_TOKENS) !== 'false';
     let situationCounts     = localStorage.getItem(KEY_SITUATION_COUNTS) === 'true'; // défaut false : le mode situation ne touche pas la progression
-    let currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4'; // 'gpt4' | 'gemma' | 'geminiflash' | 'geminiflashlite'
-    let gptEffort           = localStorage.getItem(KEY_GPT_EFFORT)      || 'none';    // 'none'|'low'|'medium'|'high'|'xhigh'|'max'
-    let geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';    // 'none'|'minimal'|'low'|'medium'|'high'
-    let gemmaThinkingLevel  = localStorage.getItem(KEY_GEMMA_THINKING)  || 'minimal'; // 'minimal'|'high'
     // Nettoie une clé API : ne garde que l'ASCII imprimable (pas d'espace, retour à la
     // ligne, espace insécable… qui font planter la construction de l'en-tête en Safari
     // → « The string did not match the expected pattern »).
     const sanitizeKey = k => (k || '').replace(/[^\x21-\x7E]/g, '');
     let openaiKey           = sanitizeKey(localStorage.getItem(KEY_OPENAI_KEY)); // BYOK : clé OpenAI
-    let geminiKey           = sanitizeKey(localStorage.getItem(KEY_GEMINI_KEY)); // BYOK : clé Gemini
     let imageTheme         = localStorage.getItem(KEY_IMAGE_THEME) || '';
     const definitionCache  = {}; // { "mot|lang|model": "texte définition" }
     let _hintInFlight      = false; // bloque tout nouveau fetchHint pendant un streaming en cours
@@ -3146,46 +3107,40 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     }
 
     // ── Premier passage d'un nouveau compte ───────────────────
-    // Trois étapes dans une fenêtre : les langues (obligatoire), la clé, les premiers
-    // mots (ces deux-là ont « plus tard »). Sans ça, on arrivait sur un accueil vide,
-    // sans savoir qu'il fallait une clé, cachée dans les réglages.
-    // L'étape atteinte est un réglage synchronisé (`vocab_onboarding` : '1', '2' puis
+    // Deux étapes dans une fenêtre : les langues (obligatoire), puis les premiers mots
+    // (avec « plus tard »). Plus d'étape « clé » depuis le 2026-10-27 : sans clé, l'app
+    // passe par celle du propriétaire (10 mots par jour) ; sa propre clé se met dans
+    // les réglages avancés.
+    // L'étape atteinte est un réglage synchronisé (`vocab_onboarding` : '1' puis
     // 'done') : fermer l'app au milieu fait reprendre là, sur n'importe quel appareil.
-    // Un compte d'avant n'a pas la clé et a ses langues : il ne voit rien.
+    // ⚠️ '2' est l'étape « mots » d'avant, quand la clé était l'étape 1 : on la lit
+    // comme '1'.
     const KEY_ONBOARD = 'vocab_onboarding';
-    const OB_KEY_SITES = {
-      gemini: 'https://aistudio.google.com/apikey',
-      openai: 'https://platform.openai.com/api-keys',
-    };
     let _obStep     = 0;
     let _obLangs    = [];
-    let _obProvider = 'gemini';
     let _obAddLang  = null;
-    let _obKeyMsg   = null; // [classe, texte] sous « essayer la clé »
 
     function onboardingStep() {
       if (!localStorage.getItem(KEY_LANGUAGES)) return 0;
       const v = localStorage.getItem(KEY_ONBOARD);
-      return v === '1' || v === '2' ? +v : -1;
+      return v === '1' || v === '2' ? 1 : -1;
     }
     function openOnboarding(step) {
       _obStep     = step;
       _obLangs    = step === 0 ? [] : [...selectedLangs];
-      _obProvider = openaiKey && !geminiKey ? 'openai' : 'gemini';
-      _obKeyMsg   = null;
       renderOnboarding();
       document.getElementById('onboard-modal').classList.add('visible');
     }
     function setOnboardStep(n) {
       localStorage.setItem(KEY_ONBOARD, String(n));
       saveSettingsToServer();
-      _obStep = n; _obKeyMsg = null;
+      _obStep = n;
       renderOnboarding();
     }
 
     function renderOnboarding() {
       const card  = document.getElementById('onboard-card');
-      const steps = ['ob_step_langs', 'ob_step_key', 'ob_step_words'].map((k, i) =>
+      const steps = ['ob_step_langs', 'ob_step_words'].map((k, i) =>
         `<span class="${i < _obStep ? 'done' : i === _obStep ? 'now' : ''}">${tApp(k)}</span>`).join('');
       let title, body;
       if (_obStep === 0) {
@@ -3194,21 +3149,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
           <div id="ob-langs">${LANGS.map(l =>
             `<div class="lang-pick-row ${_obLangs.includes(l.key) ? 'on' : ''}" onclick="obToggleLang('${l.key}')"><span class="lp-name">${l.name}</span></div>`).join('')}</div>
           <p class="error-msg" id="ob-error"></p>`;
-      } else if (_obStep === 1) {
-        const isG = _obProvider === 'gemini';
-        const url = OB_KEY_SITES[_obProvider];
-        title = tApp('ob_key_title');
-        body  = `<div class="ob-pills">
-            <button class="filter-btn ${isG ? 'active' : ''}" onclick="obSetProvider('gemini')">Gemini</button>
-            <button class="filter-btn ${isG ? '' : 'active'}" onclick="obSetProvider('openai')">OpenAI</button>
-          </div>
-          <p class="ob-lead">${tApp('ob_one_key')}<br><a href="${url}" target="_blank" rel="noopener">${tApp('ob_get_key').replace('{host}', new URL(url).host)}</a></p>
-          <div>
-            <label class="add-field-label" for="ob-key">${tApp(isG ? 'set_gemini_key' : 'set_openai_key')}</label>
-            <input type="password" id="ob-key" class="add-input" placeholder="${isG ? 'AIza…' : 'sk-…'}" autocomplete="off" style="font-family:var(--mono);font-size:0.8rem;">
-          </div>
-          <div><button class="btn-secondary" id="ob-try" onclick="obTryKey()">${tApp('ob_try_key')}</button></div>
-          <p class="add-result ${_obKeyMsg ? _obKeyMsg[0] : ''}" id="ob-key-msg">${_obKeyMsg ? escapeHtml(_obKeyMsg[1]) : ''}</p>`;
       } else {
         const langs = selectedLangs;
         if (!langs.includes(_obAddLang)) _obAddLang = langs[0];
@@ -3230,15 +3170,12 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       // « retour » au bout de la ligne, à droite : loin de « plus tard », qui suit
       // « suivant » — les deux liens côte à côte se confondaient.
       const nav = `<div class="ob-nav">
-          <button class="btn-primary" onclick="obNext()">${tApp(_obStep === 2 ? 'ob_finish' : 'ob_next')}</button>
+          <button class="btn-primary" onclick="obNext()">${tApp(_obStep === 1 ? 'ob_finish' : 'ob_next')}</button>
           ${_obStep > 0 ? `<button class="btn-ghost" onclick="obSkip()">${tApp('ob_later')}</button>` : ''}
           ${_obStep > 0 ? `<button class="btn-ghost ob-back" onclick="obBack()">${tApp('btn_back')}</button>` : ''}
         </div>`;
       card.innerHTML = `<div class="ob-steps">${steps}</div><h2 class="modal-title">${title}</h2>${body}${nav}`;
-      // Valeurs posées par le DOM, pas dans le gabarit : une clé ou un texte qui
-      // contiendrait un guillemet casserait l'attribut.
-      const key = document.getElementById('ob-key');
-      if (key) key.value = _obProvider === 'gemini' ? geminiKey : openaiKey;
+      // Posé par le DOM, pas dans le gabarit : un guillemet casserait l'attribut.
       const ta = document.getElementById('ob-words');
       if (ta) ta.placeholder = addWordsPlaceholder(_obAddLang);
     }
@@ -3248,44 +3185,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       if (i >= 0) _obLangs.splice(i, 1); else _obLangs.push(key);
       renderOnboarding();
     }
-    function obSetProvider(p) { _obProvider = p; _obKeyMsg = null; renderOnboarding(); }
     function obSetAddLang(k) {
       _obAddLang = k; // sans re-rendu : la liste tapée et les résultats restent
       document.querySelectorAll('#ob-lang-pills .filter-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === k));
       document.getElementById('ob-words').placeholder = addWordsPlaceholder(k);
-    }
-
-    // La clé tapée est enregistrée, et le modèle suit : on vient de choisir CETTE clé,
-    // un modèle de l'autre fournisseur ne marcherait pas. Côté Gemini, Flash Lite :
-    // le palier gratuit de Flash (20 requêtes par jour) ne tient pas une manche.
-    function obSaveTypedKey() {
-      const v = (document.getElementById('ob-key')?.value || '').trim();
-      if (!v) return false;
-      if (_obProvider === 'gemini') {
-        setGeminiKey(v);
-        if (!isGemini()) setModel('geminiflashlite');
-      } else {
-        setOpenaiKey(v);
-        if (isGemini()) setModel('gpt4');
-      }
-      return true;
-    }
-    // Un vrai appel, le plus petit possible : une clé mal collée se voit ici, pas
-    // au premier exercice.
-    async function obTryKey() {
-      if (!obSaveTypedKey()) { _obKeyMsg = ['err', tApp('ob_key_empty')]; return renderOnboarding(); }
-      const btn = document.getElementById('ob-try');
-      const msg = document.getElementById('ob-key-msg');
-      btn.disabled = true;
-      msg.className = 'add-result';
-      msg.innerHTML = '<span class="spinner"></span>';
-      try {
-        await callAI('Reply with the single word OK.', isGemini() ? 200 : 400);
-        _obKeyMsg = ['ok', tApp('ob_key_ok')];
-      } catch (e) {
-        _obKeyMsg = ['err', `${tApp('ob_key_bad')} ${e.message}`];
-      }
-      if (_obStep === 1) renderOnboarding();
     }
 
     function obNext() {
@@ -3296,11 +3199,10 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         renderLangGrid();
         return setOnboardStep(1);
       }
-      if (_obStep === 1) { obSaveTypedKey(); return setOnboardStep(2); }
       obFinish();
     }
-    function obSkip() { if (_obStep === 1) setOnboardStep(2); else obFinish(); }
-    function obBack() { _obStep = Math.max(0, _obStep - 1); _obKeyMsg = null; if (_obStep === 0) _obLangs = [...selectedLangs]; renderOnboarding(); }
+    function obSkip() { obFinish(); }
+    function obBack() { _obStep = 0; _obLangs = [...selectedLangs]; renderOnboarding(); }
     function obFinish() {
       localStorage.setItem(KEY_ONBOARD, 'done');
       saveSettingsToServer();
@@ -3830,9 +3732,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     function todayStr() {
       return new Date().toISOString().split('T')[0]; // YYYY-MM-DD UTC
     }
-    function todayStrPT() {
-      return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }); // YYYY-MM-DD PT (reset Google quotas)
-    }
     function todayStrLocal(d = new Date()) {
       const pad = n => String(n).padStart(2, '0');
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; // YYYY-MM-DD Local
@@ -3875,52 +3774,28 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 
     async function loadTodayTokens() {
       try {
-        const utcDate = todayStr(), ptDate = todayStrPT();
-        const [u, p] = await Promise.all([
-          authFetch(`/api/usage?date=${utcDate}`).then(r => r.json()),
-          utcDate === ptDate ? Promise.resolve(null) : authFetch(`/api/usage?date=${ptDate}`).then(r => r.json())
-        ]);
-        const utc = u.usage, pt = (p ? p.usage : u.usage);
-        todayInputTokens             = utc.openai_input   || 0;
-        todayOutputTokens            = utc.openai_output  || 0;
-        todayGptRequests             = utc.openai_requests || 0;
-        todayGemmaRequests           = pt.gemma_requests   || 0;
-        todayGeminiFlashRequests     = pt.geminiflash_req  || 0;
-        todayGeminiFlashLiteRequests = pt.geminiflashlite_req || 0;
+        const u = (await authFetch(`/api/usage?date=${todayStr()}`).then(r => r.json())).usage;
+        todayInputTokens  = u.openai_input    || 0;
+        todayOutputTokens = u.openai_output   || 0;
+        todayGptRequests  = u.openai_requests || 0;
         updateTokenDisplay();
       } catch (e) {
-        todayInputTokens = todayOutputTokens = todayGptRequests = todayGemmaRequests = todayGeminiFlashRequests = todayGeminiFlashLiteRequests = 0;
+        todayInputTokens = todayOutputTokens = todayGptRequests = 0;
       }
     }
 
     async function saveTodayTokens() {
-      const utcDate = todayStr();
-      const ptDate  = todayStrPT();
       // Capturer les pending au moment du save (d'autres appels peuvent arriver pendant l'await)
       const pIn = _pendingInput, pOut = _pendingOutput, pGptReq = _pendingGptReq;
-      const pGemma = _pendingGemma, pFlash = _pendingFlash, pFlashLite = _pendingFlashLite;
       try {
-        // OpenAI compté en date UTC, Google (Gemma/Gemini) en date PT (reset quotas).
-        // L'incrément est atomique côté D1 (ON CONFLICT ... col = col + delta).
-        if (utcDate === ptDate) {
-          const res = await authFetch('/api/usage', { method: 'POST', body: JSON.stringify({
-            date: utcDate, openaiInput: pIn, openaiOutput: pOut, openaiRequests: pGptReq,
-            gemmaRequests: pGemma, geminiflashReq: pFlash, geminiflashliteReq: pFlashLite
-          }) });
-          const u = (await res.json()).usage;
-          todayInputTokens = u.openai_input; todayOutputTokens = u.openai_output; todayGptRequests = u.openai_requests;
-          todayGemmaRequests = u.gemma_requests; todayGeminiFlashRequests = u.geminiflash_req; todayGeminiFlashLiteRequests = u.geminiflashlite_req;
-        } else {
-          const [ru, rp] = await Promise.all([
-            authFetch('/api/usage', { method: 'POST', body: JSON.stringify({ date: utcDate, openaiInput: pIn, openaiOutput: pOut, openaiRequests: pGptReq }) }).then(r => r.json()),
-            authFetch('/api/usage', { method: 'POST', body: JSON.stringify({ date: ptDate, gemmaRequests: pGemma, geminiflashReq: pFlash, geminiflashliteReq: pFlashLite }) }).then(r => r.json())
-          ]);
-          todayInputTokens = ru.usage.openai_input; todayOutputTokens = ru.usage.openai_output; todayGptRequests = ru.usage.openai_requests;
-          todayGemmaRequests = rp.usage.gemma_requests; todayGeminiFlashRequests = rp.usage.geminiflash_req; todayGeminiFlashLiteRequests = rp.usage.geminiflashlite_req;
-        }
+        // Compté en date UTC ; l'incrément est atomique côté D1 (ON CONFLICT ... col = col + delta).
+        const res = await authFetch('/api/usage', { method: 'POST', body: JSON.stringify({
+          date: todayStr(), openaiInput: pIn, openaiOutput: pOut, openaiRequests: pGptReq
+        }) });
+        const u = (await res.json()).usage;
+        todayInputTokens = u.openai_input; todayOutputTokens = u.openai_output; todayGptRequests = u.openai_requests;
         // Déduire seulement ce qui a été sauvegardé (d'autres tokens peuvent être arrivés pendant l'await)
         _pendingInput -= pIn; _pendingOutput -= pOut; _pendingGptReq -= pGptReq;
-        _pendingGemma -= pGemma; _pendingFlash -= pFlash; _pendingFlashLite -= pFlashLite;
         updateTokenDisplay();
       } catch (e) {
         console.error('[Tokens] Erreur saveTodayTokens:', e.message);
@@ -3944,45 +3819,19 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       saveTodayTokensDebounced();
     }
 
-    function currentUsage() {
-      if (currentModel === 'gemma')         return todayGemmaRequests;
-      if (currentModel === 'geminiflash')   return todayGeminiFlashRequests;
-      if (currentModel === 'geminiflashlite') return todayGeminiFlashLiteRequests;
-      return todayInputTokens + todayOutputTokens;
-    }
-    function usagePct() { return currentUsage() / DAILY_LIMITS[currentModel]; }
-    function isLimitReached() { return usagePct() >= 1; }
+    function usagePct() { return (todayInputTokens + todayOutputTokens) / DAILY_TOKEN_LIMIT; }
 
+    // Le plafond de tokens ne vaut que sur SA clé : sans clé, l'app s'arrête à
+    // FREE_WORDS_PER_DAY mots et le Worker compte les appels.
     function checkDailyLimit() {
-      checkApiKey();
-      if (isLimitReached()) throw new Error('Limite journalière atteinte — change de modèle dans les réglages');
-    }
-
-    // BYOK : vérifie que la clé du modèle sélectionné est présente
-    function checkApiKey() {
-      if (isGemini()) {
-        if (!geminiKey) throw new Error('Clé API Gemini manquante — ajoute-la dans les réglages');
-      } else if (!openaiKey) {
-        throw new Error('Clé API OpenAI manquante — ajoute-la dans les réglages');
-      }
+      if (openaiKey && usagePct() >= 1) throw new Error(tApp('token_limit'));
     }
 
     function updateTokenDisplay() {
       const el = document.getElementById('token-display');
       if (!el) return;
       if (!showTokenCounter) { el.style.display = 'none'; return; }
-      const limit = DAILY_LIMITS[currentModel];
-      let text;
-      if (currentModel === 'gemma') {
-        text = `${todayGemmaRequests} / 1500 req`;
-      } else if (currentModel === 'geminiflash') {
-        text = `${todayGeminiFlashRequests} / 20 req`;
-      } else if (currentModel === 'geminiflashlite') {
-        text = `${todayGeminiFlashLiteRequests} / 500 req`;
-      } else {
-        text = `${(todayInputTokens + todayOutputTokens).toLocaleString()} / ${(limit).toLocaleString()} tokens`;
-      }
-      el.textContent = text;
+      el.textContent = `${(todayInputTokens + todayOutputTokens).toLocaleString()} / ${DAILY_TOKEN_LIMIT.toLocaleString()} tokens`;
       const pct = usagePct();
       el.style.color = pct >= 1 ? 'var(--rojo)' : pct >= 0.8 ? 'var(--ocre)' : 'var(--gris)';
       el.style.display = 'block';
@@ -4001,30 +3850,16 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       saveSettingsToServer();
     }
 
-    function setModel(val) {
-      currentModel = val;
-      localStorage.setItem(KEY_MODEL, val);
-      updateTokenDisplay();
-      updateReasoningUI();
-      lastSubmittedSentence = '';
-      saveSettingsToServer();
-    }
-
     function setOpenaiKey(val) {
       openaiKey = sanitizeKey(val);
       localStorage.setItem(KEY_OPENAI_KEY, openaiKey);
-      saveKeysToServer();
-    }
-    function setGeminiKey(val) {
-      geminiKey = sanitizeKey(val);
-      localStorage.setItem(KEY_GEMINI_KEY, geminiKey);
       saveKeysToServer();
     }
 
     // Sync : pousse les clés vers D1 (partagées entre appareils)
     async function saveKeysToServer() {
       try {
-        await authFetch('/api/keys', { method: 'POST', body: JSON.stringify({ openaiKey, geminiKey }) });
+        await authFetch('/api/keys', { method: 'POST', body: JSON.stringify({ openaiKey }) });
       } catch { /* silencieux */ }
     }
 
@@ -4052,9 +3887,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         } catch { /* hors contexte sécurisé : on reste sur l'affichage commun */ }
         myAddToken = u.add_token || '';
         if (u.openai_key) { openaiKey = sanitizeKey(u.openai_key); localStorage.setItem(KEY_OPENAI_KEY, openaiKey); }
-        if (u.gemini_key) { geminiKey = sanitizeKey(u.gemini_key); localStorage.setItem(KEY_GEMINI_KEY, geminiKey); }
         const oi = document.getElementById('openai-key-input'); if (oi) oi.value = openaiKey;
-        const gi = document.getElementById('gemini-key-input'); if (gi) gi.value = geminiKey;
         const au = document.getElementById('add-url-input');
         if (au && myAddToken) au.value = `${API_ENDPOINT}/add?token=${myAddToken}&word=WORD&lang=auto`;
         // Sync des réglages multi-appareils (point 14)
@@ -4064,7 +3897,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     }
 
     // ── Sync des réglages entre appareils (point 14) ──────────
-    const _settingsDenylist = new Set([KEY_JWT, KEY_PWD_OK, KEY_OPENAI_KEY, KEY_GEMINI_KEY]);
+    const _settingsDenylist = new Set([KEY_JWT, KEY_PWD_OK, KEY_OPENAI_KEY, ...OBSOLETE_KEYS]);
     function _isSyncableSettingKey(k) {
       return k && k.startsWith('vocab_') && !_settingsDenylist.has(k)
              && !k.startsWith('vocab_today_new_') && !k.startsWith('vocab_today_done_')
@@ -4107,10 +3940,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       situationCounts     = localStorage.getItem(KEY_SITUATION_COUNTS) === 'true';
       situationWordCount  = parseInt(localStorage.getItem(KEY_SITUATION_WORDS)) || 1;
       freeMix             = _readFreeMix(currentLang);
-      currentModel        = localStorage.getItem(KEY_MODEL) || 'gpt4';
-      gptEffort           = localStorage.getItem(KEY_GPT_EFFORT) || 'none';
-      geminiThinkingLevel = localStorage.getItem(KEY_GEMINI_THINKING) || 'none';
-      gemmaThinkingLevel  = localStorage.getItem(KEY_GEMMA_THINKING) || 'minimal';
       imageTheme          = localStorage.getItem(KEY_IMAGE_THEME) || '';
       selectedLangs       = loadSelectedLangs();
     }
@@ -4127,8 +3956,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       document.getElementById('free-mix-slider').value = freeMix;
       document.getElementById('free-mix-value').textContent = freeMixLabel(freeMix);
       document.getElementById('image-theme-select').value = imageTheme;
-      document.getElementById('model-select').value = currentModel;
-      updateReasoningUI();
       // Slider « nombre de mots » : clé PAR LANGUE (l'ancienne clé globale, toujours
       // vide, remettait le slider à « 1 mot » à chaque sync des réglages). Si des
       // cartes sont affichées, l'invariant slider = cartes prime sur la valeur sauvée.
@@ -4140,68 +3967,6 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       const _savedGC = grammarCountFor(currentLang);
       document.getElementById('grammar-count-slider').value = _savedGC;
       document.getElementById('grammar-slider-value').textContent = formsLabel(_savedGC);
-    }
-
-    function setGptEffort(val) {
-      gptEffort = val;
-      localStorage.setItem(KEY_GPT_EFFORT, val);
-      lastSubmittedSentence = '';
-      saveSettingsToServer();
-    }
-    function setGeminiThinking(val) {
-      geminiThinkingLevel = val;
-      localStorage.setItem(KEY_GEMINI_THINKING, val);
-      lastSubmittedSentence = '';
-      saveSettingsToServer();
-    }
-    function setGemmaThinking(val) {
-      gemmaThinkingLevel = val;
-      localStorage.setItem(KEY_GEMMA_THINKING, val);
-      lastSubmittedSentence = '';
-      saveSettingsToServer();
-    }
-    function currentGeminiThinkingLevel() {
-      return currentModel === 'gemma' ? gemmaThinkingLevel : geminiThinkingLevel;
-    }
-    function geminiThinkingBody() {
-      const tl = currentGeminiThinkingLevel();
-      return tl !== 'none' ? { thinkingLevel: tl } : {};
-    }
-
-    function updateReasoningUI() {
-      const lbl = document.getElementById('reasoning-label');
-      const sel = document.getElementById('reasoning-select');
-      if (!lbl || !sel) return;
-      // Nom du modèle + « raisonnement » dans la langue de l'appli (il était écrit en
-      // français en dur, et « thinking » en anglais pour Gemini et Gemma).
-      const what = tApp('set_reasoning').toLowerCase();
-      if (currentModel === 'gpt4') {
-        lbl.textContent = `GPT-5.6 — ${what}`;
-        sel.innerHTML = '<option value="none">none</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option><option value="xhigh">xhigh</option><option value="max">max</option>';
-        sel.value = gptEffort;
-      } else if (currentModel === 'gemma') {
-        lbl.textContent = `Gemma 4 — ${what}`;
-        sel.innerHTML = '<option value="minimal">minimal</option><option value="high">high</option>';
-        sel.value = gemmaThinkingLevel;
-      } else {
-        lbl.textContent = `Gemini Flash — ${what}`;
-        sel.innerHTML = '<option value="none">none</option><option value="minimal">minimal</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option>';
-        sel.value = geminiThinkingLevel;
-      }
-    }
-
-    function setReasoningLevel(val) {
-      if (currentModel === 'gpt4') setGptEffort(val);
-      else if (currentModel === 'gemma') setGemmaThinking(val);
-      else setGeminiThinking(val);
-    }
-
-    function trackGeminiRequest() {
-      if (currentModel === 'geminiflash') { todayGeminiFlashRequests++; _pendingFlash++; }
-      else if (currentModel === 'geminiflashlite') { todayGeminiFlashLiteRequests++; _pendingFlashLite++; }
-      else { todayGemmaRequests++; _pendingGemma++; }
-      updateTokenDisplay();
-      saveTodayTokensDebounced();
     }
 
     // ── Mode image : « ¿Cuál es ? » ───────────────────────────
@@ -4328,7 +4093,7 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
 {"choice": 1, "ambiguous": false, "decisive": "...", "others": {${others}}, "errors": [{"wrong": "...", "right": "...", "why": "..."}], "words": [{"word": "...", "note": "..."}]}`;
 
       try {
-        const raw  = await callAIVision(round.photos.map(p => p.url), prompt, isGemini() ? 3000 : 16000);
+        const raw  = await callAIVision(round.photos.map(p => p.url), prompt, 16000);
         const json = String(raw || '').match(/\{[\s\S]*\}/);
         if (!json) throw new Error('réponse illisible');
         const data   = JSON.parse(json[0]);
@@ -5672,10 +5437,7 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
         document.getElementById('toggle-tokens').checked = showTokenCounter;
         document.getElementById('toggle-situation-counts').checked = situationCounts;
         document.getElementById('image-theme-select').value = imageTheme;
-        document.getElementById('model-select').value = currentModel;
         document.getElementById('openai-key-input').value = openaiKey;
-        document.getElementById('gemini-key-input').value = geminiKey;
-        updateReasoningUI();
         loadAccountInfo();
       }
     }
@@ -6407,7 +6169,7 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
 
       const hintTextEl = document.getElementById('hint-text');
       const hintBox    = document.getElementById('hint-box');
-      const cacheKey   = `${word.toLowerCase()}|${currentLang}|${currentModel}`;
+      const cacheKey   = `${word.toLowerCase()}|${currentLang}|${MISTRAL_MODEL}`;
       _hintBoxWord     = word;
       prepareHintExtra();
 
@@ -6622,7 +6384,7 @@ Reply with ONLY this JSON object, nothing else:
 - "concrete": true ONLY if the entry names something a photograph could plainly show (an object, an animal, a plant, a place, a food, a visible action). false for abstractions, feelings, qualities, grammatical words and idioms.`;
 
       // GPT est un modèle de raisonnement : le budget couvre reasoning + texte.
-      const raw = await callAI(prompt, isGemini() ? 500 : 16000);
+      const raw = await callAI(prompt, 16000);
       const m   = String(raw || '').match(/\{[\s\S]*\}/);
       if (!m) throw new Error('réponse illisible');
       const d = JSON.parse(m[0]);
@@ -6873,7 +6635,7 @@ Respond entirely in ${feedbackLang}.`;
         // growSpacer s'en charge pendant le streaming, quand la place manque.
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-        const evalMaxTokens = isGemini() ? 2000 + sWords.length * 400 : 16000;
+        const evalMaxTokens = 16000;
         // Le verdict démarre en haut d'un écran vide : aucun défilement à faire.
         // stoppedAtTop:true neutralise aussi le recalage final plus bas.
         const scroller = { onChunk: updateCatchup, cleanup() {}, stoppedAtTop: true };
@@ -7241,8 +7003,8 @@ Write all scenarios and explanations in ${langName}.`;
       const prompt = qcmPrompt(qcmWord);
 
       try {
-        // GPT : reasoning + texte dans le même budget ; Gemini : 7 scénarios avec explications
-        const reply = await callAI(prompt, isGemini() ? 2600 : 16000);
+        // reasoning + texte dans le même budget
+        const reply = await callAI(prompt, 16000);
         // Extrait le JSON — enlève les blocs markdown éventuels, puis cherche [{…}]
         const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
         const jsonStart = stripped.search(/\[\s*\{/);
@@ -7488,7 +7250,9 @@ Write all scenarios and explanations in ${langName}.`;
       const v = parseInt(localStorage.getItem(KEY_ROUND_SIZE + '_' + lang));
       return Number.isFinite(v) && v > 0 ? v : DEFAULT_ROUND_SIZE;
     }
-    function roundSize() { return roundSizeFor(currentLang); }
+    // Sans clé, la manche ne dépasse pas ce qu'il reste des mots du jour (valeur
+    // affichée seulement : le réglage demandé reste intact).
+    function roundSize() { return Math.min(roundSizeFor(currentLang), freeWordsLeft()); }
 
     // Les mots neufs se comptent PAR MANCHE, comme la taille. C'était un quota du
     // JOUR (`maxNewPerDay`), et les deux curseurs de l'écran de départ mesuraient
@@ -7554,6 +7318,17 @@ Write all scenarios and explanations in ${langName}.`;
     // Avance optimiste : la ligne d'historique qui la justifie part au même instant
     // (`recordSessionAnswer`), et la valeur sera relue de la base au prochain chargement.
     function markDone()      { doneTodayMap[currentLang] = doneToday() + 1; }
+
+    // ── Sans clé : 10 mots par jour, sur la clé du propriétaire ──
+    // Comptés comme la carte d'accueil, dans `history` (toutes langues confondues).
+    // C'est la limite qu'on voit ; le Worker en tient une seconde, en appels, qu'on
+    // ne contourne pas en l'appelant directement (FREE_AI_PER_DAY).
+    const FREE_WORDS_PER_DAY = 10;
+    function freeWordsLeft() {
+      if (openaiKey) return Infinity;
+      const done = selectedLangs.reduce((n, l) => n + doneToday(l), 0);
+      return Math.max(0, FREE_WORDS_PER_DAY - done);
+    }
 
     // Minuit LOCAL en horodatage UTC : `history.date` est un ISO UTC, donc c'est la
     // seule borne qui découpe la journée là où l'utilisateur la voit.
@@ -8080,10 +7855,16 @@ Write all scenarios and explanations in ${langName}.`;
       // manche vide (elle n'aurait aucune sortie).
       const p     = planRound(true);
       const empty = !waiting && p.dueCount + p.aheadCount + p.freshCount + p.chosenCount === 0;
+      // Sans clé : ce qui reste des mots du jour, ou « reviens demain ».
+      const left     = freeWordsLeft();
+      const freeDone = !waiting && left === 0;
       const note  = document.getElementById('session-empty-note');
-      note.style.display = empty ? '' : 'none';
-      note.textContent   = tPrac('sess_empty');
-      startBtn.style.display = empty ? 'none' : '';
+      note.textContent = freeDone ? tPrac('sess_free_done').replace('{n}', FREE_WORDS_PER_DAY)
+        : empty ? tPrac('sess_empty')
+        : !waiting && left !== Infinity ? tPrac('sess_free_left').replace('{n}', wordsLabel(left))
+        : '';
+      note.style.display = note.textContent ? '' : 'none';
+      startBtn.style.display = empty || freeDone ? 'none' : '';
       alignSessionTop();
 
       // La manche commencée sur l'autre appareil arrive après coup : l'écran est
@@ -8354,7 +8135,7 @@ You do NOT know the word. Using only clues in the texts themselves (an odd-one-o
 ${order.map((k, n) => `${n + 1}. ${choices[k].text}`).join('\n')}
 
 Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
-      const reply = await callAI(prompt, isGemini() ? 600 : 8000);
+      const reply = await callAI(prompt, 8000);
       const a = reply.indexOf('['), b = reply.lastIndexOf(']');
       const arr = JSON.parse(reply.slice(a, b + 1));
       if (!Array.isArray(arr) || arr.length !== choices.length) return null;
@@ -8365,7 +8146,7 @@ Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
 
     // Un tirage, rendu tel quel : soit l'aveu d'ignorance, soit les quatre scénarios.
     async function qcmAttempt(word) {
-      const reply    = await callAI(qcmPrompt(word), isGemini() ? 2600 : 16000); // 7 scénarios
+      const reply    = await callAI(qcmPrompt(word), 16000); // 7 scénarios
       const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
       const a = stripped.search(/\[\s*\{/), b = stripped.lastIndexOf(']');
       if (a === -1 || b <= a) {
@@ -8712,7 +8493,7 @@ Return ONLY this JSON object, no markdown:
 
     async function fetchPick(word) {
       const candidates = pickCandidates(word);
-      const reply    = await callAI(pickPrompt(word, candidates), isGemini() ? 1500 : 16000);
+      const reply    = await callAI(pickPrompt(word, candidates), 16000);
       const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
       const a = stripped.indexOf('{'), b = stripped.lastIndexOf('}');
       if (a === -1 || b <= a) throw new Error('Format inattendu');
@@ -8759,7 +8540,7 @@ Return ONLY this JSON object, no markdown:
     }
 
     async function fetchType(word) {
-      const reply    = await callAI(typePrompt(word), isGemini() ? 1000 : 16000);
+      const reply    = await callAI(typePrompt(word), 16000);
       const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
       const a = stripped.indexOf('{'), b = stripped.lastIndexOf('}');
       if (a === -1 || b <= a) throw new Error('Format inattendu');
@@ -9592,11 +9373,7 @@ Return ONLY this JSON object, no markdown:
       const input = document.getElementById(ob ? 'ob-words' : 'add-word-input');
       const res   = document.getElementById(ob ? 'ob-words-result' : 'add-word-result');
       const lang  = ob ? _obAddLang : addLang;
-      // Sans clé OpenAI, l'entonnoir de /add ne peut rien vérifier et répond
-      // « ajouter quand même ? » pour chaque mot (NOKEY). Un nouveau compte qui a
-      // choisi Gemini verrait ce refus sur toute sa liste : la langue est connue,
-      // on ajoute directement.
-      const flags = ob && !openaiKey ? 'both' : null;
+      const flags = null; // sans clé, /add vérifie avec celle du propriétaire (plafond du jour)
       const seen  = new Set();
       const words = splitAddInput(input.value).filter(w => {
         const k = w.toLowerCase();
@@ -10260,7 +10037,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
 ]`;
 
       try {
-        const reply    = await callAI(prompt, isGemini() ? 800 : 16000);
+        const reply    = await callAI(prompt, 16000);
         const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
         const jStart   = stripped.search(/\[\s*\{/);
         const jEnd     = stripped.lastIndexOf(']');
@@ -10517,10 +10294,15 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         .replace(/^(<br>\s*)+/, '');
     }
 
-    // ── Wrappers modèle-agnostiques ───────────────────────────
-    function isGemini() { return currentModel === 'gemma' || currentModel === 'geminiflash' || currentModel === 'geminiflashlite'; }
-    function geminiModelId() { return GEMINI_MODEL_IDS[currentModel] || 'gemma-4-31b-it'; }
-    function callAI(prompt, maxTokens)               { checkDailyLimit(); return isGemini() ? callGemini(prompt, maxTokens)              : callMistral(prompt, maxTokens); }
+    // Sans clé, le Worker refuse au-delà du plafond du jour (`free_limit`) : on le dit
+    // en clair plutôt que de montrer un code.
+    function aiErrorText(e) {
+      if (e && e.code === 'free_limit') return (currentLang ? tPrac : tApp)('free_limit');
+      return e && e.message;
+    }
+
+    // ── Wrappers : un seul modèle, Terra (noms `callMistral*` par héritage) ──
+    function callAI(prompt, maxTokens) { checkDailyLimit(); return callMistral(prompt, maxTokens); }
     function coalesceChunks(onChunk) {
       let pending = null, frame = 0;
       const run = () => {
@@ -10539,116 +10321,14 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     async function callAIStream(prompt, onChunk, maxTokens) {
       checkDailyLimit();
       const c = coalesceChunks(onChunk);
-      try {
-        return await (isGemini() ? callGeminiStream(prompt, c.cb, maxTokens)
-                                 : callMistralStream(prompt, c.cb, maxTokens));
-      } finally { c.flush(); }
+      try { return await callMistralStream(prompt, c.cb, maxTokens); }
+      finally { c.flush(); }
     }
-    // `imageUrls` : une ou plusieurs photos, étiquetées « Photo 1 », « Photo 2 »…
-    // dans l'ordre. ⚠️ Une seconde déclaration (GPT) portait le même nom et écrasait
-    // ce dispatcher : la vision passait toujours par GPT, même avec Gemini choisi.
+    // `imageUrls` : une ou plusieurs photos, étiquetées « Photo 1 », « Photo 2 »… dans l'ordre.
     function callAIVision(imageUrls, prompt, maxTokens) {
       checkDailyLimit();
-      const urls = [].concat(imageUrls);
-      return isGemini() ? callGeminiVision(urls, prompt, maxTokens) : callMistralVision(urls, prompt, maxTokens);
+      return callMistralVision([].concat(imageUrls), prompt, maxTokens);
     }
-
-    // ── Gemini (non-streaming) ─────────────────────────────────
-    async function callGemini(prompt, maxTokens = 2000) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 30000);
-      try {
-        const res = await fetch(`${API_ENDPOINT}/gemini`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-Gemini-Key': geminiKey },
-          body: JSON.stringify({ prompt, maxTokens, stream: false, geminiModel: geminiModelId(), ...geminiThinkingBody() }),
-          signal: controller.signal
-        });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message || String(data.error));
-        trackGeminiRequest();
-        return data.text;
-      } catch (err) {
-        if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
-        throw err;
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
-    // ── Gemini vision (non-streaming) ─────────────────────────
-    async function callGeminiVision(imageUrls, prompt, maxTokens = 2000) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 60000);
-      try {
-        const res = await fetch(`${API_ENDPOINT}/gemini`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-Gemini-Key': geminiKey },
-          body: JSON.stringify({ prompt, maxTokens, imageUrls, stream: false, geminiModel: geminiModelId(), ...geminiThinkingBody() }),
-          signal: controller.signal
-        });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message || String(data.error));
-        trackGeminiRequest();
-        return data.text;
-      } catch (err) {
-        if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
-        throw err;
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
-    // ── Gemini streaming ───────────────────────────────────────
-    async function callGeminiStream(prompt, onChunk, maxTokens = 3000) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 30000);
-      let res;
-      try {
-        res = await fetch(`${API_ENDPOINT}/gemini`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-Gemini-Key': geminiKey },
-          body: JSON.stringify({ prompt, maxTokens, stream: true, geminiModel: geminiModelId(), ...geminiThinkingBody() }),
-          signal: controller.signal
-        });
-      } catch (err) {
-        clearTimeout(timer);
-        if (err.name === 'AbortError') throw new Error('Délai dépassé — réessaie');
-        throw err;
-      }
-      if (!res.ok) {
-        clearTimeout(timer);
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `HTTP ${res.status}`);
-      }
-      trackGeminiRequest();
-      const reader  = res.body.getReader();
-      const decoder = new TextDecoder();
-      let fullText  = '';
-      let buffer    = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const payload = line.slice(6).trim();
-          try {
-            const parsed = JSON.parse(payload);
-            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            if (text) { fullText += text; onChunk(fullText); }
-          } catch {}
-        }
-      }
-      clearTimeout(timer);
-      return fullText.trim();
-    }
-
-    // `max_output_tokens` couvre raisonnement + texte. Aux niveaux xhigh/max le
-    // raisonnement peut avaler tout le budget et renvoyer un texte vide → on double.
-    function gptMaxTokens(n) { return (gptEffort === 'xhigh' || gptEffort === 'max') ? n * 2 : n; }
 
     // ── Appel Mistral (non-streaming, pour QCM et situations) ─
     async function callMistral(prompt, maxTokens = 2000) {
@@ -10658,11 +10338,11 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         const res = await fetch(`${API_ENDPOINT}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-OpenAI-Key': openaiKey },
-          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: gptMaxTokens(maxTokens), reasoning: { effort: gptEffort } }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, reasoning: { effort: GPT_EFFORT } }),
           signal: controller.signal
         });
         const data = await res.json();
-        if (data.error) throw new Error(data.error.message);
+        if (data.error) throw new Error(aiErrorText(data.error));
         trackTokens(data.usage);
         const text = data.output_text
           ?? (data.output ?? []).filter(o => o.type === 'message').flatMap(o => o.content ?? []).filter(c => c.type === 'output_text').map(c => c.text ?? '').join('');
@@ -10693,13 +10373,13 @@ Return ONLY a JSON array of exactly 3 items, no other text:
                 { type: 'input_image', image_url: url }
               ])
             ]}],
-            max_output_tokens: gptMaxTokens(maxTokens),
-            reasoning: { effort: gptEffort }
+            max_output_tokens: maxTokens,
+            reasoning: { effort: GPT_EFFORT }
           }),
           signal: controller.signal
         });
         const data = await res.json();
-        if (data.error) throw new Error(data.error.message);
+        if (data.error) throw new Error(aiErrorText(data.error));
         trackTokens(data.usage);
         const text = data.output_text
           ?? (data.output ?? []).filter(o => o.type === 'message').flatMap(o => o.content ?? []).filter(c => c.type === 'output_text').map(c => c.text ?? '').join('');
@@ -10724,7 +10404,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
         res = await fetch(`${API_ENDPOINT}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-OpenAI-Key': openaiKey },
-          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: gptMaxTokens(maxTokens), reasoning: { effort: gptEffort }, stream: true }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, reasoning: { effort: GPT_EFFORT }, stream: true }),
           signal: controller.signal
         });
       } catch (err) {
@@ -10735,7 +10415,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       if (!res.ok) {
         clearTimeout(timer);
         const err = await res.json();
-        throw new Error(err.error?.message || `HTTP ${res.status}`);
+        throw new Error(aiErrorText(err.error) || `HTTP ${res.status}`);
       }
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
@@ -11024,7 +10704,7 @@ Reply with ONLY this JSON object, nothing else:
       // GPT est un modèle de raisonnement : le budget couvre reasoning + texte, d'où
       // les 16000 (même convention que le QCM et les mots liés) — sinon le raisonnement
       // consomme tout et la réponse revient vide.
-      const raw  = await callAI(prompt, isGemini() ? 800 : 16000);
+      const raw  = await callAI(prompt, 16000);
       const json = String(raw || '').match(/\{[\s\S]*\}/);
       if (!json) throw new Error('réponse illisible');
       const data = JSON.parse(json[0]);
@@ -11372,7 +11052,7 @@ Reply with ONLY this JSON object, nothing else:
       <h2 class="modal-title" data-i18n="help_title">Comment ça marche</h2>
       <div class="help-section">
         <h3 data-i18n="help_s1_t">1 · Démarrer</h3>
-        <div data-i18n="help_s1"><p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». Puis ouvre <strong>réglages</strong> et colle ta <strong>clé API</strong> (OpenAI ou Gemini) : l'app s'en sert pour générer les définitions et corriger tes phrases. Ta clé reste à toi (BYOK), elle n'est jamais partagée.</p></div>
+        <div data-i18n="help_s1"><p>Crée un compte (email + mot de passe) ou « Continuer avec Google ». L'app te demande ensuite tes langues et tes premiers mots. Sans clé, tu as 10 mots par jour. Avec ta propre <strong>clé OpenAI</strong> (<strong>réglages → réglages avancés</strong>), il n'y a plus de limite ; elle reste à toi et n'est jamais partagée.</p></div>
       </div>
       <div class="help-section">
         <h3 data-i18n="help_s2_t">2 · Ajouter des mots</h3>

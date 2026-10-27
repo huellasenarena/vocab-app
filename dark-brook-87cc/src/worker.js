@@ -97,6 +97,26 @@ function sanitizeScriptKey(k) {
   return clean.startsWith('sk-') ? clean : '';
 }
 
+// ── Comptes sans clé : la clé du propriétaire, avec un plafond par jour ──
+// L'app arrête un compte sans clé à 10 mots par jour ; ces plafonds-ci sont le
+// garde-fou qu'on ne contourne pas en appelant le Worker directement. Un mot
+// coûte deux à trois appels (QCM + lecteur aveugle, définition), d'où 40.
+const FREE_MODEL          = 'gpt-6.1-terra';
+const FREE_AI_PER_DAY     = 40;
+const FREE_ADDS_PER_DAY   = 30;
+const FREE_MAX_OUT_TOKENS = 16000;
+
+// Compte un appel de plus et dit s'il reste dans le plafond. L'incrément est
+// atomique (ON CONFLICT) : deux appels simultanés ne lisent pas le même compte.
+async function takeFreeQuota(env, uid, kind, max) {
+  const date = new Date().toISOString().slice(0, 10);
+  const row = await env.DB.prepare(
+    'INSERT INTO free_quota (user_id, date, kind, n) VALUES (?, ?, ?, 1) ' +
+    'ON CONFLICT(user_id, date, kind) DO UPDATE SET n = n + 1 RETURNING n'
+  ).bind(String(uid), date, kind).first();
+  return !!row && row.n <= max;
+}
+
 const ADD_LANGS = ['English', 'Spanish', 'French', 'Greek'];
 
 // ── Logique d'ajout intelligent (portée de l'Apps Script, lecture D1) ──
@@ -745,9 +765,10 @@ export default {
       if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
       if (request.method === 'POST') {
         try {
-          const { openaiKey, geminiKey } = await request.json();
-          await env.DB.prepare('UPDATE users SET openai_key = ?, gemini_key = ? WHERE id = ?')
-            .bind(openaiKey || null, geminiKey || null, auth.uid).run();
+          // Seule la clé OpenAI se règle encore : l'app n'utilise plus Google.
+          const { openaiKey } = await request.json();
+          await env.DB.prepare('UPDATE users SET openai_key = ? WHERE id = ?')
+            .bind(openaiKey || null, auth.uid).run();
           return json({ ok: true });
         } catch (err) {
           return json({ error: { message: err.message } }, 500);
@@ -794,10 +815,16 @@ export default {
         // le commentaire de l'utilisateur.
         const { base, note } = splitEntry(word);
 
-        // BYOK intégral : clé de l'appelant (kindle_import.py via X-OpenAI-Key),
-        // sinon la clé OpenAI que l'utilisateur a enregistrée dans ⚙️ (D1).
-        // Plus de repli sur la clé propriétaire : sans clé → NOKEY (voir plus bas).
-        const callerKey = sanitizeScriptKey(request.headers.get('X-OpenAI-Key')) || sanitizeScriptKey(user.openai_key);
+        // Clé de l'appelant (kindle_import.py via X-OpenAI-Key), sinon celle que
+        // l'utilisateur a enregistrée (D1), sinon celle du propriétaire dans la
+        // limite de FREE_ADDS_PER_DAY — compte sans clé. Plafond atteint → NOKEY.
+        let callerKey = sanitizeScriptKey(request.headers.get('X-OpenAI-Key')) || sanitizeScriptKey(user.openai_key);
+        let onOwnerKey = false;
+        if (!callerKey && !(ignoreSens && ignoreSim) && env.OPENAI_API_KEY_SCRIPT
+            && await takeFreeQuota(env, user.id, 'add', FREE_ADDS_PER_DAY)) {
+          callerKey  = env.OPENAI_API_KEY_SCRIPT;
+          onOwnerKey = true;
+        }
         const aiEnv = { ...env, OPENAI_API_KEY_SCRIPT: callerKey };
 
         const tabMap = {
@@ -808,13 +835,14 @@ export default {
         };
         let language = (lang && lang !== 'auto' && tabMap[lang]) ? tabMap[lang] : null;
 
-        // Sans clé, aucune vérification IA n'est possible :
+        // Sans clé (ni la sienne, ni celle du propriétaire, plafond du jour atteint),
+        // aucune vérification IA n'est possible :
         // - langue inconnue → impossible d'ajouter (on ne sait pas où)
         // - langue connue → avertissement NOKEY ; l'appelant confirme en renvoyant
         //   ignore_sens=true & ignore_sim=true (« ajouter quand même »)
         if (!callerKey) {
-          if (!language) return textOut("NOKEY:Aucune clé OpenAI enregistrée — impossible de détecter la langue. Précise la langue ou ajoute ta clé dans les réglages. | ?");
-          if (!(ignoreSens && ignoreSim)) return textOut('NOKEY:Aucune clé OpenAI enregistrée — le mot ne sera pas vérifié. | ' + language);
+          if (!language) return textOut("NOKEY:Limite du jour atteinte — impossible de détecter la langue. Précise la langue ou ajoute ta clé OpenAI dans les réglages. | ?");
+          if (!(ignoreSens && ignoreSim)) return textOut('NOKEY:Limite du jour atteinte — le mot ne sera pas vérifié. | ' + language);
         }
 
         // Réponse INVALID : la graphie proposée est renvoyée en 3e segment
@@ -885,7 +913,8 @@ export default {
         // du chemin de réponse — l'ajout n'attend pas le modèle, et un échec
         // laisse simplement `grouped = 0`, repris par la passe « classer les
         // mots sans groupe ».
-        if (callerKey && ctx && ctx.waitUntil) {
+        // Pas sur la clé du propriétaire : les groupes ne servent qu'aux modes cachés.
+        if (callerKey && !onOwnerKey && ctx && ctx.waitUntil) {
           ctx.waitUntil(autogroupOnAdd(env, user.id, language, word, aiEnv).catch(() => {}));
         }
         return textOut("Succès (" + language + ") : '" + word + "' ajouté.");
@@ -1708,13 +1737,28 @@ export default {
       }
     }
 
-    // OpenAI proxy (route par défaut, BYOK : JWT + clé utilisateur)
+    // OpenAI proxy (route par défaut) : la clé de l'utilisateur s'il en a une ;
+    // sinon celle du propriétaire, dans la limite de FREE_AI_PER_DAY, et la
+    // requête est alors recadrée ici (modèle, réflexion, budget) — on ne laisse
+    // pas le client choisir ce qui se paie sur une autre clé que la sienne.
     const auth = await requireAuth(request, env);
     if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
-    const openaiKey = request.headers.get('X-OpenAI-Key');
-    if (!openaiKey) return json({ error: { message: 'Clé OpenAI manquante — ajoute-la dans ⚙️' } }, 400);
+    let openaiKey = (request.headers.get('X-OpenAI-Key') || '').trim();
     try {
-      const body = await request.text();
+      let body = await request.text();
+      if (!openaiKey) {
+        if (!env.OPENAI_API_KEY_SCRIPT) return json({ error: { message: 'Clé OpenAI manquante' } }, 400);
+        if (!await takeFreeQuota(env, auth.uid, 'ai', FREE_AI_PER_DAY))
+          return json({ error: { code: 'free_limit', message: 'free_limit' } }, 429);
+        let b;
+        try { b = JSON.parse(body); } catch { return json({ error: { message: 'requête illisible' } }, 400); }
+        b.model = FREE_MODEL;
+        b.reasoning = { effort: 'none' };
+        b.max_output_tokens = Math.min(Number(b.max_output_tokens) || FREE_MAX_OUT_TOKENS, FREE_MAX_OUT_TOKENS);
+        delete b.tools;
+        body = JSON.stringify(b);
+        openaiKey = env.OPENAI_API_KEY_SCRIPT;
+      }
       const res = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
