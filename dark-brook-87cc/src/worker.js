@@ -1303,12 +1303,17 @@ export default {
           if (!lang) return json({ error: { message: 'lang requis' } }, 400);
           // La jauge « N/M ★★★ » se calcule ici : le front n'a pas à recroiser
           // les groupes avec la progression pour afficher une liste.
+          // ⚠️ INDEXED BY : sans lui, SQLite prend la clé primaire (user_id
+          // seul) et relit TOUS les rattachements de l'utilisateur pour CHAQUE
+          // groupe — ~400 000 lignes lues par appel en espagnol (38 × 10 500),
+          // 82 % du quota quotidien de D1 le 2026-10-27. Par group_id : ~7 800.
           const { results } = await env.DB.prepare(
             `SELECT g.id, g.name, g.scope, g.kind,
                     COUNT(wg.word) AS n,
                     SUM(CASE WHEN COALESCE(p.correct,0) - COALESCE(p.incorrect,0) >= 3 THEN 1 ELSE 0 END) AS mastered
                FROM groups g
-               LEFT JOIN word_groups wg ON wg.group_id = g.id AND wg.user_id = g.user_id
+               LEFT JOIN word_groups wg INDEXED BY idx_word_groups_group
+                      ON wg.group_id = g.id AND wg.user_id = g.user_id
                LEFT JOIN progress p ON p.user_id = g.user_id AND p.language = g.language AND p.word = wg.word
               WHERE g.user_id = ? AND g.language = ?
               GROUP BY g.id

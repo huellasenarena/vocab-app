@@ -564,6 +564,7 @@ Lus depuis D1 en parallèle (`/api/history` journal + `/api/progress` scores cum
 7. **Jauge `12/128 ★★★` invisible** dans `#groups-modal` : `renderGroupsList` l'écrit dans `.fp-order`, en `opacity:0` tant que la ligne n'est pas cochée.
 8. **`wrangler dev --remote`** se fait throttler (erreur Cloudflare 1031) après plusieurs heures → relancer le process.
 9. ~~**`wrangler.jsonc` parasite à la racine**~~ **supprimé le 2026-09-09**. Il avait été écrit par Wrangler lui-même, un `deploy` lancé depuis la racine : faute de config, il en créait une pour publier le dossier courant en assets statiques (`"assets": { "directory": "." }`), puis captait tous les déploiements suivants et échouait sur un binaire de 103 Mo de `node_modules`. Toujours déployer le Worker depuis `dark-brook-87cc/`.
+10. ~~**Quota D1 de lignes lues à 82 %**~~ **RÉGLÉ le 2026-10-27** (alerte Cloudflare : 4,1 M sur 5 M `rows_read` par jour, offre gratuite). Cause : `GET /api/groups` — SQLite joignait `word_groups` par sa clé primaire (`user_id` seul) et relisait **tous** les rattachements de l'utilisateur **pour chaque groupe** : ~400 000 lignes par appel en espagnol (38 × 10 500), près d'un million à chaque ouverture de « mes mots » (4 langues). Corrigé par `INDEXED BY idx_word_groups_group` → ~7 800. ⚠️ Toute nouvelle requête avec jointure : mesurer `rows_read` sur la vraie base (`wrangler d1 execute vocab --remote --json --command "…"`, champ `meta.rows_read`) et lire `EXPLAIN QUERY PLAN`. `wrangler d1 insights` refuse le jeton OAuth actuel (erreur 10000).
 
 ---
 
