@@ -2683,6 +2683,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_new_one:     { en: `new`, fr: `neuf`, es: `nueva`, el: `νέα` },
       sess_new_n:       { en: `new`, fr: `neufs`, es: `nuevas`, el: `νέες` },
       sess_quit:        { en: `leave round`, fr: `quitter la manche`, es: `salir de la ronda`, el: `έξοδος από τον γύρο` },
+      sess_back:        { en: `back`, fr: `retour`, es: `volver`, el: `επιστροφή` },
       // On ne voit pas de question mais des phrases : le bouton dit ce qu'il refait.
       qcm_regen:        { en: `Other sentences`, fr: `Autres phrases`, es: `Otras frases`, el: `Άλλες προτάσεις` },
       pick_regen:       { en: `Another situation`, fr: `Autre situation`, es: `Otra situación`, el: `Άλλη περίσταση` },
@@ -7439,9 +7440,20 @@ Write all scenarios and explanations in ${langName}.`;
     // ⚠️ Après une reprise, `sessionItems` ne porte que les mots RESTANTS : sans
     // `_roundOffset`, la barre disait « 0 / 19 » au lieu de « 1 / 20 », et le score
     // de fin comptait les bonnes réponses d'avant la sortie sur un total d'après.
+    // Une question répondue compte DÈS la réponse, pas quand on passe à la
+    // suivante : la barre avançait au « Suivant », et après la dernière réponse
+    // elle disait encore « 11 / 12 ».
+    function answeredCount() {
+      const cur = sessionItems[sessionIdx];
+      return Math.min(sessionIdx + (cur && cur.answered ? 1 : 0), sessionItems.length);
+    }
     function roundProgress() {
-      const done = _roundOffset + Math.min(sessionIdx, sessionItems.length);
-      return { done, total: sessionTotal() };
+      return { done: _roundOffset + answeredCount(), total: sessionTotal() };
+    }
+    // Toutes les questions ont leur réponse : la manche est finie, qu'on appuie ou
+    // non sur « Terminer ».
+    function roundAllAnswered() {
+      return sessionItems.length > 0 && answeredCount() >= sessionItems.length;
     }
     // Aide autorisée sur le mot à l'écran (définition, traduction, image) : vraie
     // sur un mot neuf, et sur un rappel seulement une fois la réponse donnée.
@@ -7689,12 +7701,17 @@ Write all scenarios and explanations in ${langName}.`;
     function saveRound(now) {
       if (!sessionRunning || !currentLang) return;
       const lang = currentLang;
+      // ⚠️ La question à l'écran, une fois répondue, est FAITE : la reprise part de
+      // la suivante. Sinon quitter juste après une réponse redonnait le même mot,
+      // et quitter après la dernière laissait « Reprendre (1 mot) ».
+      const idx = answeredCount();
+      if (idx >= sessionItems.length) { clearSavedRound(); return; } // plus rien à reprendre
       try {
         const state = {
           date:  todayStrLocal(),
           ts:    Date.now(),
           dev:   deviceId(),
-          idx:   sessionIdx,
+          idx,
           ok:    sessionOk,
           off:   _roundOffset, // déjà faits avant la dernière reprise
           // L'échéance de chaque mot est notée telle qu'elle est AVANT sa réponse :
@@ -7955,6 +7972,7 @@ Write all scenarios and explanations in ${langName}.`;
       if (!start) return;
       start.style.display = '';
       body.innerHTML      = '';
+      resetSessionBoxes(); // la définition du dernier mot restait sous les boutons
       if (head) head.style.display = 'none';   // rien à jauger avant de commencer
       document.getElementById('screen-practice').classList.remove('round-on');
 
@@ -8048,13 +8066,11 @@ Write all scenarios and explanations in ${langName}.`;
       return _roundOffset + sessionItems.length;
     }
 
-    function renderSession() {
-      // Une suppression de mot depuis « mes mots » re-rend la manche en arrière-plan :
-      // sans cette garde, elle écraserait l'écran de départ par un item vide.
-      if (!sessionRunning) return void renderSessionStart();
-      const start = document.getElementById('session-start');
-      if (start) start.style.display = 'none';
-      const body = document.getElementById('session-body');
+    // Barre de la manche et bouton de sortie. Repeinte au rendu d'une question ET
+    // à sa réponse : la barre avance dès qu'on répond, et après la dernière réponse
+    // « quitter la manche » devient « retour » — la manche est finie, on ne laisse
+    // rien en plan.
+    function paintRoundHead() {
       const { done, total } = roundProgress();
       document.getElementById('session-count').textContent =
         total ? tPrac('sess_round').replace('{a}', done).replace('{b}', total) : '';
@@ -8064,9 +8080,19 @@ Write all scenarios and explanations in ${langName}.`;
       if (head) head.style.display = total ? '' : 'none';
       const quit = document.getElementById('session-quit');
       if (quit) {
-        quit.textContent   = tPrac('sess_quit');
+        quit.textContent   = tPrac(roundAllAnswered() ? 'sess_back' : 'sess_quit');
         quit.style.display = sessionIdx < sessionItems.length ? '' : 'none';
       }
+    }
+
+    function renderSession() {
+      // Une suppression de mot depuis « mes mots » re-rend la manche en arrière-plan :
+      // sans cette garde, elle écraserait l'écran de départ par un item vide.
+      if (!sessionRunning) return void renderSessionStart();
+      const start = document.getElementById('session-start');
+      if (start) start.style.display = 'none';
+      const body = document.getElementById('session-body');
+      paintRoundHead();
 
       // Avant les sorties : une image ou une définition ouverte resterait sinon
       // affichée sous la carte de fin de manche.
@@ -8099,12 +8125,6 @@ Write all scenarios and explanations in ${langName}.`;
       return `<div class="session-actions">
                 <button class="btn-secondary" onclick="nextRound()">${tPrac('sess_again')}</button>
               </div>`;
-    }
-
-    function sessionPendingLine() {
-      const left = dueWords().length;
-      if (!left) return tPrac('sess_clear');
-      return left === 1 ? tPrac('sess_pending_one') : tPrac('sess_pending').replace('{n}', left);
     }
 
     // ⚠️ Vider `#hint-box.innerHTML` **détruit sa structure** (titre, corps, zone
@@ -8171,29 +8191,25 @@ Write all scenarios and explanations in ${langName}.`;
       return localStorage.getItem(KEY_ROUND_DONE + lang) === todayStrLocal();
     }
 
-    function renderSessionEnd() {
-      sessionRunning = false;
-      // La manche est finie : l'en-tête revient, avec « ← langue » — sans lui, une
-      // carte de fin sans « une autre manche » (plus rien à faire) n'avait aucune sortie.
-      document.getElementById('screen-practice').classList.remove('round-on');
+    // Manche finie (2026-11-12) : retour direct à l'écran de départ, plus de carte
+    // « Séance terminée ». « Terminer », « retour » et un second appui sur la
+    // dernière réponse mènent tous ici.
+    function finishRound() {
       clearSavedRound(); // manche finie : plus rien à reprendre
       markRoundFinishedToday();
-      const total = sessionTotal();
-      document.getElementById('session-body').innerHTML =
-        `<div class="word-card">
-           <span class="word-label">${tPrac('sess_done')}</span>
-                      <p class="session-note">${tPrac('sess_score').replace('{a}', sessionOk).replace('{b}', total)}</p>
-           <p class="session-note">${sessionPendingLine()}</p>
-         </div>
-         ${sessionEndActions()}`;
+      showSessionStart();
+      window.scrollTo({ top: 0 });
     }
+    function renderSessionEnd() { finishRound(); }
 
     // Quitter une manche en cours. ⚠️ Rien n'est annulé — les réponses déjà données
     // sont enregistrées au fur et à mesure — et la manche reste REPRENABLE : on la
     // sauvegarde avant de rendre la main à l'écran de départ, où « reprendre » et
     // « nouvelle manche » sont côte à côte. D'où le libellé « quitter », jamais
     // « annuler » : on ne perd pas ce qu'on vient de faire.
+    // Toutes les questions répondues : le bouton dit « retour » et la manche est finie.
     function quitRound() {
+      if (roundAllAnswered()) return finishRound();
       saveRound();
       showSessionStart();
     }
@@ -8579,9 +8595,16 @@ Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
       _sessionBusy = false;
     }
 
-    function sessionNext() { sessionIdx++; saveRound(); renderSession(); }
+    function sessionNext() {
+      if (roundAllAnswered()) return finishRound();
+      sessionIdx++; saveRound(); renderSession();
+    }
 
     function addSessionNextButton() {
+      // La réponse est donnée : la barre avance tout de suite, et après la dernière
+      // la manche est finie — la journée passe au vert même sans « Terminer ».
+      paintRoundHead();
+      if (roundAllAnswered()) markRoundFinishedToday();
       const wrap = document.createElement('div');
       wrap.className = 'session-actions';
       const b = document.createElement('button');
