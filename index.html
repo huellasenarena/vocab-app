@@ -550,6 +550,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .btn-ghost .why, .ctx-menu-btn .why { font-style: italic; margin-left: 0.4rem; }
     .session-new { font-size: 0.9rem; font-style: italic; color: var(--gris); }
     .fp-meta { display: block; font-size: var(--t-pequeno); color: var(--gris); }
+    .fp-meta .stars { font-size: inherit; }
     #session-result:not(:empty) { margin-top: 0.9rem; }
     .session-count { font-size: 0.82rem; color: var(--gris); }
     .session-track { height: 2px; background: var(--linea-suave); overflow: hidden; }
@@ -1233,6 +1234,16 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       padding-top: calc(var(--safe-top, 0px) + 1rem);
     }
     .modal-overlay.visible { display: flex; }
+    /* Une fenêtre ouverte : la page derrière ne défile plus (elle défilait dès qu'on
+       arrivait au bout d'une liste), et le défilement ne déborde pas de la fenêtre. */
+    html:has(.modal-overlay.visible), html:has(.modal-overlay.visible) body { overflow: hidden; }
+    .modal-overlay, .modal-card { overscroll-behavior: contain; }
+    /* « Chercher un mot » : en-tête (titre, filtre, tris) et bouton du bas fixes,
+       la liste seule défile. Deux zones de défilement imbriquées (fenêtre + liste)
+       poussaient le bouton hors de la fenêtre, coupé en bas. */
+    #free-search-modal .modal-card { display: flex; flex-direction: column; overflow: hidden; max-height: 85vh; max-height: 85dvh; }
+    #free-search-modal .modal-card > * { flex: none; }
+    #free-search-modal #free-search-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
     .modal-card {
       background: var(--papel); border: 1px solid var(--linea-fuerte); border-radius: 0;
       max-width: 460px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 1.6rem;
@@ -1714,7 +1725,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 </div>
 
   <!-- ── Écran 0 : Chargement ── -->
-  <div class="screen" id="screen-loading">
+  <div class="screen active" id="screen-loading">
     <h1 class="app-title">BYOV</h1>
     <p class="app-subtitle" style="margin-top:0" data-i18n="loading_connecting">connexion en cours…</p>
     <div style="width:32px;height:32px;border:3px solid var(--linea);border-top-color:var(--tinta);border-radius:50%;animation:spin 0.8s linear infinite;margin-top:1rem"></div>
@@ -2659,7 +2670,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_chosen_one:  { en: `chosen`, fr: `choisi`, es: `elegida`, el: `επιλεγμένη` },
       sess_chosen_n:    { en: `chosen`, fr: `choisis`, es: `elegidas`, el: `επιλεγμένες` },
       sf_use:           { en: `Use`, fr: `Valider`, es: `Aceptar`, el: `Εντάξει` },
-      sf_intro_round:   { en: `Tick the words to put in this round. If places are left, the round fills up as usual.`, fr: `Coche les mots à mettre dans la manche. S'il reste des places, la manche se complète comme d'habitude.`, es: `Marca las palabras que quieres en esta ronda. Si quedan plazas, la ronda se completa como siempre.`, el: `Διάλεξε τις λέξεις για αυτόν τον γύρο. Αν μένουν θέσεις, ο γύρος συμπληρώνεται όπως πάντα.` },
+      sf_intro_round:   { en: `Tick the words to put in this round. The sliders follow your selection; raise them to add more words.`, fr: `Coche les mots à mettre dans la manche. Les curseurs suivent ta sélection ; monte-les pour ajouter d'autres mots.`, es: `Marca las palabras que quieres en esta ronda. Los controles siguen tu selección; súbelos para añadir otras palabras.`, el: `Διάλεξε τις λέξεις για αυτόν τον γύρο. Οι ρυθμίσεις ακολουθούν την επιλογή σου· ανέβασέ τες για να προστεθούν κι άλλες λέξεις.` },
       sess_after_answer:{ en: `after you answer`, fr: `après ta réponse`, es: `después de responder`, el: `μετά την απάντηση` },
       sess_swap_new:    { en: `Another new word`, fr: `Autre mot neuf`, es: `Otra palabra nueva`, el: `Άλλη νέα λέξη` },
       sess_plan_prefix: { en: `this round:`, fr: `dans cette manche :`, es: `en esta ronda:`, el: `σε αυτόν τον γύρο:` },
@@ -3223,7 +3234,20 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     }
 
     // ── Au chargement ─────────────────────────────────────────
-    window.addEventListener('load', () => {
+    // ⚠️ Démarrage sur DOMContentLoaded, pas sur `load` : `load` attend aussi le
+    // script de Google (connexion Google), parfois lent — et pendant ce temps la
+    // page restait vide. `initGoogleSignIn` se relance seul tant que ce script
+    // n'est pas arrivé.
+    // L'écran de chargement (cercle) est affiché d'emblée dans le HTML, et reste
+    // jusqu'à ce que l'accueil soit PRÊT : compte relu (langues, liens du
+    // propriétaire) et cartes de langue comptées. Montré plus tôt, l'accueil se
+    // remplissait sous les yeux, morceau par morceau. Plafond de 6 s : sans réseau,
+    // on montre l'accueil quand même.
+    function bootWhenReady(fn) {
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+      else fn();
+    }
+    bootWhenReady(async () => {
 
       // Safe area iOS — uniquement en PWA installée (standalone), où la barre d'état
       // recouvre le contenu. En Safari normal (barre d'URL présente), on garde env()
@@ -3236,22 +3260,34 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       }
 
       renderLangGrid();
-      showScreen(localStorage.getItem(KEY_JWT) ? 'screen-lang' : 'screen-auth');
-      // Le premier passage reprend à l'étape atteinte — mais seulement une fois le
-      // compte relu : sur un appareil neuf, les langues arrivent avec les réglages.
-      if (localStorage.getItem(KEY_JWT)) loadAccountInfo().then(ok => {
-        if (!ok) return;
-        const step = onboardingStep();
-        if (step >= 0) openOnboarding(step);
-      });
       initGoogleSignIn();
       applySettingsUI();
+      if (!localStorage.getItem(KEY_JWT)) { showScreen('screen-auth'); return; }
+      const deadline = new Promise(r => setTimeout(r, 6000));
+      let ok = false;
+      await Promise.race([
+        (async () => {
+          ok = await loadAccountInfo();
+          await updateLangBadges(); // après le compte : les langues ont pu changer
+        })().catch(() => {}),
+        deadline,
+      ]);
+      if (!document.getElementById('screen-loading').classList.contains('active')) return; // déjà ailleurs (déconnexion)
+      showScreen('screen-lang', { badges: false });
+      // Le premier passage reprend à l'étape atteinte — mais seulement une fois le
+      // compte relu : sur un appareil neuf, les langues arrivent avec les réglages.
+      if (ok) {
+        const step = onboardingStep();
+        if (step >= 0) openOnboarding(step);
+      }
     });
 
-    function showScreen(id) {
+    // `badges: false` : les cartes viennent d'être comptées (démarrage), inutile de
+    // refaire les appels.
+    function showScreen(id, opts) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
-      if (id === 'screen-lang') updateLangBadges();
+      if (id === 'screen-lang' && !(opts && opts.badges === false)) updateLangBadges();
     }
 
     function getLang() { return LANGS.find(l => l.key === currentLang) || LANGS[0]; }
@@ -3514,8 +3550,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     }
 
     // Upsert d'une ligne de progression (D1, par utilisateur)
+    // `fields.practiced === false` : écriture qui n'est pas une réponse (définition
+    // ouverte). Elle ne compte pas comme « travaillé aujourd'hui » — sinon la réponse
+    // qui suit passait pour une répétition du jour et le mot neuf restait neuf.
     async function upsertProgress(word, fields) {
-      _practicedToday.add(lc(word));
+      if (fields.practiced !== false) _practicedToday.add(lc(word));
       await authFetch('/api/progress', {
         method: 'POST',
         body: JSON.stringify({ lang: currentLang, word, ...fields })
@@ -3732,7 +3771,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       onSliderChange(wordCount());
       document.getElementById('word-count-label').textContent = tPrac('loading');
       document.getElementById('lang-total').textContent = ''; // sinon le total de la langue précédente
-      _roundChosen = []; // des mots choisis dans une autre langue
+      setRoundChosen([]); // des mots choisis dans une autre langue
       // Les formes grammaticales existent pour n'importe laquelle des 4 langues
       // (table `grammar_forms` par langue) — la section s'affiche s'il y en a.
       const loadFns = [ loadWords(lang), loadProgress(lang), loadTodayCount(lang), loadTodayTokens(), loadBlacklist(lang), loadGrammarForms() ];
@@ -5067,11 +5106,16 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
       list.innerHTML = _freeFiltered.map((w, i) => {
         const pos = _freePickOrder.indexOf(w);
         const on  = pos >= 0;
-        // La date en clair, et celle qui correspond au tri : l'ajout pour « ajoutés
-        // récemment », la dernière pratique sinon (elle était affichée brute, en ISO).
-        const added = _freeSort === 'added';
-        const when  = added ? wordAddedAt[lc(w)] : lastPracticedOf(w);
-        const meta  = when ? tPrac(added ? 'sf_meta_added' : 'sf_meta_seen').replace('{d}', agoLabel(when)) : '';
+        // Sous le mot : sa date d'ajout, puis s'il est neuf ou déjà travaillé — dans
+        // ce cas, quand et avec combien d'étoiles. Pour composer une manche, c'est
+        // ce qui dit si l'on choisit un mot à découvrir ou un mot à revoir.
+        const addedAt = wordAddedAt[lc(w)];
+        const seenAt  = lastPracticedOf(w);
+        const parts   = [];
+        if (addedAt) parts.push(escapeHtml(tPrac('sf_meta_added').replace('{d}', agoLabel(addedAt))));
+        if (isNewWord(w)) parts.push(`<em>${tPrac('sess_new_one')}</em>`);
+        else parts.push((seenAt ? escapeHtml(tPrac('sf_meta_seen').replace('{d}', agoLabel(seenAt))) + ' ' : '') + starsHtml(w));
+        const meta = parts.join(' · ');
         return `<div class="free-pick-row ${on ? 'on' : ''}" onclick="toggleFreePick(${i})">
           <span class="fp-word">${lc(w)}${meta ? `<span class="fp-meta">${meta}</span>` : ''}</span>
           <span class="fp-order">${on ? (pos + 1) : ''}</span>
@@ -5096,7 +5140,7 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
     }
     function startFreeQueue() {
       if (_freeSearchFor === 'round') {
-        _roundChosen = [..._freePickOrder];
+        setRoundChosen([..._freePickOrder]);
         closeFreeSearch();
         syncRoundDials();
         return;
@@ -6262,6 +6306,7 @@ Respond entirely in ${langName}.`;
         const trimIdx = fullText.indexOf('## ');
         const trimmedText = trimIdx >= 0 ? fullText.slice(trimIdx) : fullText;
         definitionCache[cacheKey] = { html: renderMarkdown(trimmedText), ts: Date.now() };
+        logDefinitionExamples(word, trimmedText);
 
         hintUsedWords.add(word.toLowerCase());
         if (currentWords.length === 1) {
@@ -6277,6 +6322,19 @@ Respond entirely in ${langName}.`;
       } finally {
         _hintInFlight = false;
       }
+    }
+
+    // Les phrases d'exemple de la définition (une par sens) partent avec les autres
+    // exemples. Première section seulement : « 1. **sens** — définition. *exemple* ».
+    function logDefinitionExamples(word, text) {
+      const first = text.split(/^## /m)[1] || '';
+      const items = [];
+      first.split('\n').forEach(line => {
+        const m = line.match(/^\s*\d+\.\s*\*\*(.+?)\*\*\s*[—–-]\s*(.*?)\s*\*([^*]+)\*\s*$/);
+        if (m) items.push({ role: 'sense', text: m[3].trim(), kept: true, shown: true,
+                            meta: { sense: m[1].trim(), definition: m[2].trim() } });
+      });
+      if (items.length) logExamples(word, 'definition', items);
     }
 
     // ── « Étudier » un mot nouveau ────────────────────────────
@@ -7170,7 +7228,7 @@ Write all scenarios and explanations in ${langName}.`;
       const incorrect = existing?.incorrect || 0;
       const nextReview = existing?.nextReview || null;
       try {
-        await upsertProgress(word, { correct, incorrect, hintUsed, nextReview });
+        await upsertProgress(word, { correct, incorrect, hintUsed, nextReview, practiced: false });
         progressMap[key] = { correct, incorrect, hintUsed, nextReview };
         console.log(`[D1] ✓ Hint sauvegardé : ${word}`);
       } catch (err) {
@@ -7286,6 +7344,24 @@ Write all scenarios and explanations in ${langName}.`;
       return Number.isFinite(v) && v >= 0 ? v : DEFAULT_ROUND_NEW;
     }
     function roundNew() { return roundNewFor(currentLang); }
+
+    // ── Mots choisis à la main : les curseurs suivent la sélection ────────
+    // Choisir 5 mots dont 3 neufs pose les curseurs sur « 5 mots, dont 3 neufs » :
+    // la manche est la sélection, rien de plus. On peut les monter (l'app complète
+    // comme d'habitude), jamais descendre sous la sélection. ⚠️ Ces valeurs ne
+    // valent que pour CETTE manche : le réglage habituel n'est pas écrasé et
+    // revient dès que la sélection est consommée ou retirée.
+    let _roundPick = null; // { size, nw } tant que des mots sont choisis
+    function chosenNewCount() { return _roundChosen.filter(w => allWords.includes(w) && isNewWord(w)).length; }
+    function chosenOldCount() { return _roundChosen.filter(w => allWords.includes(w) && !isNewWord(w)).length; }
+    function setRoundChosen(list) {
+      _roundChosen = list || [];
+      _roundPick   = _roundChosen.length ? { size: _roundChosen.length, nw: chosenNewCount() } : null;
+    }
+    function roundSizeEff() { return _roundPick ? Math.max(_roundPick.size, _roundChosen.length) : roundSize(); }
+    function roundNewEff()  { return _roundPick ? Math.max(_roundPick.nw, chosenNewCount()) : roundNew(); }
+    // Plus grand indice dont la valeur ne dépasse pas v (0 si aucune).
+    function idxFloor(values, v) { let k = 0; values.forEach((x, i) => { if (x <= v) k = i; }); return k; }
     // Palier lu sur le NET (correct - incorrect), c'est-à-dire les étoiles :
     //   net < 2 → QCM · 2 ≤ net < 6 → « quel mot ? » · net ≥ 6 → « tape le mot ».
     // Un mot neuf réussi passe par saveProgressNew, qui laisse le net à 0 — le seuil 2
@@ -7486,8 +7562,11 @@ Write all scenarios and explanations in ${langName}.`;
       // autant qu'on veut. Ce sont ses ÉTOILES qui ne bougent qu'une fois par jour
       // (cf. recordSessionAnswer).
       const free      = w => !chosenSet.has(lc(w));
-      const size   = Math.max(0, roundSize() - chosen.length);
-      const wanted = Math.min(roundNew(), size);
+      // Les curseurs comptent la manche ENTIÈRE, mots choisis compris : il reste
+      // à remplir ce qu'ils dépassent de la sélection (cf. `_roundPick`).
+      const chosenNewN = chosen.filter(w => isNewWord(w)).length;
+      const size   = Math.max(0, roundSizeEff() - chosen.length);
+      const wanted = Math.min(Math.max(0, roundNewEff() - chosenNewN), size);
 
       // ⚠️ On ne réserve que ce que le stock peut tenir : une place gardée pour un
       // mot neuf qui n'existe pas est une place perdue.
@@ -7685,32 +7764,36 @@ Write all scenarios and explanations in ${langName}.`;
     // déduit : les régler tous les trois recréerait deux quotas concurrents où le
     // plus petit gagne (bug du 2026-09-09).
     function setRoundSize(val) {
+      if (_roundPick) {
+        // Les mots déjà vus de la sélection gardent leur place : baisser la taille
+        // en dessous fait baisser les neufs, jamais sous les neufs choisis.
+        _roundPick.size = Math.max(val, _roundChosen.length);
+        _roundPick.nw   = Math.max(chosenNewCount(), Math.min(_roundPick.nw, _roundPick.size - chosenOldCount()));
+        syncRoundDials(); return;
+      }
       localStorage.setItem(KEY_ROUND_SIZE + '_' + currentLang, val);
       saveSettingsToServer();
       syncRoundDials();
     }
 
     function setRoundNew(val) {
+      if (_roundPick) {
+        // Monter les neufs fait monter la taille : « 5 mots dont 4 neufs » ne tient
+        // pas quand trois des cinq choisis sont déjà vus.
+        _roundPick.nw   = Math.max(val, chosenNewCount());
+        _roundPick.size = Math.max(_roundPick.size, chosenOldCount() + _roundPick.nw);
+        syncRoundDials(); return;
+      }
       localStorage.setItem(KEY_ROUND_NEW + '_' + currentLang, val);
       saveSettingsToServer();
       syncRoundDials();
-    }
-
-    // Plus grand indice dont la valeur tient dans `size` : on ne propose pas de
-    // servir 8 mots neufs dans une manche de 4.
-    function roundNewMaxIndex(size) {
-      let k = 0;
-      ROUND_NEW_VALUES.forEach((v, i) => { if (v <= size) k = i; });
-      return k;
     }
 
     function syncRoundDials() {
       const ss = document.getElementById('round-size-slider');
       const ns = document.getElementById('round-new-slider');
       if (!ss) return;
-      const size = roundSize();
-      let si = ROUND_SIZE_VALUES.indexOf(size);
-      if (si === -1) { si = 0; ROUND_SIZE_VALUES.forEach((v, k) => { if (v <= size) si = k; }); }
+      const size = roundSizeEff();
       // ⚠️ La valeur DEMANDÉE reste en réglage, seule la valeur AFFICHÉE est bornée
       // par la taille de la manche — même règle que le slider du mode espacé.
       // Persister la valeur bornée, c'est perdre son réglage en rétrécissant une
@@ -7718,35 +7801,49 @@ Write all scenarios and explanations in ${langName}.`;
       // Même règle face au STOCK : une liste d'un mot ne peut pas faire une manche
       // de douze, ni en offrir deux neufs. Les curseurs s'arrêtent à ce qui existe,
       // et remontent seuls jusqu'au réglage quand la liste grandit.
+      // Mots choisis à la main (`_roundPick`) : les curseurs partent de la sélection
+      // et ne descendent pas en dessous — leur minimum est la sélection elle-même.
+      const cChosen = _roundChosen.length, cNew = chosenNewCount();
       const newCap = ROUND_NEW_VALUES[ROUND_NEW_VALUES.length - 1];
       let newStock = 0, worked = 0; // les neufs comptés jusqu'au plus grand cran du curseur, pas au-delà
       for (const w of allWords) { if (!isNewWord(w)) worked++; else if (newStock < newCap) newStock++; }
+      newStock = Math.max(newStock, cNew); // plus de neufs choisis que le plus grand cran
       const sizeCap = Math.min(size, Math.max(1, allWords.length));
       // Les neufs se bornent à la taille DEMANDÉE, pas à la taille affichée : celle-ci
       // dépend d'eux (ci-dessous), et les borner l'un par l'autre les bloquerait tous
       // les deux.
-      const nmax = roundNewMaxIndex(Math.min(sizeCap, newStock));
-      let ni = ROUND_NEW_VALUES.indexOf(roundNew());
-      if (ni === -1) { ni = 0; ROUND_NEW_VALUES.forEach((v, k) => { if (v <= roundNew()) ni = k; }); }
-      ni = Math.min(ni, nmax);
-      ns.max = nmax;
+      const newMin = _roundPick ? cNew : 0;
+      // Avec une sélection, la taille suit les neufs (setRoundNew) : seul le stock
+      // les borne.
+      const newTop = Math.max(newMin, _roundPick ? newStock : Math.min(sizeCap, newStock));
+      const nmin   = idxFloor(ROUND_NEW_VALUES, newMin);
+      const nmax   = Math.max(nmin, idxFloor(ROUND_NEW_VALUES, newTop));
+      // Avec une sélection, la valeur peut tomber entre deux crans (7 neufs choisis) :
+      // le nombre affiché est exact, le curseur se pose sur le cran inférieur.
+      const newShown = _roundPick
+        ? Math.min(Math.max(roundNewEff(), newMin), newTop)
+        : ROUND_NEW_VALUES[Math.min(idxFloor(ROUND_NEW_VALUES, roundNew()), nmax)];
+      const ni = idxFloor(ROUND_NEW_VALUES, newShown);
+      ns.min = nmin; ns.max = nmax;
       // ⚠️ « Mots par manche » s'arrête à ce que la manche peut VRAIMENT servir : les
       // mots déjà travaillés (dus, puis en avance), les mots neufs du second curseur
       // — jamais plus — et les mots choisis à la main. Borné au seul stock total, il
       // promettait onze mots quand la manche n'en servait que cinq (1 travaillé, 10
       // neufs, « dont 4 neufs »). Monter les neufs fait remonter ce plafond.
-      const chosenNew = _roundChosen.filter(w => allWords.includes(w) && isNewWord(w)).length;
-      const servable  = worked + chosenNew + ROUND_NEW_VALUES[ni];
-      let sMax = 0;
-      ROUND_SIZE_VALUES.forEach((v, k) => { if (v <= Math.max(1, Math.min(allWords.length, servable))) sMax = k; });
-      ss.max = sMax;
-      si = Math.min(si, sMax);
-      const shown = ROUND_SIZE_VALUES[si];
+      // (Avec une sélection, `newShown` compte déjà ses mots neufs.)
+      const servable  = worked + newShown + (_roundPick ? 0 : cNew);
+      const sizeMin   = _roundPick ? cChosen : 1;
+      const sizeTop   = Math.max(sizeMin, 1, Math.min(allWords.length, servable));
+      const shown     = Math.min(Math.max(size, sizeMin), sizeTop);
+      const smin = idxFloor(ROUND_SIZE_VALUES, sizeMin);
+      const sMax = Math.max(smin, idxFloor(ROUND_SIZE_VALUES, sizeTop));
+      const si   = idxFloor(ROUND_SIZE_VALUES, shown);
+      ss.min = smin; ss.max = sMax;
       // Une seule position possible (liste d'un mot, plus aucun mot neuf) : le
       // curseur le montre — rond gris, ligne en pointillés — au lieu d'avoir l'air
       // cassé quand on essaie de le bouger.
-      ss.classList.toggle('stuck', sMax === 0); ss.disabled = sMax === 0;
-      ns.classList.toggle('stuck', nmax === 0); ns.disabled = nmax === 0;
+      ss.classList.toggle('stuck', sMax === smin); ss.disabled = sMax === smin;
+      ns.classList.toggle('stuck', nmax === nmin); ns.disabled = nmax === nmin;
 
       // ⚠️ Tout le panneau en langue de l'APPLI (`tApp`), comme le reste de la
       // séance. `screen-practice` est par ailleurs traduit dans la langue PRATIQUÉE :
@@ -7757,7 +7854,7 @@ Write all scenarios and explanations in ${langName}.`;
       ss.value = si;
       ns.value = ni;
       document.getElementById('round-size-value').textContent = nw(shown);
-      document.getElementById('round-new-value').textContent  = nw(ROUND_NEW_VALUES[ni]);
+      document.getElementById('round-new-value').textContent  = nw(newShown);
 
       // ⚠️ Ce que la manche va VRAIMENT servir : on LIT le plan, on ne le refait
       // pas — c'est le seul moyen que la ligne et la manche ne se contredisent
@@ -7812,12 +7909,13 @@ Write all scenarios and explanations in ${langName}.`;
       updateFreeStartBtn();
       document.getElementById('free-search-modal').classList.add('visible');
     }
-    function clearRoundChosen() { _roundChosen = []; syncRoundDials(); }
+    function clearRoundChosen() { setRoundChosen([]); syncRoundDials(); }
 
     function renderRoundChosen() {
       const el = document.getElementById('round-chosen');
       if (!el) return;
       _roundChosen = _roundChosen.filter(w => allWords.includes(w)); // un mot supprimé entre-temps
+      if (!_roundChosen.length) _roundPick = null;
       const n = _roundChosen.length;
       if (!n) {
         el.innerHTML = `<button class="btn-ghost" onclick="openRoundPicker()">${tPrac('sess_pick_words')}</button>`;
@@ -7925,7 +8023,7 @@ Write all scenarios and explanations in ${langName}.`;
       // Une manche vide lancée n'avait aucune sortie (pas d'en-tête, pas de
       // « quitter ») : on reste sur l'écran de départ, qui le dit.
       if (!sessionItems.length) return void renderSessionStart(true);
-      _roundChosen = []; // consommé : la manche suivante repart du remplissage automatique
+      setRoundChosen([]); // consommé : la manche suivante repart du remplissage automatique
       sessionIdx   = 0;
       sessionOk    = 0;
       launchRound();
@@ -8175,7 +8273,42 @@ Write all scenarios and explanations in ${langName}.`;
       forgetUnknown(word); // il le connaît finalement : on lève l'aveu précédent
       rememberQCM(word, res.choices);
       const scores = await blindScores(res.choices).catch(() => null);
-      return pickQcmFour(res.choices, scores);
+      const four   = pickQcmFour(res.choices, scores);
+      // Les sept scénarios partent en base, les quatre retenus marqués `kept`.
+      const ex = logExamples(word, 'qcm', res.choices.map((c, i) => ({
+        role: c.correct ? 'correct' : 'wrong', text: c.text, kept: four.includes(c),
+        meta: { fits: c.fits || null, explanation: c.explanation || null, blind: scores ? scores[i] : null },
+      })));
+      four.forEach(c => { c.ex = ex; });
+      return four;
+    }
+
+    // ── Exemples gardés en base (rien ne les lit encore) ──────────────────
+    // Chaque exemple écrit par le modèle est envoyé à `/api/examples`, sans
+    // attendre : une génération = un `batch`, porté par l'exercice (`ex`) pour
+    // noter ensuite s'il a été affiché et ce qu'on y a répondu. Un échec réseau
+    // ne gêne rien — ce sont des données pour plus tard.
+    function logExamples(word, kind, items, lang) {
+      const batch = (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      authFetch('/api/examples', { method: 'POST', body: JSON.stringify({ lang: lang || currentLang, word, kind, batch, items }) })
+        .catch(() => {});
+      return batch;
+    }
+    function markExamples(batch, fields) {
+      if (!batch) return;
+      authFetch('/api/examples/mark', { method: 'POST', body: JSON.stringify({ batch, ...fields }) }).catch(() => {});
+    }
+    // Le batch d'un exercice de séance, où qu'il soit rangé.
+    function exBatchOf(item) {
+      if (!item) return null;
+      if (item.kind === 'type') return item.data && item.data.ex;
+      return item.choices && item.choices[0] && item.choices[0].ex;
+    }
+    // Affiché pour de vrai (un exercice préparé d'avance peut ne jamais l'être).
+    function markItemShown(item) {
+      if (item.exShown) return;
+      const b = exBatchOf(item);
+      if (b) { item.exShown = true; markExamples(b, { shown: true }); }
     }
 
     // Le lecteur aveugle : il voit les scénarios SANS le mot et dit, pour chacun,
@@ -8277,6 +8410,7 @@ Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
           document.getElementById('session-situation').textContent = choices.situation;
           item.choices = choices.options;
         } else item.choices = choices;
+        if (!item.answered) markItemShown(item);
         document.getElementById('session-choices').innerHTML =
           item.choices.map((c, i) => `<button class="qcm-choice" onclick="answerSessionQCM(this, ${i})">${c.text}</button>`).join('')
           // Dernière ligne de la liste, comme une réponse de plus : un lien sous
@@ -8414,6 +8548,7 @@ Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
       item.picked   = -1;
       paintQcmAnswer(item);
       unlockSessionHelp();
+      markExamples(exBatchOf(item), { ok: false, answer: '' }); // '' = « je ne sais pas »
       await recordSessionAnswer(item.word, false);
       const stD = document.getElementById('session-stars');
       if (stD) stD.innerHTML = starsHtml(item.word) + sessionDueSuffix(item.word);
@@ -8431,6 +8566,10 @@ Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
       item.picked   = idx;
       paintQcmAnswer(item);
       unlockSessionHelp();
+      const pickedText = (item.choices[idx] || {}).text;
+      markExamples(exBatchOf(item), item.kind === 'pick'
+        ? { ok: isCorrect, answer: pickedText }
+        : { ok: isCorrect, picked: pickedText });
       await recordSessionAnswer(item.word, isCorrect);
       // La progression vient de bouger : le mot montre son nouvel état tout de suite,
       // étoiles ET prochaine échéance.
@@ -8580,6 +8719,9 @@ Return ONLY this JSON object, no markdown:
         { text: lc(wordBase(word)), correct: true, explanation: d.why || '' },
         ...decoys.slice(0, 4).map(w => ({ text: lc(wordBase(w)), correct: false, explanation: '' })),
       ]);
+      const ex = logExamples(word, 'pick', [{ role: 'situation', text: String(d.text), kept: true,
+        meta: { options: options.map(o => o.text), why: d.why || null } }]);
+      options.forEach(o => { o.ex = ex; });
       return { situation: String(d.text), options };
     }
 
@@ -8616,7 +8758,9 @@ Return ONLY this JSON object, no markdown:
       const d = JSON.parse(stripped.slice(a, b + 1));
       const sentence = String(d.sentence || '');
       if (sentence.split('___').length !== 2 || !String(d.form || '').trim()) throw new Error('Réponse incomplète');
-      return { sentence, form: String(d.form).trim(), why: String(d.why || '') };
+      const form = String(d.form).trim(), why = String(d.why || '');
+      const ex = logExamples(word, 'type', [{ role: 'sentence', text: sentence, kept: true, meta: { form, why } }]);
+      return { sentence, form, why, ex };
     }
 
     // Comparaison stricte sur le mot, souple sur l'enveloppe : casse, espaces et
@@ -8692,6 +8836,7 @@ Return ONLY this JSON object, no markdown:
         if (d && d.error) throw new Error(d.error);
         if (sessionItems[sessionIdx] !== item) return; // on est passé à la suite entre-temps
         item.data = d;
+        if (!item.answered) markItemShown(item);
         paintTypeSentence(item);
         document.getElementById('type-zone').innerHTML =
           `<div class="type-row">
@@ -8757,6 +8902,7 @@ Return ONLY this JSON object, no markdown:
       if (item.ok) sessionOk++;
       paintTypeAnswer(item);
       unlockSessionHelp();
+      markExamples(exBatchOf(item), { ok: item.ok, answer: item.typed });
       // Réussi avec indice : compte, mais sans étoile (le mot revient demain).
       await recordSessionAnswer(item.word, item.ok, item.ok && item.hints > 0);
       const st = document.getElementById('session-stars');
@@ -11270,7 +11416,7 @@ Reply with ONLY this JSON object, nothing else:
         <button class="filter-btn" onclick="setFreeSearchSort('old')" data-i18n="sf_old">les plus anciens</button>
         <button class="filter-btn" onclick="setFreeSearchSort('never')" data-i18n="sf_never">jamais vus</button>
       </div>
-      <div id="free-search-list" style="max-height:48vh; overflow-y:auto;"></div>
+      <div id="free-search-list"></div>
       <button class="btn-primary" id="free-search-start" style="margin-top:1rem;"
         onclick="startFreeQueue()" disabled>Commencer</button>
     </div>

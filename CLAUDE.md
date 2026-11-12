@@ -54,7 +54,8 @@ URL : `https://dark-brook-87cc.georg-dreym.workers.dev` · Code : `~/Desktop/voc
 **Données utilisateur (JWT, filtrées par `user_id`)**
 - `/api/session` GET (`?lang=&date=&from=<ISO minuit local>`) → `{ count, done }` — `done` = mots travaillés aujourd'hui, **comptés dans `history`** (`COUNT(DISTINCT word)`). ⚠️ `history.date` est un horodatage **UTC** : le client envoie SON minuit local, sinon la journée bascule à la mauvaise heure.
 - `/api/words` GET (`?lang=`, `?detail=1` → +`created_at`) · POST · DELETE (**unitaire** `{lang,word}` **ou groupé** `{items:[{lang,word}…]}`, mot+progress) · **PUT** `{lang, oldWord, newWord?, newLang?}` (**renommer et/ou changer de langue** — met à jour `words` + `progress` + `history` ; 409 si le mot existe déjà dans la langue cible)
-- `/api/progress`, `/api/session`, `/api/history`, `/api/blacklist`, `/api/usage`
+- `/api/progress`, `/api/session`, `/api/history`, `/api/blacklist`, `/api/usage` — ⚠️ `/api/progress` POST avec **`practiced: false`** (définition ouverte, `saveHint`) ne touche pas à `last_practiced` : cette date dit « déjà travaillé aujourd'hui », et la poser à l'ouverture de la définition d'un mot neuf faisait passer la réponse suivante pour une répétition du jour — le mot restait neuf (bug du 2026-11-12).
+- `/api/examples` POST · `/api/examples/mark` POST → table `examples` (voir D1)
 - `/api/grammar` GET · **POST** (ajouter une forme) · **DELETE** (supprimer une forme)
 - `/api/keys` POST → stocke `openai_key` en D1 (sync multi-appareils). `gemini_key` n'est plus écrite (colonne laissée en place).
 - `/api/settings` POST → stocke le blob JSON des réglages (`users.settings`) — sync multi-appareils
@@ -100,7 +101,7 @@ Cold start après inactivité : ~100-200ms sur la 1re requête.
 
 ## Cloudflare D1 (base `vocab`)
 
-ID : `87b54745-9878-402b-a4a5-e76720516dea`, binding `DB`. Migrations dans `dark-brook-87cc/migrations/` (`0001_init.sql`, `0002_byok_keys.sql`, `0003_settings.sql` = colonne `users.settings`, `0006_rounds.sql` = table `rounds`, `0007_free_quota.sql` = table `free_quota`). Appliquer : `wrangler d1 migrations apply vocab --local|--remote`.
+ID : `87b54745-9878-402b-a4a5-e76720516dea`, binding `DB`. Migrations dans `dark-brook-87cc/migrations/` (`0001_init.sql`, `0002_byok_keys.sql`, `0003_settings.sql` = colonne `users.settings`, `0006_rounds.sql` = table `rounds`, `0007_free_quota.sql` = table `free_quota`, `0008_examples.sql` = table `examples`). Appliquer : `wrangler d1 migrations apply vocab --local|--remote`.
 
 Toutes les tables de données portent `user_id`. Les onglets Sheets d'avant sont devenus des tables relationnelles.
 
@@ -114,6 +115,7 @@ Toutes les tables de données portent `user_id`. Les onglets Sheets d'avant sont
 | `usage` | user_id, date, openai_input, openai_output, openai_requests, gemma_requests, geminiflash_req, geminiflashlite_req |
 | `rounds` | user_id, language, **state** (blob JSON de la manche), updated_at — `PRIMARY KEY(user_id, language)` |
 | `free_quota` | user_id, date (UTC), kind (`ai`\|`add`), n — compteur du jour d'un compte **sans clé** (`takeFreeQuota`, incrément atomique) |
+| `examples` | user_id, language, word, kind (`qcm`\|`pick`\|`type`\|`definition`), **batch** (une génération), role, text, **kept** (retenu pour l'écran), **shown** (vraiment affiché), **picked** (scénario choisi), answer (`''` = je ne sais pas), ok, meta (JSON) — **tous les exemples écrits par le modèle, gardés pour plus tard, rien ne les lit encore** (`logExamples`/`markExamples`, routes `/api/examples` et `/api/examples/mark`) |
 | `blacklist` | user_id, language, word |
 | `grammar_forms` | user_id, language, category, form |
 
@@ -333,6 +335,7 @@ Né du constat que l'utilisateur décrochait au bout de 2-3 jours : **98,6 % de 
 - ⚠️ **Les rappels se prennent dans l'ORDRE DES ÉCHÉANCES, sans regarder leur palier.** Prendre d'abord les mots au palier des trous était sans conséquence tant que le budget valait 12 exercices ; avec **4 places**, un texte les mangeait toutes et les mots à 0-1 étoile — l'essentiel du retard — n'étaient plus jamais rappelés. Le complément `CLOZE_MIN` ne prend donc que les places que les rappels dus **n'ont pas remplies** (`spare`), jamais en évincer un.
 - **Le compte des neufs du jour se lit en base** (`todayNewCount`, table `sessions`) et ne sert plus qu'au **miroir** et à la carte d'accueil. ⚠️ Le compteur local des neufs **affichés** (`vocab_today_new_served_*`) a été retiré : c'était le dernier chiffre de la journée à ne pas voyager. Un mot vu mais pas répondu n'a pas été fait — il peut revenir.
 - Rappels servis **du plus en retard au moins en retard**, et QCM neufs **mélangés** aux rappels : huit mots inconnus à la file font décrocher avant le premier rappel.
+- **Mots choisis = les curseurs suivent** (2026-11-12, `_roundPick`, `setRoundChosen`) : choisir 5 mots dont 2 neufs pose « 5 mots, dont 2 neufs » ; on monte pour compléter, jamais sous la sélection ; monter les neufs monte la taille, baisser la taille baisse les neufs. Valeurs **de la manche seulement**, le réglage habituel n'est pas écrasé (`roundSizeEff`/`roundNewEff`). La liste du sélecteur dit **« nueva »** ou **« practicada … ★★☆ »** sous chaque mot. Fenêtre : seule la liste défile, bouton fixe en bas ; **toute fenêtre ouverte bloque le défilement de la page** (`html:has(.modal-overlay.visible)`).
 - **Composer la manche** (2026-10-22, facultatif) : sur l'écran de départ, « choisir des mots » (`openRoundPicker`) rouvre le sélecteur « chercher un mot » du mode libre (`_freeSearchFor = 'round'`). Les mots cochés (`_roundChosen`) prennent les **premières places** dans `planRound` (exclus des autres pools) ; le curseur « mots par manche » complète s'il en reste — plus de choisis que de places : la manche les prend tous, rien d'autre. Chacun reçoit l'exercice de son palier. La ligne déduite les nomme (« 3 choisis + 1 rappel + 2 neufs »). Le choix est **consommé** par `beginRound` et vidé au changement de langue.
 - **Fin de manche** (`sessionEndActions`) : ce qui reste à rappeler (`dueWords()` recalculé — les mots servis ont tous reçu une nouvelle échéance, donc rien à mémoriser) + « une autre manche », **et c'est tout**. ⚠️ Le bouton « ouvrir N mots neufs de plus » (`openMoreNew`, `sessionExtraNew`) n'existait que pour forcer le quota du jour : le quota parti, il n'a plus d'objet — on monte le curseur des neufs et on relance. Une manche vide offre la même sortie au lieu d'être un cul-de-sac.
 - Un mot n'apparaît **qu'une fois par séance** et ne monte **que d'un palier par séance**. La séance **se termine** (carte ✓ + score).
@@ -476,6 +479,7 @@ Combinaison retenue sur page de test (https://claude.ai/code/artifact/7d5c8f21-0
 Forme arrêtée sur page de test (https://claude.ai/code/artifact/2cbeb644-6fb3-454a-b2d5-fa0a7445fbd0), variantes combinables — **fraction** (« 8 / 20 », « ✓ 8 / 8 » quand c'est fini) + **anneau autour du drapeau** (`conic-gradient` sur `.flag-ring`, `--p` posé sur le bouton) + **doré et vert**. ⚠️ Le **rouge a disparu** : à 8 mots neufs par jour, une carte rouge tous les matins ne veut plus rien dire. ⚠️ Le disque intérieur de l'anneau prend `background: inherit` — en `var(--surface)` il restait sombre au survol du bouton. `badge_todo` (« N à faire ») n'a plus d'emploi et a été retiré.
 
 ### Écrans
+**Démarrage** (2026-11-12) : `screen-loading` (cercle) est actif dans le HTML, le démarrage part sur **DOMContentLoaded** (plus `load`, qui attendait le script Google), et l'accueil ne s'affiche qu'une fois **prêt** (`loadAccountInfo` + `updateLangBadges`, plafond 6 s) — avant, il se remplissait morceau par morceau.
 `screen-loading`, `screen-auth`, `screen-lang`, `screen-practice`, `screen-stats`, `screen-history`, `screen-mots`, `screen-revisions`, **`screen-add`** (ajouter du contenu). `showScreen(id)` (déclenche `updateLangBadges` sur screen-lang). Écrans-listes ancrés en haut (`align-self:flex-start`) — titre/recherche figés quand la liste change. **Modales** : `#help-modal` (instructions), `#lang-picker-modal` (choix langues), `#word-ctx-menu` (menu ⋯). `screen-lang` : « ? how it works » en haut à droite, grille des langues (`updateLangBadges`), **add words** + **my words** (pastilles), **my account** + **log out** (liens). **`screen-account`** (`showAccount`) : my statistics · word history (leur « retour » ramène ici) · edit languages · settings (`#account-settings-panel`, déplié sur place).
 
 ### Mes mots (`screen-mots`, `showMots`)
