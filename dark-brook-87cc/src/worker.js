@@ -1080,16 +1080,21 @@ export default {
           return json({ progress: results });
         }
         if (request.method === 'POST') {
-          const { lang, word, correct, incorrect, hintUsed, nextReview } = await request.json();
+          const { lang, word, correct, incorrect, hintUsed, nextReview, practiced } = await request.json();
           if (!lang || !word) return json({ error: { message: 'lang et word requis' } }, 400);
+          // `practiced: false` : écriture qui n'est PAS une réponse (définition ouverte,
+          // `hint_used`). Elle ne touche pas à `last_practiced` — c'est cette date qui
+          // dit « déjà travaillé aujourd'hui », et ouvrir la définition d'un mot neuf la
+          // posait : la réponse qui suivait n'était plus comptée.
+          const touch = practiced !== false;
           await env.DB.prepare(
             `INSERT INTO progress (user_id, language, word, correct, incorrect, last_practiced, hint_used, next_review)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(user_id, language, word) DO UPDATE SET
                correct = excluded.correct, incorrect = excluded.incorrect,
-               last_practiced = excluded.last_practiced, hint_used = excluded.hint_used,
+               last_practiced = COALESCE(excluded.last_practiced, progress.last_practiced), hint_used = excluded.hint_used,
                next_review = excluded.next_review`
-          ).bind(auth.uid, lang, word, correct || 0, incorrect || 0, new Date().toISOString(), hintUsed || 0, nextReview || null).run();
+          ).bind(auth.uid, lang, word, correct || 0, incorrect || 0, touch ? new Date().toISOString() : null, hintUsed || 0, nextReview || null).run();
           return json({ ok: true });
         }
         if (request.method === 'DELETE') {
@@ -1177,6 +1182,48 @@ export default {
           return json({ ok: true });
         }
         return json({ error: { message: 'méthode non supportée' } }, 405);
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
+    // Exemples écrits par le modèle : gardés pour plus tard, rien ne les lit encore
+    // (table `examples`, voir 0008_examples.sql). Deux appels, tous deux sans attente
+    // côté app :
+    //  - POST /api/examples      { lang, word, kind, batch, items:[{role,text,kept,meta}] }
+    //  - POST /api/examples/mark { batch, shown?, picked?, answer?, ok? }
+    if (path === '/api/examples' || path === '/api/examples/mark') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      if (request.method !== 'POST') return json({ error: { message: 'méthode non supportée' } }, 405);
+      try {
+        const b     = await request.json();
+        const batch = String(b.batch || '').slice(0, 64);
+        if (!batch) return json({ error: { message: 'batch manquant' } }, 400);
+        const cut = (s, n) => (s == null ? null : String(s).slice(0, n));
+        if (path === '/api/examples') {
+          const items = Array.isArray(b.items) ? b.items.slice(0, 12) : [];
+          if (!items.length || !b.lang || !b.word || !b.kind) return json({ ok: true });
+          const now  = new Date().toISOString();
+          const stmt = env.DB.prepare(
+            `INSERT INTO examples (user_id, language, word, kind, batch, role, text, kept, shown, meta, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+          await env.DB.batch(items.filter(it => it && it.text).map(it => stmt.bind(
+            auth.uid, cut(b.lang, 20), cut(b.word, 400), cut(b.kind, 20), batch,
+            cut(it.role || '', 20), cut(it.text, 2000), it.kept ? 1 : 0, it.shown ? 1 : 0,
+            it.meta == null ? null : cut(JSON.stringify(it.meta), 4000), now)));
+          return json({ ok: true });
+        }
+        const stmts = [];
+        if (b.shown) stmts.push(env.DB.prepare(
+          'UPDATE examples SET shown = 1 WHERE user_id = ? AND batch = ? AND kept = 1').bind(auth.uid, batch));
+        if (b.picked != null) stmts.push(env.DB.prepare(
+          'UPDATE examples SET picked = 1 WHERE user_id = ? AND batch = ? AND text = ?').bind(auth.uid, batch, cut(b.picked, 2000)));
+        if (b.ok != null || b.answer != null) stmts.push(env.DB.prepare(
+          'UPDATE examples SET ok = ?, answer = COALESCE(?, answer) WHERE user_id = ? AND batch = ?')
+          .bind(b.ok == null ? null : (b.ok ? 1 : 0), cut(b.answer, 400), auth.uid, batch));
+        if (stmts.length) await env.DB.batch(stmts);
+        return json({ ok: true });
       } catch (err) {
         return json({ error: { message: err.message } }, 500);
       }
