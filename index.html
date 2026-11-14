@@ -531,6 +531,37 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     /* Les boutons de départ s'empilent (« commencer », et « reprendre » quand une
        manche attend) : côte à côte, le second se faisait écraser par le premier. */
     #session-start .session-actions { flex-wrap: wrap; gap: 0.5rem; }
+    /* ── Historique des manches (2026-11-14) : page de la langue (jour courant) et
+       Historique du compte (onglet « manches »). Lignes fines, pas de cartes ;
+       une manche se déplie sur place, ses mots sous un filet à gauche. */
+    .rlog { width: 100%; display: flex; flex-direction: column; }
+    #round-log-today:not(:empty) { margin-top: 2.2rem; }
+    .rlog-hist + .rlog-hist { margin-top: 1.4rem; }
+    .rlog-day { font-size: var(--t-etiqueta); text-transform: uppercase; letter-spacing: 0.13em; color: var(--gris); padding-bottom: 0.4rem; }
+    .rlog-row {
+      display: flex; justify-content: space-between; align-items: baseline; gap: 0.8rem;
+      width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--linea-suave);
+      border-radius: 0; padding: 0.65rem 0; color: var(--tinta); font-family: var(--serif); font-size: var(--t-texto);
+    }
+    @media (hover: hover) {
+      .rlog-row:hover:not(:disabled) { background: none; border-color: var(--linea-suave); color: var(--tinta); }
+      .rlog-row:hover .rlog-main { border-bottom-color: var(--tinta); }
+    }
+    .rlog-left { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+    .rlog-main { border-bottom: 1px solid transparent; align-self: flex-start; }
+    .rlog-main::after { content: " ▸"; color: var(--gris); }
+    .rlog-row.open .rlog-main::after { content: " ▾"; }
+    .rlog-unfinished { font-size: var(--t-pequeno); color: var(--ocre); }
+    .rlog-score { font-size: var(--t-pequeno); color: var(--gris); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .rlog-words { display: flex; flex-direction: column; margin: 0.1rem 0 0.6rem; padding: 0.1rem 0 0.3rem 1rem; border-left: 1px solid var(--linea-fuerte); }
+    .rlog-word { display: flex; justify-content: space-between; align-items: baseline; gap: 0.8rem; padding: 0.3rem 0; font-size: 0.92rem; }
+    .rlog-word + .rlog-word { border-top: 1px solid var(--linea-suave); }
+    .rlog-w { min-width: 0; overflow-wrap: anywhere; }
+    .rlog-note { color: var(--gris); font-size: var(--t-pequeno); }
+    .rlog-new { font-style: italic; color: var(--gris); font-size: var(--t-pequeno); margin-left: 0.4rem; }
+    .rlog-ok { color: var(--verde); font-size: var(--t-pequeno); }
+    .rlog-ko { color: var(--rojo); font-size: var(--t-pequeno); }
+    #history-tabs { margin-bottom: 0.2rem; }
     .session-head { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.4rem; }
     .session-headline { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
     /* Quitter une manche n'annule rien : les réponses sont déjà enregistrées et la
@@ -1928,6 +1959,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
           <button class="btn-secondary" id="btn-session-start" onclick="beginRound()"></button>
           <button class="btn-ghost" id="btn-session-compose-back" onclick="cancelComposeRound()" style="display:none" data-i18n="btn_back">retour</button>
         </div>
+        <!-- Les manches du jour dans cette langue (renderRoundLogToday). Les autres
+             jours sont dans Historique (mon compte), onglet « manches ». -->
+        <div class="rlog" id="round-log-today"></div>
       </div>
       <div id="session-body"></div>
     </div>
@@ -2197,6 +2231,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     <div class="stats-header">
       <h1 class="app-title" data-i18n="history_title">Historique</h1>
       <button class="btn-ghost" onclick="showScreen('screen-account')" data-i18n="btn_back">retour</button>
+    </div>
+    <!-- Mots répondus un par un, ou manches (renderHistoryRounds) -->
+    <div class="history-filters" id="history-tabs">
+      <button class="filter-btn active" id="hist-tab-words" onclick="setHistoryTab('words')" data-i18n="hist_tab_words">mots</button>
+      <button class="filter-btn" id="hist-tab-rounds" onclick="setHistoryTab('rounds')" data-i18n="hist_tab_rounds">manches</button>
     </div>
     <!-- Filtre par langue -->
     <div class="history-filters" id="history-filters"></div>
@@ -2684,6 +2723,15 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_new_n:       { en: `new`, fr: `neufs`, es: `nuevas`, el: `νέες` },
       sess_quit:        { en: `leave round`, fr: `quitter la manche`, es: `salir de la ronda`, el: `έξοδος από τον γύρο` },
       sess_back:        { en: `back`, fr: `retour`, es: `volver`, el: `επιστροφή` },
+      // Historique des manches (2026-11-14)
+      rlog_today:       { en: `today`, fr: `aujourd'hui`, es: `hoy`, el: `σήμερα` },
+      rlog_yesterday:   { en: `yesterday`, fr: `hier`, es: `ayer`, el: `χθες` },
+      rlog_round:       { en: `round {n}`, fr: `manche {n}`, es: `ronda {n}`, el: `γύρος {n}` },
+      rlog_of:          { en: `{a} of {b}`, fr: `{a} sur {b}`, es: `{a} de {b}`, el: `{a} από {b}` },
+      rlog_unfinished:  { en: `unfinished`, fr: `pas finie`, es: `sin terminar`, el: `ημιτελής` },
+      rlog_empty:       { en: `No rounds yet.`, fr: `Aucune manche pour l'instant.`, es: `Todavía no hay rondas.`, el: `Δεν υπάρχουν γύροι ακόμα.` },
+      hist_tab_words:   { en: `words`, fr: `mots`, es: `palabras`, el: `λέξεις` },
+      hist_tab_rounds:  { en: `rounds`, fr: `manches`, es: `rondas`, el: `γύροι` },
       // On ne voit pas de question mais des phrases : le bouton dit ce qu'il refait.
       qcm_regen:        { en: `Other sentences`, fr: `Autres phrases`, es: `Otras frases`, el: `Άλλες προτάσεις` },
       pick_regen:       { en: `Another situation`, fr: `Autre situation`, es: `Otra situación`, el: `Άλλη περίσταση` },
@@ -7714,6 +7762,9 @@ Write all scenarios and explanations in ${langName}.`;
           idx,
           ok:    sessionOk,
           off:   _roundOffset, // déjà faits avant la dernière reprise
+          // Sa ligne dans l'historique des manches : reprise ici ou ailleurs, la
+          // manche continue de remplir la même ligne.
+          rid:   _roundLogId, rstart: _roundLogStart, rday: _roundLogDay,
           // L'échéance de chaque mot est notée telle qu'elle est AVANT sa réponse :
           // c'est elle qui dira, à la reprise, si le mot a été fait entre-temps.
           items: sessionItems.map(it =>
@@ -7722,6 +7773,150 @@ Write all scenarios and explanations in ${langName}.`;
         localStorage.setItem(roundStateKey(lang), JSON.stringify(state));
         pushRoundToServer(state, lang, now);
       } catch { /* stockage plein : la manche se refera, rien de perdu en base */ }
+    }
+
+    // ── Historique des manches (2026-11-14) ─────────────────────────────
+    // Chaque réponse ajoute son mot à la ligne de la manche (`/api/round-log`) :
+    // une manche quittée en route y reste, « pas finie », et se complète si on la
+    // reprend — ici ou sur un autre appareil, la reprise garde son identifiant.
+    // La page de la langue montre les manches du JOUR ; les autres jours vivent
+    // dans Historique (mon compte), onglet « manches ».
+    let _roundLogId = null, _roundLogStart = null, _roundLogDay = null;
+    // Ce que cet appareil vient d'écrire, pour l'afficher sans attendre la base
+    // (la dernière réponse est encore en route quand on revient à l'écran de départ).
+    const _roundLogLocal  = {};   // id → manche
+    const _roundLogServer = {};   // 'lang|day' → manches lues en base
+    const _roundLogOpen   = new Set(); // manches dépliées
+    let _histRounds = [];
+
+    function newRoundLog() {
+      _roundLogId = (crypto.randomUUID ? crypto.randomUUID()
+        : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+      _roundLogStart = new Date().toISOString();
+      _roundLogDay   = todayStrLocal();
+    }
+
+    function logRoundAnswer(word, ok) {
+      if (!_roundLogId || !currentLang) return;
+      const cur  = sessionItems[sessionIdx];
+      const item = { w: word, n: cur && lc(cur.word) === lc(word) && cur.wasNew ? 1 : 0, ok: ok ? 1 : 0 };
+      const body = { id: _roundLogId, lang: currentLang, day: _roundLogDay, started_at: _roundLogStart,
+                     total: sessionTotal(), done: roundAllAnswered() ? 1 : 0 };
+      const r = _roundLogLocal[_roundLogId] ||= { ...body, items: [] };
+      r.total = body.total; r.done = Math.max(r.done, body.done);
+      if (!r.items.some(x => x.w === word)) r.items.push(item);
+      authFetch('/api/round-log', { method: 'POST', keepalive: true, body: JSON.stringify({ ...body, item }) })
+        .catch(() => {});
+    }
+
+    // Une manche lue en base et la même écrite ici : on garde l'union des mots
+    // (ceux d'avant une reprise viennent de la base, les derniers d'ici).
+    function mergeRoundLogs(server, lang, day) {
+      const byId = {};
+      server.forEach(r => { byId[r.id] = { ...r, items: (r.items || []).slice() }; });
+      Object.values(_roundLogLocal).forEach(l => {
+        if ((lang && l.lang !== lang) || (day && l.day !== day)) return;
+        const r = byId[l.id] ||= { ...l, items: [] };
+        r.total = l.total; r.done = Math.max(r.done || 0, l.done);
+        l.items.forEach(x => { if (!r.items.some(y => y.w === x.w)) r.items.push(x); });
+      });
+      return Object.values(byId);
+    }
+
+    // Numéro de la manche dans sa journée et sa langue (« ronda 2 »).
+    function numberRounds(list) {
+      const groups = {};
+      list.forEach(r => (groups[r.lang + '|' + r.day] ||= []).push(r));
+      Object.values(groups).forEach(g => {
+        g.sort((a, b) => String(a.started_at).localeCompare(String(b.started_at)));
+        g.forEach((r, i) => { r.num = i + 1; });
+      });
+      return list;
+    }
+
+    function rlogWords(n, code) { return n === 1 ? tr('one_word', code) : `${n} ${tr('words_suffix', code)}`; }
+
+    // Une ligne : « ronda 1 — 10 palabras, 3 nuevas », le score à droite ; dépliée,
+    // les mots dans l'ordre de la manche.
+    function roundLogRowHtml(r, code, prefix, where) {
+      const items = r.items || [];
+      const k     = items.filter(x => x.n).length;
+      const ok    = items.filter(x => x.ok).length;
+      const done  = !!r.done;
+      const words = done ? rlogWords(items.length, code)
+        : tr('rlog_of', code).replace('{a}', items.length).replace('{b}', rlogWords(Math.max(r.total, items.length), code));
+      const news  = k ? `, ${k} ${tr(k === 1 ? 'sess_new_one' : 'sess_new_n', code)}` : '';
+      const open  = _roundLogOpen.has(r.id);
+      let h = `<button class="rlog-row${open ? ' open' : ''}" onclick="toggleRoundLog('${r.id}', '${where}')">`
+        + `<span class="rlog-left"><span class="rlog-main">${prefix}${tr('rlog_round', code).replace('{n}', r.num)} — ${words}${news}</span>`
+        + (done ? '' : `<span class="rlog-unfinished">${tr('rlog_unfinished', code)}</span>`)
+        + `</span><span class="rlog-score">${ok}/${items.length}</span></button>`;
+      if (open) h += `<div class="rlog-words">` + items.map(x => {
+        const note = wordNote(x.w);
+        return `<div class="rlog-word"><span class="rlog-w">${escapeHtml(lc(wordBase(x.w)))}`
+          + (note ? ` <span class="rlog-note">(${escapeHtml(note)})</span>` : '')
+          + (x.n ? `<span class="rlog-new">${tr('sess_new_one', code)}</span>` : '')
+          + `</span><span class="${x.ok ? 'rlog-ok' : 'rlog-ko'}">${tr(x.ok ? 'mark_ok' : 'mark_ko', code)}</span></div>`;
+      }).join('') + `</div>`;
+      return h;
+    }
+
+    function toggleRoundLog(id, where) {
+      _roundLogOpen.has(id) ? _roundLogOpen.delete(id) : _roundLogOpen.add(id);
+      where === 'hist' ? renderHistory() : renderRoundLogToday(false);
+    }
+
+    // Les manches du jour, sous « Empezar ». Rien du tout tant qu'il n'y en a pas.
+    function renderRoundLogToday(fetchServer) {
+      const box = document.getElementById('round-log-today');
+      if (!box || !currentLang) return;
+      const lang = currentLang, day = todayStrLocal(), key = lang + '|' + day;
+      const code = pracCode();
+      const list = numberRounds(mergeRoundLogs(_roundLogServer[key] || [], lang, day))
+        .filter(r => (r.items || []).length)
+        .sort((a, b) => a.num - b.num);
+      box.innerHTML = list.length
+        ? `<div class="rlog-day">${tr('rlog_today', code)}</div>` + list.map(r => roundLogRowHtml(r, code, '', 'today')).join('')
+        : '';
+      if (!fetchServer || !localStorage.getItem(KEY_JWT)) return;
+      authFetch(`/api/round-log?lang=${encodeURIComponent(lang)}&day=${day}`)
+        .then(r => r.json())
+        .then(d => {
+          if (!Array.isArray(d.rounds)) return;
+          _roundLogServer[key] = d.rounds;
+          if (currentLang === lang && !sessionRunning) renderRoundLogToday(false);
+        })
+        .catch(() => {});
+    }
+
+    // Historique (mon compte), onglet « manches » : par jour, du plus récent au plus
+    // ancien ; les manches d'un jour dans leur ordre. Langue de l'APPLI.
+    function rlogDayLabel(day) {
+      const today = todayStrLocal();
+      const y = new Date(today + 'T00:00:00'); y.setDate(y.getDate() - 1);
+      const yest = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
+      if (day === today) return tApp('rlog_today');
+      if (day === yest)  return tApp('rlog_yesterday');
+      return new Date(day + 'T00:00:00').toLocaleDateString(UI_LOCALE[appLang], { day: 'numeric', month: 'short', year: day.slice(0, 4) === today.slice(0, 4) ? undefined : 'numeric' });
+    }
+    function renderHistoryRounds(list) {
+      const all  = numberRounds(_histRounds.filter(r => (r.items || []).length));
+      const shown = all.filter(r => historyFilter === 'all' || r.lang === historyFilter);
+      if (!shown.length) {
+        list.innerHTML = `<p style="color:var(--gris);font-style:italic;">${tApp('rlog_empty')}</p>`;
+        return;
+      }
+      const days = [...new Set(shown.map(r => r.day))].sort().reverse();
+      const multi = new Set(shown.map(r => r.lang)).size > 1;
+      list.innerHTML = days.map(day => {
+        const rs = shown.filter(r => r.day === day)
+          .sort((a, b) => String(a.started_at).localeCompare(String(b.started_at)));
+        return `<div class="rlog rlog-hist"><div class="rlog-day">${rlogDayLabel(day)}</div>`
+          + rs.map(r => {
+              const info = LANGS.find(x => x.key === r.lang);
+              return roundLogRowHtml(r, appLang, multi ? `<span class="mot-code">${info?.code || ''}</span>` : '', 'hist');
+            }).join('') + `</div>`;
+      }).join('');
     }
 
     function clearSavedRound() {
@@ -7773,6 +7968,9 @@ Write all scenarios and explanations in ${langName}.`;
       sessionIdx   = 0;
       sessionOk    = saved.data.ok || 0;
       _roundOffset = saved.done;
+      if (saved.data.rid) {
+        _roundLogId = saved.data.rid; _roundLogStart = saved.data.rstart; _roundLogDay = saved.data.rday;
+      } else newRoundLog(); // manche sauvée avant l'historique des manches
       launchRound();
     }
 
@@ -8014,6 +8212,7 @@ Write all scenarios and explanations in ${langName}.`;
         : '';
       note.style.display = note.textContent ? '' : 'none';
       startBtn.style.display = empty || freeDone ? 'none' : '';
+      renderRoundLogToday(!skipRemote);
       alignSessionTop();
 
       // La manche commencée sur l'autre appareil arrive après coup : l'écran est
@@ -8042,6 +8241,7 @@ Write all scenarios and explanations in ${langName}.`;
       // « quitter ») : on reste sur l'écran de départ, qui le dit.
       if (!sessionItems.length) return void renderSessionStart(true);
       setRoundChosen([]); // consommé : la manche suivante repart du remplissage automatique
+      newRoundLog();
       sessionIdx   = 0;
       sessionOk    = 0;
       launchRound();
@@ -8648,6 +8848,7 @@ Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
     // `hinted` : réussi avec l'indice du trou à taper — compte (historique ✓), mais
     // sans étoile : le mot revient demain, net inchangé (même règle que le mode espacé).
     async function recordSessionAnswer(word, ok, hinted) {
+      logRoundAnswer(word, ok);
       // Une fois par jour : un mot déjà travaillé aujourd'hui se refait autant qu'on
       // veut, mais seule la première réponse du jour touche aux étoiles et à la date
       // de révision — cinq réussites d'affilée le même jour ne disent pas qu'on le
@@ -9833,10 +10034,13 @@ Return ONLY this JSON object, no markdown:
         '<p style="color:var(--gris);font-style:italic;">Chargement…</p>';
 
       try {
-        const [histResp, progResp] = await Promise.all([
+        const [histResp, progResp, roundResp] = await Promise.all([
           authFetch('/api/history').then(r => r.json()),
-          authFetch('/api/progress').then(r => r.json())
+          authFetch('/api/progress').then(r => r.json()),
+          // Les manches ne doivent pas faire tomber l'historique des mots
+          authFetch('/api/round-log').then(r => r.json()).catch(() => ({ rounds: [] })),
         ]);
+        _histRounds = mergeRoundLogs(Array.isArray(roundResp.rounds) ? roundResp.rounds : [], null, null);
 
         // Construit un index de progression : "word|lang" → { correct, incorrect, hintUsed }
         const progIndex = {};
@@ -9864,17 +10068,9 @@ Return ONLY this JSON object, no markdown:
         // Filtres de langue (seulement les langues présentes dans l'historique)
         // Une seule langue : rien à filtrer, donc aucune pastille (« All » et la
         // langue diraient la même chose) — même règle que « my words ».
-        const langs = ['all', ...new Set(historyData.map(e => e.lang))];
-        const hf = document.getElementById('history-filters');
-        hf.style.display = langs.length <= 2 ? 'none' : '';
-        if (langs.length <= 2) historyFilter = 'all';
-        hf.innerHTML = langs.map(l => {
-          const info  = LANGS.find(x => x.key === l);
-          const label = l === 'all' ? tApp('filter_all') : `${info?.name || l}`;
-          return `<button class="filter-btn ${l === historyFilter ? 'active' : ''}"
-            onclick="setHistoryFilter('${l}')">${label}</button>`;
-        }).join('');
-
+        _historyLangs = ['all', ...new Set([...historyData.map(e => e.lang), ..._histRounds.map(r => r.lang)])];
+        if (_historyLangs.length <= 2) historyFilter = 'all';
+        renderHistoryFilters();
         renderHistory();
       } catch (err) {
         document.getElementById('history-list').innerHTML =
@@ -9882,18 +10078,35 @@ Return ONLY this JSON object, no markdown:
       }
     }
 
+    let _historyLangs = ['all'];
+    let historyTab    = 'words';
+    function renderHistoryFilters() {
+      const hf = document.getElementById('history-filters');
+      hf.style.display = _historyLangs.length <= 2 ? 'none' : '';
+      hf.innerHTML = _historyLangs.map(l => {
+        const info  = LANGS.find(x => x.key === l);
+        const label = l === 'all' ? tApp('filter_all') : `${info?.name || l}`;
+        return `<button class="filter-btn ${l === historyFilter ? 'active' : ''}"
+          onclick="setHistoryFilter('${l}')">${label}</button>`;
+      }).join('');
+    }
+
     function setHistoryFilter(lang) {
       historyFilter = lang;
-      // Met à jour les boutons actifs
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.textContent.includes(lang) ||
-          (lang === 'all' && btn.textContent.includes('Tout')));
-      });
+      renderHistoryFilters();
+      renderHistory();
+    }
+
+    function setHistoryTab(tab) {
+      historyTab = tab;
+      document.getElementById('hist-tab-words').classList.toggle('active', tab === 'words');
+      document.getElementById('hist-tab-rounds').classList.toggle('active', tab === 'rounds');
       renderHistory();
     }
 
     function renderHistory() {
       const list = document.getElementById('history-list');
+      if (historyTab === 'rounds') return renderHistoryRounds(list);
       const filtered = historyFilter === 'all'
         ? historyData
         : historyData.filter(e => e.lang === historyFilter);

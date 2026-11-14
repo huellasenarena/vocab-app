@@ -1164,6 +1164,62 @@ export default {
       }
     }
 
+    // Historique des manches (table `round_log`, 0009_round_log.sql).
+    //  - GET  ?lang=&day=  les manches d'une langue un jour donné (page de la langue)
+    //  - GET  (sans day)   les 500 dernières, toutes langues (Historique du compte)
+    //  - POST { id, lang, day, started_at, total, done, item:{w,n,ok} } : crée la
+    //    manche au besoin et AJOUTE le mot répondu. L'ajout se fait en SQL, dans le
+    //    même lot : deux réponses rapprochées ne s'écrasent pas l'une l'autre, et un
+    //    mot déjà présent (requête rejouée) n'est pas compté deux fois.
+    if (path === '/api/round-log') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      try {
+        if (request.method === 'GET') {
+          const sp   = new URL(request.url).searchParams;
+          const lang = sp.get('lang') || '', day = sp.get('day') || '';
+          const q = day
+            ? env.DB.prepare(`SELECT id, language AS lang, day, started_at, total, done, items FROM round_log
+                              WHERE user_id = ? AND day = ? AND language = ?`).bind(auth.uid, day, lang)
+            : env.DB.prepare(`SELECT id, language AS lang, day, started_at, total, done, items FROM round_log
+                              WHERE user_id = ? ORDER BY day DESC LIMIT 500`).bind(auth.uid);
+          const { results } = await q.all();
+          return json({ rounds: results.map(r => {
+            let items = [];
+            try { items = JSON.parse(r.items) || []; } catch {}
+            return { ...r, items };
+          }) });
+        }
+        if (request.method === 'POST') {
+          const b = await request.json();
+          const id = String(b.id || '').slice(0, 64), lang = String(b.lang || '');
+          const day = String(b.day || ''), started = String(b.started_at || '');
+          const it = b.item || {};
+          const w = String(it.w || '').slice(0, 400);
+          if (!id || !lang || !/^\d{4}-\d{2}-\d{2}$/.test(day) || !started || !w)
+            return json({ error: { message: 'id, lang, day, started_at et item requis' } }, 400);
+          const item = JSON.stringify({ w, n: it.n ? 1 : 0, ok: it.ok ? 1 : 0 });
+          await env.DB.batch([
+            env.DB.prepare(
+              `INSERT INTO round_log (user_id, id, language, day, started_at, total, done, items, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?)
+               ON CONFLICT(user_id, id) DO UPDATE SET total = excluded.total,
+                 done = MAX(round_log.done, excluded.done), updated_at = excluded.updated_at`
+            ).bind(auth.uid, id, lang, day, started, Math.max(1, +b.total || 1), b.done ? 1 : 0, Date.now()),
+            env.DB.prepare(
+              `UPDATE round_log SET items = json_insert(items, '$[#]', json(?))
+               WHERE user_id = ? AND id = ?
+                 AND NOT EXISTS (SELECT 1 FROM json_each(round_log.items) WHERE json_extract(value, '$.w') = ?)`
+            ).bind(item, auth.uid, id, w),
+          ]);
+          return json({ ok: true });
+        }
+        return json({ error: { message: 'méthode non supportée' } }, 405);
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
     if (path === '/api/history') {
       const auth = await requireAuth(request, env);
       if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
