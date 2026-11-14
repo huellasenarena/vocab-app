@@ -59,6 +59,7 @@ URL : `https://dark-brook-87cc.georg-dreym.workers.dev` · Code : `~/Desktop/voc
 - `/api/grammar` GET · **POST** (ajouter une forme) · **DELETE** (supprimer une forme)
 - `/api/keys` POST → stocke `openai_key` en D1 (sync multi-appareils). `gemini_key` n'est plus écrite (colonne laissée en place).
 - `/api/settings` POST → stocke le blob JSON des réglages (`users.settings`) — sync multi-appareils
+- **`/api/round-log`** GET (`?lang=&day=` → les manches d'un jour ; sans `day` → les 500 dernières, toutes langues) · POST `{id, lang, day, started_at, total, done, item:{w,n,ok}}` → **historique des manches** (table `round_log`). Le mot est **ajouté en SQL** (`json_insert`, sauté s'il y est déjà) dans le même lot que l'upsert : deux réponses rapprochées ne s'écrasent pas.
 - **`/api/round`** GET (`?lang=`) · POST `{lang, state}` · DELETE `{lang}` → la **manche de pratique en cours**, pour la reprendre sur un autre appareil. ⚠️ Ce n'est **pas** un réglage : elle change à chaque réponse et n'a rien à faire dans le blob débouncé de `/api/settings`.
 
 **IA (JWT + BYOK : clé utilisateur par header)**
@@ -101,7 +102,7 @@ Cold start après inactivité : ~100-200ms sur la 1re requête.
 
 ## Cloudflare D1 (base `vocab`)
 
-ID : `87b54745-9878-402b-a4a5-e76720516dea`, binding `DB`. Migrations dans `dark-brook-87cc/migrations/` (`0001_init.sql`, `0002_byok_keys.sql`, `0003_settings.sql` = colonne `users.settings`, `0006_rounds.sql` = table `rounds`, `0007_free_quota.sql` = table `free_quota`, `0008_examples.sql` = table `examples`). Appliquer : `wrangler d1 migrations apply vocab --local|--remote`.
+ID : `87b54745-9878-402b-a4a5-e76720516dea`, binding `DB`. Migrations dans `dark-brook-87cc/migrations/` (`0001_init.sql`, `0002_byok_keys.sql`, `0003_settings.sql` = colonne `users.settings`, `0006_rounds.sql` = table `rounds`, `0007_free_quota.sql` = table `free_quota`, `0008_examples.sql` = table `examples`, `0009_round_log.sql` = table `round_log`). Appliquer : `wrangler d1 migrations apply vocab --local|--remote`.
 
 Toutes les tables de données portent `user_id`. Les onglets Sheets d'avant sont devenus des tables relationnelles.
 
@@ -116,6 +117,7 @@ Toutes les tables de données portent `user_id`. Les onglets Sheets d'avant sont
 | `rounds` | user_id, language, **state** (blob JSON de la manche), updated_at — `PRIMARY KEY(user_id, language)` |
 | `free_quota` | user_id, date (UTC), kind (`ai`\|`add`), n — compteur du jour d'un compte **sans clé** (`takeFreeQuota`, incrément atomique) |
 | `examples` | user_id, language, word, kind (`qcm`\|`pick`\|`type`\|`definition`), **batch** (une génération), role, text, **kept** (retenu pour l'écran), **shown** (vraiment affiché), **picked** (scénario choisi), answer (`''` = je ne sais pas), ok, meta (JSON) — **tous les exemples écrits par le modèle, gardés pour plus tard, rien ne les lit encore** (`logExamples`/`markExamples`, routes `/api/examples` et `/api/examples/mark`) |
+| `round_log` | user_id, **id** (tiré par l'app au début de la manche, gardé à la reprise), language, **day** (date locale du début), started_at, total, done (0/1), **items** (JSON `[{w, n, ok}]` dans l'ordre des réponses) — `PRIMARY KEY(user_id, id)`, index `(user_id, day)` |
 | `blacklist` | user_id, language, word |
 | `grammar_forms` | user_id, language, category, form |
 
@@ -375,6 +377,14 @@ Entrer dans le mode lançait **trois appels** — dont le texte à trous, une mi
 - **Sous les réponses** : plus de « Définition » (elle est dans « options », grisée avec sa raison) ; « je ne sais pas (voir la réponse) » est la **dernière ligne** de la liste (`.qcm-choice.qcm-dunno`, `sess_dunno_see`) ; « Autres phrases » (`#qcm-regen` du QCM) masqué, code intact.
 - **La sortie du verrou, c'est l'écran de départ lui-même** : « reprendre » ou « nouvelle manche ». Sans ce choix, une manche qu'on ne veut pas finir verrouillerait les curseurs pour toujours. Depuis le **2026-09-18**, on y va directement par **« ✕ quitter la manche »** (`quitRound`, dans `.session-headline`) : il **sauvegarde avant de sortir**, donc la manche reste reprenable. ⚠️ Jamais appelé « annuler » — les réponses déjà données sont enregistrées au fur et à mesure, on ne perd rien.
 - `nextRound()` renvoie au **choix**, pas à une manche identique : c'est là que se décide « je rattrape » ou « je découvre ».
+
+### Historique des manches (2026-11-14)
+Page de test : https://claude.ai/artifact/MHXSzUbscHncr6YYzGiudV (choix 1 A · 2 C · 3 A · 4 A · 5 B, **sans lien** « manches précédentes » sur la page de la langue).
+- **Page de la langue** : sous « Commencer », `#round-log-today` (`renderRoundLogToday`) = les manches **du jour** seulement, titre « hoy », une ligne par manche (« ronda 1 — 10 palabras, 3 nuevas », score `ok/répondus` à droite) qui **se déplie sur place** (mots dans l'ordre, « nueva » en italique, « bien / mal »). Rien s'il n'y en a pas. En langue pratiquée.
+- **Les autres jours** : Historique (mon compte), onglets **« mots » / « manches »** (`setHistoryTab`, `renderHistoryRounds`), par jour, même filtre par langue, même dépliage. En langue de l'appli.
+- **Écriture** : `logRoundAnswer` en tête de `recordSessionAnswer`, à **chaque réponse** — une manche quittée en route reste, « sin terminar », et se complète à la reprise (l'identifiant `rid` voyage dans l'état sauvé, donc aussi d'un appareil à l'autre). Une manche sans aucune réponse n'apparaît pas. `done` = dernière question répondue (`roundAllAnswered`).
+- **Affichage sans attendre la base** : `_roundLogLocal` (ce que l'appareil vient d'écrire) est fusionné avec ce que renvoie la base (`mergeRoundLogs`, union des mots) — la dernière réponse est encore en route quand l'écran de départ revient.
+- Numéro « ronda N » = rang dans la journée **et** la langue (`numberRounds`, par `started_at`). Rien avant le 2026-11-14 : `history` ne disait pas à quelle manche appartenait une réponse.
 
 ### Étoiles en séance (2026-09-10)
 
