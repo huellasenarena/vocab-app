@@ -609,6 +609,9 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .type-gap { display: inline-block; min-width: 4em; padding: 0 0.3em; border-bottom: 1px solid var(--tinta); }
     .type-gap.ok { color: var(--verde); border-bottom-color: var(--verde); }
     .type-gap.ko { color: var(--tinta); border-bottom-color: var(--rojo); } /* la bonne forme, sur un trait rouge */
+    /* Avant la réponse : la première lettre, puis un tiret par lettre (espaces et apostrophes visibles). */
+    .type-gap.masked { border-bottom: 0; padding: 0; min-width: 0; letter-spacing: 0.15em; }
+    .type-gap .type-slot { color: var(--gris); }
     .type-row { display: flex; gap: 0.6rem; align-items: stretch; }
     #type-input { flex: 1; min-width: 0; font-size: 1rem; } /* 16 px : sinon iOS zoome au focus */
     .session-below { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 0.7rem; }
@@ -9052,8 +9055,24 @@ Return ONLY this JSON object, no markdown:
       return b.map((c, j) => keep[j] ? escapeHtml(c) : `<u>${escapeHtml(c)}</u>`).join('');
     }
 
+    // La première lettre est donnée d'emblée, avec le nombre de lettres (2026-11-17) :
+    // sans appui, la phrase admettait souvent plusieurs réponses justes. Elle ne compte
+    // pas comme un indice ; chaque indice révèle la lettre suivante, jamais la dernière.
+    const isTypeLetter = c => /[\p{L}\p{N}]/u.test(c);
+    const typeLetterCount = form => [...form].filter(isTypeLetter).length;
+
+    function typeMaskHtml(form, reveal) {
+      let seen = 0, out = '';
+      for (const c of form) {
+        if (!isTypeLetter(c)) { out += escapeHtml(c); continue; }
+        out += seen++ < reveal ? escapeHtml(c) : '<span class="type-slot">_</span>';
+      }
+      return out;
+    }
+
     function typeHintMax(item) {
-      return Math.min(TYPE_HINT_MAX, Math.max(0, ((item.data && item.data.form) || '').length - 1));
+      const n = typeLetterCount((item.data && item.data.form) || '');
+      return Math.min(TYPE_HINT_MAX, Math.max(0, n - 2));
     }
 
     function paintTypeSentence(item) {
@@ -9065,8 +9084,7 @@ Return ONLY this JSON object, no markdown:
       if (item.answered) {
         gap = `<span class="type-gap ${item.ok ? 'ok' : 'ko'}">${escapeHtml(d.form)}</span>`;
       } else {
-        const shown = d.form.slice(0, item.hints || 0);
-        gap = `<span class="type-gap">${shown ? escapeHtml(shown) + '…' : '&nbsp;'}</span>`;
+        gap = `<span class="type-gap masked">${typeMaskHtml(d.form, 1 + (item.hints || 0))}</span>`;
       }
       el.innerHTML = escapeHtml(before) + gap + escapeHtml(after);
     }
