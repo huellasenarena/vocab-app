@@ -236,6 +236,7 @@ Toutes les requêtes passent par `${API_ENDPOINT}` (route défaut, **Responses A
 - `reasoning: { effort: 'none' }` **toujours envoyé**. ⚠️ Omettre le champ ne veut pas dire « pas de raisonnement » : l'API applique son propre défaut, **plus lent** (mesuré le 2026-08-31 : sans le champ 4,6 s · `none` 3,9 s).
 - `max_output_tokens` compte **reasoning + texte** : budget 16000 partout (eval/QCM/définition), 8000 pour le lecteur aveugle.
 - Streaming SSE : `response.output_text.delta`. **Usage dans `response.completed`**. ⚠️ `usage.output_tokens` **inclut déjà** les reasoning tokens → `trackTokens` ajoute **uniquement `output_tokens`** (sinon double comptage vs dashboard OpenAI).
+- **Format imposé** (2026-11-17) : `callAIJson(prompt, budget, nom, propriétés)` envoie `text.format` = `json_schema` strict et rend l'objet déjà lu. Utilisé par « tape le mot », « quel mot ? », le QCM (un seul objet `{unknown, why, choices}`, aveu compris) et le lecteur aveugle (`{scores}`). ⚠️ Avant, un guillemet droit non échappé dans `why` faisait « JSON Parse error » (~1 question sur 10). Les autres appels (vérifier le mot, mots liés, mode Imagen) lisent encore le JSON à la main.
 - Fonctions : `callMistral`, `callMistralStream`, `callMistralVision` (une ou plusieurs images étiquetées « Photo N »). Noms `callMistral*` par héritage. Erreurs passées par `aiErrorText()` (`free_limit` traduit).
 
 ### Wrappers
