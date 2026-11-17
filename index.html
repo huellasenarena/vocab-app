@@ -7107,9 +7107,8 @@ scenario is correct:
 DO YOU ACTUALLY KNOW THIS ITEM? The danger is the rare SINGLE WORD you have never actually
 read — regional slang, dialect, a coinage: faced with one, a model reconstructs a meaning
 out of the word's parts and states it with full confidence. If that is the case here, do NOT
-guess and do NOT derive a meaning from its morphemes. Answer instead with exactly this
-object and nothing else:
-{"unknown": true, "why": "<one short sentence in ${langName}>"}
+guess and do NOT derive a meaning from its morphemes. Answer instead with
+{"unknown": true, "why": "<one short sentence in ${langName}>", "choices": []}
 Admitting ignorance costs one exercise; inventing a sense teaches the learner a word that
 does not exist. The learner's note above, when there is one, is evidence — use it.
 
@@ -7120,13 +7119,11 @@ meaning, and test the situations where a native speaker would naturally use that
 combination rather than another. Not being a set expression is never a reason to admit
 ignorance — only genuinely not knowing what the item means is.
 
-Otherwise return ONLY a JSON array of 7 objects (the correct one first, then the six
-distractors), no other text, no markdown:
-[
+Otherwise return {"unknown": false, "why": "", "choices": [...]} where "choices" holds 7 objects
+(the correct one first, then the six distractors):
   {"text": "...", "correct": true,  "fits": "${qcmBase}", "explanation": "..."},
   {"text": "...", "correct": false, "fits": "<the specific word this scenario illustrates>", "explanation": "..."},
   ... five more distractors in the same shape ...
-]
 
 "explanation" = ONE short sentence in ${langName} explaining WHY "${qcmBase}" fits that scenario (for the correct one) or why it would be wrong/unnatural there (for the distractors). The explanation MAY mention the word and what the natural word would be instead.
 
@@ -7156,17 +7153,13 @@ Write all scenarios and explanations in ${langName}.`;
 
       const langName = getLang().mistralName;
 
-      const prompt = qcmPrompt(qcmWord);
 
       try {
         // reasoning + texte dans le même budget
-        const reply = await callAI(prompt, 16000);
-        // Extrait le JSON — enlève les blocs markdown éventuels, puis cherche [{…}]
-        const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
-        const jsonStart = stripped.search(/\[\s*\{/);
-        const jsonEnd   = stripped.lastIndexOf(']');
-        if (jsonStart === -1 || jsonEnd <= jsonStart) throw new Error('Format inattendu — ' + stripped.slice(0, 120));
-        const all = JSON.parse(stripped.slice(jsonStart, jsonEnd + 1));
+        const d = await qcmAsk(qcmWord);
+        if (d.unknown || !Array.isArray(d.choices) || !d.choices.length)
+          throw new Error(d.why || 'Format inattendu');
+        const all = d.choices;
 
         rememberQCM(qcmWord, all);
         const choices = pickQcmShown(all); // 2 à 4 sur 7, la longueur ne trahit plus la bonne
@@ -8586,36 +8579,35 @@ You do NOT know the word. Using only clues in the texts themselves (an odd-one-o
 
 ${order.map((k, n) => `${n + 1}. ${choices[k].text}`).join('\n')}
 
-Return ONLY a JSON array of ${choices.length} integers, in the same order.`;
-      const reply = await callAI(prompt, 8000);
-      const a = reply.indexOf('['), b = reply.lastIndexOf(']');
-      const arr = JSON.parse(reply.slice(a, b + 1));
+Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
+      const d   = await callAIJson(prompt, 8000, 'blind_scores', { scores: { type: 'array', items: { type: 'integer' } } });
+      const arr = d.scores;
       if (!Array.isArray(arr) || arr.length !== choices.length) return null;
       const scores = new Array(choices.length).fill(0);
       order.forEach((k, n) => { scores[k] = +arr[n] || 0; });
       return scores;
     }
 
-    // Un tirage, rendu tel quel : soit l'aveu d'ignorance, soit les quatre scénarios.
+    // Les 7 scénarios du QCM, ou l'aveu d'ignorance : un seul format imposé.
+    const QCM_SCHEMA = {
+      unknown: { type: 'boolean' }, why: JS_STR,
+      choices: { type: 'array', items: { type: 'object', additionalProperties: false,
+        required: ['text', 'correct', 'fits', 'explanation'],
+        properties: { text: JS_STR, correct: { type: 'boolean' }, fits: JS_STR, explanation: JS_STR } } },
+    };
+    function qcmAsk(word) { return callAIJson(qcmPrompt(word), 16000, 'qcm', QCM_SCHEMA); }
+
+    // Un tirage, rendu tel quel : soit l'aveu d'ignorance, soit les sept scénarios.
     async function qcmAttempt(word) {
-      const reply    = await callAI(qcmPrompt(word), 16000); // 7 scénarios
-      const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
-      const a = stripped.search(/\[\s*\{/), b = stripped.lastIndexOf(']');
-      if (a === -1 || b <= a) {
-        // Avouer n'est pas échouer : l'aveu est une réponse valide, pas un format cassé.
-        const o = stripped.indexOf('{'), c = stripped.lastIndexOf('}');
-        if (o !== -1 && c > o) {
-          let d = null;
-          try { d = JSON.parse(stripped.slice(o, c + 1)); } catch (e) {}
-          if (d && d.unknown) {
-            const why = String(d.why || '').slice(0, 300);
-            rememberUnknown(word, why);
-            return { unknown: true, why };
-          }
-        }
-        throw new Error('Format inattendu');
+      const d = await qcmAsk(word);
+      // Avouer n'est pas échouer : l'aveu est une réponse valide, pas un format cassé.
+      if (d.unknown) {
+        const why = String(d.why || '').slice(0, 300);
+        rememberUnknown(word, why);
+        return { unknown: true, why };
       }
-      return { choices: JSON.parse(stripped.slice(a, b + 1)) };
+      if (!Array.isArray(d.choices) || !d.choices.length) throw new Error('Format inattendu');
+      return { choices: d.choices };
     }
 
     // Un QCM met ~10 s à venir. On lance celui de l'item suivant dès que le
@@ -8966,17 +8958,13 @@ ${candidates.join(' | ')}
 
 3. WHY — one short sentence in ${langName} saying why "${base}" fits this situation.
 
-Return ONLY this JSON object, no markdown:
-{"text": "...", "decoys": ["...", "...", "...", "..."], "why": "..."}`;
+Return the JSON object {"text": "...", "decoys": ["...", "...", "...", "..."], "why": "..."}.`;
     }
 
     async function fetchPick(word) {
       const candidates = pickCandidates(word);
-      const reply    = await callAI(pickPrompt(word, candidates), 16000);
-      const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
-      const a = stripped.indexOf('{'), b = stripped.lastIndexOf('}');
-      if (a === -1 || b <= a) throw new Error('Format inattendu');
-      const d = JSON.parse(stripped.slice(a, b + 1));
+      const d = await callAIJson(pickPrompt(word, candidates), 16000, 'pick_item',
+        { text: JS_STR, decoys: { type: 'array', items: JS_STR }, why: JS_STR });
       if (!d.text) throw new Error('Réponse incomplète');
       // Seuls des intrus réellement issus de la liste envoyée ; complétés au hasard
       // dans la même liste si le modèle en a rendu moins de quatre.
@@ -9017,16 +9005,11 @@ native speaker would use, then replace it with ___ (three underscores), exactly 
   a common synonym fits just as well.
 - "why": one short sentence in ${langName} on what the word means here.
 
-Return ONLY this JSON object, no markdown:
-{"sentence": "... ___ ...", "form": "...", "why": "..."}`;
+Return the JSON object {"sentence": "... ___ ...", "form": "...", "why": "..."}.`;
     }
 
     async function fetchType(word) {
-      const reply    = await callAI(typePrompt(word), 16000);
-      const stripped = reply.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
-      const a = stripped.indexOf('{'), b = stripped.lastIndexOf('}');
-      if (a === -1 || b <= a) throw new Error('Format inattendu');
-      const d = JSON.parse(stripped.slice(a, b + 1));
+      const d = await callAIJson(typePrompt(word), 16000, 'type_item', { sentence: JS_STR, form: JS_STR, why: JS_STR });
       const sentence = String(d.sentence || '');
       if (sentence.split('___').length !== 2 || !String(d.form || '').trim()) throw new Error('Réponse incomplète');
       const form = String(d.form).trim(), why = String(d.why || '');
@@ -10844,6 +10827,16 @@ Return ONLY a JSON array of exactly 3 items, no other text:
 
     // ── Wrappers : un seul modèle, Terra (noms `callMistral*` par héritage) ──
     function callAI(prompt, maxTokens) { checkDailyLimit(); return callMistral(prompt, maxTokens); }
+    // Réponse au format imposé, déjà lue. Les objets sont stricts : tous les champs
+    // requis, aucun de plus (exigence de l'API en mode strict).
+    async function callAIJson(prompt, maxTokens, name, properties) {
+      checkDailyLimit();
+      const schema = { type: 'object', additionalProperties: false, required: Object.keys(properties), properties };
+      const reply = await callMistral(prompt, maxTokens, { name, schema });
+      try { return JSON.parse(reply); }
+      catch (e) { throw new Error('Réponse coupée — réessaie'); }
+    }
+    const JS_STR = { type: 'string' };
     function coalesceChunks(onChunk) {
       let pending = null, frame = 0;
       const run = () => {
@@ -10872,14 +10865,18 @@ Return ONLY a JSON array of exactly 3 items, no other text:
     }
 
     // ── Appel Mistral (non-streaming, pour QCM et situations) ─
-    async function callMistral(prompt, maxTokens = 2000) {
+    // `schema` (facultatif) : l'API impose ce format JSON à la réponse. Sans lui, un
+    // guillemet droit non échappé ou un retour à la ligne dans un texte cassait la
+    // lecture (« JSON Parse error », 2026-11-17).
+    async function callMistral(prompt, maxTokens = 2000, schema = null) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 60000);
       try {
         const res = await fetch(`${API_ENDPOINT}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getJWT(), 'X-OpenAI-Key': openaiKey },
-          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, reasoning: { effort: GPT_EFFORT } }),
+          body: JSON.stringify({ model: MISTRAL_MODEL, input: [{ role: 'user', content: prompt }], max_output_tokens: maxTokens, reasoning: { effort: GPT_EFFORT },
+            ...(schema ? { text: { format: { type: 'json_schema', name: schema.name, schema: schema.schema, strict: true } } } : {}) }),
           signal: controller.signal
         });
         const data = await res.json();
