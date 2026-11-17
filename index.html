@@ -1524,6 +1524,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       gap: 0.5rem;
     }
     .filter-btn { }
+    .qs-pills { display: flex; gap: 0.35rem; flex-shrink: 0; }
+    .qs-pills .filter-btn { min-width: 2.4rem; padding: 4px 12px; }
     .filter-btn.active,
     .filter-btn.active:hover:not(:disabled) { background: var(--tinta); border-color: var(--tinta); color: var(--papel); }
     /* Onglets de la page « ajouter » : deux boîtes de largeur égale */
@@ -2165,6 +2167,16 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
           <option value="el">Ελληνικά</option>
         </select>
       </div>
+      <!-- Réponses montrées par QCM, toutes langues (qcmShownCount). Choix du 2026-11-17,
+           page de test https://claude.ai/artifact/8sZoqPkTQ62YS9hsTzRLrD (A 1 a). -->
+      <div class="settings-row" style="cursor:default;">
+        <span data-i18n="set_qcm_shown">Réponses par question</span>
+        <div class="qs-pills" id="qcm-shown-pills">
+          <button class="filter-btn" data-n="2" onclick="setQcmShown(2)">2</button>
+          <button class="filter-btn" data-n="3" onclick="setQcmShown(3)">3</button>
+          <button class="filter-btn" data-n="4" onclick="setQcmShown(4)">4</button>
+        </div>
+      </div>
       <!-- Réglages avancés : repliés. Les réglages de base ne gardent que la langue
            de l'appli : le modèle est toujours Terra (MISTRAL_MODEL). -->
       <div><button class="btn-ghost" id="adv-settings-btn" onclick="toggleAdvancedSettings()"><span data-i18n="set_advanced">réglages avancés</span> <span id="adv-settings-arrow">▸</span></button></div>
@@ -2373,6 +2385,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     const KEY_ROUND_SIZE       = "vocab_round_size";  // mots par manche, par langue
     const KEY_ROUND_NEW        = "vocab_round_new";   // mots neufs par MANCHE, par langue
     const KEY_SHOW_TOKENS      = "vocab_show_tokens";
+    const KEY_QCM_SHOWN        = "vocab_qcm_shown";   // réponses montrées par QCM (2-4), toutes langues
     const KEY_SITUATION_COUNTS = "vocab_situation_counts"; // mode situation affecte-t-il la progression ?
     const KEY_SITUATION_WORDS  = "vocab_situation_words";  // nombre de mots en mode situation (1-5)
     const KEY_IMAGE_THEME      = "vocab_image_theme";
@@ -2478,6 +2491,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
                           fr: `Remplace <code>WORD</code> par le mot dans ton raccourci. <code>lang=auto</code> détecte la langue.`,
                           es: `Sustituye <code>WORD</code> por la palabra en tu atajo. <code>lang=auto</code> detecta el idioma.`,
                           el: `Αντικατέστησε το <code>WORD</code> με τη λέξη στη συντόμευσή σου. Το <code>lang=auto</code> εντοπίζει τη γλώσσα.` },
+      set_qcm_shown:    { en: `Answers per question`, fr: `Réponses par question`, es: `Respuestas por pregunta`, el: `Απαντήσεις ανά ερώτηση` },
       set_tokens:       { en: `Show token counter`, fr: `Afficher compteur tokens`, es: `Mostrar contador de tokens`, el: `Εμφάνιση μετρητή tokens` },
       set_situation_counts: {
         en: `Situation and Free modes count towards progress<br><span style="font-size:0.7rem;color:var(--gris);">stars + reviews (history always counts)</span>`,
@@ -3937,6 +3951,23 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       el.style.display = 'block';
     }
 
+    // Réponses montrées par QCM : 2, 3 ou 4 (défaut 4). Quatre scénarios à lire à
+    // chaque question faisaient décrocher ; l'app en fait toujours écrire sept et
+    // garde les plus crédibles, seul le nombre gardé change.
+    function qcmShownCount() {
+      const n = parseInt(localStorage.getItem(KEY_QCM_SHOWN));
+      return n >= 2 && n <= 4 ? n : 4;
+    }
+    function setQcmShown(n) {
+      localStorage.setItem(KEY_QCM_SHOWN, String(n));
+      paintQcmShownSetting();
+      saveSettingsToServer();
+    }
+    function paintQcmShownSetting() {
+      const n = qcmShownCount();
+      document.querySelectorAll('#qcm-shown-pills [data-n]').forEach(b => b.classList.toggle('active', +b.dataset.n === n));
+    }
+
     function setShowTokens(val) {
       showTokenCounter = val;
       localStorage.setItem(KEY_SHOW_TOKENS, val ? 'true' : 'false');
@@ -4051,6 +4082,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       document.getElementById('max-new-value').textContent = `${maxNewPerDay} ${tPrac('words_suffix')}`;
       document.getElementById('toggle-tokens').checked = showTokenCounter;
       document.getElementById('toggle-situation-counts').checked = situationCounts;
+      paintQcmShownSetting();
       document.getElementById('situation-word-slider').value = situationWordCount;
       updateSituationSliderLabel();
       document.getElementById('free-mix-slider').value = freeMix;
@@ -5544,6 +5576,7 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
         document.getElementById('toggle-situation-counts').checked = situationCounts;
         document.getElementById('image-theme-select').value = imageTheme;
         document.getElementById('openai-key-input').value = openaiKey;
+        paintQcmShownSetting();
         loadAccountInfo();
       }
     }
@@ -7133,7 +7166,7 @@ Write all scenarios and explanations in ${langName}.`;
         const all = JSON.parse(stripped.slice(jsonStart, jsonEnd + 1));
 
         rememberQCM(qcmWord, all);
-        const choices = pickQcmFour(all); // 4 sur 7, la longueur ne trahit plus la bonne
+        const choices = pickQcmShown(all); // 2 à 4 sur 7, la longueur ne trahit plus la bonne
         _qcmChoices = choices;
 
         choicesEl.innerHTML = choices.map((c, i) =>
@@ -7412,11 +7445,15 @@ Write all scenarios and explanations in ${langName}.`;
     // Plus grand indice dont la valeur ne dépasse pas v (0 si aucune).
     function idxFloor(values, v) { let k = 0; values.forEach((x, i) => { if (x <= v) k = i; }); return k; }
     // Palier lu sur le NET (correct - incorrect), c'est-à-dire les étoiles :
-    //   net < 2 → QCM · 2 ≤ net < 6 → « quel mot ? » · net ≥ 6 → « tape le mot ».
+    //   net < 2 → QCM · 2 ≤ net < 6 → « quel mot ? » et « tape le mot » en alternance
+    //   (net pair : choisir, net impair : écrire) · net ≥ 6 → « tape le mot ».
     // Un mot neuf réussi passe par saveProgressNew, qui laisse le net à 0 — le seuil 2
-    // vaut donc TROIS rencontres réussies, et le seuil 6 trois réussites de plus que
-    // ★★★. Comme un échec retire 1, un mot raté redescend tout seul d'un palier :
-    // pas de compteur d'échecs à tenir.
+    // vaut donc TROIS rencontres réussies. Comme un échec retire 1, un mot raté
+    // redescend tout seul d'un palier : pas de compteur d'échecs à tenir.
+    // ⚠️ « Tape le mot » ne commençait qu'à 6 (2026-10-22) : un mot n'y arrivait
+    // qu'après un mois, puis attendait derrière tout le retard (servi du plus ancien
+    // au plus récent). Au 2026-11-17, aucun n'avait jamais été montré. L'alternance
+    // dès ★★☆ fait écrire environ une révision sur deux.
     const PICK_AT_NET         = 2;
     const TYPE_AT_NET         = 6;
 
@@ -7580,10 +7617,11 @@ Write all scenarios and explanations in ${langName}.`;
     function sessionLevel(word) {
       const net = netOf(word);
       if (net >= TYPE_AT_NET) return 'type';
+      if (net < PICK_AT_NET) return 'qcm';
       // « Quel mot ? » demande au moins un autre mot à proposer : seul dans sa
-      // langue, le mot reste au QCM (choisir un mot parmi un seul n'a pas de sens).
-      if (net >= PICK_AT_NET && allWords.length >= 2) return 'pick';
-      return 'qcm';
+      // langue, le mot s'écrit (choisir un mot parmi un seul n'a pas de sens).
+      if (net % 2 === 1 || allWords.length < 2) return 'type';
+      return 'pick';
     }
 
     // Ce qui est encore dû après une manche est exactement ce qui reste à
@@ -8456,7 +8494,8 @@ Write all scenarios and explanations in ${langName}.`;
     // ne s'était déclenché qu'une fois sur 57. On ne demande donc plus au modèle de
     // tenir les longueurs : il écrit SIX fausses réponses, plus courtes et plus
     // longues que la bonne, et c'est l'app qui en garde trois en tirant au sort le
-    // RANG de la bonne parmi les quatre longueurs. L'indice disparaît par construction.
+    // RANG de la bonne parmi les longueurs montrées. L'indice disparaît par construction.
+    // Le nombre montré (2, 3 ou 4) est un réglage : `qcmShownCount()`.
     // ⚠️ ET ELLE NE DOIT PAS SE RECONNAÎTRE COMME L'INTRUS. Mesuré le 2026-10-22 : un
     // modèle qui ne voit PAS le mot trouvait la bonne réponse 2 fois sur 3 — la seule
     // scène où il se passe quelque chose, la seule sur un autre thème, ou la seule
@@ -8464,23 +8503,28 @@ Write all scenarios and explanations in ${langName}.`;
     // et l'app demande à ce même lecteur aveugle de noter les sept scénarios
     // (`blindScores`) : elle garde les fausses réponses qu'il trouve les plus
     // crédibles (26 %, le hasard étant 25 %). `scores` absent → tirage sans lui.
-    function pickQcmFour(choices, scores) {
+    function pickQcmShown(choices, scores, n = qcmShownCount()) {
+      const k    = n - 1; // fausses réponses montrées
       const good = choices.find(c => c.correct);
       let others = shuffleInPlace(choices.filter(c => !c.correct));
-      if (!good || others.length < 3) return shuffleInPlace(choices.slice(0, 4));
+      if (!good) return shuffleInPlace(choices.slice(0, n));
+      if (others.length < k) return shuffleInPlace([good, ...others]);
       if (scores && scores.length === choices.length) {
+        // Les plus crédibles pour le lecteur aveugle, avec du rab pour que le rang
+        // de longueur reste à tirer (au moins trois candidates : avec deux réponses,
+        // deux candidates souvent toutes deux plus longues trahiraient la bonne).
         const sc = new Map(choices.map((c, i) => [c, +scores[i] || 0]));
-        others = others.sort((a, b) => sc.get(b) - sc.get(a)).slice(0, 4);
+        others = others.sort((a, b) => sc.get(b) - sc.get(a)).slice(0, Math.max(k + 1, 3));
         shuffleInPlace(others);
       }
       const len     = c => String(c.text || '').trim().length;
       const shorter = others.filter(c => len(c) <  len(good));
       const longer  = others.filter(c => len(c) >= len(good));
       // r = combien de réponses montrées sont plus courtes que la bonne (0 : elle est
-      // la plus courte, 3 : la plus longue), tiré parmi les rangs que le stock permet.
-      const lo = Math.max(0, 3 - longer.length), hi = Math.min(3, shorter.length);
+      // la plus courte, k : la plus longue), tiré parmi les rangs que le stock permet.
+      const lo = Math.max(0, k - longer.length), hi = Math.min(k, shorter.length);
       const r  = lo + Math.floor(Math.random() * (hi - lo + 1));
-      return shuffleInPlace([good, ...shorter.slice(0, r), ...longer.slice(0, 3 - r)]);
+      return shuffleInPlace([good, ...shorter.slice(0, r), ...longer.slice(0, k - r)]);
     }
 
     async function fetchQCMChoices(word) {
@@ -8489,14 +8533,14 @@ Write all scenarios and explanations in ${langName}.`;
       forgetUnknown(word); // il le connaît finalement : on lève l'aveu précédent
       rememberQCM(word, res.choices);
       const scores = await blindScores(res.choices).catch(() => null);
-      const four   = pickQcmFour(res.choices, scores);
-      // Les sept scénarios partent en base, les quatre retenus marqués `kept`.
+      const shown  = pickQcmShown(res.choices, scores);
+      // Les sept scénarios partent en base, ceux retenus marqués `kept`.
       const ex = logExamples(word, 'qcm', res.choices.map((c, i) => ({
-        role: c.correct ? 'correct' : 'wrong', text: c.text, kept: four.includes(c),
+        role: c.correct ? 'correct' : 'wrong', text: c.text, kept: shown.includes(c),
         meta: { fits: c.fits || null, explanation: c.explanation || null, blind: scores ? scores[i] : null },
       })));
-      four.forEach(c => { c.ex = ex; });
-      return four;
+      shown.forEach(c => { c.ex = ex; });
+      return shown;
     }
 
     // ── Exemples gardés en base (rien ne les lit encore) ──────────────────
