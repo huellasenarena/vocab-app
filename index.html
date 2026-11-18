@@ -8588,6 +8588,9 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
       return scores;
     }
 
+    // ⚠️ Déclaré AVANT QCM_SCHEMA : un `const` lu avant sa ligne arrête tout le script
+    // au chargement (l'app restait figée au démarrage, 2026-11-17).
+    const JS_STR = { type: 'string' };
     // Les 7 scénarios du QCM, ou l'aveu d'ignorance : un seul format imposé.
     const QCM_SCHEMA = {
       unknown: { type: 'boolean' }, why: JS_STR,
@@ -10836,7 +10839,6 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       try { return JSON.parse(reply); }
       catch (e) { throw new Error('Réponse coupée — réessaie'); }
     }
-    const JS_STR = { type: 'string' };
     function coalesceChunks(onChunk) {
       let pending = null, frame = 0;
       const run = () => {
