@@ -1199,6 +1199,15 @@ export default {
           if (!id || !lang || !/^\d{4}-\d{2}-\d{2}$/.test(day) || !started || !w)
             return json({ error: { message: 'id, lang, day, started_at et item requis' } }, 400);
           const item = JSON.stringify({ w, n: it.n ? 1 : 0, ok: it.ok ? 1 : 0 });
+          // `fix` (« tenía razón », 2026-11-26) : le mot déjà inscrit change de verdict.
+          const fix = b.fix
+            ? [env.DB.prepare(
+                `UPDATE round_log SET items = json_set(items,
+                   (SELECT '$[' || key || '].ok' FROM json_each(round_log.items) WHERE json_extract(value, '$.w') = ? LIMIT 1), ?)
+                 WHERE user_id = ? AND id = ?
+                   AND EXISTS (SELECT 1 FROM json_each(round_log.items) WHERE json_extract(value, '$.w') = ?)`
+              ).bind(w, it.ok ? 1 : 0, auth.uid, id, w)]
+            : [];
           await env.DB.batch([
             env.DB.prepare(
               `INSERT INTO round_log (user_id, id, language, day, started_at, total, done, items, updated_at)
@@ -1206,6 +1215,7 @@ export default {
                ON CONFLICT(user_id, id) DO UPDATE SET total = excluded.total,
                  done = MAX(round_log.done, excluded.done), updated_at = excluded.updated_at`
             ).bind(auth.uid, id, lang, day, started, Math.max(1, +b.total || 1), b.done ? 1 : 0, Date.now()),
+            ...fix,
             env.DB.prepare(
               `UPDATE round_log SET items = json_insert(items, '$[#]', json(?))
                WHERE user_id = ? AND id = ?
@@ -1235,6 +1245,19 @@ export default {
           if (!Array.isArray(rows) || rows.length === 0) return json({ ok: true });
           const stmt = env.DB.prepare('INSERT INTO history (user_id, date, word, language, result) VALUES (?, ?, ?, ?, ?)');
           await env.DB.batch(rows.map(r => stmt.bind(auth.uid, r[0], r[1], r[2], r[3] === '✓' ? 1 : 0)));
+          return json({ ok: true });
+        }
+        // « tenía razón » (2026-11-26) : la dernière réponse d'un mot, donnée depuis
+        // `since`, change de verdict. `since` borne la lecture à l'index (user_id, date).
+        if (request.method === 'PUT') {
+          const b = await request.json();
+          const word = String(b.word || ''), lang = String(b.lang || ''), since = String(b.since || '');
+          if (!word || !lang || !since) return json({ error: { message: 'word, lang et since requis' } }, 400);
+          await env.DB.prepare(
+            `UPDATE history SET result = ? WHERE id = (
+               SELECT id FROM history WHERE user_id = ? AND date >= ? AND language = ? AND word = ?
+               ORDER BY id DESC LIMIT 1)`
+          ).bind(b.ok === false ? 0 : 1, auth.uid, since, lang, word).run();
           return json({ ok: true });
         }
         return json({ error: { message: 'méthode non supportée' } }, 405);
