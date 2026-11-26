@@ -505,6 +505,55 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     /* Total des mots de la langue, au bout de la ligne du mode */
     .lang-total { margin-left: auto; align-self: center; color: var(--gris); font-size: var(--t-pequeno); font-variant-numeric: tabular-nums; }
 
+    /* ── Pratique quotidienne / groupes (2026-11-26) ──
+       Pastille coupée par UNE diagonale : le côté choisi est rempli de tinta. Les
+       deux moitiés ont la même largeur, la diagonale passe dans leurs marges. */
+    .start-switch { margin-bottom: 1.4rem; }
+    .diag { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; padding: 0; overflow: hidden;
+            border: 1px solid var(--tinta); border-radius: 999px; background: none; isolation: isolate;
+            font-family: var(--serif); font-size: var(--t-nav); color: var(--tinta); cursor: pointer; }
+    .diag span { position: relative; z-index: 1; padding: 6px 22px; text-align: center; color: var(--tinta); }
+    .diag::before { content: ""; position: absolute; inset: 0; z-index: 0; background: var(--tinta);
+                    clip-path: polygon(0 0, 56% 0, 44% 100%, 0 100%); }
+    .diag.r::before { clip-path: polygon(56% 0, 100% 0, 100% 100%, 44% 100%); }
+    .diag:not(.r) span:first-child, .diag.r span:last-child { color: var(--papel); }
+    @media (hover: hover) { .diag:hover:not(:disabled) { background: none; color: var(--tinta); border-color: var(--tinta); } }
+    #session-start:not(.view-groups) #groups-view { display: none; }
+    #session-start.view-groups > :not(.start-switch):not(#groups-view) { display: none !important; }
+    /* Liste des groupes, façon playlist (2 c) : un carré aux initiales, le nom, une ligne */
+    .grp-list { display: flex; flex-direction: column; }
+    .grp-row { display: flex; align-items: center; gap: 0.9rem; width: 100%; text-align: left; background: none;
+               border: 0; border-top: 1px solid var(--linea-suave); border-radius: 0; padding: 0.7rem 0;
+               color: var(--tinta); font-family: var(--serif); font-size: var(--t-texto); }
+    .grp-row:last-child { border-bottom: 1px solid var(--linea-suave); }
+    @media (hover: hover) {
+      .grp-row:hover:not(:disabled) { background: none; border-color: var(--linea-suave); color: var(--tinta); }
+      .grp-row:hover .grp-name { border-bottom-color: var(--tinta); }
+    }
+    .grp-sq { flex: none; width: 2.6rem; height: 2.6rem; border: 1px solid var(--linea-fuerte);
+              display: flex; align-items: center; justify-content: center; font-size: 1.05rem; }
+    .grp-sq.new { border-style: dashed; color: var(--gris); }
+    .grp-txt { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+    .grp-name { align-self: flex-start; border-bottom: 1px solid transparent; overflow-wrap: anywhere; }
+    .grp-name.grey { color: var(--gris); }
+    .grp-meta { font-size: var(--t-pequeno); color: var(--gris); }
+    /* La page d'un groupe (4 a) */
+    .grp-page { display: flex; flex-direction: column; gap: 0.9rem; }
+    .grp-title { font-size: 1.2rem; font-weight: normal; margin: 0; overflow-wrap: anywhere; }
+    .grp-page .session-actions { margin-top: 0; }
+    .grp-words { display: flex; flex-direction: column; }
+    .grp-word { display: flex; justify-content: space-between; align-items: baseline; gap: 0.8rem;
+                padding: 0.45rem 0; border-top: 1px solid var(--linea-suave); font-size: 0.95rem; }
+    .grp-word:last-child { border-bottom: 1px solid var(--linea-suave); }
+    .grp-word .grp-w { min-width: 0; overflow-wrap: anywhere; }
+    .grp-word .grp-n { color: var(--gris); font-size: var(--t-pequeno); }
+    .grp-word em { color: var(--gris); font-size: var(--t-pequeno); white-space: nowrap; }
+    .grp-links { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; }
+    .grp-link { background: none; border: 0; border-radius: 0; padding: 0; color: var(--gris);
+                font-family: var(--serif); font-size: var(--t-pequeno); border-bottom: 1px solid currentColor; }
+    .grp-link.ink { color: var(--tinta); }
+    @media (hover: hover) { .grp-link:hover:not(:disabled) { background: none; color: var(--tinta); border-color: var(--tinta); } }
+
     /* ── Séance (mode pratique) ── */
     #session-section { width: 100%; }
     .round-dials { display: flex; flex-direction: column; gap: 1.1rem; margin-bottom: 1.6rem; }
@@ -574,7 +623,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     /* La prochaine échéance, dite en délai plutôt qu'en date : elle se lit sans
        compter, et elle explique pourquoi le mot ne reviendra pas demain. */
     .session-due { font-family: var(--serif); font-size: 0.7rem; opacity: 0.75; margin-left: 0.45rem; }
-    #session-choices { display: flex; flex-direction: column; gap: 0.6rem; }
+    #session-choices, .rv-choices { display: flex; flex-direction: column; gap: 0.6rem; }
+    #session-past .qcm-result { margin-top: 0.9rem; }
     #session-choices > .btn-ghost { align-self: flex-start; }
     /* Aide pas encore offerte (rappel avant la réponse) : grisée, avec sa raison */
     .btn-ghost:disabled, .ctx-menu-btn:disabled { color: var(--gris-claro); cursor: default; }
@@ -625,6 +675,15 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
                border-top: 1px solid var(--linea-suave);
                padding: 8px max(8px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
     .type-kb-in  { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 7px; }
+    /* Cacher / montrer le clavier (8 b) : « ocultar teclado » au-dessus des touches,
+       une seule ligne « mostrar teclado » quand il est caché. */
+    .type-kb-top { max-width: 480px; margin: 0 auto 6px; display: flex; justify-content: flex-end; }
+    .type-kb-link { background: none; border: 0; border-radius: 0; padding: 2px 0; color: var(--gris);
+                    font-family: var(--serif); font-size: var(--t-pequeno); border-bottom: 1px solid currentColor; }
+    @media (hover: hover) { .type-kb-link:hover:not(:disabled) { background: none; color: var(--tinta); border-color: var(--tinta); } }
+    .type-kb-show { display: none; margin: 0 auto; }
+    .type-kb.folded .type-kb-in, .type-kb.folded .type-kb-top { display: none; }
+    .type-kb.folded .type-kb-show { display: block; }
     .type-kb-row { display: flex; gap: 5px; justify-content: center; }
     .type-key { flex: 1 1 0; min-width: 0; max-width: 44px; height: 48px; padding: 0; font-size: 1.05rem; color: var(--tinta);
                 background: none; border: 1px solid var(--linea-fuerte); border-radius: 0;
@@ -1773,6 +1832,21 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     }
     #catchup-btn:hover { background: var(--tinta); color: var(--papel); }
     #catchup-btn.visible { display: block; }
+    /* Revoir une question passée (7 b) : même pastille flottante, pour revenir */
+    #back-current-btn {
+      position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 600;
+      display: none; background: var(--tinta); color: var(--papel); border: none; white-space: nowrap;
+      border-radius: 999px; font-family: var(--serif); font-size: var(--t-nav); padding: 6px 16px; cursor: pointer;
+    }
+    #back-current-btn:hover { background: var(--tinta); color: var(--papel); }
+    #back-current-btn.visible { display: block; }
+    /* Le compteur de la manche s'ouvre sur la liste de ses questions */
+    .session-count.can-review { cursor: pointer; color: var(--tinta); border-bottom: 1px solid var(--tinta); }
+    #session-past { padding-bottom: 4rem; }
+    #session-past .qcm-choice:disabled { opacity: 1; cursor: default; }
+    .rv-row { display: flex; gap: 0.6rem; align-items: baseline; }
+    .rv-num { color: var(--gris); font-variant-numeric: tabular-nums; min-width: 1.4em; }
+    .rv-w   { flex: 1; text-align: left; }
 
 
   </style>
@@ -1780,6 +1854,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
 <body>
 <div id="status-curtain"></div>
 <button id="catchup-btn" onclick="catchupToFeedback()" data-i18n="catchup">suite du verdict</button>
+<button id="back-current-btn" onclick="backToCurrent()" data-i18n="rv_back">volver a la pregunta actual</button>
 <div id="sticky-words-bar">
   <span id="sticky-words-text"></span>
   <button id="sticky-hide-btn" onclick="toggleWordsHidden()" title="Cacher/Montrer">cacher</button>
@@ -1946,7 +2021,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     <div id="session-section" style="display:none;">
       <div class="session-head">
         <div class="session-headline">
-          <span class="session-count" id="session-count"></span>
+          <span class="session-count" id="session-count" onclick="openRoundReview(event)"></span>
           <button class="session-quit" id="session-quit" onclick="quitRound()" style="display:none"></button>
         </div>
         <div class="session-track"><div class="session-fill" id="session-fill"></div></div>
@@ -1954,6 +2029,14 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       <!-- Écran de départ : les réglages de la manche, puis le clic qui lance
            les appels. Verrouillé pendant la manche (cf. lockRoundDials). -->
       <div id="session-start" style="display:none;">
+        <!-- Pratique quotidienne / groupes (2026-11-26, page de test
+             https://claude.ai/artifact/1XtVzVSuSGhJ7JqvDxMfiF, 1 a · 2 c · 3 a · 4 a · 5 b) -->
+        <div class="start-switch">
+          <button class="diag" id="start-diag" onclick="toggleStartView()">
+            <span data-i18n="sv_daily">diaria</span><span data-i18n="sv_groups">grupos</span>
+          </button>
+        </div>
+        <div id="groups-view"></div>
         <div class="round-dials">
           <div class="round-dial">
             <div class="round-dial-head">
@@ -1994,6 +2077,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         <div class="rlog" id="round-log-today"></div>
       </div>
       <div id="session-body"></div>
+      <!-- Une question déjà passée, relue (openRoundReview) -->
+      <div id="session-past" style="display:none"></div>
     </div>
 
     <!-- Carte « terminé pour aujourd'hui » (mode espacé) -->
@@ -2429,7 +2514,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     const SESSION_LANG_COLS    = { English: 1, Spanish: 2, French: 3, Greek: 4 }; // index dans la ligne [Date, En, Es, Fr, Gr]
     const KEY_GRAMMAR_COUNT    = "vocab_grammar_count";
     const KEY_LANGUAGES        = "vocab_languages"; // langues choisies par l'utilisateur (synced)
-    const DAILY_TOKEN_LIMIT = 250000; // garde-fou sur SA clé ; sans clé, c'est le Worker qui plafonne
+    const DAILY_TOKEN_LIMIT = 500000; // garde-fou sur SA clé (relevé de 250 000 le 2026-11-26 : une manche préparée d'avance en consomme plus) ; sans clé, c'est le Worker qui plafonne
     const BLACKLIST_COLS   = { English: 'A', Spanish: 'B', French: 'C', Greek: 'D' };
 
     const LANGS = [
@@ -2770,6 +2855,26 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       sess_new_n:       { en: `new`, fr: `neufs`, es: `nuevas`, el: `νέες` },
       sess_quit:        { en: `leave round`, fr: `quitter la manche`, es: `salir de la ronda`, el: `έξοδος από τον γύρο` },
       sess_back:        { en: `back`, fr: `retour`, es: `volver`, el: `επιστροφή` },
+      sv_daily:         { en: `daily`, fr: `quotidien`, es: `diaria`, el: `καθημερινή` },
+      sv_groups:        { en: `groups`, fr: `groupes`, es: `grupos`, el: `ομάδες` },
+      grp_new:          { en: `new group`, fr: `nouveau groupe`, es: `nuevo grupo`, el: `νέα ομάδα` },
+      grp_name_q:       { en: `Group name`, fr: `Nom du groupe`, es: `Nombre del grupo`, el: `Όνομα ομάδας` },
+      grp_due:          { en: `{n} to review`, fr: `{n} à revoir`, es: `{n} por repasar`, el: `{n} για επανάληψη` },
+      grp_up_to_date:   { en: `up to date`, fr: `à jour`, es: `al día`, el: `ενημερωμένη` },
+      grp_practice:     { en: `Practise all {n}`, fr: `Pratiquer les {n}`, es: `Practicar las {n}`, el: `Εξάσκηση και στις {n}` },
+      grp_practice_one: { en: `Practise it`, fr: `La pratiquer`, es: `Practicarla`, el: `Εξάσκηση` },
+      grp_add_words:    { en: `add words`, fr: `ajouter des mots`, es: `añadir palabras`, el: `προσθήκη λέξεων` },
+      grp_rename:       { en: `rename`, fr: `renommer`, es: `renombrar`, el: `μετονομασία` },
+      grp_delete:       { en: `delete`, fr: `supprimer`, es: `eliminar`, el: `διαγραφή` },
+      grp_del_q:        { en: `Delete the group "{g}"? Its words stay in your list.`, fr: `Supprimer le groupe « {g} » ? Ses mots restent dans ta liste.`, es: `¿Eliminar el grupo «{g}»? Sus palabras se quedan en tu lista.`, el: `Διαγραφή της ομάδας «{g}»; Οι λέξεις της μένουν στη λίστα σου.` },
+      grp_exists:       { en: `You already have a group with this name.`, fr: `Tu as déjà un groupe de ce nom.`, es: `Ya tienes un grupo con este nombre.`, el: `Έχεις ήδη ομάδα με αυτό το όνομα.` },
+      grp_empty:        { en: `No words yet.`, fr: `Pas encore de mots.`, es: `Todavía no hay palabras.`, el: `Δεν υπάρχουν ακόμη λέξεις.` },
+      grp_load_err:     { en: `Could not load your groups.`, fr: `Impossible de charger tes groupes.`, es: `No se pudieron cargar tus grupos.`, el: `Δεν φορτώθηκαν οι ομάδες σου.` },
+      sf_intro_group:   { en: `Tick the words that belong to this group; untick one to take it out.`, fr: `Coche les mots du groupe ; décoche-en un pour le retirer.`, es: `Marca las palabras del grupo; desmarca una para quitarla.`, el: `Σημείωσε τις λέξεις της ομάδας· αποεπίλεξε μία για να τη βγάλεις.` },
+      rv_current:       { en: `current question`, fr: `question en cours`, es: `pregunta actual`, el: `τρέχουσα ερώτηση` },
+      rv_back:          { en: `back to the current question`, fr: `revenir à la question en cours`, es: `volver a la pregunta actual`, el: `πίσω στην τρέχουσα ερώτηση` },
+      kb_hide:          { en: `hide keyboard`, fr: `cacher le clavier`, es: `ocultar teclado`, el: `απόκρυψη πληκτρολογίου` },
+      kb_show:          { en: `show keyboard`, fr: `montrer le clavier`, es: `mostrar teclado`, el: `εμφάνιση πληκτρολογίου` },
       // Historique des manches (2026-11-14)
       rlog_today:       { en: `today`, fr: `aujourd'hui`, es: `hoy`, el: `σήμερα` },
       rlog_yesterday:   { en: `yesterday`, fr: `hier`, es: `ayer`, el: `χθες` },
@@ -2963,7 +3068,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     }
     function applyPracticeLangUI() {
       const code = pracCode();
-      ['screen-practice', 'screen-revisions', 'word-ctx-menu', 'groups-modal', 'free-search-modal', 'catchup-btn'].forEach(id => {
+      ['screen-practice', 'screen-revisions', 'word-ctx-menu', 'groups-modal', 'free-search-modal', 'catchup-btn', 'back-current-btn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) applyI18n(el, code);
       });
@@ -3097,7 +3202,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       return p ? (p.correct || 0) - (p.incorrect || 0) : 0;
     }
     let _freePickOrder     = [];    // mots cochés dans le sélecteur de recherche (ordre de sélection)
-    let _freeSearchFor     = 'free'; // 'free' : file du mode libre · 'round' : mots choisis pour la manche
+    let _freeSearchFor     = 'free'; // 'free' : file du mode libre · 'round' : mots choisis pour la manche · 'group' : mots d'un groupe
     let _roundChosen       = [];    // mots choisis à la main pour la prochaine manche (pratique quotidienne)
     let _freeFiltered      = [];    // liste affichée dans le sélecteur (après filtre texte)
     // Réinitialisation de la progression (⚙️ réglages globaux)
@@ -3701,6 +3806,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       if (document.querySelector('.modal-overlay.visible') || document.getElementById('word-ctx-menu')?.classList.contains('visible')) return;
       const ae = document.activeElement;
       if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
+      // Une question revue : Entrée ou Échap ramène à la question en cours.
+      if (_viewIdx !== null) {
+        if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); backToCurrent(); }
+        return;
+      }
       const item = sessionItems[sessionIdx];
       if (!item || _sessionBusy) return;
       if (item.answered) {
@@ -3879,6 +3989,8 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       _sitGroupWords = null;
       _sitGroupLabel = '';
       _ungroupedCache = null;
+      _startView   = 'daily'; // la page d'une langue s'ouvre sur la pratique quotidienne
+      _openGroupId = null;
       applyPracticeLangUI(); // tous les libellés de l'écran passent dans la langue pratiquée
       const _langWC = desiredWordCount(lang, practiceMode);
       document.getElementById('word-count-slider').value = _langWC;
@@ -4734,8 +4846,10 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
     }
 
     // ── Groupes de mots (mode libre) ──────────────────────────
+    // ⚠️ Seulement les groupes créés par l'utilisateur (`kind=mine`, 2026-11-26) :
+    // les 88 groupes de l'IA restent en base, cachés partout (choix 5 b).
     async function loadGroups(lang) {
-      const r = await authFetch('/api/groups?lang=' + encodeURIComponent(lang));
+      const r = await authFetch('/api/groups?kind=mine&lang=' + encodeURIComponent(lang));
       const d = await r.json();
       groupsCache[lang] = d.groups || [];
       return groupsCache[lang];
@@ -5281,12 +5395,19 @@ Write every sentence in ${respLang}. Reply with ONLY this JSON object, nothing e
     function updateFreeStartBtn() {
       const btn = document.getElementById('free-search-start');
       const n = _freePickOrder.length;
-      const lab = tPrac(_freeSearchFor === 'round' ? 'sf_use' : 'sess_start');
+      const lab = tPrac(_freeSearchFor === 'group' ? 'btn_save' : _freeSearchFor === 'round' ? 'sf_use' : 'sess_start');
       // En manche, valider avec zéro mot coché est permis : c'est retirer le choix.
-      btn.disabled = n === 0 && _freeSearchFor !== 'round';
+      // Dans un groupe aussi : c'est le vider.
+      btn.disabled = n === 0 && _freeSearchFor === 'free';
       btn.textContent = n > 1 ? `${lab} (${n})` : lab;
     }
     function startFreeQueue() {
+      if (_freeSearchFor === 'group') {
+        const picked = [..._freePickOrder];
+        closeFreeSearch();
+        saveGroupWords(picked);
+        return;
+      }
       if (_freeSearchFor === 'round') {
         setRoundChosen([..._freePickOrder]);
         closeFreeSearch();
@@ -6635,6 +6756,7 @@ Reply with ONLY this JSON object, nothing else:
     function hintTranslate() { if (_hintBoxWord) requestGloss(_hintBoxWord, 'translate'); }
 
     async function runGloss(word, kind) {
+      if (document.getElementById('type-kb')) setTypeKbFolded(true); // il couvrait la boîte
       if (kind === 'photo')  return runWordImage(word);
       if (kind === 'define') return fetchHint(word);
 
@@ -7867,6 +7989,7 @@ Write all scenarios and explanations in ${langName}.`;
           // Sa ligne dans l'historique des manches : reprise ici ou ailleurs, la
           // manche continue de remplir la même ligne.
           rid:   _roundLogId, rstart: _roundLogStart, rday: _roundLogDay,
+          grp:   _roundGroup, // manche d'un groupe : reprise comme telle
           // L'échéance de chaque mot est notée telle qu'elle est AVANT sa réponse :
           // c'est elle qui dira, à la reprise, si le mot a été fait entre-temps.
           // Les questions déjà préparées (`prep`) voyagent avec elle : une reprise,
@@ -8089,6 +8212,7 @@ Write all scenarios and explanations in ${langName}.`;
       sessionIdx   = 0;
       sessionOk    = saved.data.ok || 0;
       _roundOffset = saved.done;
+      _roundGroup  = saved.data.grp || null;
       if (saved.data.rid) {
         _roundLogId = saved.data.rid; _roundLogStart = saved.data.rstart; _roundLogDay = saved.data.rday;
       } else newRoundLog(); // manche sauvée avant l'historique des manches
@@ -8285,6 +8409,7 @@ Write all scenarios and explanations in ${langName}.`;
 
     function renderSessionStart(skipRemote) {
       if (!currentLang) return;
+      backToCurrent(true);
       const start = document.getElementById('session-start');
       const body  = document.getElementById('session-body');
       const head  = document.querySelector('#session-section .session-head');
@@ -8334,6 +8459,7 @@ Write all scenarios and explanations in ${langName}.`;
       note.style.display = note.textContent ? '' : 'none';
       startBtn.style.display = empty || freeDone ? 'none' : '';
       renderRoundLogToday(!skipRemote);
+      renderStartView();
       alignSessionTop();
 
       // La manche commencée sur l'autre appareil arrive après coup : l'écran est
@@ -8346,6 +8472,203 @@ Write all scenarios and explanations in ${langName}.`;
           if (got && currentLang === lang && !sessionRunning) renderSessionStart(true);
         });
       }
+    }
+
+    // ── Pratique quotidienne / groupes ─────────────────────────────────
+    // Les groupes sont ceux que l'utilisateur crée (playlists) : un nom, des mots
+    // choisis à la main, et « Practicar » lance une manche avec TOUS leurs mots,
+    // chacun à l'exercice de son palier ; les réponses comptent comme d'habitude.
+    let _startView   = 'daily';   // 'daily' | 'groups'
+    let _openGroupId = null;      // groupe ouvert sur sa page
+    let _roundGroup  = null;      // { id, name } quand la manche est celle d'un groupe
+
+    function toggleStartView() {
+      _startView = _startView === 'groups' ? 'daily' : 'groups';
+      renderStartView();
+    }
+    function renderStartView() {
+      const start = document.getElementById('session-start');
+      if (!start) return;
+      const g = _startView === 'groups';
+      start.classList.toggle('view-groups', g);
+      document.getElementById('start-diag').classList.toggle('r', g);
+      if (g) renderGroupsView();
+    }
+
+    // Les mots d'un groupe tels qu'ils sont dans la liste (un mot supprimé ou
+    // renommé ailleurs ne compte plus).
+    function groupMembers(g) {
+      const byLc = new Map(allWords.map(w => [lc(w), w]));
+      return (g?.words || []).map(w => byLc.get(lc(w))).filter(Boolean);
+    }
+    function currentGroup() {
+      return (groupsCache[currentLang] || []).find(g => g.id === _openGroupId) || null;
+    }
+    function groupInitials(name) {
+      const parts = String(name).toLowerCase().split(/[\s\-]+/).filter(p => /\p{L}/u.test(p));
+      const big = parts.filter(p => p.length > 2);
+      const use = big.length >= 2 ? big : parts;
+      return use.length >= 2 ? [...use[0]][0] + [...use[1]][0] : [...(use[0] || '?')].slice(0, 2).join('');
+    }
+    function groupMeta(words) {
+      const code = pracCode();
+      const due  = words.filter(w => progressMap[lc(w)]?.nextReview && isDue(w)).length;
+      const nw   = words.filter(w => isNewWord(w)).length;
+      const parts = [rlogWords(words.length, code)];
+      if (due) parts.push(tPrac('grp_due').replace('{n}', due));
+      if (nw)  parts.push(`${nw} ${tPrac(nw === 1 ? 'sess_new_one' : 'sess_new_n')}`);
+      if (words.length && !due && !nw) parts.push(tPrac('grp_up_to_date'));
+      return parts.join(' · ');
+    }
+
+    async function renderGroupsView(reload) {
+      const box  = document.getElementById('groups-view');
+      const lang = currentLang;
+      if (!box || !lang) return;
+      if (reload || !groupsCache[lang] || groupsCache[lang].some(g => !Array.isArray(g.words))) {
+        if (!groupsCache[lang]) box.innerHTML = '<div style="padding:0.6rem 0"><span class="spinner"></span></div>';
+        try { await loadGroups(lang); }
+        catch { box.innerHTML = `<p class="session-note" style="color:var(--rojo)">${tPrac('grp_load_err')}</p>`; return; }
+        if (currentLang !== lang || _startView !== 'groups') return;
+      }
+      const groups = groupsCache[lang] || [];
+      const g = _openGroupId ? groups.find(x => x.id === _openGroupId) : null;
+      if (_openGroupId && !g) _openGroupId = null;
+      box.innerHTML = g ? groupPageHtml(g) : groupListHtml(groups);
+    }
+
+    function groupListHtml(groups) {
+      return `<div class="grp-list">`
+        + `<button class="grp-row" onclick="newGroup()"><span class="grp-sq new">+</span>`
+        + `<span class="grp-txt"><span class="grp-name grey">${tPrac('grp_new')}</span></span></button>`
+        + groups.map(g => `<button class="grp-row" onclick="openGroup(${g.id})">`
+          + `<span class="grp-sq">${escapeHtml(groupInitials(g.name))}</span>`
+          + `<span class="grp-txt"><span class="grp-name">${escapeHtml(g.name)}</span>`
+          + `<span class="grp-meta">${groupMeta(groupMembers(g))}</span></span></button>`).join('')
+        + `</div>`;
+    }
+
+    function groupPageHtml(g) {
+      const words = groupMembers(g).sort((a, b) => lc(wordBase(a)).localeCompare(lc(wordBase(b))));
+      const n     = words.length;
+      const left  = freeWordsLeft();
+      const k     = Math.min(n, left);
+      const mastered = words.filter(w => netOf(w) >= 3).length;
+      const meta  = groupMeta(words) + (mastered ? ` · ${mastered} ★★★` : '');
+      const play  = n
+        ? `<div class="session-actions"><button class="btn-secondary" onclick="practiceGroup()" ${k ? '' : 'disabled'}>`
+          + (k === 1 ? tPrac('grp_practice_one') : tPrac('grp_practice').replace('{n}', k)) + `</button></div>`
+          + (left !== Infinity ? `<p class="session-note" style="margin:0">${left ? tPrac('sess_free_left').replace('{n}', wordsLabel(left)) : tPrac('sess_free_done').replace('{n}', FREE_WORDS_PER_DAY)}</p>` : '')
+        : `<div class="session-actions"><button class="btn-secondary" onclick="editGroupWords()">${tPrac('grp_add_words')}</button></div>`;
+      const rows  = words.map(w => {
+        const note = wordNote(w);
+        return `<div class="grp-word"><span class="grp-w">${escapeHtml(lc(wordBase(w)))}`
+          + (note ? ` <span class="grp-n">(${escapeHtml(note)})</span>` : '') + `</span>`
+          + (isNewWord(w) ? `<em>${tPrac('sess_new_one')}</em>` : starsHtml(w)) + `</div>`;
+      }).join('');
+      return `<div class="grp-page">`
+        + `<div><button class="grp-link" onclick="closeGroup()">${tPrac('sv_groups')}</button></div>`
+        + `<h2 class="grp-title">${escapeHtml(g.name)}</h2>`
+        + `<div class="grp-meta">${n ? meta : tPrac('grp_empty')}</div>`
+        + play
+        + (n ? `<div class="grp-words">${rows}</div>` : '')
+        + `<div class="grp-links">`
+        + (n ? `<button class="grp-link ink" onclick="editGroupWords()">${tPrac('grp_add_words')}</button>` : '')
+        + `<button class="grp-link" onclick="renameGroup()">${tPrac('grp_rename')}</button>`
+        + `<button class="grp-link" onclick="deleteGroup()">${tPrac('grp_delete')}</button></div>`
+        + `</div>`;
+    }
+
+    function openGroup(id)  { _openGroupId = id;   renderGroupsView(); window.scrollTo({ top: 0 }); }
+    function closeGroup()   { _openGroupId = null; renderGroupsView(); }
+
+    async function groupRequest(method, body) {
+      const r = await authFetch('/api/groups', { method, body: JSON.stringify(body) });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 409) throw new Error(tPrac('grp_exists'));
+      if (!r.ok) throw new Error(d.error?.message || ('HTTP ' + r.status));
+      return d;
+    }
+
+    // Nouveau groupe : un nom, puis le choix de ses mots tout de suite.
+    function newGroup() {
+      openEditModal({ title: tPrac('grp_name_q'), value: '', t: tPrac, onSave: async name => {
+        const d = await groupRequest('POST', { lang: currentLang, name, kind: 'mine' });
+        await loadGroups(currentLang);
+        _openGroupId = d.id;
+        renderGroupsView();
+        setTimeout(editGroupWords, 0); // après la fermeture de la fenêtre du nom
+      } });
+    }
+    function renameGroup() {
+      const g = currentGroup(); if (!g) return;
+      openEditModal({ title: tPrac('grp_rename'), value: g.name, t: tPrac, onSave: async name => {
+        if (name === g.name) return;
+        await groupRequest('PUT', { id: g.id, name });
+        await loadGroups(currentLang);
+        renderGroupsView();
+      } });
+    }
+    async function deleteGroup() {
+      const g = currentGroup(); if (!g) return;
+      if (!confirm(tPrac('grp_del_q').replace('{g}', g.name))) return;
+      try { await groupRequest('DELETE', { id: g.id }); }
+      catch (e) { alert(e.message); return; }
+      _openGroupId = null;
+      await loadGroups(currentLang).catch(() => {});
+      renderGroupsView();
+    }
+
+    // Ajouter et retirer : le sélecteur « chercher un mot », les mots du groupe
+    // déjà cochés (3 a). Valider envoie la différence.
+    function editGroupWords() {
+      const g = currentGroup(); if (!g) return;
+      _freeSearchFor = 'group';
+      document.getElementById('free-search-intro').textContent = tPrac('sf_intro_group');
+      _freePool = null; _freePoolLabel = '';
+      _freePickOrder = groupMembers(g);
+      document.getElementById('free-search-input').value = '';
+      renderFreeSearchList('');
+      updateFreeStartBtn();
+      document.getElementById('free-search-modal').classList.add('visible');
+    }
+    async function saveGroupWords(picked) {
+      const g = currentGroup(); if (!g) return;
+      const before = new Set(groupMembers(g));
+      const after  = new Set(picked);
+      const add = [...after].filter(w => !before.has(w));
+      const rem = [...before].filter(w => !after.has(w));
+      const send = (method, words) => words.length
+        ? authFetch('/api/word-groups', { method, body: JSON.stringify({ lang: currentLang, group_id: g.id, words }) })
+        : null;
+      // Tout de suite à l'écran ; la base suit.
+      g.words = [...after];
+      renderGroupsView();
+      try { await Promise.all([send('POST', add), send('DELETE', rem)].filter(Boolean)); }
+      catch { /* rechargé ci-dessous : l'écran dit ce que la base a vraiment */ }
+      clearMotGroupsCache();
+      await loadGroups(currentLang).catch(() => {});
+      if (_startView === 'groups') renderGroupsView();
+    }
+
+    // Une manche avec tous les mots du groupe (4 a), mélangés, chacun à son palier.
+    // ⚠️ Elle remplace une manche quotidienne laissée en plan : il n'y a qu'une
+    // manche reprenable par langue.
+    function practiceGroup() {
+      const g = currentGroup(); if (!g) return;
+      const left = freeWordsLeft();
+      const list = shuffleInPlace(groupMembers(g)).slice(0, left === Infinity ? undefined : left);
+      if (!list.length) return;
+      clearSavedRound();
+      _roundSkipped   = new Set();
+      _roundOffset    = 0;
+      _roundComposing = false;
+      _roundGroup     = { id: g.id, name: g.name };
+      sessionItems = list.map(w => ({ kind: sessionLevel(w), word: w }));
+      newRoundLog();
+      sessionIdx = 0;
+      sessionOk  = 0;
+      launchRound();
     }
 
     function composeNewRound()    { _roundComposing = true;  renderSessionStart(true); }
@@ -8361,6 +8684,7 @@ Write all scenarios and explanations in ${langName}.`;
       // Une manche vide lancée n'avait aucune sortie (pas d'en-tête, pas de
       // « quitter ») : on reste sur l'écran de départ, qui le dit.
       if (!sessionItems.length) return void renderSessionStart(true);
+      _roundGroup = null;
       setRoundChosen([]); // consommé : la manche suivante repart du remplissage automatique
       newRoundLog();
       sessionIdx   = 0;
@@ -8393,8 +8717,11 @@ Write all scenarios and explanations in ${langName}.`;
     // rien en plan.
     function paintRoundHead() {
       const { done, total } = roundProgress();
-      document.getElementById('session-count').textContent =
-        total ? tPrac('sess_round').replace('{a}', done).replace('{b}', total) : '';
+      const cnt = document.getElementById('session-count');
+      // En revue, le compteur dit la question qu'on regarde.
+      const shown = _viewIdx !== null ? _roundOffset + _viewIdx + 1 : done;
+      cnt.textContent = total ? tPrac('sess_round').replace('{a}', shown).replace('{b}', total) : '';
+      cnt.classList.toggle('can-review', canReviewPast());
       document.getElementById('session-fill').style.width = total ? (100 * done / total) + '%' : '0%';
       // Rien à jauger : la barre restait seule au-dessus de « Rien à faire ».
       const head = document.querySelector('#session-section .session-head');
@@ -8414,6 +8741,12 @@ Write all scenarios and explanations in ${langName}.`;
       if (start) start.style.display = 'none';
       const body = document.getElementById('session-body');
       paintRoundHead();
+      // Une question revue reste à l'écran (mot renommé depuis son menu, etc.) ;
+      // si elle a quitté la manche, on revient à la question en cours.
+      if (_viewIdx !== null) {
+        if (_viewIdx >= sessionIdx || !sessionItems[_viewIdx]) backToCurrent(true);
+        else renderPastView();
+      }
 
       // Avant les sorties : une image ou une définition ouverte resterait sinon
       // affichée sous la carte de fin de manche.
@@ -8518,7 +8851,9 @@ Write all scenarios and explanations in ${langName}.`;
     // dernière réponse mènent tous ici.
     function finishRound() {
       clearSavedRound(); // manche finie : plus rien à reprendre
-      markRoundFinishedToday();
+      // Une manche de groupe ne remplace pas celle du jour (ses mots comptent
+      // quand même dans les mots faits aujourd'hui).
+      if (!_roundGroup) markRoundFinishedToday();
       showSessionStart();
       window.scrollTo({ top: 0 });
     }
@@ -8777,6 +9112,7 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
         if (choices && choices.unknown) return renderSessionUnknown(item, choices.why);
         if (item.kind === 'pick') {
           document.getElementById('session-situation').textContent = choices.situation;
+          item.situation = choices.situation; // relue si l'on revient sur cette question
           item.choices = choices.options;
         } else item.choices = choices;
         if (!item.answered) markItemShown(item);
@@ -8864,16 +9200,22 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
       });
       const res = document.getElementById('session-result');
       res.className = 'qcm-result ' + (isCorrect ? 'correct' : 'incorrect');
-      res.innerHTML = !chosen
-        ? (right?.explanation || '')
-        : isCorrect
-          ? `${chosen.explanation || ''}`
-          : [chosen.explanation, right?.explanation].filter(Boolean).join('<br>');
+      res.innerHTML = qcmResultHtml(item);
       const rg = document.getElementById('qcm-regen');     if (rg) rg.style.display = 'none';
       const dk = document.getElementById('session-dunno'); if (dk) dk.style.display = 'none';
       const sw = document.getElementById('session-swap');  if (sw) sw.style.display = 'none';
       if (item.kind === 'pick') revealSessionWord(item);
       else showSessionNote(item);
+    }
+
+    // L'explication sous les réponses (partagée avec la question revue).
+    function qcmResultHtml(item) {
+      const idx    = item.picked;
+      const chosen = idx >= 0 ? (item.choices[idx] || {}) : null;
+      const right  = item.choices.find(c => c.correct);
+      if (!chosen) return right?.explanation || '';
+      if (chosen.correct) return chosen.explanation || '';
+      return [chosen.explanation, right?.explanation].filter(Boolean).join('<br>');
     }
 
     // La note (« expresión colombiana… ») n'apparaît qu'après la réponse, à la place
@@ -8893,7 +9235,7 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
     // autre jour. Rien n'est enregistré — il n'a pas été travaillé.
     function swapNewWord() {
       const item = sessionItems[sessionIdx];
-      if (!item || item.kind !== 'qcm' || item.answered || _sessionBusy) return;
+      if (!item || _roundGroup || item.kind !== 'qcm' || item.answered || _sessionBusy) return;
       _roundSkipped.add(lc(item.word)); // sinon un second échange pourrait le ramener
       const repl = pickRoundReplacement(lc(item.word), 'new');
       if (!repl) { // plus aucun mot pour le remplacer : le bouton n'a plus d'objet
@@ -8917,6 +9259,7 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
       if (_sessionBusy || !item || item.answered) return;
       _sessionBusy = true;
       item.answered = true;
+      item.ok       = false;
       item.picked   = -1;
       paintQcmAnswer(item);
       unlockSessionHelp();
@@ -8935,6 +9278,7 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
       const isCorrect = !!(item.choices[idx] || {}).correct;
       if (isCorrect) sessionOk++;
       item.answered = true;
+      item.ok       = isCorrect;
       item.picked   = idx;
       paintQcmAnswer(item);
       unlockSessionHelp();
@@ -8952,15 +9296,119 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
     }
 
     function sessionNext() {
+      backToCurrent(true);
       if (roundAllAnswered()) return finishRound();
+      _typeKbFolded = false;
       sessionIdx++; saveRound(); renderSession();
+    }
+
+    // ── Revoir une question déjà passée (2026-11-26) ────────────────────
+    // Page de test https://claude.ai/artifact/1XtVzVSuSGhJ7JqvDxMfiF, choix 6 c · 7 b :
+    // toucher le compteur « 5 / 12 » ouvre la liste des questions de la manche ; une
+    // question revue s'affiche à la place de la question en cours, en lecture seule
+    // (sa réponse est déjà enregistrée), et une pastille flottante « volver a la
+    // pregunta actual » ramène à celle qu'on avait laissée — intacte, lettres tapées
+    // comprises : elle reste dans le DOM, seulement cachée.
+    let _viewIdx = null;          // index de la question revue, null = la question en cours
+    let _viewHelpSaved = false;   // l'aide de la question en cours, rendue au retour
+
+    function canReviewPast() { return sessionRunning && sessionIdx > 0; }
+
+    function openRoundReview(ev) {
+      if (!canReviewPast()) return;
+      ev.stopPropagation(); // sinon le listener global referme aussitôt
+      _ctxWord = null;
+      document.getElementById('word-ctx-label').textContent = '';
+      const rows = [];
+      for (let i = 0; i <= sessionIdx && i < sessionItems.length; i++) {
+        const it  = sessionItems[i];
+        const num = _roundOffset + i + 1;
+        const cur = i === sessionIdx;
+        // La question en cours ne se nomme pas : pour « quel mot ? » et « tape le
+        // mot », le mot EST la réponse.
+        const name = cur ? `<em>${tPrac('rv_current')}</em>` : escapeHtml(lc(wordBase(it.word)));
+        const mark = cur || !it.answered ? ''
+          : `<span class="${it.ok ? 'rlog-ok' : 'rlog-ko'}">${tPrac(it.ok ? 'mark_ok' : 'mark_ko')}</span>`;
+        const on = (_viewIdx === null ? cur : i === _viewIdx) ? ' on' : '';
+        rows.push(`<button class="ctx-menu-btn rv-row${on}" onclick="${cur ? 'backToCurrent()' : `viewPastQuestion(${i})`}">`
+          + `<span class="rv-num">${num}</span><span class="rv-w">${name}</span>${mark}</button>`);
+      }
+      document.getElementById('ctx-langs').innerHTML = rows.join('');
+      document.getElementById('ctx-main').style.display  = 'none';
+      document.getElementById('ctx-langs').style.display = '';
+      const r = ev.currentTarget.getBoundingClientRect();
+      positionCtxMenu(r.left, r.bottom + 4);
+    }
+
+    function viewPastQuestion(i) {
+      closeWordContextMenu();
+      if (!sessionRunning || i < 0 || i >= sessionIdx) return;
+      if (_viewIdx === null) _viewHelpSaved = _sessionHelpOpen;
+      _viewIdx = i;
+      _sessionHelpOpen = true; // la réponse est donnée : définition et menu sont libres
+      if (document.getElementById('type-kb')) setTypeKbFolded(true);
+      resetSessionBoxes();
+      renderPastView();
+      alignSessionTop();
+    }
+
+    function backToCurrent(silent) {
+      closeWordContextMenu();
+      if (_viewIdx === null) return;
+      _viewIdx = null;
+      _sessionHelpOpen = _viewHelpSaved;
+      document.getElementById('session-past').style.display = 'none';
+      document.getElementById('session-past').innerHTML = '';
+      document.getElementById('session-body').style.display = '';
+      document.getElementById('back-current-btn').classList.remove('visible');
+      if (silent) return;
+      resetSessionBoxes();
+      const it = sessionItems[sessionIdx];
+      if (it && it.kind === 'type' && !it.answered) setTypeKbFolded(false);
+      paintRoundHead();
+      alignSessionTop();
+    }
+
+    function renderPastView() {
+      const it   = sessionItems[_viewIdx];
+      const box  = document.getElementById('session-past');
+      if (!it) return backToCurrent();
+      document.getElementById('session-body').style.display = 'none';
+      box.style.display = '';
+      document.getElementById('back-current-btn').classList.add('visible');
+      paintRoundHead();
+      const esc  = it.word.replace(/'/g, "\\'");
+      const note = wordNote(it.word);
+      let h = `<div class="session-word"><span>${lc(wordBase(it.word))}</span>`
+        + (it.wasNew ? `<span class="session-new">${tPrac('sess_new_one')}</span>` : '')
+        + `<span class="card-action-btn word-menu-btn" title="Options" onclick="openWordMenu('${esc}', event)">${tPrac('btn_options')}</span></div>`
+        + `<div class="session-stars">${starsHtml(it.word)}${sessionDueSuffix(it.word)}</div>`;
+      if (!it.answered) {
+        h += `<p class="session-note">${tPrac('qcm_unknown')}</p>`;
+      } else if (it.kind === 'type' && it.data && it.toks) {
+        const [before, after] = it.data.sentence.split('___');
+        h += `<div class="type-sentence">${escapeHtml(before)}${typeGapHtml(it)}${escapeHtml(after)}</div>`
+          + `<div class="qcm-result ${it.ok ? 'correct' : 'incorrect'}">${typeAnswerHtml(it)}</div>`;
+      } else if (it.choices) {
+        if (it.kind === 'pick' && it.situation) h += `<div class="session-situation">${escapeHtml(it.situation)}</div>`;
+        else h += `<p class="session-q${note ? ' session-q-note open' : ''}">${note ? escapeHtml(note) : tPrac('sess_which')}</p>`;
+        h += `<div class="rv-choices">` + it.choices.map((c, i) => {
+          const picked = i === it.picked;
+          const cls = picked ? (c.correct ? ' correct-answer' : ' wrong-answer') : (c.correct ? ' correct-answer' : '');
+          const ok  = picked ? !!c.correct : c.correct ? true : null;
+          const mk  = ok === null ? '' : `<span class="qcm-mark" aria-label="${tPrac(ok ? 'mark_ok' : 'mark_ko')}">${ok ? '✓' : '✗'}</span>`;
+          return `<button class="qcm-choice${cls}" disabled>${mk}${c.text}</button>`;
+        }).join('') + `</div>`
+          + `<div class="qcm-result ${it.ok ? 'correct' : 'incorrect'}">${qcmResultHtml(it)}</div>`;
+      }
+      box.innerHTML = h;
     }
 
     function addSessionNextButton() {
       // La réponse est donnée : la barre avance tout de suite, et après la dernière
       // la manche est finie — la journée passe au vert même sans « Terminer ».
       paintRoundHead();
-      if (roundAllAnswered()) markRoundFinishedToday();
+      if (roundAllAnswered() && !_roundGroup) markRoundFinishedToday();
       const wrap = document.createElement('div');
       wrap.className = 'session-actions';
       const b = document.createElement('button');
@@ -9315,7 +9763,10 @@ Return the JSON object {"sentence": "... ___ ...", "form": "...", "why": "..."}.
     // vérifie, puis passe à la suite.
     function typeKeyboardHtml() {
       const rows = TYPE_KEYS[currentLang] || TYPE_KEYS.English;
-      return `<div class="type-kb" id="type-kb"><div class="type-kb-in">` + rows.map((r, i) => {
+      return `<div class="type-kb${_typeKbFolded ? ' folded' : ''}" id="type-kb">`
+        + `<div class="type-kb-top"><button class="type-kb-link" onclick="setTypeKbFolded(true)">${tPrac('kb_hide')}</button></div>`
+        + `<button class="type-kb-link type-kb-show" onclick="setTypeKbFolded(false)">${tPrac('kb_show')}</button>`
+        + `<div class="type-kb-in">` + rows.map((r, i) => {
         const last = i === rows.length - 1;
         return `<div class="type-kb-row">`
           + (last ? `<button class="type-key wide" id="type-kb-enter" onclick="typeEnter()">${tPrac('sess_check')}</button>` : '')
@@ -9332,8 +9783,25 @@ Return the JSON object {"sentence": "... ___ ...", "form": "...", "why": "..."}.
       if (ent) ent.textContent = item.answered
         ? tPrac(sessionIdx >= sessionItems.length - 1 ? 'sess_finish' : 'sess_next')
         : tPrac('sess_check');
+      syncTypeKbSpace();
+    }
+    function syncTypeKbSpace() {
+      const kb = document.getElementById('type-kb');
       const sp = document.getElementById('type-kb-space');
-      if (sp) sp.style.height = (kb.offsetHeight + 12) + 'px';
+      if (kb && sp) sp.style.height = (kb.offsetHeight + 12) + 'px';
+    }
+    // Cacher / montrer le clavier de l'écran (2026-11-26, page de test
+    // https://claude.ai/artifact/1XtVzVSuSGhJ7JqvDxMfiF, 8 b) : « ocultar teclado »
+    // au-dessus des touches ; caché, il reste une ligne « mostrar teclado » en bas.
+    // Ouvrir la définition (ou la traduction, l'image) le cache tout seul : il
+    // couvrait la boîte qu'on venait d'ouvrir. Chaque nouvelle question le remontre.
+    let _typeKbFolded = false;
+    function setTypeKbFolded(f) {
+      _typeKbFolded = !!f;
+      const kb = document.getElementById('type-kb');
+      if (!kb) return;
+      kb.classList.toggle('folded', _typeKbFolded);
+      syncTypeKbSpace();
     }
     function typeEnter() {
       const item = sessionItems[sessionIdx];
@@ -9390,11 +9858,19 @@ Return the JSON object {"sentence": "... ___ ...", "form": "...", "why": "..."}.
     // L'état « répondu » du trou à taper, sans rien enregistrer (même rôle que
     // paintQcmAnswer : sert aussi au re-rendu après un renommage).
     function paintTypeAnswer(item) {
-      const d = item.data;
       paintTypeSentence(item);
       ['type-hint', 'session-dunno', 'qcm-regen'].forEach(id => {
         const el = document.getElementById(id); if (el) el.style.display = 'none';
       });
+      const res = document.getElementById('session-result');
+      res.className = 'qcm-result ' + (item.ok ? 'correct' : 'incorrect');
+      res.innerHTML = typeAnswerHtml(item);
+      revealSessionWord(item);
+      syncTypeKeyboard(item);
+    }
+    // Le verdict de « tape le mot » (partagé avec la question revue).
+    function typeAnswerHtml(item) {
+      const d = item.data;
       const base = lc(wordBase(item.word));
       const lines = [];
       const differs = item.typed && strictType(item.typed) !== strictType(d.form);
@@ -9408,11 +9884,7 @@ Return the JSON object {"sentence": "... ___ ...", "form": "...", "why": "..."}.
       }
       if (lc(d.form) !== base) lines.push(`<span class="type-note">${tPrac('sess_inbase').replace('{w}', escapeHtml(base))}</span>`);
       if (d.why) lines.push(`<span class="type-why">${escapeHtml(d.why)}</span>`);
-      const res = document.getElementById('session-result');
-      res.className = 'qcm-result ' + (item.ok ? 'correct' : 'incorrect');
-      res.innerHTML = lines.join('<br>');
-      revealSessionWord(item);
-      syncTypeKeyboard(item);
+      return lines.join('<br>');
     }
 
     async function checkType(dunno) {
@@ -11350,7 +11822,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
       });
       // « Autre mot neuf » : sur le mot neuf à l'écran, tant qu'on n'a pas répondu.
       const it = practiceMode === 'practice' && sessionRunning ? sessionItems[sessionIdx] : null;
-      const canSwap = !!it && it.kind === 'qcm' && it.wasNew && !it.answered && lc(it.word) === lc(word);
+      const canSwap = !!it && !_roundGroup && it.kind === 'qcm' && it.wasNew && !it.answered && lc(it.word) === lc(word);
       document.getElementById('ctx-swap').style.display = canSwap ? '' : 'none';
       // Une seule langue choisie : nulle part où envoyer le mot
       document.getElementById('ctx-move').style.display =
@@ -11778,7 +12250,7 @@ Reply with ONLY this JSON object, nothing else:
       // raccourcir la manche (ni la journée), il doit juste céder son tour.
       // (La manche sauvegardée est renotée en fin de fonction.)
       const idx = sessionItems.findIndex(it => lc(it.word) === k);
-      if (idx >= sessionIdx) {
+      if (idx >= sessionIdx && !_roundGroup) { // une manche de groupe ne prend que ses mots
         const repl = pickRoundReplacement(k, served ? 'new' : 'due');
         if (repl) sessionItems[idx] = { kind: sessionLevel(repl), word: repl };
       }

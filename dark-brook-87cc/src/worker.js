@@ -333,6 +333,16 @@ async function classifyAndStore(env, uid, language, groups, entries, aiEnv, mode
   return { assigned };
 }
 
+// Un groupe de l'utilisateur prend le nom d'un groupe caché de l'IA (« comida ») :
+// le nom est UNIQUE par langue, et l'utilisateur ne voit pas l'autre. Le groupe
+// caché est renommé « comida (auto) » plutôt que de refuser un nom libre à l'écran.
+async function freeHiddenName(env, uid, dup, wantKind) {
+  if (wantKind !== 'mine' || dup.kind === 'mine') return false;
+  await env.DB.prepare("UPDATE groups SET name = name || ' (auto ' || id || ')' WHERE id = ? AND user_id = ?")
+    .bind(dup.id, uid).run();
+  return true;
+}
+
 // Classement d'un mot qui vient d'être ajouté (/add). Lit les groupes de sa
 // langue et délègue. Sans groupe défini pour la langue, il n'y a rien à faire :
 // le mot reste `grouped = 0` et la prochaine passe le reprendra.
@@ -913,10 +923,9 @@ export default {
         // du chemin de réponse — l'ajout n'attend pas le modèle, et un échec
         // laisse simplement `grouped = 0`, repris par la passe « classer les
         // mots sans groupe ».
-        // Pas sur la clé du propriétaire : les groupes ne servent qu'aux modes cachés.
-        if (callerKey && !onOwnerKey && ctx && ctx.waitUntil) {
-          ctx.waitUntil(autogroupOnAdd(env, user.id, language, word, aiEnv).catch(() => {}));
-        }
+        // ⚠️ Arrêté le 2026-11-26 : les groupes de l'IA ne servaient jamais. Les
+        // groupes sont désormais ceux que l'utilisateur crée lui-même (kind 'mine').
+        // Code gardé (autogroupOnAdd, /api/autogroup) si l'on veut y revenir.
         return textOut("Succès (" + language + ") : '" + word + "' ajouté.");
       } catch (err) {
         return textOut('Erreur : ' + err.message);
@@ -1425,8 +1434,14 @@ export default {
       if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
       try {
         if (request.method === 'GET') {
-          const lang = new URL(request.url).searchParams.get('lang');
+          const qs   = new URL(request.url).searchParams;
+          const lang = qs.get('lang');
           if (!lang) return json({ error: { message: 'lang requis' } }, 400);
+          // ?kind=mine : seulement les groupes créés par l'utilisateur (2026-11-26),
+          // chacun avec la liste de ses mots — l'app en tire « N por repasar » et
+          // la page du groupe sans un appel par groupe. Les 88 groupes de l'IA
+          // restent en base, cachés.
+          const kind = qs.get('kind');
           // La jauge « N/M ★★★ » se calcule ici : le front n'a pas à recroiser
           // les groupes avec la progression pour afficher une liste.
           // ⚠️ INDEXED BY : sans lui, SQLite prend la clé primaire (user_id
@@ -1441,20 +1456,32 @@ export default {
                LEFT JOIN word_groups wg INDEXED BY idx_word_groups_group
                       ON wg.group_id = g.id AND wg.user_id = g.user_id
                LEFT JOIN progress p ON p.user_id = g.user_id AND p.language = g.language AND p.word = wg.word
-              WHERE g.user_id = ? AND g.language = ?
+              WHERE g.user_id = ? AND g.language = ?${kind ? ' AND g.kind = ?' : ''}
               GROUP BY g.id
               ORDER BY g.kind DESC, g.name COLLATE NOCASE`
-          ).bind(auth.uid, lang).all();
-          return json({ groups: (results || []).map(r => ({ ...r, mastered: r.mastered || 0 })) });
+          ).bind(auth.uid, lang, ...(kind ? [kind] : [])).all();
+          const groups = (results || []).map(r => ({ ...r, mastered: r.mastered || 0 }));
+          if (kind === 'mine' && groups.length) {
+            const ids = groups.map(g => g.id);
+            const { results: rows } = await env.DB.prepare(
+              `SELECT group_id, word FROM word_groups INDEXED BY idx_word_groups_group
+                WHERE user_id = ? AND group_id IN (${ids.map(() => '?').join(',')})`
+            ).bind(auth.uid, ...ids).all();
+            const by = {};
+            for (const r of (rows || [])) (by[r.group_id] ||= []).push(r.word);
+            groups.forEach(g => { g.words = by[g.id] || []; });
+          }
+          return json({ groups });
         }
         if (request.method === 'POST') {
           const { lang, name, kind, scope } = await request.json();
           const nm = (name || '').trim();
           if (!lang || !ADD_LANGS.includes(lang) || !nm) return json({ error: { message: 'lang et name requis' } }, 400);
-          const k = kind === 'lot' ? 'lot' : 'theme';
-          const dup = await env.DB.prepare('SELECT id FROM groups WHERE user_id = ? AND language = ? AND name = ?')
+          const k = ['lot', 'mine'].includes(kind) ? kind : 'theme';
+          const dup = await env.DB.prepare('SELECT id, kind FROM groups WHERE user_id = ? AND language = ? AND name = ?')
             .bind(auth.uid, lang, nm).first();
-          if (dup) return json({ error: { message: 'ce groupe existe déjà' } }, 409);
+          if (dup && !(await freeHiddenName(env, auth.uid, dup, k)))
+            return json({ error: { message: 'ce groupe existe déjà' } }, 409);
           const res = await env.DB.prepare(
             'INSERT INTO groups (user_id, language, name, kind, scope, created_at) VALUES (?, ?, ?, ?, ?, ?)'
           ).bind(auth.uid, lang, nm, k, (scope || '').trim() || null, new Date().toISOString()).run();
@@ -1463,14 +1490,15 @@ export default {
         if (request.method === 'PUT') {
           const { id, name, scope } = await request.json();
           if (!id) return json({ error: { message: 'id requis' } }, 400);
-          const g = await env.DB.prepare('SELECT id, language FROM groups WHERE id = ? AND user_id = ?').bind(id, auth.uid).first();
+          const g = await env.DB.prepare('SELECT id, language, kind FROM groups WHERE id = ? AND user_id = ?').bind(id, auth.uid).first();
           if (!g) return json({ error: { message: 'groupe introuvable' } }, 404);
           const nm = name === undefined ? null : (name || '').trim();
           if (nm !== null && !nm) return json({ error: { message: 'nom vide' } }, 400);
           if (nm !== null) {
-            const dup = await env.DB.prepare('SELECT id FROM groups WHERE user_id = ? AND language = ? AND name = ? AND id <> ?')
+            const dup = await env.DB.prepare('SELECT id, kind FROM groups WHERE user_id = ? AND language = ? AND name = ? AND id <> ?')
               .bind(auth.uid, g.language, nm, id).first();
-            if (dup) return json({ error: { message: 'ce nom est déjà pris' } }, 409);
+            if (dup && !(await freeHiddenName(env, auth.uid, dup, g.kind)))
+              return json({ error: { message: 'ce nom est déjà pris' } }, 409);
             await env.DB.prepare('UPDATE groups SET name = ? WHERE id = ? AND user_id = ?').bind(nm, id, auth.uid).run();
           }
           if (scope !== undefined) {
