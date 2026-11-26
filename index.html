@@ -599,21 +599,46 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     .session-q-note.open { white-space: normal; }
     /* Quel mot ? / tape le mot : la question tient la place du mot jusqu'à la réponse */
     .session-word-ph > span:first-child { color: var(--gris-claro); }
-    .session-actions { display: flex; margin-top: 1.1rem; }
+    .session-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-top: 1.1rem; }
     .session-note  { font-size: 0.85rem; color: var(--gris); margin-top: 0.8rem; }
     /* « Quel mot ? » : la situation se lit comme une citation (filet à gauche) */
     .session-situation { font-size: 1rem; line-height: 1.7; margin-bottom: 1.1rem;
                          border-left: 1px solid var(--linea-fuerte); padding-left: 16px; }
-    /* « Tape le mot » */
-    .type-sentence { font-size: 1.02rem; line-height: 1.9; margin-bottom: 1rem; }
-    .type-gap { display: inline-block; min-width: 4em; padding: 0 0.3em; border-bottom: 1px solid var(--tinta); }
-    .type-gap.ok { color: var(--verde); border-bottom-color: var(--verde); }
-    .type-gap.ko { color: var(--tinta); border-bottom-color: var(--rojo); } /* la bonne forme, sur un trait rouge */
-    /* Avant la réponse : la première lettre, puis un tiret par lettre (espaces et apostrophes visibles). */
-    .type-gap.masked { border-bottom: 0; padding: 0; min-width: 0; letter-spacing: 0.15em; }
-    .type-gap .type-slot { color: var(--gris); }
-    .type-row { display: flex; gap: 0.6rem; align-items: stretch; }
-    #type-input { flex: 1; min-width: 0; font-size: 1rem; } /* 16 px : sinon iOS zoome au focus */
+    /* « Tape le mot » — le trou EST le champ (2026-11-26, page de test : 1 c · 2 b · 3 b · 4 a · 5 a · 6 a).
+       Une case par lettre ; articles déjà écrits en gris ; lettres d'une piste en gris. */
+    .type-sentence { font-size: 1.02rem; line-height: 2.3; margin-bottom: 0.6rem; }
+    .type-gap.boxes { display: inline; }
+    .type-tw   { display: inline-block; white-space: nowrap; }
+    .type-sp   { display: inline-block; width: 0.45em; }
+    .type-art  { color: var(--gris); }
+    .type-cell { display: inline-block; min-width: 1.05em; margin: 0 0.06em; text-align: center;
+                 border: 1px solid var(--linea-fuerte); line-height: 1.45; position: relative; }
+    .type-cell.empty::before { content: "\00a0"; }
+    .type-cell.cursor { border-color: var(--tinta); }
+    .type-cell.cursor.empty::after { content: ""; position: absolute; left: 50%; bottom: 0.2em; width: 1px; height: 1.1em;
+                                     background: var(--tinta); transform: translateX(-50%); }
+    .type-cell.hint { color: var(--gris); }
+    .type-gap.ok .type-cell, .type-gap.ok .type-art { color: var(--verde); border-color: var(--verde); }
+    /* Le clavier de l'écran, fixé en bas, aligné sur la colonne de l'app. Touches à filet
+       fin, coins droits. ⚠️ base.css colore le survol de tout `button` : neutralisé ici. */
+    .type-kb { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: var(--papel);
+               border-top: 1px solid var(--linea-suave);
+               padding: 8px max(8px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+    .type-kb-in  { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 7px; }
+    .type-kb-row { display: flex; gap: 5px; justify-content: center; }
+    .type-key { flex: 1 1 0; min-width: 0; max-width: 44px; height: 48px; padding: 0; font-size: 1.05rem; color: var(--tinta);
+                background: none; border: 1px solid var(--linea-fuerte); border-radius: 0;
+                display: flex; align-items: center; justify-content: center;
+                touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    .type-key.wide { flex: 2.6 1 0; max-width: 104px; font-size: 0.72rem; padding: 0 2px; }
+    .type-key.erase { flex: 1.3 1 0; max-width: 56px; }
+    @media (hover: hover) { .type-key:hover:not(:disabled) { background: var(--relleno); border-color: var(--linea-fuerte); color: var(--tinta); } }
+    .type-key:active:not(:disabled) { background: var(--relleno-hover); }
+    .type-key:disabled { opacity: 0.35; }
+    #session-body.has-kb #session-result, #session-body.has-kb .session-actions { scroll-margin-bottom: 240px; }
+    /* « tenía razón » : la question de confirmation prend la place du bouton */
+    .type-dispute-ask { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+    .type-dispute-q { color: var(--gris); font-size: var(--t-pequeno); }
     .session-below { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 0.7rem; }
     .type-diff { color: var(--verde); font-style: normal; }
     .type-diff u { text-decoration-color: currentColor; text-underline-offset: 3px; }
@@ -2719,6 +2744,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       type_ph:          { en: `Type the word`, fr: `Écris le mot`, es: `Escribe la palabra`, el: `Γράψε τη λέξη` },
       type_hint:        { en: `hint`, fr: `indice`, es: `pista`, el: `βοήθεια` },
       type_hint_note:   { en: `with a hint — counts, but no star`, fr: `avec indice — compte, mais sans étoile`, es: `con pista — cuenta, pero sin estrella`, el: `με βοήθεια — μετράει, αλλά χωρίς αστέρι` },
+      type_dispute:     { en: `I was right`, fr: `j'avais raison`, es: `tenía razón`, el: `είχα δίκιο` },
+      type_dispute_q:   { en: `Sure? It will count as right.`, fr: `Sûr ? Elle comptera comme juste.`, es: `¿Seguro? Contará como acertada.`, el: `Σίγουρα; Θα μετρήσει ως σωστή.` },
+      type_yes:         { en: `yes`, fr: `oui`, es: `sí`, el: `ναι` },
+      type_no:          { en: `no`, fr: `non`, es: `no`, el: `όχι` },
+      type_erase:       { en: `erase`, fr: `effacer`, es: `borrar`, el: `διαγραφή` },
       sess_pick_words:  { en: `choose words (otherwise they will be chosen randomly)`, fr: `choisir des mots (sinon ils seront choisis au hasard)`, es: `elegir palabras (si no, se elegirán al azar)`, el: `διάλεξε λέξεις (αλλιώς θα επιλεγούν τυχαία)` },
       sess_clear_pick:  { en: `clear`, fr: `retirer`, es: `quitar`, el: `καθαρισμός` },
       sess_chosen_head: { en: `{n} chosen words in this round:`, fr: `{n} mots choisis pour cette manche :`, es: `{n} palabras elegidas para esta ronda:`, el: `{n} επιλεγμένες λέξεις για αυτόν τον γύρο:` },
@@ -3658,6 +3688,40 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
         e.preventDefault();
         toggleWordsHidden();
       }
+    });
+
+    // ── Raccourcis de la manche (2026-11-26) ────────────────────────────
+    // Au clavier du Mac (ou d'un clavier branché sur l'iPad) : « tape le mot » s'écrit
+    // directement dans les cases ; Entrée vérifie puis passe à la suite ; Tab = piste ;
+    // ? = je ne sais pas. QCM et « quel mot ? » : 1 à 5 choisit une réponse.
+    document.addEventListener('keydown', e => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
+      if (!sessionRunning || practiceMode !== 'practice') return;
+      if (!document.getElementById('screen-practice').classList.contains('active')) return;
+      if (document.querySelector('.modal-overlay.visible') || document.getElementById('word-ctx-menu')?.classList.contains('visible')) return;
+      const ae = document.activeElement;
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
+      const item = sessionItems[sessionIdx];
+      if (!item || _sessionBusy) return;
+      if (item.answered) {
+        if (e.key === 'Enter' && document.querySelector('#session-body .session-actions')) { e.preventDefault(); sessionNext(); }
+        return;
+      }
+      if (item.kind === 'type') {
+        if (!item.slots) return;
+        if (e.key === 'Enter')          { e.preventDefault(); checkType(); }
+        else if (e.key === 'Backspace') { e.preventDefault(); typeErase(); }
+        else if (e.key === 'Tab')       { e.preventDefault(); typeHint(); }
+        else if (e.key === '?')         { e.preventDefault(); typeDunno(); }
+        else if (e.key.length === 1 && isTypeLetter(e.key)) { e.preventDefault(); typeKey(e.key.toLowerCase()); }
+        return;
+      }
+      if (!item.choices) return;
+      if (/^[1-9]$/.test(e.key)) {
+        const i = +e.key - 1;
+        const btn = document.querySelectorAll('#session-choices .qcm-choice:not(.qcm-dunno)')[i];
+        if (btn) { e.preventDefault(); answerSessionQCM(btn, i); }
+      } else if (e.key === '?' || e.key === '0') { e.preventDefault(); sessionDunno(); }
     });
 
     // ── Barre sticky mots — désactivée sur iOS/iPad ───────────
@@ -7746,7 +7810,11 @@ Write all scenarios and explanations in ${langName}.`;
       // Fermeture de l'app : le débounce n'aurait jamais tiré, et la requête doit
       // survivre à la page — même `keepalive` que la blacklist.
       if (now) {
-        try { authFetch('/api/round', { method: 'POST', keepalive: true, body: JSON.stringify({ lang, state }) }); }
+        // ⚠️ Une requête `keepalive` ne dépasse pas 64 Ko : les questions préparées
+        // restent alors sur cet appareil (localStorage), la manche part sans elles.
+        let body = JSON.stringify({ lang, state });
+        if (body.length > 60000) body = JSON.stringify({ lang, state: { ...state, items: state.items.map(({ prep, ...r }) => r) } });
+        try { authFetch('/api/round', { method: 'POST', keepalive: true, body }); }
         catch (e) { /* la page part : rien à rattraper */ }
         return;
       }
@@ -7801,8 +7869,11 @@ Write all scenarios and explanations in ${langName}.`;
           rid:   _roundLogId, rstart: _roundLogStart, rday: _roundLogDay,
           // L'échéance de chaque mot est notée telle qu'elle est AVANT sa réponse :
           // c'est elle qui dira, à la reprise, si le mot a été fait entre-temps.
-          items: sessionItems.map(it =>
-            ({ kind: it.kind, word: it.word, served: !!it.served, wasNew: !!it.wasNew, nr: nrOf(it.word) })),
+          // Les questions déjà préparées (`prep`) voyagent avec elle : une reprise,
+          // ici ou sur un autre appareil, ne les repaie pas.
+          items: sessionItems.map((it, i) =>
+            ({ kind: it.kind, word: it.word, served: !!it.served, wasNew: !!it.wasNew, nr: nrOf(it.word),
+               ...(i >= idx && it.prep ? { prep: it.prep } : {}) })),
         };
         localStorage.setItem(roundStateKey(lang), JSON.stringify(state));
         pushRoundToServer(state, lang, now);
@@ -7841,6 +7912,19 @@ Write all scenarios and explanations in ${langName}.`;
       if (!r.items.some(x => x.w === word)) r.items.push(item);
       authFetch('/api/round-log', { method: 'POST', keepalive: true, body: JSON.stringify({ ...body, item }) })
         .catch(() => {});
+    }
+
+    // « tenía razón » : le mot de la manche passe de faux à juste, ici et en base.
+    function fixRoundLogAnswer(word) {
+      if (!_roundLogId || !currentLang) return;
+      const r = _roundLogLocal[_roundLogId];
+      const x = r && r.items.find(y => y.w === word);
+      if (x) x.ok = 1;
+      const cur = sessionItems[sessionIdx];
+      const item = { w: word, n: cur && cur.wasNew ? 1 : 0, ok: 1 };
+      authFetch('/api/round-log', { method: 'POST', keepalive: true, body: JSON.stringify({
+        id: _roundLogId, lang: currentLang, day: _roundLogDay, started_at: _roundLogStart,
+        total: sessionTotal(), done: roundAllAnswered() ? 1 : 0, item, fix: true }) }).catch(() => {});
     }
 
     // Une manche lue en base et la même écrite ici : on garde l'union des mots
@@ -7996,9 +8080,12 @@ Write all scenarios and explanations in ${langName}.`;
     function resumeRound() {
       const saved = savedRound();
       if (!saved) return void showSessionStart();
-      sessionItems = saved.rest.map(it =>
-        ({ kind: ['qcm', 'pick', 'type'].includes(it.kind) ? it.kind : sessionLevel(it.word),
-           word: it.word, served: it.served, wasNew: it.wasNew }));
+      sessionItems = saved.rest.map(it => {
+        const kind = ['qcm', 'pick', 'type'].includes(it.kind) ? it.kind : sessionLevel(it.word);
+        const prep = it.prep && kind === it.kind ? it.prep : null;
+        return { kind, word: it.word, served: it.served, wasNew: it.wasNew,
+                 ...(prep ? { prep, choicesPromise: Promise.resolve(prep) } : {}) };
+      });
       sessionIdx   = 0;
       sessionOk    = saved.data.ok || 0;
       _roundOffset = saved.done;
@@ -8291,8 +8378,8 @@ Write all scenarios and explanations in ${langName}.`;
       if (start) start.style.display = 'none';
       lockRoundDials();
 
-      prefetchItem(sessionIdx); prefetchItem(sessionIdx + 1);
       saveRound();
+      pumpPrefetch();
       renderSession();
     }
 
@@ -8343,6 +8430,7 @@ Write all scenarios and explanations in ${langName}.`;
         `<p class="session-note">${tPrac('sess_empty')}</p>${sessionEndActions()}`);
       if (sessionIdx >= sessionItems.length) return renderSessionEnd();
       const item = sessionItems[sessionIdx];
+      body.classList.toggle('has-kb', item.kind === 'type');
       if (item.kind === 'type') renderSessionType(item);
       else                      renderSessionQCM(item); // QCM et « quel mot ? » : quatre ou cinq choix
     }
@@ -8613,20 +8701,43 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
       return { choices: d.choices };
     }
 
-    // Un QCM met ~10 s à venir. On lance celui de l'item suivant dès que le
-    // courant est à l'écran : l'attente disparaît sauf sur le tout premier.
+    // Un QCM met 10 à 15 s à venir (deux appels). On préparait seulement la question
+    // SUIVANTE : après trois « tape le mot » rapides, un QCM arrivait encore en
+    // préparation et la manche attendait (2026-11-26). Désormais TOUTE la manche se
+    // prépare dès « Commencer », quelques questions à la fois (`PREP_PARALLEL` : trop
+    // d'appels simultanés se ralentissent ou se font refuser), dans l'ordre où elles
+    // seront servies. Chaque question prête est gardée avec la manche (`prep`,
+    // `saveRound`) : une reprise ne la repaie pas.
+    const PREP_PARALLEL = 3;
     function prefetchItem(i) {
       const it = sessionItems[i];
       if (!it || it.choicesPromise) return;
-      if (it.kind === 'pick') { it.choicesPromise = fetchPick(it.word).catch(e => ({ error: e.message })); return; }
-      if (it.kind === 'type') { it.choicesPromise = fetchType(it.word).catch(e => ({ error: e.message })); return; }
-      const why = unknownWhy(it.word);
-      if (why !== null) { it.choicesPromise = Promise.resolve({ unknown: true, why }); return; }
-      console.log(`[Séance] QCM ${i + 1} lancé en avance : ${it.word}`);
-      const t0 = Date.now();
-      it.choicesPromise = fetchQCMChoices(it.word)
-        .then(r => { console.log(`[Séance] QCM ${i + 1} prêt en ${((Date.now() - t0) / 1000).toFixed(1)}s`); return r; })
-        .catch(e => ({ error: e.message }));
+      let p;
+      if (it.kind === 'pick')      p = fetchPick(it.word);
+      else if (it.kind === 'type') p = fetchType(it.word);
+      else {
+        const why = unknownWhy(it.word);
+        if (why !== null) { it.choicesPromise = Promise.resolve({ unknown: true, why }); return; }
+        p = fetchQCMChoices(it.word);
+      }
+      it._pending = true;
+      const mine = it.choicesPromise = p.catch(e => ({ error: e.message }));
+      mine.then(r => {
+        if (it.choicesPromise !== mine) return void pumpPrefetch(); // question refaite entre-temps
+        it._pending = false;
+        if (r && !r.error && !r.unknown && sessionItems.includes(it)) { it.prep = r; saveRound(); }
+        pumpPrefetch();
+      });
+    }
+    function pumpPrefetch() {
+      if (!sessionRunning) return;
+      let busy = sessionItems.filter(it => it._pending).length;
+      for (let i = sessionIdx; i < sessionItems.length && busy < PREP_PARALLEL; i++) {
+        const it = sessionItems[i];
+        if (it.choicesPromise || it.answered) continue;
+        prefetchItem(i);
+        if (it._pending) busy++;
+      }
     }
 
     async function renderSessionQCM(item) {
@@ -8652,9 +8763,9 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
          <p class="session-q" id="session-q">${tPrac('sess_which')}</p>
          <div id="session-choices"><div style="padding:0.6rem;color:var(--gris)"><span class="spinner"></span></div></div>
          <div id="session-result"></div>`;
-      prefetchItem(sessionIdx + 1);
       try {
         if (!item.choicesPromise) prefetchItem(sessionIdx);
+        pumpPrefetch();
         const _tWait = Date.now();
         const choices = await item.choicesPromise;
         console.log(`[Séance] attente à l'écran : ${((Date.now() - _tWait) / 1000).toFixed(1)}s`);
@@ -8690,6 +8801,7 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
         requestAnimationFrame(alignSessionTop);
       } catch (err) {
         item.choicesPromise = null;
+        item.prep = null;
         document.getElementById('session-choices').innerHTML =
           `<p style="color:var(--rojo)">${tPrac('err_prefix')} ${err.message}</p>
            <button class="btn-secondary" style="margin-top:0.5rem" onclick="renderSession()">${tPrac('retry')}</button>`;
@@ -8723,7 +8835,9 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
       if (!item || _sessionBusy || item.answered) return;
       item.choices        = null;
       item.choicesPromise = null;
+      item.prep           = null;
       item.data           = null;
+      item.slots          = null;
       item.hints          = 0;
       if (item.kind === 'qcm') forgetUnknown(item.word);
       renderSession();
@@ -8855,7 +8969,11 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
       b.textContent = tPrac(sessionIdx >= sessionItems.length - 1 ? 'sess_finish' : 'sess_next');
       b.onclick     = sessionNext;
       wrap.appendChild(b);
-      document.getElementById('session-body').appendChild(wrap);
+      if (canDispute(sessionItems[sessionIdx])) wrap.appendChild(typeDisputeButton());
+      const sb = document.getElementById('session-body');
+      sb.appendChild(wrap);
+      // Le clavier fixé et sa réserve de place restent en bas du contenu.
+      const kw = document.getElementById('type-kb-wrap'); if (kw) sb.appendChild(kw);
 
       // Répondre demandait de descendre chercher « Suivant », puis de remonter
       // pour le mot d'après : deux allers-retours par question. Un second appui
@@ -8899,7 +9017,7 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
       if (practicedToday(word)) {
         _sameDayRepeat.add(lc(word));
         saveRound();
-        saveHistory(word, ok);
+        _lastHistSave = saveHistory(word, ok);
         return;
       }
       if (hinted && ok) {
@@ -8913,8 +9031,11 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
       }
       markDone();
       saveRound(); // l'échéance du mot vient de changer : la reprise doit le savoir
-      saveHistory(word, ok);
+      _lastHistSave = saveHistory(word, ok);
     }
+    // L'écriture de l'historique de la dernière réponse : une contestation attend
+    // qu'elle soit arrivée avant de retourner la ligne.
+    let _lastHistSave = null;
 
     // ── Paliers ★★ et au-delà (2026-10-22) ─────────────────────────────
     // Le texte à trous a été retiré : la réserve de mots se laissait trier par le
@@ -8988,7 +9109,6 @@ Return the JSON object {"text": "...", "decoys": ["...", "...", "...", "..."], "
     }
 
     // ── « Tape le mot » ─────────────────────────────────────────────────
-    const TYPE_HINT_MAX = 3; // lettres révélées au plus, une par appui
 
     function typePrompt(word) {
       const langName = getLang().mistralName;
@@ -9020,14 +9140,22 @@ Return the JSON object {"sentence": "... ___ ...", "form": "...", "why": "..."}.
       return { sentence, form, why, ex };
     }
 
-    // Comparaison stricte sur le mot, souple sur l'enveloppe : casse, espaces et
-    // apostrophes typographiques ne comptent pas. Un accent, si (choix du 2026-10-22).
-    const normType = s => lc(String(s || '')).replace(/[‘’`ʼ]/g, "'").replace(/\s+/g, ' ').trim();
+    // Les accents ne comptent plus (2026-11-26) : « escenico » pour « escénico » était
+    // un échec, et le mot revenait le lendemain pour une faute qui ne dit rien de la
+    // mémoire. La bonne forme reste affichée, l'accent manqué souligné. ⚠️ Le ñ reste
+    // une lettre (« año » n'est pas « ano ») ; le sigma final vaut le sigma.
+    // Casse, espaces et apostrophes typographiques ne comptent pas non plus.
+    const normType = s => lc(String(s || ''))
+      .replace(/ñ/g, '\u0001').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\u0001/g, 'ñ')
+      .replace(/ς/g, 'σ').replace(/œ/g, 'oe').replace(/æ/g, 'ae')
+      .replace(/[‘’`ʼ]/g, "'").replace(/\s+/g, ' ').trim();
+    // Pour MONTRER l'écart, les accents comptent : c'est ce qui souligne l'accent manqué.
+    const strictType = s => lc(String(s || '')).replace(/[‘’`ʼ]/g, "'").replace(/\s+/g, ' ').trim();
 
-    // La bonne forme, lettres manquées ou fausses soulignées (alignement LCS).
+    // La bonne forme, lettres manquées ou fausses (accents compris) soulignées (alignement LCS).
     function typeDiffHtml(typed, form) {
-      const a = [...normType(typed)], b = [...form];
-      const bl = b.map(c => normType(c));
+      const a = [...strictType(typed)], b = [...form];
+      const bl = b.map(c => strictType(c));
       const n = a.length, m = b.length;
       const L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
       for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
@@ -9038,97 +9166,221 @@ Return the JSON object {"sentence": "... ___ ...", "form": "...", "why": "..."}.
         else if (L[i + 1][j] >= L[i][j + 1]) i++;
         else j++;
       }
-      return b.map((c, j) => keep[j] ? escapeHtml(c) : `<u>${escapeHtml(c)}</u>`).join('');
+      return b.map((c, j) => keep[j] || c === ' ' ? escapeHtml(c) : `<u>${escapeHtml(c)}</u>`).join('');
     }
 
-    // La première lettre est donnée d'emblée, avec le nombre de lettres (2026-11-17) :
-    // sans appui, la phrase admettait souvent plusieurs réponses justes. Elle ne compte
-    // pas comme un indice ; chaque indice révèle la lettre suivante, jamais la dernière.
+    // ── Le trou EST le champ (2026-11-26) ────────────────────────────────
+    // Page de test https://claude.ai/artifact/SvU3wyEE7dAiUEqHnEeBrT, choix 1 c · 2 b ·
+    // 3 b · 4 a · 5 a · 6 a. Plus de champ de saisie : sur iPhone il fallait toucher
+    // le trou pour faire venir le clavier. Une case par lettre dans la phrase, un
+    // clavier à l'écran toujours là (celui du Mac écrit aussi dedans). Espaces et
+    // apostrophes sont déjà écrits ; les ARTICLES aussi, en gris, quand l'entrée a
+    // plusieurs mots — jamais les prépositions, qui font souvent l'expression
+    // (« el elefante EN la habitación »). Une lettre absente du clavier de la langue
+    // (œ, chiffre) est donnée.
     const isTypeLetter = c => /[\p{L}\p{N}]/u.test(c);
-    const typeLetterCount = form => [...form].filter(isTypeLetter).length;
+    const TYPE_KEYS = {
+      Spanish: ['qwertyuiop', 'asdfghjklñ', 'zxcvbnm'],
+      French:  ['azertyuiop', 'qsdfghjklm', 'wxcvbn'],
+      English: ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'],
+      Greek:   ['ςερτυθιοπ', 'ασδφγηξκλ', 'ζχψωβνμ'],
+    };
+    const TYPE_ARTICLES = {
+      Spanish: ['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'lo'],
+      French:  ['le', 'la', 'les', "l'", 'un', 'une', 'des'],
+      English: ['the', 'a', 'an'],
+      Greek:   ['ο', 'η', 'το', 'οι', 'τα', 'του', 'της', 'των', 'τον', 'την', 'τη', 'τους', 'τις', 'ενας', 'μια', 'ενα'],
+    };
 
-    function typeMaskHtml(form, reveal) {
-      let seen = 0, out = '';
-      for (const c of form) {
-        if (!isTypeLetter(c)) { out += escapeHtml(c); continue; }
-        out += seen++ < reveal ? escapeHtml(c) : '<span class="type-slot">_</span>';
-      }
-      return out;
+    // Découpe la forme attendue en mots, et chaque mot en cases. Fait une fois par
+    // question : les lettres tapées survivent à un re-rendu (mot renommé, etc.).
+    function buildTypeSlots(item) {
+      const form  = item.data.form;
+      const arts  = (TYPE_ARTICLES[currentLang] || []).map(normType);
+      const keys  = new Set([...(TYPE_KEYS[currentLang] || []).join('')].map(normType));
+      const words = form.split(/\s+/).filter(Boolean);
+      const toks  = [];
+      words.forEach((w, wi) => {
+        // élision : « l'air » → « l' » + « air » (le « l' » est un article)
+        const m = w.match(/^(\p{L}{1,3}['’])(\p{L}.*)$/u);
+        const parts = m ? [m[1], m[2]] : [w];
+        parts.forEach((p, pi) => toks.push({ text: p, space: pi === parts.length - 1 && wi < words.length - 1 }));
+      });
+      const allArt = toks.every(t => arts.includes(normType(t.text)));
+      const slots = [];
+      toks.forEach(t => {
+        t.art   = toks.length > 1 && !allArt && arts.includes(normType(t.text));
+        t.cells = [];
+        if (t.art) return;
+        for (const c of t.text) {
+          if (!isTypeLetter(c)) { t.cells.push({ punct: c }); continue; }
+          const typable = keys.has(normType(c));
+          const s = { ch: c, typed: typable ? '' : c, given: !typable };
+          t.cells.push(s); slots.push(s);
+        }
+      });
+      // La première lettre à taper est donnée d'emblée (2026-11-17) : sans elle, la
+      // phrase admettait souvent plusieurs réponses justes. Ce n'est pas une piste.
+      const open = slots.filter(s => !s.given);
+      if (open.length > 1) { open[0].typed = open[0].ch; open[0].given = true; }
+      item.toks = toks; item.slots = slots;
     }
 
-    function typeHintMax(item) {
-      const n = typeLetterCount((item.data && item.data.form) || '');
-      return Math.min(TYPE_HINT_MAX, Math.max(0, n - 2));
+    const typeCursor = item => item.slots.find(s => !s.given && !s.hint && !s.typed);
+    function typeTyped(item) {
+      return item.toks.map(t =>
+        (t.art ? t.text : t.cells.map(c => c.punct || c.typed || '').join('')) + (t.space ? ' ' : '')).join('');
+    }
+
+    function typeKey(c) {
+      const item = sessionItems[sessionIdx];
+      if (!item || item.kind !== 'type' || item.answered || !item.slots || _sessionBusy) return;
+      const s = typeCursor(item); if (!s) return;
+      s.typed = c;
+      paintTypeSentence(item);
+    }
+    function typeErase() {
+      const item = sessionItems[sessionIdx];
+      if (!item || item.kind !== 'type' || item.answered || !item.slots || _sessionBusy) return;
+      const ed = item.slots.filter(s => !s.given && !s.hint && s.typed);
+      if (!ed.length) return;
+      ed[ed.length - 1].typed = '';
+      paintTypeSentence(item);
+    }
+
+    function typeGapHtml(item) {
+      const cls = 'type-gap boxes' + (item.answered ? (item.ok ? ' ok' : ' ko') : '');
+      const cur = item.answered ? null : typeCursor(item);
+      const html = item.toks.map(t => {
+        let h = '<span class="type-tw">';
+        if (t.art) h += `<span class="type-art">${escapeHtml(t.text)}</span>`;
+        else h += t.cells.map(c => {
+          if (c.punct) return `<span class="type-punct">${escapeHtml(c.punct)}</span>`;
+          const show = item.answered ? c.ch : c.typed;
+          let k = 'type-cell' + (show ? ' filled' : ' empty');
+          if (c.hint) k += ' hint';
+          if (c === cur) k += ' cursor';
+          return `<span class="${k}">${show ? escapeHtml(show) : ''}</span>`;
+        }).join('');
+        return h + '</span>' + (t.space ? '<span class="type-sp"></span>' : '');
+      }).join('');
+      return `<span class="${cls}">${html}</span>`;
     }
 
     function paintTypeSentence(item) {
       const d  = item.data;
       const el = document.getElementById('type-sentence');
       if (!el || !d) return;
+      if (!item.slots) buildTypeSlots(item);
       const [before, after] = d.sentence.split('___');
-      let gap;
-      if (item.answered) {
-        gap = `<span class="type-gap ${item.ok ? 'ok' : 'ko'}">${escapeHtml(d.form)}</span>`;
-      } else {
-        gap = `<span class="type-gap masked">${typeMaskHtml(d.form, 1 + (item.hints || 0))}</span>`;
-      }
-      el.innerHTML = escapeHtml(before) + gap + escapeHtml(after);
+      el.innerHTML = escapeHtml(before) + typeGapHtml(item) + escapeHtml(after);
     }
 
+    // Pistes (2026-11-26) : 10 %, puis 20 %, puis 30 % des lettres à taper, tirées au
+    // hasard, au moins une de plus à chaque appui, jamais toutes. Une lettre à la fois
+    // ne suffisait souvent pas. Réussi avec une piste : étoiles inchangées, le mot
+    // revient demain.
+    const TYPE_HINT_STEPS = [0.1, 0.2, 0.3];
+    function typeHintPool(item) { return item.slots.filter(s => !s.given); }
+    function typeCanHint(item) {
+      if (!item.slots || item.answered || (item.hints || 0) >= TYPE_HINT_STEPS.length) return false;
+      const pool = typeHintPool(item);
+      return pool.filter(s => s.hint).length < pool.length - 1;
+    }
     function typeHintLabel(item) {
       const h = item.hints || 0;
-      return tPrac('type_hint') + (h ? ` (${h}/${typeHintMax(item)})` : '');
+      return tPrac('type_hint') + (h ? ` (${h}/${TYPE_HINT_STEPS.length})` : '');
     }
-
     function typeHint() {
       const item = sessionItems[sessionIdx];
-      if (!item || item.kind !== 'type' || item.answered || !item.data) return;
-      if ((item.hints || 0) >= typeHintMax(item)) return;
+      if (!item || item.kind !== 'type' || _sessionBusy || !typeCanHint(item)) return;
+      const pool  = typeHintPool(item);
+      const shown = pool.filter(s => s.hint).length;
+      const step  = TYPE_HINT_STEPS[item.hints || 0];
+      const target = Math.min(pool.length - 1, Math.max(shown + 1, Math.ceil(pool.length * step)));
+      const free = pool.filter(s => !s.hint && !s.typed);
+      const cand = free.length ? free : pool.filter(s => !s.hint);
+      for (let k = shown; k < target && cand.length; k++) {
+        const s = cand.splice(Math.floor(Math.random() * cand.length), 1)[0];
+        s.hint = true; s.typed = s.ch;
+      }
       item.hints = (item.hints || 0) + 1;
       paintTypeSentence(item);
       const b = document.getElementById('type-hint');
-      if (b) { b.textContent = typeHintLabel(item); b.disabled = item.hints >= typeHintMax(item); }
+      if (b) { b.textContent = typeHintLabel(item); b.disabled = !typeCanHint(item); }
+    }
+
+    // Le clavier de l'écran : fixé en bas, la colonne de l'app au-dessus. Il remplace
+    // celui d'iOS (aucun champ, donc aucun clavier système). La touche de gauche
+    // vérifie, puis passe à la suite.
+    function typeKeyboardHtml() {
+      const rows = TYPE_KEYS[currentLang] || TYPE_KEYS.English;
+      return `<div class="type-kb" id="type-kb"><div class="type-kb-in">` + rows.map((r, i) => {
+        const last = i === rows.length - 1;
+        return `<div class="type-kb-row">`
+          + (last ? `<button class="type-key wide" id="type-kb-enter" onclick="typeEnter()">${tPrac('sess_check')}</button>` : '')
+          + [...r].map(c => `<button class="type-key" data-k="${c}" onclick="typeKey('${c}')">${c}</button>`).join('')
+          + (last ? `<button class="type-key erase" aria-label="${tPrac('type_erase')}" onclick="typeErase()">⌫</button>` : '')
+          + `</div>`;
+      }).join('') + `</div></div><div class="type-kb-space" id="type-kb-space"></div>`;
+    }
+    function syncTypeKeyboard(item) {
+      const kb = document.getElementById('type-kb');
+      if (!kb) return;
+      kb.querySelectorAll('[data-k]').forEach(b => { b.disabled = !!item.answered; });
+      const ent = document.getElementById('type-kb-enter');
+      if (ent) ent.textContent = item.answered
+        ? tPrac(sessionIdx >= sessionItems.length - 1 ? 'sess_finish' : 'sess_next')
+        : tPrac('sess_check');
+      const sp = document.getElementById('type-kb-space');
+      if (sp) sp.style.height = (kb.offsetHeight + 12) + 'px';
+    }
+    function typeEnter() {
+      const item = sessionItems[sessionIdx];
+      if (!item || item.kind !== 'type') return;
+      if (item.answered) return void sessionNext();
+      checkType();
     }
 
     async function renderSessionType(item) {
       const body = document.getElementById('session-body');
       if (!item.served) { item.wasNew = false; item.served = true; }
       _sessionHelpOpen = !!item.answered; // la définition donnerait le mot
-      const esc = item.word.replace(/'/g, "\\'");
       body.innerHTML =
         `<div id="session-word-slot"><div class="session-word session-word-ph"><span>${tPrac('type_ph')}</span><span class="card-action-btn" id="qcm-regen" onclick="regenQCM()">${tPrac('type_regen')}</span></div></div>
          <div class="session-stars" id="session-stars">${starsHtml(item.word)}</div>
          <div class="type-sentence" id="type-sentence"><span class="spinner"></span></div>
          <div id="type-zone"></div>
-         <div id="session-result"></div>`;
-      prefetchItem(sessionIdx + 1);
+         <div id="session-result"></div>
+         <div id="type-kb-wrap"></div>`;
+      pumpPrefetch();
       try {
         if (!item.choicesPromise) prefetchItem(sessionIdx);
         const d = await item.choicesPromise;
         if (d && d.error) throw new Error(d.error);
         if (sessionItems[sessionIdx] !== item) return; // on est passé à la suite entre-temps
-        item.data = d;
+        if (item.data !== d) { item.data = d; item.slots = null; }
         if (!item.answered) markItemShown(item);
         paintTypeSentence(item);
         document.getElementById('type-zone').innerHTML =
-          `<div class="type-row">
-             <input type="text" id="type-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"
-               onkeydown="if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); checkType(); }">
-             <button class="btn-secondary" id="type-check" onclick="checkType()">${tPrac('sess_check')}</button>
-           </div>
-           <div class="session-below">
-             <button class="btn-ghost" id="type-hint" onclick="typeHint()">${typeHintLabel(item)}</button>
+          `<div class="session-below">
+             <button class="btn-ghost" id="type-hint" onclick="typeHint()" ${typeCanHint(item) ? '' : 'disabled'}>${typeHintLabel(item)}</button>
              <button class="btn-ghost" id="session-dunno" onclick="typeDunno()">${tPrac('sess_dunno')}</button>
            </div>`;
+        const kw = document.getElementById('type-kb-wrap');
+        kw.innerHTML = typeKeyboardHtml();
+        kw.addEventListener('mousedown', e => e.preventDefault()); // le clavier ne prend jamais le focus
         if (item.answered) {
           paintTypeAnswer(item);
           const st = document.getElementById('session-stars');
           if (st) st.innerHTML = starsHtml(item.word) + sessionDueSuffix(item.word);
           addSessionNextButton();
         }
+        syncTypeKeyboard(item);
         requestAnimationFrame(alignSessionTop);
       } catch (err) {
         item.choicesPromise = null;
+        item.prep = null;
         document.getElementById('type-sentence').innerHTML =
           `<p style="color:var(--rojo)">${tPrac('err_prefix')} ${err.message}</p>
            <button class="btn-secondary" style="margin-top:0.5rem" onclick="renderSession()">${tPrac('retry')}</button>`;
@@ -9140,15 +9392,15 @@ Return the JSON object {"sentence": "... ___ ...", "form": "...", "why": "..."}.
     function paintTypeAnswer(item) {
       const d = item.data;
       paintTypeSentence(item);
-      const inp = document.getElementById('type-input');
-      if (inp) { inp.value = item.typed || ''; inp.disabled = true; }
-      ['type-check', 'type-hint', 'session-dunno', 'qcm-regen'].forEach(id => {
+      ['type-hint', 'session-dunno', 'qcm-regen'].forEach(id => {
         const el = document.getElementById(id); if (el) el.style.display = 'none';
       });
       const base = lc(wordBase(item.word));
       const lines = [];
+      const differs = item.typed && strictType(item.typed) !== strictType(d.form);
       if (item.ok) {
-        lines.push(`✓ ${escapeHtml(d.form)}`);
+        // Réussi malgré un accent, ou contesté : la bonne forme, l'écart souligné.
+        lines.push(`✓ ${differs ? `<span class="type-diff">${typeDiffHtml(item.typed, d.form)}</span>` : escapeHtml(d.form)}`);
         if (item.hints) lines.push(`<span class="type-note">${tPrac('type_hint_note')}</span>`);
       } else {
         if (item.typed) lines.push(`✗ <s>${escapeHtml(item.typed)}</s>`);
@@ -9160,29 +9412,99 @@ Return the JSON object {"sentence": "... ___ ...", "form": "...", "why": "..."}.
       res.className = 'qcm-result ' + (item.ok ? 'correct' : 'incorrect');
       res.innerHTML = lines.join('<br>');
       revealSessionWord(item);
+      syncTypeKeyboard(item);
     }
 
     async function checkType(dunno) {
       const item = sessionItems[sessionIdx];
-      if (_sessionBusy || !item || item.kind !== 'type' || item.answered || !item.data) return;
-      const val = dunno ? '' : (document.getElementById('type-input')?.value || '');
-      if (!dunno && !val.trim()) return;
+      if (_sessionBusy || !item || item.kind !== 'type' || item.answered || !item.data || !item.slots) return;
+      // Rien de tapé : « Comprobar » ne fait rien (la première lettre est donnée).
+      if (!dunno && !item.slots.some(s => !s.given && s.typed)) return;
+      const val = dunno ? '' : typeTyped(item);
       _sessionBusy = true;
       item.answered = true;
+      item.dunno    = !!dunno;
       item.typed    = val.trim();
       item.ok       = !dunno && normType(val) === normType(item.data.form);
       if (item.ok) sessionOk++;
+      // Ce qu'il faut pour défaire l'échec si on le conteste (« tenía razón »).
+      item.answeredAt = new Date().toISOString();
+      item.prevProg   = progressMap[item.word.toLowerCase()] ? { ...progressMap[item.word.toLowerCase()] } : null;
+      item.sameDay    = practicedToday(item.word);
+      item.newAtAns   = isNewWord(item.word);
       paintTypeAnswer(item);
       unlockSessionHelp();
       markExamples(exBatchOf(item), { ok: item.ok, answer: item.typed });
       // Réussi avec indice : compte, mais sans étoile (le mot revient demain).
       await recordSessionAnswer(item.word, item.ok, item.ok && item.hints > 0);
+      item.histSave = _lastHistSave;
       const st = document.getElementById('session-stars');
       if (st) st.innerHTML = starsHtml(item.word) + sessionDueSuffix(item.word);
       addSessionNextButton();
       _sessionBusy = false;
     }
     function typeDunno() { checkType(true); }
+
+    // « tenía razón » (2026-11-26) : un échec contesté devient une réussite COMPLÈTE.
+    // L'app ne sait pas distinguer une coquille (« tal y coma está ») d'un mot
+    // oublié ; l'utilisateur, si. Offert après un échec seulement (pas après « no lo
+    // sé »), avec une question de confirmation, et jusqu'au passage à la suite.
+    // On défait l'échec : progression remise à son état d'avant la réponse puis
+    // réécrite comme une réussite, ligne d'historique et ligne de manche retournées.
+    function askDispute() {
+      const b = document.getElementById('type-dispute');
+      if (!b) return;
+      const ask = document.createElement('span');
+      ask.className = 'type-dispute-ask';
+      ask.id = 'type-dispute-ask';
+      ask.innerHTML = `<span class="type-dispute-q">${tPrac('type_dispute_q')}</span>
+        <button class="btn-secondary" onclick="confirmDispute()">${tPrac('type_yes')}</button>
+        <button class="btn-ghost" onclick="cancelDispute()">${tPrac('type_no')}</button>`;
+      b.replaceWith(ask);
+    }
+    function cancelDispute() {
+      const ask = document.getElementById('type-dispute-ask');
+      if (ask) ask.replaceWith(typeDisputeButton());
+    }
+    function typeDisputeButton() {
+      const b = document.createElement('button');
+      b.className = 'btn-secondary'; b.id = 'type-dispute';
+      b.textContent = tPrac('type_dispute');
+      b.onclick = askDispute;
+      return b;
+    }
+    function canDispute(item) {
+      return item && item.kind === 'type' && item.answered && !item.ok && !item.dunno && !item.disputed;
+    }
+
+    async function confirmDispute() {
+      const item = sessionItems[sessionIdx];
+      if (_sessionBusy || !canDispute(item)) return;
+      _sessionBusy = true;
+      const word = item.word, key = word.toLowerCase();
+      item.ok = true; item.disputed = true;
+      sessionOk++;
+      // Les étoiles : seulement si la réponse en avait touché (pas un mot neuf, pas
+      // une seconde fois dans la journée — même règle qu'à la réponse).
+      if (!item.sameDay && !item.newAtAns) {
+        if (item.prevProg) progressMap[key] = { ...item.prevProg }; else delete progressMap[key];
+        if (item.hints > 0) await saveProgressReviewHint(word);
+        else await saveProgress(word, true);
+      }
+      fixRoundLogAnswer(word);
+      markExamples(exBatchOf(item), { ok: true });
+      const since = item.answeredAt;
+      Promise.resolve(item.histSave).catch(() => {}).then(() =>
+        authFetch('/api/history', { method: 'PUT', body: JSON.stringify({ word, lang: currentLang, since, ok: true }) })
+      ).catch(() => {});
+      saveRound();
+      const ask = document.getElementById('type-dispute-ask'); if (ask) ask.remove();
+      const db  = document.getElementById('type-dispute');     if (db) db.remove();
+      paintTypeAnswer(item);
+      const st = document.getElementById('session-stars');
+      if (st) st.innerHTML = starsHtml(word) + sessionDueSuffix(word);
+      _sessionBusy = false;
+    }
 
     // Les exercices où le mot EST la réponse (quel mot ?, tape le mot) ne l'affichent
     // qu'une fois répondus, à la place de la question — avec son menu « options »,
