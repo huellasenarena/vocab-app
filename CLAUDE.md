@@ -54,7 +54,7 @@ Toutes les tables portent `user_id`. `words` (`word` peut être `base (note)`), 
 `language` ∈ English · Spanish · French · Greek (codées en dur dans `LANGS`).
 
 ## Clés et limites
-- Clé de l'utilisateur : `X-OpenAI-Key`, garde-fou `DAILY_TOKEN_LIMIT` = **500 000** tokens/jour (relevé le 2026-11-26).
+- Clé de l'utilisateur : `X-OpenAI-Key`, garde-fou `DAILY_TOKEN_LIMIT` = **250 000** tokens/jour = ce qu'OpenAI offre gratuitement chaque jour au propriétaire. **Ne pas relever** (essayé à 500 000 le 2026-11-26, refusé).
 - Sans clé : `FREE_WORDS_PER_DAY` = 10 dans l'app, `FREE_AI_PER_DAY` 40 / `FREE_ADDS_PER_DAY` 30 dans le Worker.
 - `sanitizeKey()` sur chaque clé (un caractère parasite cassait l'en-tête en Safari).
 - Compte du propriétaire : `body.owner` (SHA-256 de l'email, jamais l'email en clair dans le dépôt).

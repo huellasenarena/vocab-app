@@ -2514,7 +2514,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     const SESSION_LANG_COLS    = { English: 1, Spanish: 2, French: 3, Greek: 4 }; // index dans la ligne [Date, En, Es, Fr, Gr]
     const KEY_GRAMMAR_COUNT    = "vocab_grammar_count";
     const KEY_LANGUAGES        = "vocab_languages"; // langues choisies par l'utilisateur (synced)
-    const DAILY_TOKEN_LIMIT = 500000; // garde-fou sur SA clé (relevé de 250 000 le 2026-11-26 : une manche préparée d'avance en consomme plus) ; sans clé, c'est le Worker qui plafonne
+    const DAILY_TOKEN_LIMIT = 250000; // garde-fou sur SA clé = les tokens qu'OpenAI offre chaque jour au propriétaire ; ne pas relever ; sans clé, c'est le Worker qui plafonne
     const BLACKLIST_COLS   = { English: 'A', Spanish: 'B', French: 'C', Greek: 'D' };
 
     const LANGS = [
