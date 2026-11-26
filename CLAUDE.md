@@ -70,10 +70,11 @@ Les autres modes (espacé, Situation, libre, image) sont cachés, code intact.
 - Écran de départ : bascule **diaria / grupos**, deux curseurs (*mots par manche*, *dont neufs*), « Commencer », manches du jour. Rien n'appelle l'IA avant « Commencer ». `planRound()` est la **source unique** de la composition (neufs demandés → rappels dus du plus en retard → mots pas encore dus).
 - Exercice selon le **net** (`sessionLevel`) : < 2 → QCM ; 2 à 5 → alternance « quel mot ? » (pair) / « tape le mot » (impair) ; ≥ 6 → « tape le mot ».
 - Progression : SM-2 sur le net (`calcNextReview`). Un mot neuf revient demain, réussi ou non, net inchangé. **Étoiles une fois par jour** par mot (`practicedToday`). Réussi avec piste = sans étoile.
+- **Limite de tokens atteinte → questions gardées** (`fetchStored`, `/api/examples/available` et `/stored`) : d'abord une jamais affichée, sinon la resservie il y a le plus longtemps (`examples.reused_at`) ; un QCM est re-tiré parmi ses 7 scénarios. Une question n'existe que pour un mot déjà sorti dans une manche : la manche se compose alors parmi ces mots (`storedRoundWords`). ⚠️ `examples.user_id` est en TEXT et vaut `'1.0'` (lié depuis un nombre JS) : dans `wrangler d1 execute`, écrire `user_id = '1.0'`.
 - Toute la manche est préparée d'avance (`pumpPrefetch`, 3 à la fois) et gardée avec elle (`prep` dans `saveRound`). Reprise d'un appareil à l'autre (`/api/round`) ; à la reprise, chaque mot restant est revérifié contre la base.
 - **Revoir une question** : le compteur « 5 / 12 » ouvre la liste des questions ; une question passée se relit en lecture seule (`#session-past`), « volver a la pregunta actual » ramène à la question en cours, intacte.
 - **Tape le mot** : une case par lettre, clavier à l'écran (`TYPE_KEYS`), « ocultar / mostrar teclado », caché tout seul quand on ouvre la définition. Accents ignorés sauf ñ. « tenía razón » retourne un échec en réussite.
-- **Groupes** (2026-11-26) : créés par l'utilisateur, façon playlist (`renderGroupsView`). « añadir palabras » rouvre le sélecteur « chercher un mot » (`_freeSearchFor = 'group'`). « Practicar » = une manche avec tous les mots du groupe (`practiceGroup`, `_roundGroup`) : pas de remplaçant, pas d'« autre mot neuf », ne marque pas la journée faite. ⚠️ Elle remplace une manche quotidienne laissée en plan (une seule manche reprenable par langue).
+- **Groupes** (2026-11-26) : créés par l'utilisateur, façon playlist (`renderGroupsView`). « añadir palabras » rouvre le sélecteur « chercher un mot » (`_freeSearchFor = 'group'`). « Practicar » = une manche de **« mots par manche »** mots du groupe (`groupRoundWords` : à revoir, puis neufs, puis les autres ; choix du 2026-11-26, « jerga » a 123 mots), `_roundGroup` : pas de remplaçant, pas d'« autre mot neuf », ne marque pas la journée faite. ⚠️ Elle remplace une manche quotidienne laissée en plan (une seule manche reprenable par langue).
 
 ## ⚠️ Pièges qui ont déjà coûté cher
 - **Ne jamais vider `#hint-box.innerHTML`** (seulement `#hint-text`, `#hint-translation`) : sa structure disparaît et la définition ne s'ouvre plus.
@@ -89,7 +90,7 @@ Les autres modes (espacé, Situation, libre, image) sont cachés, code intact.
 - Oublier une **déclaration avant usage** au chargement fige l'app (TDZ) : tester le démarrage après tout ajout de `const` au niveau global.
 
 ## Reste à faire
-- Réserve de questions préparées la nuit par le Worker (voir `docs/historique.md`, « Réserve de questions »). En attendant : servir les questions déjà écrites mais jamais montrées (`examples.shown = 0`) quand la limite de tokens est atteinte.
+- Réserve de questions préparées la nuit par le Worker (voir `docs/historique.md`, « Réserve de questions »).
 - File d'attente hors ligne pour le raccourci iPhone (conçue, voir historique).
 - Rotation de `WORKER_SECRET`, suppression des secrets morts.
 - Mode Imagen : poussé, jamais essayé.

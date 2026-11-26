@@ -1280,6 +1280,49 @@ export default {
     // côté app :
     //  - POST /api/examples      { lang, word, kind, batch, items:[{role,text,kept,meta}] }
     //  - POST /api/examples/mark { batch, shown?, picked?, answer?, ok? }
+    // Questions gardées, ressorties quand la limite de tokens du jour est atteinte
+    // (2026-11-26). Une question n'existe que pour un mot déjà sorti dans une manche.
+    //  - GET /api/examples/available?lang= → [{word, kind, fresh}] : les mots qui en
+    //    ont au moins une, par exercice ; `fresh` = une n'a jamais été affichée.
+    //  - GET /api/examples/stored?lang=&word=&kind= → les lignes d'UNE question :
+    //    d'abord une jamais affichée, sinon celle resservie (ou écrite) il y a le
+    //    plus longtemps. Elle est notée `reused_at` : la suivante sera une autre.
+    if (path === '/api/examples/available' || path === '/api/examples/stored') {
+      const auth = await requireAuth(request, env);
+      if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
+      try {
+        const u = new URL(request.url).searchParams;
+        const lang = u.get('lang');
+        if (!lang) return json({ error: { message: 'lang requis' } }, 400);
+        if (path === '/api/examples/available') {
+          const { results } = await env.DB.prepare(
+            `SELECT word, kind, MIN(s) = 0 AS fresh FROM (
+               SELECT word, kind, batch, MAX(shown) AS s FROM examples
+                WHERE user_id = ? AND language = ? AND kind IN ('qcm', 'pick', 'type')
+                GROUP BY word, kind, batch)
+              GROUP BY word, kind`
+          ).bind(auth.uid, lang).all();
+          return json({ items: results || [] });
+        }
+        const word = u.get('word'), kind = u.get('kind');
+        if (!word || !['qcm', 'pick', 'type'].includes(kind)) return json({ error: { message: 'word et kind requis' } }, 400);
+        const pick = await env.DB.prepare(
+          `SELECT batch, MAX(shown) AS s, MAX(COALESCE(reused_at, created_at)) AS t FROM examples
+            WHERE user_id = ? AND language = ? AND word = ? AND kind = ?
+            GROUP BY batch ORDER BY s ASC, t ASC LIMIT 1`
+        ).bind(auth.uid, lang, word, kind).first();
+        if (!pick) return json({ rows: [] });
+        const { results } = await env.DB.prepare(
+          'SELECT role, text, kept, shown, meta FROM examples WHERE user_id = ? AND batch = ? ORDER BY id'
+        ).bind(auth.uid, pick.batch).all();
+        await env.DB.prepare('UPDATE examples SET reused_at = ? WHERE user_id = ? AND batch = ?')
+          .bind(new Date().toISOString(), auth.uid, pick.batch).run();
+        return json({ batch: pick.batch, fresh: !pick.s, rows: results || [] });
+      } catch (err) {
+        return json({ error: { message: err.message } }, 500);
+      }
+    }
+
     if (path === '/api/examples' || path === '/api/examples/mark') {
       const auth = await requireAuth(request, env);
       if (!auth) return json({ error: { message: 'non authentifié' } }, 401);
