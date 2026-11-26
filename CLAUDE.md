@@ -1,715 +1,95 @@
-# Vocab App — Contexte projet
+# Vocab App (BYOV) — l'essentiel
 
-App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **Cloudflare D1** (SQLite edge) via Cloudflare Worker. Auth = email/mdp **+ Google OAuth** (JWT). IA = **un seul modèle, `gpt-6.1-terra`** : la clé OpenAI de l'utilisateur s'il en a une, sinon celle du propriétaire (**10 mots par jour**, voir « Comptes sans clé »). Utilisateur communique en **français**.
+App single-file `index.html` (GitHub Pages) **multi-utilisateur**. Backend = **Cloudflare D1** via un Worker. Auth = email/mdp + Google OAuth (JWT). IA = **un seul modèle, `gpt-6.1-terra`**, réflexion `none` : clé OpenAI de l'utilisateur, sinon celle du propriétaire (10 mots/jour). L'utilisateur écrit en **français**.
 
-- URL : https://byov.net (domaine custom Cloudflare, **BYOV** = *Bring Your Own Vocab*) — ancienne URL `https://huellasenarena.github.io/vocab-app` toujours active
-- Repo : `~/Desktop/vocab-app/` (remote SSH `git@github.com:huellasenarena/vocab-app.git`), **public**
-- Push sur `main` → GitHub Actions déploie sur `gh-pages` (~1 min). **Ne jamais éditer `gh-pages`.** Le `cname: byov.net` est dans `deploy.yml` (sinon le CNAME serait écrasé à chaque déploiement).
-- Le Worker (`dark-brook-87cc/`) est **versionné dans le repo** (peut être commité).
+> **Le détail et le « pourquoi » de chaque décision** sont dans `docs/historique.md` (l'ancien CLAUDE.md complet, 700 lignes, figé au 2026-11-26). Ne pas le charger d'office : le lire (grep) avant de toucher à une zone — manche, QCM, curseurs, sync, prompts… Les ⚠️ ci-dessous en sont le résumé.
 
-> **Historique** : avant juin 2026, l'app était mono-utilisateur (backend Google Sheets, secret `WORKER_SECRET` en dur dans le HTML). Migrée en multi-utilisateur (D1 + auth + BYOK), déployée le 2026-06-07. Grosse vague d'améliorations UX/features les 2026-06-13/14 (voir mémoire `project_changes_june2026`). Voir aussi `project_generalization` pour les phases de migration. **2026-08-18** : notes entre parenthèses (expressions) + réparation des 28 entrées dont la note avait été rognée ; grammaire ouverte aux 4 langues ; transfert d'un mot d'une langue à l'autre. **2026-08-23** : modèles à jour (GPT-5.6 Terra, Gemini 3.7 Flash / 3.5 Flash Lite, efforts `xhigh`/`max`) ; prompt « version améliorée » refondu ; cartes « mots du même univers » qui ne débordent plus ; slider du mode Libre débloqué (perf). **2026-08-27** : compteur de mots **par mode** (espacé ≠ libre) et **valeur souhaitée** qui survit aux journées à peu de mots ; écran « ajouter » (pilules de langue + panneaux pleine largeur) ; **« 🔍 vérifier le mot »** (menu ⋯ et « mes mots ») ; **quota des nouveaux respecté par le slider** ; **liste des mots maîtrisés** en mode Situation ; entonnoir d'ajout basculé sur **gpt-5.6-luna** ; plus de rectangle vide au clic sur « Vérifier ». **2026-08-30** : slider du mode Situation qui repasse par `resetPracticeUI()` (plus de vieux verdict ni de « Commencer » + « Autre situation » ensemble) ; **groupes visibles en pastilles dans « mes mots »** ; traduction qui bascule sur l'anglais quand la langue de l'appli est celle du mot ; **classement automatique déplacé dans `/add`** (le raccourci iPhone n'en bénéficiait pas). **2026-08-31** : **brouillon de session** (la phrase et les mots tirés survivent à une fermeture ou à un crash) ; **erreurs graves visibles même repliées** ; **filtre par groupe en un seul bouton** dans « mes mots » ; **effort de raisonnement envoyé explicitement** ; **rendu du streaming coalescé sur `requestAnimationFrame`**. **2026-08-28** : **« étudier un mot »** (définition + QCM au lieu d'écrire la phrase, pour un nouveau mot seulement) ; **traduction** et **image** d'un mot à la demande ; **remarques de l'analyse classées par gravité** ; **fuite de la blacklist bouchée** ; **graphie proposée à l'ajout** (« ajouter « pensar » » au lieu du seul « ajouter quand même ») ; **curseur de mélange du mode libre** (découverte ↔ révision, poids normalisés par catégorie). **2026-09-08** : **mode « pratique quotidienne »** (QCM puis texte à trous, palier lu sur les étoiles, séance à budget fixe) ; **barre des modes remplacée par le nom du mode + popup** ; **mémoire locale des QCM déjà servis** ; nettoyage des **entrées sous forme fléchie** (9 doublons grecs, 118 doublons FR/ES, 3 renommages qui préservent la progression). **2026-09-23** : **les deux curseurs de la manche mesurent la manche** (les mots neufs cessent d'être un quota du jour, remplacé par un miroir) ; « rappel » ne désigne plus qu'un mot revenu à sa date ; le texte à trous avance au trou **suivant** ; prompts du QCM et des trous resserrés (longueur mesurée, plus d'article `a`/`an` devant un trou, aucun intrus synonyme d'une cible). **2026-10-22** (lot A d'une liste de 18 retours) : **une question ne reçoit qu'une réponse** (`item.answered`, `paintQcmAnswer` : un renommage redessinait une question neuve et faisait gagner une 2e étoile ; « je ne sais pas » restait cliquable après la réponse) · **« autre mot neuf »** (`swapNewWord` : quitte la manche, pas la liste) · **fenêtre « modifier un mot »** (`openEditModal`, remplace `prompt()` ; garde le texte sur erreur ; note portée à **300** caractères, `NOTE_MAX` front + Worker) · **« Définition » dans le menu ⋯** (`ctxMenuDefine`, même porte que la traduction) et sur chaque ligne du récapitulatif du texte à trous · **autoscroll** qui ne démarre pas sous un doigt posé et s'arrête au premier contact (`_fingerDown`) · curseur « mots par manche » **1 à 40** · **total de mots** en haut de la page de langue (`updateLangTotal`) · « dans cette manche : » devant la composition · vide entre « Définition » et « mes révisions à venir » supprimé. Même jour, lots B à E : aide grisée avec sa raison, « nueva », ✓/✗ en marge, ▾/▸ sur la définition · **QCM à 7 scénarios dont l'app garde 4** (`pickQcmFour` : la longueur ne trahit plus la bonne réponse) · **composer la manche** (`_roundChosen`) · **texte à trous retiré**, remplacé par **« quel mot ? »** (★★) et **« tape le mot »** (net ≥ 6). **2026-10-27** : **premier passage d'un nouveau compte** (langues → clé → premiers mots, voir « Premier passage ») · **réglages avancés** repliés (clés, compteur, réinitialisation) · **lien d'ajout et aide iPhone/Kindle sur le compte du propriétaire seulement** · réglages Situation/Libre et thème photos masqués · **dans la manche, plus d'en-tête** (`.round-on`) · **manche en attente = « Reprendre » / « Nouvelle manche » seuls** · **compteur juste après une reprise** (`_roundOffset`) · « je ne sais pas (voir la réponse) » en dernière ligne · plus de « Définition » sous les réponses ni d'« Autres phrases » · aide réécrite pour un seul mode, avec un **lien vers le dépôt GitHub** (« Code source », `help_src`). **2026-10-27 (suite)** (page de test https://claude.ai/artifact/6XFxvDFg8JGxBBu9Lr1v79) : **accueil = « add words » + « my words » en pastilles, « my account » / « log out » en liens** (plus de « which language today? » ni de tuile « add languages ») · **écran `screen-account`** (statistiques, historique, **« edit languages »** = ajouter ou retirer, réglages) · **« ? how it works » en haut à droite** (accueil et connexion, `.help-corner`) · **aide = les 5 étapes du propriétaire + « good to know »** (`help_steps`/`help_gtk`) · consignes **à puces** dans la boîte d'ajout, qui grandit jusqu'à les montrer (`setAddPlaceholder`) · « my words » à une seule langue : **aucune pastille** · **curseur bloqué** (une seule valeur) : rond gris + ligne en pointillés (`.stuck`) · « No more words due today » / « No words due today » · **la note n'est plus écrite sous le mot de la manche** : après la réponse du QCM elle prend la ligne de la question (`showSessionNote`), ailleurs elle est dans « options » · **« quel mot ? » / « tape le mot »** : la question courte (`pick_ph`/`type_ph`) tient la place du mot, rien ne bouge à la réponse. **2026-10-27 (soir)** : banc d'essai de modèles bon marché (Luna 6, Haiku 5.5, Gemini 3.8 Flash, Muse Spark) contre Terra — Terra gardé · **Terra seul** (`gpt-6.1-terra`, réflexion « none », plus rien de Google) · **plus d'étape « clé » au premier passage** · **sans clé : 10 mots par jour** sur la clé du propriétaire (Worker : table `free_quota`). **2026-11-17** : **réponses par question réglables, 2 · 3 · 4** (`vocab_qcm_shown`, toutes langues, pastilles sous la langue de l'appli — page de test https://claude.ai/artifact/8sZoqPkTQ62YS9hsTzRLrD, A 1 a) · **« tape le mot » dès ★★☆**, en alternance avec « quel mot ? » (aucun mot n'avait jamais atteint l'ancien seuil de 6 à l'écran). **2026-11-26** : **« tape le mot » refait** (page de test https://claude.ai/artifact/SvU3wyEE7dAiUEqHnEeBrT, 1 c · 2 b · 3 b · 4 a · 5 a · 6 a) — le trou EST le champ (une case par lettre, `buildTypeSlots`), **clavier à l'écran** fixé en bas qui remplace celui d'iOS (`TYPE_KEYS`, touche « Comprobar » puis « Siguiente »), **articles déjà écrits** en gris (`TYPE_ARTICLES`, jamais les prépositions), **pistes à 10 / 20 / 30 %** des lettres au hasard (`TYPE_HINT_STEPS`), **accents ignorés** sauf ñ (`normType` ; l'écart reste souligné, `strictType`), **« tenía razón »** après un échec, avec confirmation = réussite complète (`confirmDispute` : progression d'avant la réponse réécrite, `PUT /api/history`, `/api/round-log` avec `fix`) · **toute la manche préparée d'avance** (`pumpPrefetch`, 3 à la fois) et **gardée avec la manche** (`prep` dans `saveRound`, sans elle au-delà de 64 Ko en `keepalive`) · **raccourcis clavier** (Entrée vérifier/suivant, Tab piste, ? je ne sais pas, 1-5 au QCM).
+- URL : https://byov.net (ancienne : huellasenarena.github.io/vocab-app). Repo **public** `~/Desktop/vocab-app/`.
+- Push sur `main` → GitHub Actions → `gh-pages` (~1 min). **Ne jamais éditer `gh-pages`.** `cname: byov.net` est dans `deploy.yml`.
+- Worker versionné dans `dark-brook-87cc/` — **toujours `wrangler deploy` depuis ce dossier** (un deploy depuis la racine crée un `wrangler.jsonc` parasite).
 
----
+## Workflow
+```bash
+# vérifier le JS avant tout push
+node -e "const fs=require('fs'),h=fs.readFileSync('index.html','utf8'),m=h.match(/<script>([\s\S]*?)<\/script>/);fs.writeFileSync('/tmp/check.js',m[1]);" && node --check /tmp/check.js && echo OK
+# Worker
+cd dark-brook-87cc && node --check src/worker.js && wrangler deploy
+# migrations D1
+wrangler d1 migrations apply vocab --remote
+```
+Dev local : `wrangler dev` (+ `.dev.vars`) et `python3 -m http.server 8080` ; `API_ENDPOINT` bascule sur `:8787` en localhost. Le Worker répond `Access-Control-Allow-Origin: *`.
+Avant un changement visuel : **page de test (artifact) à variantes combinables**, l'utilisateur choisit (« 1 a · 2 c… »). Citer la page et les choix dans le commit.
 
 ## Estilo
 @~/Desktop/estilo/estilo.md
 
 ### Excepciones en este proyecto
-- **Tokens pegados en el `<style>`** (app de un solo archivo) : bloque « Estilo común — copiado de ~/Desktop/estilo » (`tokens.css`, `oscuro.css`, `base.css`), ne pas l'éditer ici.
-- **Thème sombre** (`oscuro.css`, suit le système) : app d'usage quotidien.
-- **`--barra-estado`** : rideau sous la barre d'état iOS, sombre dans les deux thèmes — `black-translucent` affiche toujours un texte blanc.
-- **Mono du système** seulement pour le technique : compteur de tokens, clés API, lien d'ajout, `code` de l'aide.
-- **Colonne étroite et centrée** (`.screen`, 480 px, `margin: 0 auto`) : app pensée pour le téléphone ; la colonne est au milieu de l'écran (choix de l'utilisateur), son contenu reste aligné à gauche.
-- **Flèche de retour** devant le nom de la langue en haut à droite de la pratique (`← Español`) : sans elle, on ne comprenait pas que ce nom ramène à l'accueil.
-- **« Autre mot » / « Autres mots »** selon le nombre de mots tirés (`btn_next_word` / `btn_next_words`, recalé par `renderWordDisplay`).
-- **Popups et modales** (`#word-ctx-menu`, `.modal-card`) : papier + filet `--linea-fuerte`, sans ombre ni radius ; voile de la modale = `color-mix` du papier. Pièce absente du style commun (dialogues) — à proposer si elle sert ailleurs.
-- **Mots « à réviser » en gris** (`chip-review`/`card-review`) tant que « nouveau » n'est pas dit en toutes lettres — l'or qui distinguait les nouveaux a disparu avec l'accent.
-- **Pastilles un peu plus grandes** (`.btn-primary`, `.btn-secondary`, `.mode-current`… : `6px 16px`, `--t-nav`) : cibles tactiles d'une app qu'on utilise au pouce.
-- ⚠️ **`base.css` colore le survol de TOUT `button`** (`button:hover:not(:disabled)`, plus spécifique qu'une classe seule). Depuis le 2026-09-29 il est enfermé dans `@media (hover: hover)` (corrigé dans ~/Desktop/estilo : sur iPhone l'appui restait collé et la réponse suivante du QCM paraissait choisie). Avec une souris, chaque bouton qui n'est pas une pastille (réponses du QCM, trous, langues, liens-boutons, menus…) le neutralise encore avec `.classe:hover:not(:disabled)` — un nouveau bouton non-pastille doit faire pareil.
-- **`input[type=range]` et cases à cocher** : `border:0; padding:0` — la règle `input` de `base.css` les encadrait.
-- **Plus d'emojis ni de symboles dans l'interface** (étape 4) : mots à la place (`btn_options`, `mode_prefix`, `mark_ok`/`mark_ko` = « juste / faux », `page_prev`/`page_next`, `act_*`, `lot_suffix`), drapeaux remplacés par le **nom** de la langue ou son **code** (`LANGS[].code` : EN/ES/FR/EL) dans les listes denses. Restent : les étoiles `★☆` (une donnée), les `→` dans une phrase (« Partager → Vocab »), les ✓/✗ **des prompts et du parsing du verdict** (`OK_RE`/`KO_RE`, `history.result`) — ne pas y toucher — et, **choix du 2026-10-22**, les ✓/✗ **dans la marge gauche d'une réponse de QCM** (`markQcmChoice`, `aria-label` = « juste / faux ») : l'étiquette en toutes lettres au-dessus du scénario faisait descendre le texte. Un élément choisi dans un menu s'allume d'un filet (`.ctx-menu-btn.on`), plus de coche.
-- **Mots de la séance en ligne** (choix de la maquette, « compact ») : `.word-chip` = mot souligné finement + note + étoiles ; le soulignement et le texte prennent le vert / rouge du verdict. Étoiles `★★☆` conservées (une donnée, pas une icône).
-- **Curseurs sur une ligne** (`.slider-section` en grille : libellé · curseur · valeur).
-- **Migration terminée le 2026-09-29** (base · structure · éléments · emojis · mouvement, un commit chacun). Maquette validée : https://claude.ai/artifact/Adwdr7PnG1UQoKX6qyC791 — icône = **globo aerostático à 7 panneaux alternés** (variante F). Mouvement restant, seul permis : changements de couleur au survol, fondu de la photo (mode Imagen), spinner. Les replis du clavier (`.kb-fold`) se font d'un coup, sans animation.
-- **Lot B du 2026-10-22** (page de test https://claude.ai/artifact/BbDmjJNNw8Pvq7jPVWmph9, choix 2 B · 5 B · 8 D · 15 C) : aide pas encore offerte = **grisée avec sa raison** (« après ta réponse », `sess_after_answer`) au lieu d'un vide, sous les réponses (`sessionDefButton`) comme dans le menu ⋯ ; mot neuf = **« nueva » en italique** à côté du mot (`.session-new`, `sess_new_one`) ; ✓/✗ dans la marge ; **▾ / ▸** au bout du titre de la boîte définition (`#hint-box .hint-label::after`).
-- **Bouton « suite du verdict »** (`#catchup-btn`) : pastille flottante centrée en bas, parce qu'il flotte au-dessus du contenu.
-- **« Reprendre » / « Nouvelle manche » centrés** (`#session-start.waiting`, choix du 2026-10-27) : seuls à l'écran quand une manche attend.
-- **▸ / ▾ au bout de « réglages avancés »** (`#adv-settings-arrow`), même idiome que la boîte définition.
-
----
-
-## Cloudflare Worker
-
-URL : `https://dark-brook-87cc.georg-dreym.workers.dev` · Code : `~/Desktop/vocab-app/dark-brook-87cc/src/worker.js`
-
-### Routes
-
-**Publiques (auth)**
-- `/auth/signup`, `/auth/login` → email/mdp (PBKDF2), retourne `{ token, user }` (JWT HS256, 30 j)
-- `/auth/google` → vérifie l'ID token Google (JWKS RS256, contrôle `iss`/`aud`/`exp`), **lie par email** si compte mdp existant, sinon crée → retourne JWT
-- `/me` (JWT) → `{ user: { id, email, created_at, add_token, openai_key, gemini_key, settings } }` ; génère `add_token` au besoin
-- `/add` (token perso, **pas de JWT**) → ajout de mot externe (raccourci iPhone + écran « ajouter du contenu ») — voir section dédiée. Accepte `X-OpenAI-Key` (BYOK de l'entonnoir) sinon repli `OPENAI_API_KEY_SCRIPT`.
-- `/judge-similar` (token perso, **pas de JWT**) → similarité **groupée** pour l'import Kindle. Body `{ token, lang, words[] }` + header `X-OpenAI-Key`. Le Worker calcule les candidats (local), n'appelle **GPT-5.6 Luna « low »** (`judgeSimilarBatch`, lots de 40) que pour les mots ayant une ressemblance, et renvoie `{ skip: { mot: mot_existant } }`.
-
-**Données utilisateur (JWT, filtrées par `user_id`)**
-- `/api/session` GET (`?lang=&date=&from=<ISO minuit local>`) → `{ count, done }` — `done` = mots travaillés aujourd'hui, **comptés dans `history`** (`COUNT(DISTINCT word)`). ⚠️ `history.date` est un horodatage **UTC** : le client envoie SON minuit local, sinon la journée bascule à la mauvaise heure.
-- `/api/words` GET (`?lang=`, `?detail=1` → +`created_at`) · POST · DELETE (**unitaire** `{lang,word}` **ou groupé** `{items:[{lang,word}…]}`, mot+progress) · **PUT** `{lang, oldWord, newWord?, newLang?}` (**renommer et/ou changer de langue** — met à jour `words` + `progress` + `history` ; 409 si le mot existe déjà dans la langue cible)
-- `/api/progress`, `/api/session`, `/api/history`, `/api/blacklist`, `/api/usage` — ⚠️ `/api/progress` POST avec **`practiced: false`** (définition ouverte, `saveHint`) ne touche pas à `last_practiced` : cette date dit « déjà travaillé aujourd'hui », et la poser à l'ouverture de la définition d'un mot neuf faisait passer la réponse suivante pour une répétition du jour — le mot restait neuf (bug du 2026-11-12).
-- `/api/examples` POST · `/api/examples/mark` POST → table `examples` (voir D1)
-- `/api/grammar` GET · **POST** (ajouter une forme) · **DELETE** (supprimer une forme)
-- `/api/keys` POST → stocke `openai_key` en D1 (sync multi-appareils). `gemini_key` n'est plus écrite (colonne laissée en place).
-- `/api/settings` POST → stocke le blob JSON des réglages (`users.settings`) — sync multi-appareils
-- **`/api/round-log`** GET (`?lang=&day=` → les manches d'un jour ; sans `day` → les 500 dernières, toutes langues) · POST `{id, lang, day, started_at, total, done, item:{w,n,ok}}` → **historique des manches** (table `round_log`). Le mot est **ajouté en SQL** (`json_insert`, sauté s'il y est déjà) dans le même lot que l'upsert : deux réponses rapprochées ne s'écrasent pas.
-- **`/api/round`** GET (`?lang=`) · POST `{lang, state}` · DELETE `{lang}` → la **manche de pratique en cours**, pour la reprendre sur un autre appareil. ⚠️ Ce n'est **pas** un réglage : elle change à chaque réponse et n'a rien à faire dans le blob débouncé de `/api/settings`.
-
-**IA (JWT + BYOK : clé utilisateur par header)**
-- `/` (défaut) → OpenAI Responses API, clé via header **`X-OpenAI-Key`** ; **sans header**, clé du propriétaire (`OPENAI_API_KEY_SCRIPT`) dans la limite de `FREE_AI_PER_DAY` (40) appels par jour, et la requête est **recadrée par le Worker** (`gpt-6.1-terra`, effort `none`, 16 000 tokens au plus) ; au-delà → **429 `{error:{code:'free_limit'}}`**.
-- `/gemini` → route conservée mais **plus appelée** par l'app depuis le 2026-10-27.
-- `/gemini` → Google AI Studio, clé via header **`X-Gemini-Key`**
-- `/unsplash` → photo random (clé propriétaire `UNSPLASH_KEY`, gardée par JWT)
-
-> **Modèle serveur** : toutes les décisions de l'entonnoir (`analyzeWordLangSense`, `identifyLang`, `validateWord`, `judgeSimilarity`, `judgeSimilarBatch`) passent par `callScriptReasoning` = **`gpt-5.6-luna`, effort `low`** (worker.js). `callScriptLLM` (gpt-4.1-mini) n'est plus appelé que par la route morte `/openai-script`. Bascule terra → luna le **2026-08-27** : réponses identiques sur 23 mots rares/dialectaux des 4 langues et sur 12 cas de similarité, ~10× moins cher ($0,20/$1,20 contre $2/$12 par M tokens).
-
-**Externe (gardée par `X-Worker-Secret`)**
-- `/openai-script` → OpenAI Chat Completions (`OPENAI_API_KEY_SCRIPT`, ou `X-OpenAI-Key` si fourni). **Route quasi-dormante** : le `call_openai` de `kindle_import.py` qui l'utilisait est mort (`WORKER_SECRET` indéfini dans le script ; pré-filtres IA en repli silencieux). L'import passe par `/add` + `/judge-similar`.
-
-### Secrets (dashboard Cloudflare)
-`JWT_SECRET`, `OPENAI_API_KEY_SCRIPT`, `UNSPLASH_KEY`, `WORKER_SECRET`. Var publique : `GOOGLE_CLIENT_ID` (dans `wrangler.jsonc`).
-*Morts/inutilisés (BYOK + D1)* : `OPENAI_API_KEY`, `GEMINI_KEY`, `SA_JSON` (peuvent être supprimés).
-
-### Sécurité
-- Routes IA + données = **JWT** (`Authorization: Bearer`). Plus aucun secret dans `index.html`.
-- `/openai-script` = `X-Worker-Secret`. ⚠️ `WORKER_SECRET` a fuité (repo public + historique git) → **rotation à faire** quand l'utilisateur veut (les scripts lisent désormais la valeur depuis `process.env.WORKER_SECRET`, plus en dur).
-
-```bash
-cd ~/Desktop/vocab-app/dark-brook-87cc
-wrangler deploy
-wrangler secret put NOM_SECRET
-```
-Cold start après inactivité : ~100-200ms sur la 1re requête.
-
----
-
-## Authentification
-
-- **Email/mdp** : `hashPassword`/`verifyPassword` = PBKDF2-SHA256 (100k itérations, Web Crypto), format `pbkdf2$iter$salt$hash`.
-- **Google OAuth** : lib Google Identity Services (front), bouton « Continuer avec Google » sur `screen-auth`. Le Worker vérifie l'ID token via les clés publiques Google (JWKS, cache selon `max-age`). `GOOGLE_CLIENT_ID` prod = `742808037031-...apps.googleusercontent.com` (origines JS autorisées : `localhost:8080` + `huellasenarena.github.io`).
-- **Bouton Google** (`renderGoogleButton`) : redessiné à chaque changement de langue de l'appli (`locale: appLang`, sinon Google prend la langue du navigateur). ⚠️ `#google-signin-btn` porte `color-scheme: light` : c'est une page de Google en thème clair, et sous un parent en thème sombre le navigateur peint un **fond blanc opaque** derrière elle (la « boîte blanche »).
-- **Liaison par email** : même email = un seul compte (qu'on entre par Google ou mdp) → `google_id` rattaché à la ligne existante.
-- **Session** : JWT HS256 signé par le Worker, stocké `localStorage` (`KEY_JWT = vocab_jwt`). Front : `authFetch(path, opts)` ajoute le header. `API_ENDPOINT` auto-détecté (localhost → worker local `:8787`, sinon prod).
-
----
-
-## Cloudflare D1 (base `vocab`)
-
-ID : `87b54745-9878-402b-a4a5-e76720516dea`, binding `DB`. Migrations dans `dark-brook-87cc/migrations/` (`0001_init.sql`, `0002_byok_keys.sql`, `0003_settings.sql` = colonne `users.settings`, `0006_rounds.sql` = table `rounds`, `0007_free_quota.sql` = table `free_quota`, `0008_examples.sql` = table `examples`, `0009_round_log.sql` = table `round_log`). Appliquer : `wrangler d1 migrations apply vocab --local|--remote`.
-
-Toutes les tables de données portent `user_id`. Les onglets Sheets d'avant sont devenus des tables relationnelles.
-
-| Table | Colonnes clés |
-|---|---|
-| `users` | id, email, password_hash, google_id, **add_token**, **openai_key**, **gemini_key**, **settings** (JSON), created_at |
-| `words` | user_id, language, word, created_at — `UNIQUE(user_id, language, word)` · `word` peut être `base (note)`, voir « Entrées annotées » |
-| `progress` | user_id, language, word, correct, incorrect, last_practiced, hint_used, next_review |
-| `history` | user_id, date, word, language, result (1/0) |
-| `sessions` | user_id, date (YYYY-MM-DD), language, new_count |
-| `usage` | user_id, date, openai_input, openai_output, openai_requests, gemma_requests, geminiflash_req, geminiflashlite_req |
-| `rounds` | user_id, language, **state** (blob JSON de la manche), updated_at — `PRIMARY KEY(user_id, language)` |
-| `free_quota` | user_id, date (UTC), kind (`ai`\|`add`), n — compteur du jour d'un compte **sans clé** (`takeFreeQuota`, incrément atomique) |
-| `examples` | user_id, language, word, kind (`qcm`\|`pick`\|`type`\|`definition`), **batch** (une génération), role, text, **kept** (retenu pour l'écran), **shown** (vraiment affiché), **picked** (scénario choisi), answer (`''` = je ne sais pas), ok, meta (JSON) — **tous les exemples écrits par le modèle, gardés pour plus tard, rien ne les lit encore** (`logExamples`/`markExamples`, routes `/api/examples` et `/api/examples/mark`) |
-| `round_log` | user_id, **id** (tiré par l'app au début de la manche, gardé à la reprise), language, **day** (date locale du début), started_at, total, done (0/1), **items** (JSON `[{w, n, ok}]` dans l'ordre des réponses) — `PRIMARY KEY(user_id, id)`, index `(user_id, day)` |
-| `blacklist` | user_id, language, word |
-| `grammar_forms` | user_id, language, category, form |
-
-`language` ∈ `English` · `Spanish` · `French` · `Greek` (4 langues possibles **codées en dur** dans `LANGS`). Chaque utilisateur **choisit un sous-ensemble** de ces 4 (voir « Langues configurables »).
-
-**Date** : progression/sessions en heure **locale** (`todayStrLocal()`). Tokens (`usage`) : OpenAI en UTC, Google en PT (reset quotas). Migration one-time : `scripts/migrate_data.mjs <user_id>` (lit l'ancien Sheet → SQL). Pour `--remote`, retirer les `BEGIN TRANSACTION/COMMIT` du SQL (D1 distante les refuse).
-
-**Grammaire** : `grammar_forms` par utilisateur **et par langue** ; aplati côté JS en `"${category} ${form}"` (ex: `"futuro simple"`). Voir « Formes grammaticales » plus bas.
-
----
-
-## Clés : la sienne, ou celle du propriétaire (2026-10-27)
-
-- **Avec sa clé OpenAI** (réglages avancés, `KEY_OPENAI_KEY`, var `openaiKey`) : envoyée en `X-OpenAI-Key`, aucune limite de l'app (seul garde-fou : `DAILY_TOKEN_LIMIT` = 250 000 tokens/jour, `checkDailyLimit`). Les deux comptes existants en ont une.
-- **Sans clé** : header vide → le Worker prend `OPENAI_API_KEY_SCRIPT`. Deux limites :
-  - **dans l'app**, `FREE_WORDS_PER_DAY = 10` mots par jour, toutes langues, comptés dans `history` (`freeWordsLeft()` = 10 − somme des `doneToday`). `roundSize()` est borné par ce reste (affichage seulement, le réglage survit) ; l'écran de départ dit « Sans clé : encore N mots » puis `sess_free_done` (« reviens demain, ou ajoute ta clé »).
-  - **dans le Worker**, `FREE_AI_PER_DAY = 40` appels d'IA et `FREE_ADDS_PER_DAY = 30` ajouts (`/add`) par jour — le garde-fou qu'on ne contourne pas en appelant le Worker directement. Refus → `aiErrorText()` affiche `free_limit` en clair. Sur la clé du propriétaire, `/add` ne lance pas le classement en groupes.
-- ⚠️ Un plafond de dépense est réglé côté OpenAI sur le projet de cette clé : à relever avant d'ouvrir l'app à d'autres (10 mots ≈ 6 centimes avec Terra 5.6).
-- **Sync multi-appareils** : `loadAccountInfo()` (au login/chargement/⚙️) récupère la clé depuis D1 (`/me`) ; `setOpenaiKey` pousse vers le serveur (`saveKeysToServer` → `/api/keys`). Stockage D1 = chiffré au repos par Cloudflare, accès protégé par JWT (pas de chiffrement applicatif).
-- **3 clés OpenAI distinctes** (voir mémoire `api_keys_mapping`) : (1) **l'app** = celle de l'utilisateur, sinon `OPENAI_API_KEY_SCRIPT` ; (2) **raccourci iPhone** = clé enregistrée du propriétaire ; (3) **Kindle** = clé dédiée locale `~/Desktop/vocab-app/.openai_key`, envoyée par `kindle_import.py` en `X-OpenAI-Key` sur `/add` et `/judge-similar`.
-- Réglages d'avant (`vocab_model`, `vocab_gpt_effort`, `vocab_gemini_thinking`, `vocab_gemma_thinking`, `vocab_gemini_key`) : `OBSOLETE_KEYS`, effacés au chargement et exclus de la sync.
-- `sanitizeKey()` nettoie la clé (ASCII imprimable seulement) à chaque assignation — un caractère parasite (retour à la ligne, espace insécable) collé dans la clé faisait planter la construction de l'en-tête en Safari (« The string did not match the expected pattern »).
-
----
-
-## Sync des réglages (`/api/settings`)
-
-Tous les réglages (sliders nombre de mots/formes **par langue**, **nombre de mots Situation** (`vocab_situation_words`, 1-5), modèle, niveaux de raisonnement, **grammaire on/off + nombre de formes, par langue**, thème image, compteur tokens, **langues choisies**, **toggle progression Situation+Libre** `vocab_situation_counts`, **mélange du mode libre** `vocab_free_mix`) sont sérialisés en un blob JSON et synchronisés en D1 (`users.settings`).
-- Front : `collectSettings()` (toutes les clés `vocab_*` sauf denylist : jwt, pwd_ok, clés BYOK, `today_new_*`) · `saveSettingsToServer()` (debounce 1,5 s, appelé par chaque setter) · `applyServerSettings()`/`reloadSettingsVars()`/`applySettingsUI()` au login.
-- Chargé via `/me` (`loadAccountInfo`). Les clés BYOK restent synchronisées séparément (`/api/keys`).
-
-## Langue de l'interface (2026-09-29)
-
-**La langue de l'appli ne vaut que pour l'accueil et ce qu'on ouvre depuis lui** (connexion, « mes mots », stats, historique, ajouter, réglages du compte) : `tApp`. **Tout ce qui vit dans la page d'une langue** — `screen-practice`, `screen-revisions`, le menu ⋯, les fenêtres « Mes groupes » et « Chercher un mot » — est dans la **langue pratiquée** : `tPrac`, et `applyPracticeLangUI()` y applique les `data-i18n`. ⚠️ Le panneau de séance (manche, QCM, texte à trous, mode, échéances) était en `tApp` jusque-là : on y voyait « Words per round » en pratiquant l'espagnol avec l'appli en anglais. Un nouveau libellé de la page d'une langue passe par `tPrac` ; un texte en dur (en français) y est un bug. Même règle côté accueil avec `tApp` : la gestion des groupes, le filtre par groupe de « mes mots » et la réinitialisation étaient aussi en français en dur (traduits le 2026-09-29). `applyI18n` traduit aussi sa **racine** si elle porte `data-i18n` (bouton isolé comme `#catchup-btn`).
-
-## Langues configurables
-
-Chaque utilisateur choisit ses langues parmi les 4 (`selectedLangs`, clé `vocab_languages` synchronisée). `renderLangGrid()` construit la grille d'accueil dynamiquement (#lang-grid). Sélecteur modal `#lang-picker-modal` (`openLangPicker(false)`) depuis **my account → « edit languages »** (ajouter **ou retirer** ; la tuile « ajouter des langues » de la grille a disparu le 2026-10-27). À l'inscription / 1re connexion (pas de `vocab_languages`) → le **premier passage** ci-dessous. Défaut comptes existants = les 4.
-
-## Premier passage d'un nouveau compte (2026-10-27)
-
-Fenêtre `#onboard-modal` en **deux étapes** (`renderOnboarding`), noms des étapes en haut (« langues · mots ») : **langues** (obligatoire) → **premiers mots** (même boîte que « ajouter », `addWordFromApp('onboard')`). « suivant » · « plus tard » · « retour » au bout de la ligne, à droite. L'étape **« clé »** (pastilles Gemini / OpenAI, « essayer la clé ») a été **retirée le 2026-10-27 au soir** : sans clé, l'app tourne sur celle du propriétaire. Pages de test : https://claude.ai/artifact/HaG8aGTm7yWkB8FnDTpFtA.
-- **Reprise** : l'étape atteinte est le réglage synchronisé **`vocab_onboarding`** (`'1'` puis `'done'`) ; ⚠️ `'2'` (l'étape « mots » quand la clé était l'étape 1) est relu comme `'1'`. `onboardingStep()` la relit dans `afterAuth()` **et** au chargement (après `loadAccountInfo()`, qui rend `true`/`false` — sur un appareil neuf les langues arrivent avec les réglages).
-- `/add` vérifie les mots d'un compte sans clé avec la clé du propriétaire (plafond `FREE_ADDS_PER_DAY`) ; au-delà, `NOKEY:` (« limite du jour atteinte ») et « ajouter quand même ».
-- Lignes de résultat préfixées (`_addRowPrefix` : `add-row-` / `ob-row-`) — l'écran « ajouter » et le premier passage ont chacun leur liste.
-
-## Réglages du compte (2026-10-27)
-
-Base : langue de l'appli (plus de choix du modèle ni du raisonnement depuis le 2026-10-27). **« réglages avancés ▸ »** (`toggleAdvancedSettings`, `#adv-settings`, replié) : clé OpenAI, lien d'ajout, compteur de tokens, réinitialiser la progression. « Situation et Libre comptent » et « thème photos » sont en `display:none` (modes cachés, code intact).
-- **Compte du propriétaire** : `body.owner`, posé par `loadAccountInfo` en comparant le SHA-256 de l'email à `OWNER_EMAIL_SHA256` (l'email lui-même n'a rien à faire dans un dépôt public). `.owner-only` = lien d'ajout + parties iPhone / Kindle / token de l'aide (`help_token`). Le lien **marche** pour tout le monde, il n'est simplement plus montré.
-
-**Libellés dépendant de la langue pratiquée** : `applyI18n` substitue le jeton **`{lang}`** par le nom de la langue courante (ex. `set_grammar` → « Formes grammaticales (Français) »). Hors d'une langue (accueil), le motif ` ({lang})` disparaît entièrement — ne pas coder un nom de langue en dur dans une traduction.
-
-## Formes grammaticales (les 4 langues)
-
-`grammar_forms` a toujours été par langue en D1 ; jusqu'en août 2026 seul le **front** verrouillait sur l'espagnol. Désormais : `loadGrammarForms()` est appelé pour **toute** langue ouverte, et `renderGrammarForms()` affiche la zone + le slider dès que la langue courante a des formes.
-- **Réglages par langue** : `vocab_grammar_enabled_<Langue>` et `vocab_grammar_count_<Langue>`, lus par `grammarEnabledFor(lang)` / `grammarCountFor(lang)` — **repli sur l'ancienne clé globale**, qui portait le réglage espagnol d'avant la généralisation (ne pas la supprimer).
-- Appliqués dans `selectLanguage()` (toggle + slider recalés sur la langue qu'on ouvre) et `applySettingsUI()`.
-- La ligne de réglage `#grammar-toggle-row` est **masquée** si la langue courante n'a aucune forme (interrupteur sans effet sinon).
-- Les formes sont un rappel visuel (pilules) : elles n'entrent dans aucun prompt.
-
----
-
-## Ajout de mots — route `/add` (raccourci iPhone)
-
-`GET|POST /add?token=<add_token>&word=<mot>&lang=auto` → insère dans D1 pour l'utilisateur du token. Accepte `word`/`lang`/`ignore_sens`/`ignore_sim` en query **ou corps POST** (formulaire), `token` dans l'URL. Réponses **texte** (mêmes formats que l'ancien Apps Script, le raccourci les parse) :
-
-- `INVALID:<raison> | <Langue>[ | SUGGEST:<entrée corrigée>]` — mot non valide. Le 3e segment (facultatif) est la **graphie proposée** par le modèle, **entrée complète** : la note est réattachée (`pnetsar (expresión colombiana)` → `pensar (expresión colombiana)`), sinon le clic « ajouter le mot proposé » la perdrait. `cleanSuggestion()` (Worker) écarte NONE / vide / identique au mot saisi / > 80 car. Segment ajouté **en fin** → le raccourci iPhone, qui ne lit que `[0]` et `[1]`, n'est pas affecté.
-  - Front : `_addSuggestion(txt)` + bouton **« ajouter « X » »** à côté de « ajouter quand même » (`addSuggestedRow`). Le mot corrigé est renvoyé **sans `ignore_*`** — il repasse doublon et similarité, cas le plus fréquent. ⚠️ La suggestion transite par `_addBatch[i].suggestion`, **jamais** par l'attribut `onclick` (une apostrophe casserait l'attribut).
-- `SIMILAR:<mot> | <Langue>` — variante d'un mot existant
-- `Doublon : '<mot>' existe déjà dans <Langue>.`
-- `Succès (<Langue>) : '<mot>' ajouté.`
-
-Entonnoir (porté de l'ancien Apps Script, lit les mots existants depuis D1) :
-1. **Langue + validité** (**`gpt-5.6-luna`** « low » via `callScriptReasoning`) si `lang=auto` (`analyzeWordLangSense`), sinon `identifyLang` + `validateWord`. Codes ISO `es/fr/en/el` acceptés.
-2. **Doublon exact** bloqué.
-3. **Similarité** : `normSim` + `similarityScore` sur tous les mots existants, top 5 → **juge LLM** (`judgeSimilarity`, `gpt-5.6-luna`).
-
-`ignore_sens=true` / `ignore_sim=true` bypassent (1)/(3). Retries 429/5xx (3 tentatives).
-
-**Normalisation** (`normalizeWord`) : minuscules, apostrophes unifiées, points isolés retirés, liste blanche de caractères (`cleanBase` admet lettres, **chiffres**, espace, `'¿?,.-+()`). ⚠️ **La virgule n'est plus un séparateur de saisie** (`splitAddInput` : retour à la ligne et `;` seulement) — sans ça une expression comme « cabe inferir, aunque el texto no lo dice, que... » était impossible à taper. Les chiffres ont été rétablis en même temps (« los años 70 » perdait son année). Les **parenthèses** y sont admises → voir « Entrées annotées » (une parenthèse mal formée renvoie `Erreur : <raison>`, sans bouton « ajouter quand même » : l'utilisateur doit corriger).
-
-**Raccourci iOS** : POST le mot dans le corps, `token`+`lang=auto` dans l'URL ; gère `INVALID:`/`SIMILAR:` par alerte « ajouter quand même ? » → renvoie avec `ignore_*`. (Utilise (1)+(3) avec la clé propriétaire.)
-
-**Écran in-app « ➕ ajouter du contenu »** (`screen-add`, depuis l'accueil) : toggle **Mot / Forme grammaticale**. Mot → `/add` avec `myAddToken` + code langue (gère INVALID/SIMILAR + « ajouter quand même »). Forme → `/api/grammar` POST/DELETE (liste + suppression).
-- **Langue** : pilules `.filter-btn` (`#add-lang-pills`, `renderAddLangPills()`) construites à partir de `selectedLangs` — plus de `<select>` à 4 langues en dur. Variable `addLang` (plus de lecture DOM). Étirées (`flex:1 1 auto`) et à retour à la ligne : 1 à 4 pilules selon les langues choisies. **Une seule langue** → label + pilules masqués (rien à choisir).
-- ⚠️ `#add-word-panel`/`#add-grammar-panel` portent `width:100%` : sans ça, un div enfant du flex `align-items:center` de `.screen` se rétrécit à son contenu et le `width:100%` du textarea vaut 100 % d'un panneau déjà rétréci (boîte de saisie plus étroite que le reste de l'écran).
-
-### Entrées annotées — note entre parenthèses (août 2026)
-
-Une entrée peut porter une **note en fin de chaîne** : `hacer el oso (expresión colombiana)`. La note est du **contexte** (variété régionale, registre, désambiguïsation d'homonyme), **jamais du vocabulaire à réviser**. Stockée dans `words.word` (pas de colonne dédiée, pas de migration) ; la clé de progression/history reste le **texte complet**.
-
-- **Séparation** : `splitEntry(w) → { base, note }` (Worker **et** front). Une parenthèse **collée** au mot en fait partie (`asomar(se)` reste intact) ; seule une parenthèse **détachée par un espace** est une note.
-- **Validation** (`assertParens`, Worker) : une seule paire, équilibrée, non vide, en fin d'entrée → sinon **throw** avec un message explicite (`Erreur : parenthèse non fermée…`). ⚠️ Ne jamais revenir à une suppression silencieuse : c'est elle (liste blanche de `normalizeWord`) qui avait fait perdre la note de 28 expressions ajoutées le 2026-08-16 (réparées en D1 le 2026-08-18). Mêmes règles au renommage (`PUT /api/words`).
-- **Note** : texte libre (lettres, chiffres, `,;:.!?/'-+`), minuscules, **300 caractères max** (`NOTE_MAX`, Worker **et** front — relevé de 120 le 2026-10-22).
-- **`/add`** : doublon exact sur le **texte complet** (`berraco (…enojo)` et `berraco (…inteligencia)` sont deux entrées légitimes) ; validité IA et similarité sur la **base** seule, note passée en contexte au juge LLM (`entryContext`, Worker). Idem `/judge-similar`.
-- **Front** : `wordBase`/`wordNote`/`hasNote` · `entryContext(words)` = bloc injecté dans les 6 prompts · `promptLabel(w, all)` = base, **sauf** si deux entrées de la session partagent la même base (alors base + note, sinon ni le modèle ni le parsing ne peuvent les distinguer).
-- **Affichage** : base en principal, note en gris (`.word-note`, `.chip-note`, `.mot-note`) sur la carte, les chips, « mes mots » et les révisions ; floutée avec 👁 ; **jamais affichée en mode Situation** avant la réponse. Les chips portent `data-word` = entrée complète — clé de progression et de verdict, que le texte affiché ne porte plus (⚠️ ne pas relire la clé depuis `.chip-word.textContent`).
-- **Saisie multi-mots** : `splitAddInput()` coupe sur retour à la ligne et `;` (plus sur `,`), jamais **à l'intérieur** des parenthèses.
-
-### Import Kindle — `kindle_import.py` (refonte juin 2026)
-Lit `vocab.db`/`My Clippings` de la Kindle → sélection → import D1. **Config** : `.token` (jeton perso) et `.openai_key` (clé OpenAI dédiée) — **fichiers prioritaires sur `$ADD_TOKEN`/`$OPENAI_KEY_IMPORT`** (sinon une vieille var parasite casse tout). 
-- **Validité IA supprimée** : l'import envoie `ignore_sens=true` (les mots viennent d'un dico → un modèle faible ne faisait que les rejeter à tort). Remplacée par un **filtre charabia local** (`is_gibberish` : longueur/voyelle/chiffres, sans IA).
-- **Mots trop courants** : `is_too_common` via **`wordfreq`** (es/fr/en/el), seuil `COMMON_ZIPF_MIN` (défaut **5.5**, ~250-300 mots). Repli `TOO_COMMON` si `wordfreq` absent (`pip3 install wordfreq`).
-- **Similarité groupée** : `judge_similar_batch` → route `/judge-similar` (GPT-5.6 Luna « low »), `ignore_sim=true` ensuite sur `/add`. **Aucune question** pendant l'import (auto-skip + résumé).
-- **Import reprenable** : cache `.kindle_cache.json` = mots **restants** (retirés au fur et à mesure) ; coupure → relance reprend pile. Mot en erreur dure conservé ; maj Kindle sautée tant qu'il reste des mots. `check_token()` = fail-fast au démarrage.
-- `call_openai`/`/openai-script`, `get_existing_words`, `llm_decide_similar_batch`, `validate_words_ai`, `review_words` = **code mort** (legacy Sheets).
-
----
-
-## Modèle IA — Terra seul (2026-10-27)
-
-**`MISTRAL_MODEL = "gpt-6.1-terra"`**, réflexion **`GPT_EFFORT = "none"`**, pas de choix dans l'app. Gemini et Gemma ont été retirés (appels, clé, compteurs, réglages) après un banc d'essai sur 24 mots des 4 langues (lecteur aveugle + jugement à l'aveugle de l'utilisateur sur 8 QCM : Terra 6 bons / 1 bizarre / 0 faux, devant Gemini 3.8 Flash, Luna 6 et Haiku 5.5 ; Muse Spark trop cher, il réfléchit énormément même au plus bas). Constat au passage : le « none » de Gemini dans l'ancienne app **n'envoyait aucun réglage**, et Gemini 3.x réfléchissait alors à son niveau par défaut. Banc d'essai (hors dépôt) : `bench.mjs` dans le scratchpad de la session ; page de jugement https://claude.ai/artifact/8HVc7mQUEKPGsK4e4MoUrj.
-
-Toutes les requêtes passent par `${API_ENDPOINT}` (route défaut, **Responses API**) avec `Authorization: Bearer <JWT>` + `X-OpenAI-Key` (vide sans clé). Pas de `temperature`. Body : `input`, `max_output_tokens`. Vision : `input_text`/`input_image`.
-- `reasoning: { effort: 'none' }` **toujours envoyé**. ⚠️ Omettre le champ ne veut pas dire « pas de raisonnement » : l'API applique son propre défaut, **plus lent** (mesuré le 2026-08-31 : sans le champ 4,6 s · `none` 3,9 s).
-- `max_output_tokens` compte **reasoning + texte** : budget 16000 partout (eval/QCM/définition), 8000 pour le lecteur aveugle.
-- Streaming SSE : `response.output_text.delta`. **Usage dans `response.completed`**. ⚠️ `usage.output_tokens` **inclut déjà** les reasoning tokens → `trackTokens` ajoute **uniquement `output_tokens`** (sinon double comptage vs dashboard OpenAI).
-- **Format imposé** (2026-11-17) : `callAIJson(prompt, budget, nom, propriétés)` envoie `text.format` = `json_schema` strict et rend l'objet déjà lu. Utilisé par « tape le mot », « quel mot ? », le QCM (un seul objet `{unknown, why, choices}`, aveu compris) et le lecteur aveugle (`{scores}`). ⚠️ Avant, un guillemet droit non échappé dans `why` faisait « JSON Parse error » (~1 question sur 10). Les autres appels (vérifier le mot, mots liés, mode Imagen) lisent encore le JSON à la main.
-- Fonctions : `callMistral`, `callMistralStream`, `callMistralVision` (une ou plusieurs images étiquetées « Photo N »). Noms `callMistral*` par héritage. Erreurs passées par `aiErrorText()` (`free_limit` traduit).
-
-### Wrappers
-`callAI` / `callAIStream` / `callAIVision` → `checkDailyLimit()` puis `callMistral*`.
-> **Rendu du streaming coalescé** (2026-08-31) : `callAIStream` enveloppe `onChunk` dans `coalesceChunks()` → **un rendu par frame** au plus, avec le texte le plus récent, plus un `flush()` final. ⚠️ Les quatre flux (vérification, définition, situation, verdict Situation) faisaient « re-parser tout le texte → réécrire tout le `innerHTML` → mesurer le layout » **à chaque delta** : travail **quadratique**, et trois recalculs de layout synchrones par delta sur iPhone. Coalescer dans le **dispatcher** : le coût suit la **durée** de la réponse. Ne pas remettre de rendu par delta.
-
-### Compteur de tokens
-Sous `<h1>Vocab</h1>`, toggle ⚙️ (`KEY_SHOW_TOKENS`). `DAILY_TOKEN_LIMIT = 250000` (vaut seulement sur sa propre clé) ; ≥80% orange, ≥100% rouge + `checkDailyLimit()` throw. `trackTokens` → `saveTodayTokensDebounced()` (2s). Persistés en **D1** (`/api/usage`, date UTC) : `saveTodayTokens()` ajoute les `_pending*` et relit la valeur D1 (multi-appareils).
-
----
-
-## Règles de progression (mode espacé)
-
-| Situation | Compteur | NextReview | Étoiles |
-|---|---|---|---|
-| Nouveau + ✓ | −1 nouveau | +1 jour | inchangées |
-| Nouveau + ✗ | inchangé | inchangé | inchangées |
-| À réviser + ✓ sans hint | inchangé | SM-2 | +1 |
-| À réviser + ✓ avec hint | inchangé | +1 jour | inchangées |
-| À réviser + ✗ / "Je ne sais pas" | inchangé | +1 jour | inchangées |
-| 2ème+ tentative dans la session | ignoré | ignoré | ignoré |
-
-**Changement de jour** : heure locale (`todayStrLocal()`).
-**SM-2** (`calcNextReview`, jours, basé sur le net **AVANT** d'ajouter le succès courant) : `net ≤ 1 → 1`, `2 → 4`, `3 → 8`, `4 → 14`, `5 → 20`, `6 → 30`, `7 → 45`, `≥ 8 → 60`. (Nouveau + ✓ via `saveProgressNew` = +1 jour, net **inchangé** → le mot revient ~3 jours de suite au début, voulu.)
-**Étoiles** : ☆☆☆ (`net ≤ 0`) · ★☆☆ (`1`) · ★★☆ (`2`) · ★★★ (`≥ 3`, maîtrisé). `starsFromNet(net)`.
-**Prochaine date** affichée dans la boîte après vérif (`.next-review-line`, single + multi). Slider « nombre de mots » **plafonné** au pool dispo (`setWordSliderMax`). **État terminé** : classe `spaced-done` sur `#screen-practice` → masque slider/carte/boutons, n'affiche que `#spaced-done-card` ✓.
-**Slider « nombre de mots » — compteur PAR MODE et valeur souhaitée** : clé `vocab_word_count_<Langue>` (espacé, historique) et `vocab_word_count_<Langue>_free` (libre) via `wcKey(lang, mode)` ; la clé libre absente **replie en lecture seule** sur la clé historique (pas de retour à « 1 mot » au premier passage). Deux notions distinctes :
-- **souhaitée** (`desiredWordCount()` / `setDesiredWordCount()`) — écrite **uniquement** sur un geste de l'utilisateur (`onchange="onSliderChange(this.value, true)"`) ;
-- **affichée** = `min(souhaitée, pool du jour)`, calculée par `setWordSliderMax()`, **jamais persistée**.
-**Quota des nouveaux et slider** : `spacedEligibleSet()` est la **source unique** du pool ajoutable (utilisée par `onSliderChange` et `removeWordFromSession`). Elle retire du quota `maxNewPerDay - todayNewCount` les nouveaux **déjà tirés** (`currentWords` + `previousWordsPool`) et les remet **en tête** de la liste. ⚠️ Sans ça, chaque mouvement du slider rouvrait `newRemaining` places et ajoutait un nouveau de plus — et un autre à chaque fois, la liste des jamais-pratiqués étant re-mélangée à chaque appel (bug du 2026-08-27 : 2 mots dorés pour « 1 nouveau restant »).
-⚠️ Ne jamais faire persister la valeur plafonnée (ancien bug) : une journée où un seul mot était dû écrasait le réglage pour de bon et le slider ne remontait plus le lendemain. `setMode()` recale le slider sur le réglage du mode qu'on ouvre (et remet `max=30`, sinon le plafond du mode précédent rogne la valeur).
-**Slider « nombre de mots » — perf** : `oninput` → `onSliderPreview()` (libellé seul) et `onchange` → `onSliderChange()` (tirage + re-render, au relâchement). ⚠️ Ne pas remettre le travail lourd sur `oninput` : avec ~6600 mots, le mode Libre saturait le thread iOS et le curseur devenait injouable. Même raison pour `pickWeightedOne()` = **réservoir pondéré en un passage** (aucun `filter`/`map`/`reduce` intermédiaire).
-**Limite quotidienne** : `maxNewPerDay` (défaut 60, par langue, `KEY_MAX_NEW`). Slider ⚙️ : valeurs `MAX_NEW_VALUES` = 1,2,3,4,5 puis pas de 5 jusqu'à 100 (`maxNewToIndex`). `pickWords` : `newRemaining = max(0, maxNewPerDay - todayNewCount)`. `onSliderChange` en mode espacé pioche dans le pool éligible `[...trulyDue, ...newToShow]` (jamais `pickWeightedOne`).
-
-### « Étudier » un mot nouveau (mode espacé)
-
-Anti-abandon : quand plusieurs mots inconnus tombent le même jour, écrire une phrase avec 5 mots dont on ignore le sens fait décrocher. On peut alors **étudier** un mot au lieu de l'employer.
-
-- **Éligibilité** : `canStudy(word)` = mode espacé, avant soumission, `isNewWord(word)`, pas déjà étudié. **Auto-limité** : un mot n'est nouveau qu'une fois, donc l'échappatoire s'éteint d'elle-même — aucun quota supplémentaire à gérer.
-- **Parcours** : la boîte définition (`#hint-box`) gagne en bas un bouton **« ✓ je l'ai compris — teste-moi »** (`#hint-study`, affiché par `showStudyOffer` **après** l'affichage de la définition). Le coup d'œil à la définition reste gratuit et sans conséquence ; c'est le bouton qui engage. → `startStudyQuiz()` → `startQCM` réutilisé tel quel.
-- **QCM d'étude = neutre** : `inStudy` dans `checkQCM` **supprime le `saveProgress(qcmWord, false)`** de l'échec. ⚠️ Sans ça, un ✗ sur un mot jamais employé lui donnerait un net négatif (☆☆☆). Échec n°1 → bouton « autre question » (`retryStudyQuiz`) ; échec n°2 → étudié quand même (le vrai test est demain).
-- **Validation** (`markWordStudied`) = exactement « nouveau + ✓ » : `saveProgressNew` (demain, net et étoiles inchangés) + `todayNewCount++` + `saveTodayCount`. **Rien dans `history`** (le mot n'a pas été testé en production).
-- **`studiedWords`** (Set de clés lc) + **`sentenceWords()`** = `currentWords` moins les étudiés. ⚠️ Le mot étudié **reste dans `currentWords`** : il garde sa place à l'écran (`.chip-studied`/`.card-studied`, badge `📖 étudié`) **et** dans le total vu par le slider — sinon `onSliderChange` verrait une place libre et tirerait un mot de plus (même piège que le remplaçant de `removeWordFromSession`). `sentenceWords()` est la source unique pour le prompt d'évaluation, `entryContext`, le parsing du verdict, le score `N/total`, la boucle de sauvegarde, les mots liés et l'offre de QCM.
-- **Tous les mots étudiés** → plus de phrase à écrire : `updateStudyUI()` masque `#sentence-section` et montre `#study-all-done`.
-- ⚠️ `chipHint` : un mot étudié n'est plus « nouveau », mais le cliquer ne doit **pas** déclencher `showJeNeSaisPas` (✗ imérité) → garde explicite sur `studiedWords`. Idem `refreshWordColors` (sinon le mot repasse en blanc « à réviser »).
-
-**Modes Situation + Libre dans la progression** : un **seul toggle** ⚙️ (`situationCounts`, clé `vocab_situation_counts`, **défaut OFF**) gouverne **à la fois** Situation et Libre. OFF → ni étoiles ni SM-2 ni consommation du quota nouveaux/jour (l'**historique** est toujours écrit). En Libre, gardé par `countsProgress = practiceMode !== 'free' || situationCounts` dans `submitSentence` ; en Situation, par `if (situationCounts)` autour de `saveProgress`.
-
----
-
-## Modes de pratique
-
-- 📅 **Espacée** — SM-2, limite nouveaux/jour. Sliders : nombre de mots (plafonné au pool dispo) + formes grammaticales (1-10, toute langue ayant des formes). Bouton bas **« 📅 mes révisions à venir »** → `screen-revisions` (tous les mots programmés langue courante + prochaine date + étoiles ; tris proche/lointaine/A-Z + recherche). État terminé = carte ✓ seule.
-- 🎯 **Situation** — recall actif, mots ★★★ (`net ≥ 3`). Refonte juin 2026 :
-  - **Bouton « Commencer »** (`startSituation`, sans icône) à l'entrée du mode → **aucun appel API auto** (`pickWords` tire les mots mais ne génère pas). « Autre situation → » (`nextSituation`) enchaîne directement.
-  - **Multi-mots 1-5** : slider dédié `#situation-word-slider` (`situationWordCount`, clé `vocab_situation_words`, défaut 1, plafonné aux mots maîtrisés via `setSituationSliderMax`). Tirage pondéré **sans répétition** de N mots.
-  - **Poids de relance** : les mots ratés (`situationMissed`, Set en mémoire de session) pèsent **×4** au tirage jusqu'à réussite (ajout sur ✗/« je ne sais pas », retrait sur ✓).
-  - **Génération** (`generateSituation`, sans arg, lit `currentWords`) : 1 mot → scène simple ; N mots → **un seul texte cohérent** (même thème) évoquant tous les mots sans les nommer.
-  - **Saisie** (`submitSituation`) : un champ, format numéroté libre (`1. mot, candidat  2. …`), **ordre/numéros ignorés** → matching **ensembliste** par l'IA (✓ par mot si un candidat correspond). Verdict **✓/✗ par mot** + score **N/total** ; couleur `correct`/`partial`/`incorrect`. Sauvegarde par mot (history + progress si toggle).
-  - **Liste des ★★★** : bouton bas **« ★★★ mes mots maîtrisés »** (`#mastered-bar`, jumeau de `#revisions-bar`), affiché seulement s'il y a des mots maîtrisés (allumé dans `pickWords`, éteint par défaut + par `setMode`). Il ouvre `screen-revisions` via `openWordListScreen(view)` : **un seul écran** pour les deux listes (`revisionsView` ∈ `due|mastered`), seuls le titre (`data-i18n` réécrit, sinon `applyI18n` le remettrait), le filtre `net >= 3` et le message « liste vide » changent.
-  - **UI** : « Je ne sais pas → » / « Autre situation → » (`btn-situation-skip`/`btn-situation-next`) **entre le texte et le champ** (un seul visible à la fois) ; bouton `↑` inline dans le `.textarea-wrap` ; verdict avec **autoscroll** (`startAutoScroll`). Pas de carte « Le mot » séparée : après vérif le verdict nomme déjà le mot ; après « Je ne sais pas » (`revealWord`), le(s) mot(s) sont affichés **dans la boîte de verdict** (`#situation-feedback-box`, rouge, `Le mot était : …`). Saisie **verrouillée** (`lockSituationAnswer`) après réponse, jamais masquée (évite le saut visuel).
-- 🎲 **Libre** — tirage pondéré (`pickWeightedOne`). Compte dans la progression **seulement** si le toggle ⚙️ Situation+Libre est ON (sinon historique seul).
-  - **Curseur de mélange** (`#free-mix-section`, `freeMix` 0-4, clé `vocab_free_mix`, défaut **2 « équilibré »**) : découverte ↔ révision. Visible **en mode libre seulement**, masqué dans une sélection manuelle (le pool y est imposé). `oninput` = libellé seul, `onchange` = nouveau tirage — jamais sous une phrase en cours ou une correction affichée.
-  - ⚠️ **Les poids sont des parts de tirage PAR CATÉGORIE, pas par mot** : `getWeight = FREE_MIX[freeMix][bucket] / effectif(bucket)`. Les anciens poids par tête (10/8/5/1) étaient écrasés par la taille du stock — avec ~6400 mots neufs contre ~380 travaillés, même 1 contre 8 donnait >90 % de neufs et un mot déjà vu ne revenait jamais. Ne pas revenir à un poids par tête. Une catégorie vide disparaît d'elle-même (le total renormalise).
-  - `bucketOf(word)` ∈ `new|bad|mid|mastered` (remplace le test `getWeight(w) > 1` du compteur « mots à travailler »). Effectifs mémorisés **pour le tick courant seulement** (`_bucketMemo`, purgé par un microtask) : une passe par salve de tirage, aucun cache à invalider quand la progression bouge, et la passe unique du réservoir est préservée.
-- 📸 **Imagen** — « ¿Cuál es ? » (2026-09-29) : voir « Mode Imagen » plus bas. Indépendant de la liste et de la progression.
-- 📝 **Pratique quotidienne** (2026-09-08) — section dédiée plus bas.
-
-**Mode retenu par langue** (2026-09-09) : `vocab_mode_<Langue>` (`storedMode`, écrit par `setMode`, synchronisé comme les autres réglages), **défaut `practice`** — on ne rouvre plus le grec en mode espacé chaque matin. `selectLanguage` le pose **avant** tout ce qui en dépend (slider, écran) et se termine par `setMode(practiceMode)` : un seul endroit règle l'écran selon le mode, au lieu d'en répéter deux lignes et d'en oublier trois.
-
-**Modes cachés le 2026-10-22** : `VISIBLE_MODES = ['practice']` — les quatre autres ne servaient plus ; leur code reste, il suffit de les remettre dans la liste (avec un seul mode, le sélecteur disparaît). Menu ⋯ : « voir une image » et « groupes » retirés. « Chercher un mot » : dates en clair (`agoLabel`) et tri **« ajoutés récemment »** (`wordAddedAt`, `loadWords` lit `/api/words?detail=1`). « Otra pregunta » → **« Otras frases »** (QCM), « Otra situación » (quel mot ?), « Otra frase » (tape le mot).
-
-**Sélecteur de mode** : la rangée de boutons a été remplacée par le **nom du mode en cours** (`#mode-current-btn`, `updateModeLabel()`), cliquable → `openModeMenu()` réutilise `#word-ctx-menu` comme les langues et les groupes. Cinq modes ne tenaient plus dans une rangée, et trois d'entre eux sont devenus rares.
-
----
-
-## Mode pratique quotidienne (2026-09-08)
-
-Né du constat que l'utilisateur décrochait au bout de 2-3 jours : **98,6 % de ses ~9 800 mots jamais pratiqués**, 52 maîtrisés en trois mois, et un seul exercice — écrire une phrase libre — qui est le plus difficile qui existe (praticable en espagnol, un mur en grec).
-
-> **Principe** : la révision espacée décide **quels** mots tombent aujourd'hui, le palier décide **comment** on les demande. Les deux mécanismes s'ignorent.
-
-| Palier | Exercice |
-|---|---|
-| net < 2 | définition + **QCM** (4 scénarios, le mot n'apparaît pas) |
-| 2 <= net < 6 | **en alternance** : net pair → **« quel mot ? »** (situation + 5 mots), net impair → **« tape le mot »** (2026-11-17) |
-| net >= 6 | **« tape le mot »** (phrase à trou, sans liste, indice lettre par lettre) |
-
-⚠️ **« Tape le mot » ne commençait qu'à net 6** jusqu'au 2026-11-17 : un mot n'y arrivait qu'après un mois, puis attendait derrière tout le retard (les rappels sont servis du plus ancien au plus récent). Au 2026-11-17, 27 mots y étaient arrivés et **aucun** n'avait jamais été montré. L'alternance par la parité du net est gratuite : réussir fait changer d'exercice, rater en écrivant fait redescendre à « quel mot ? ». Une langue à un seul mot écrit au lieu de choisir.
-
-- **Un mot neuf sort du pool et revient demain, réussi OU NON** (`recordSessionAnswer` → `saveProgressNew` dans les deux cas, net inchangé donc aucune pénalité). ⚠️ Le **mode espacé**, lui, laisse un mot neuf raté intact — y échouer, c'est n'avoir pas su l'employer dans une phrase, ce qui est normal la première fois. Ici la définition a été montrée et un QCM proposé : le laisser tel quel le renvoyait dans le sac des ~9 700 jamais pratiqués, d'où il ne ressortait jamais. L'échec faisait **disparaître** le mot au lieu de le ramener.
-- **Palier lu sur le NET** (`sessionLevel`, `CLOZE_AT_NET = 2`), pas sur `correct`. Un mot neuf réussi passe par `saveProgressNew` et laisse le net à 0 : le seuil 2 vaut donc **trois rencontres réussies**. Et comme un échec retire 1, un mot raté deux fois **redescend seul** au QCM — ⚠️ ne pas ajouter de compteur d'échecs, c'est déjà gratuit.
-- **La manche se compte en MOTS** (`roundSize()`, clé `vocab_round_size_<Langue>`, défaut 12), et non plus en exercices. ⚠️ Un texte à trous de huit mots ne valait qu'**un** exercice : deux unités dans le même écran — le budget disait douze, le score de fin disait dix-neuf. Un texte coûte désormais autant de places qu'il sert de mots.
-- **Deux curseurs, le troisième se déduit** : *mots par manche* (`vocab_round_size_<Langue>`) et *dont mots neufs* (`vocab_round_new_<Langue>`, défaut 2) ; les **rappels** valent la différence. ⚠️ Les régler tous les trois recrée deux quotas concurrents où le plus petit gagne (bug du 2026-09-09 : une manche à un seul mot).
-- **Curseurs bornés par le stock** (2026-10-27, `syncRoundDials`) : « mots par manche » s'arrête au nombre de mots de la langue, « dont mots neufs » au nombre de mots jamais travaillés (compté jusqu'au plus grand cran, 15). ⚠️ **Et par ce que la manche peut servir** (2026-10-27, le soir) : « mots par manche » s'arrête à *mots déjà travaillés + neufs du second curseur + neufs choisis à la main* — la manche ne prend jamais plus de neufs que demandé, donc 11 mots dont 10 neufs et « dont 4 neufs » annonçaient 11 pour en servir 5. Monter les neufs fait remonter ce plafond. Les neufs, eux, se bornent à la taille **demandée** (pas affichée), sinon les deux curseurs se bloquent l'un l'autre. Seul l'**affichage** est borné : le réglage demandé survit et le curseur remonte seul quand la liste grandit (une liste d'un mot affichait « 12 mots »).
-- **LES DEUX CURSEURS MESURENT LA MANCHE** (2026-09-23). Celui des neufs réglait `maxNewPerDay`, un quota du **JOUR**, tout en se lisant « 12 mots, **dont** 2 neufs » : il annonçait une part de la manche et gouvernait une part de la journée. Tout en découlait — valeur affichée rognée par la taille de la manche, « N neufs déjà faits » qui **bougeait avec le curseur** (`min(todayNewCount, curseur)`), une manche qui servait 3 neufs quand on en demandait 6, « 8 rappels » à gauche contre « 6 en attente » à droite. Une seule échelle : ce qu'on demande est ce qu'on reçoit, à chaque manche. Seule la valeur **affichée** est bornée par la taille (`roundNewMaxIndex`) — le réglage demandé, lui, survit à une manche rétrécie.
-- **Plus aucun frein automatique** : c'est le curseur qui freine, une manche à la fois. ⚠️ En remettre un par-dessus recréerait les deux quotas concurrents. Ce qu'on a ouvert dans la journée est seulement **affiché** (`sess_mirror`, « 12 mots neufs aujourd'hui — à revoir demain ») : un miroir, pas une limite. `maxNewPerDay` existe toujours en ⚙️ mais ne gouverne plus que le **mode espacé** (son libellé le dit).
-- **La ligne déduite LIT le plan, elle ne le refait pas** (2026-09-20) : `planRound(reviewsOnly, countOnly)` est la **source unique** de la composition d'une manche — `buildSessionItems` en tire les items, `syncRoundDials` en tire « → 6 rappels + 1 neuf ». ⚠️ Elle se calculait à part (`taille − quota restant`) et annonçait donc des **places**, pas des rappels : « 10 rappels » quand 8 seulement étaient dus, la manche servant 8 rappels **plus 2 mots neufs** jamais annoncés ; et « 8 rappels » sous un curseur réglé sur 1 mot neuf, l'écran se contredisant lui-même. Elle **nomme maintenant les deux** — un mot neuf n'est pas un rappel, et « rappel » veut dire partout la même chose : un mot déjà travaillé revenu à sa date. ⚠️ `countOnly` compte sans mélanger : la ligne se redessine à chaque mouvement de curseur, et mélanger dix mille mots soixante fois par seconde rend le curseur injouable (même piège que le slider du mode libre).
-- **La manche se remplit en TROIS temps** (2026-09-23) : les mots neufs demandés (dans la limite du stock), puis les **rappels dus** du plus en retard au moins en retard, puis — s'il reste des places — des mots déjà travaillés **pas encore dus**, les plus proches de leur date. La manche fait donc toujours son compte, et ne fait moins que quand le stock ne suit pas (premier jour d'une langue : deux mots neufs, rien d'autre). ⚠️ On ne réserve que ce que le **stock** peut tenir (`reserve = min(demandé, mots neufs disponibles)`) : une place gardée pour un mot neuf qui n'existe pas est une place perdue. ⚠️ Le bouton **« que des rappels »** a été **retiré le 2026-09-23** : il mettait la réserve à zéro pour une manche sans toucher au réglage, ce qui n'avait de sens que tant que le curseur réglait la JOURNÉE. Le curseur réglant la manche et descendant jusqu'à 0, il faisait double emploi (`reviewsOnly` supprimé de `planRound`/`buildSessionItems`/`beginRound`).
-- ⚠️ **« Rappel » ne désigne qu'UNE chose : un mot revenu à sa date.** Le mot en couvrait trois — le mot dû, le mot pris en avance pour fabriquer un texte, et *le reste* (tout ce que les neufs n'avaient pas pris). C'est le troisième sens qui pourrissait l'écran : les rappels étant la valeur déduite, ils absorbaient tous les écarts et le nombre partait dans tous les sens. `planRound` rend donc `dueCount`, `aheadCount` et `freshCount` **séparément** ; la ligne dit « → 10 rappels + 2 neufs » et, en dessous, « dont 3 révisions en avance ».
-- ⚠️ **Les rappels se prennent dans l'ORDRE DES ÉCHÉANCES, sans regarder leur palier.** Prendre d'abord les mots au palier des trous était sans conséquence tant que le budget valait 12 exercices ; avec **4 places**, un texte les mangeait toutes et les mots à 0-1 étoile — l'essentiel du retard — n'étaient plus jamais rappelés. Le complément `CLOZE_MIN` ne prend donc que les places que les rappels dus **n'ont pas remplies** (`spare`), jamais en évincer un.
-- **Le compte des neufs du jour se lit en base** (`todayNewCount`, table `sessions`) et ne sert plus qu'au **miroir** et à la carte d'accueil. ⚠️ Le compteur local des neufs **affichés** (`vocab_today_new_served_*`) a été retiré : c'était le dernier chiffre de la journée à ne pas voyager. Un mot vu mais pas répondu n'a pas été fait — il peut revenir.
-- Rappels servis **du plus en retard au moins en retard**, et QCM neufs **mélangés** aux rappels : huit mots inconnus à la file font décrocher avant le premier rappel.
-- **Mots choisis = les curseurs suivent** (2026-11-12, `_roundPick`, `setRoundChosen`) : choisir 5 mots dont 2 neufs pose « 5 mots, dont 2 neufs » ; on monte pour compléter, jamais sous la sélection ; monter les neufs monte la taille, baisser la taille baisse les neufs. Valeurs **de la manche seulement**, le réglage habituel n'est pas écrasé (`roundSizeEff`/`roundNewEff`). La liste du sélecteur dit **« nueva »** ou **« practicada … ★★☆ »** sous chaque mot. Fenêtre : seule la liste défile, bouton fixe en bas ; **toute fenêtre ouverte bloque le défilement de la page** (`html:has(.modal-overlay.visible)`).
-- **Composer la manche** (2026-10-22, facultatif) : sur l'écran de départ, « choisir des mots » (`openRoundPicker`) rouvre le sélecteur « chercher un mot » du mode libre (`_freeSearchFor = 'round'`). Les mots cochés (`_roundChosen`) prennent les **premières places** dans `planRound` (exclus des autres pools) ; le curseur « mots par manche » complète s'il en reste — plus de choisis que de places : la manche les prend tous, rien d'autre. Chacun reçoit l'exercice de son palier. La ligne déduite les nomme (« 3 choisis + 1 rappel + 2 neufs »). Le choix est **consommé** par `beginRound` et vidé au changement de langue.
-- **Fin de manche** (`sessionEndActions`) : ce qui reste à rappeler (`dueWords()` recalculé — les mots servis ont tous reçu une nouvelle échéance, donc rien à mémoriser) + « une autre manche », **et c'est tout**. ⚠️ Le bouton « ouvrir N mots neufs de plus » (`openMoreNew`, `sessionExtraNew`) n'existait que pour forcer le quota du jour : le quota parti, il n'a plus d'objet — on monte le curseur des neufs et on relance. Une manche vide offre la même sortie au lieu d'être un cul-de-sac.
-- Un mot n'apparaît **qu'une fois par séance** et ne monte **que d'un palier par séance**. La séance **se termine** (carte ✓ + score).
-- ⚠️ Les places libres vont d'abord aux mots **non encore dus qui sont au palier des trous**, tant qu'il en manque pour fabriquer un texte : réviser un peu en avance ne coûte rien, trois jours de QCM sans jamais voir un texte, si. Sans ça, un stock sans révision due ne produit aucun texte.
-- **Masquage** : `#screen-practice.session-mode` masque carte, chips, sliders, zone de phrase, `.action-row` **et** `#btn-next-below` (⚠️ deux boutons « Autre mot » distincts) ; `#hint-box` reste visible, la définition s'y affiche.
-- **Nettoyage entre deux items** = `resetSessionBoxes()`. ⚠️ **Ne jamais vider `#hint-box.innerHTML`** : ça détruit sa structure (titre, corps, zone d'actions) et tout appel suivant à la définition ou à la traduction plante sur un élément disparu — le bouton semble alors ne rien faire (bug du 2026-09-09). On ne vide que `#hint-text`, `#hint-translation` et `#word-image-body`, et on retire `.visible` des conteneurs.
-- **`revealSessionBox(el)`** : ces boîtes vivent **sous** `#session-section` dans le DOM, donc hors écran derrière quatre réponses — les ouvrir sans y faire défiler donnait la même impression de bouton mort.
-- **Supprimer / renommer / transférer pendant la séance** : `removeWordFromSession` et `editWordOnCard` branchent sur `sessionItems` (`dropWordFromRound`), pas sur `currentWords` — sinon le mot partait de la base et l'écran ne bougeait pas, pendant que `nextWord()` (autres modes) était appelé dans le dos. Un mot **jeté rend la place** qu'il occupait dans le quota du jour (`item.wasNew` mémorisé au service, `todayNewCount` seulement s'il avait répondu) : sinon supprimer sa séance fermait la journée pour rien. S'il n'était pas encore passé, il est **remplacé sur place** (`pickRoundReplacement`, du même genre que lui) — le jeter lui fait céder son tour, ça ne raccourcit pas la manche.
-- **Chaque jauge une seule chose** (2026-09-10) : la **carte d'accueil** porte la journée (objectif = une manche, retard sous la fraction) et la **barre de séance** porte la manche (`roundProgress`, « 5 / 12 dans cette manche »). ⚠️ La barre mesurait la JOURNÉE (`dayProgress` : fait + dus + quota de neufs) et annonçait « 3 sur 16 » pendant une manche de 12 — un troisième nombre dans une troisième unité, à côté de la carte et du réglage. Après une **reprise**, la barre garde le total de la manche (« 1 / 20 », pas « 0 / 19 ») : `_roundOffset` = mots faits avant la reprise, sauvé dans l'état (`off`) et recalculé par `savedRound` (faits ici + faits ailleurs entre-temps). `sessionTotal()` l'inclut, donc le score de fin aussi.
-- **`doneToday`** (mots faits aujourd'hui) est **lu en base** et ne sert plus qu'à la carte d'accueil. ⚠️ Il vivait en localStorage, exclu de la sync : c'est ce doublon qui faisait dire « 12 / 16 » à l'iPhone et « 0 / 4 » à l'iPad le même matin. La donnée existait déjà dans `history` — on compte là, on ne synchronise pas une copie. Bénéfice : un mot travaillé en mode libre ou espacé compte aussi. Le calendrier **« mes révisions à venir »** est offert en pratique comme en espacé.
-- **Répondre puis avancer** : un second appui sur **la réponse** passe au mot suivant (`sessionNext`), et un nouvel item repart du haut de l'écran. ⚠️ Les boutons doivent être **réactivés** (`disabled = false`) : un bouton désactivé n'émet aucun clic, donc aucun tap ne passerait ; le délai de 350 ms empêche le geste de la réponse d'avancer par rebond. ⚠️ Ce minuteur appartient à **sa** question (`sessionItems[sessionIdx] !== mine → on abandonne`, 2026-09-20) : sans la garde, avancer en moins de 350 ms le faisait tomber sur les boutons de la question **suivante** et les transformait en « avancer » — un appui sur une réponse la sautait alors sans rien enregistrer. ⚠️ **`#session-help` (📖 définition) est passé SOUS les réponses** (2026-09-18) : caché au-dessus d'elles, il apparaissait après coup sur un rappel et **faisait descendre toutes les cartes de sa hauteur** — le second appui « au même endroit » tombait alors à côté. Sous les réponses, ce qui s'ajoute ne bouge plus rien au-dessus d'elles.
-- ⚠️ **La bordure dorée du survol est enfermée dans `@media (hover: hover)`** : un écran tactile n'a pas de survol, mais iOS garde le dernier appui « collé ». L'écran suivant se redessinait et le bouton qui arrivait à cet endroit héritait de `.qcm-choice:hover` — une réponse paraissait **déjà choisie** sur la carte suivante.
-- **Menu ⋯ et définition sur le mot à l'écran** (2026-09-09) : le mot du QCM porte son `⋯` (`openWordMenu`) et un bouton 📖 définition ; dans le texte à trous, **chaque mot corrigé** ouvre le sien (le seul endroit où on le voit est donc le seul d'où on peut le vérifier ou le jeter). ⚠️ **Anti-triche** : `_sessionHelpOpen` ouvre définition/traduction/image **d'emblée sur un mot neuf** (c'est ce qu'on vient apprendre) mais seulement **après la réponse** sur un rappel — et `renderSessionCloze` les **referme**, sinon le QCM précédent laissait la traduction accessible pendant le texte.
-
-### Écran de départ, verrouillage, reprise (2026-09-10)
-
-Entrer dans le mode lançait **trois appels** — dont le texte à trous, une minute d'attente et le gros du coût — avant qu'on ait pu regarder les réglages.
-
-- **`showSessionStart()`** rend `#session-start` : les deux curseurs, la ligne déduite (« → 4 rappels »), le nombre en attente, et les boutons **Commencer** / **Que des rappels** / **Reprendre**. `beginRound(reviewsOnly)` construit la manche, `launchRound()` est le **seul endroit d'où partent les appels**. Même idiome que le bouton « Commencer » du mode Situation.
-- **Curseurs verrouillés** pendant la manche (`.round-dials.locked`, visibles mais inertes — les masquer ferait sauter l'écran). Pour changer le nombre, on repart d'une manche : les mots déjà répondus **restent acquis**, ils sont enregistrés au fur et à mesure. ⚠️ Ne pas appeler ça « annuler ».
-- **Reprise** (`saveRound`/`savedRound`/`resumeRound`, clé `vocab_round_state_<Langue>`) : on persiste surtout le **texte à trous** (`_clozeState`, avec ses trous déjà remplis) — le reste est léger. Écrit à chaque réponse, à chaque avance, sur `pagehide`, et à toute modification de la manche (mot jeté, mot renommé).
-- **D'un appareil à l'autre** (2026-09-18) : la manche est écrite en **localStorage d'abord** (un crash ne prévient pas) **puis recopiée en D1** — table `rounds`, route **`/api/round`** (GET/POST/DELETE), push **débouncé 1,2 s** et `keepalive` sur `pagehide`. `renderSessionStart()` va la chercher en arrière-plan (`adoptRemoteRound`) et **n'adopte que la plus récente** (`ts`) ; le bouton dit alors « Reprendre (N mots, autre appareil) ». ⚠️ Le **dernier écrivain gagne**, et c'est sans danger : la règle de reprise ci-dessous revérifie chaque mot restant contre la base, donc une manche déjà finie ailleurs arrive **vide** et disparaît d'elle-même. ⚠️ `vocab_device_id` est **exclu de `_isSyncableSettingKey`** — il commence par `vocab_`, donc sans ça les deux appareils auraient fini avec le **même** identifiant et « commencée ailleurs » n'aurait plus jamais été dit.
-- ⚠️ **Règle de reprise** : on garde la liste, mais on **revérifie chaque mot restant contre la base** (échéance `nr` notée au moment de la sauvegarde) et on retire ceux déjà faits. Cette règle seule couvre trois cas limites — le **crash** juste après l'enregistrement d'une réponse, l'**iPhone puis l'iPad** (la manche restée sur le premier appareil se vide au lieu de reservir des mots faits), et **minuit** (la date ne colle plus, la manche est jetée).
-- Un mot **supprimé ou renommé** entre-temps quitte simplement la manche (elle fait un mot de moins) : lui chercher un remplaçant en pleine reprise ferait surgir un mot que l'utilisateur n'a pas vu arriver. Un seul mot du **texte** déjà fait ailleurs et le texte entier tombe — ses trous sont écrits, on ne peut pas en retirer un sans casser la phrase.
-- **Dans la manche** (`.round-on` sur `#screen-practice`, posé par `launchRound`, retiré par `renderSessionStart`/`setMode`) : plus de titre, de « réglages », de « ← langue », de nombre de mots ni de « mes révisions à venir » — tout ça vit sur l'écran de départ. Reste le compteur de tokens s'il est allumé. On sort par « quitter la manche ». La classe est retirée dès la **carte de fin** (`renderSessionEnd`) : sans en-tête, une fin sans « une autre manche » n'avait aucune sortie.
-- **Écran de départ allégé** (2026-10-27) : « dont N révisions en avance » (`#round-derived-sub`) et le miroir du jour (`#round-day-mirror`) sont masqués — trop confus ; code intact.
-- **Étoiles une fois par jour** (2026-10-27, choix de l'utilisateur après deux essais) : un mot déjà travaillé aujourd'hui **revient** dans les manches (révision en avance, comme avant), mais `recordSessionAnswer` n'écrit alors que l'**historique** — ni étoiles ni date de révision ni compte du jour — et l'écran dit « déjà entraîné aujourd'hui — étoiles inchangées » (`_sameDayRepeat`, `sessionDueSuffix`). « Aujourd'hui » = `_practicedToday` (relu de `progress.last_practiced` ≥ minuit local dans `loadProgress`, complété par `upsertProgress` — pas dans `progressMap`, que les sauvegardes remplacent en entier). ⚠️ Essais écartés : exclure ces mots jusqu'au lendemain (manches vides, curseur « 1 mot » contre « 0 rappel »), puis un bouton « s'entraîner quand même » qui comptait normalement.
-- **Carte d'accueil** : les mots faits aujourd'hui ne comptent plus comme « encore servables » (ils l'étaient deux fois : « 1 / 2 » pour un seul mot fait).
-- **Rien à servir** : jamais de manche vide lancée (elle n'avait aucune sortie) ; l'écran de départ dit « Rien à faire aujourd'hui » (`#session-empty-note`). « Une autre manche » est offerte en fin de manche dès qu'il y a des mots.
-- **« Changer de langue »** (menu du mot, « mes mots », sélection) caché quand il n'y a aucune autre langue choisie.
-- **« Quel mot ? » demande au moins deux mots dans la langue** (`sessionLevel`) ; sinon le mot reste au QCM. Le prompt demande `min(4, candidats)` intrus.
-- **Écran « ajouter » simplifié** (2026-10-27) : onglets « Mot / Forme grammaticale » masqués (`#add-mode-tabs`, code intact). Exemples de la boîte dans la langue où l'on ajoute (`ADD_EXAMPLES`, `addWordsPlaceholder` : un mot, puis une entrée avec sa note entre parenthèses) — aussi dans le premier passage. **« Mes mots »** ne montre que les langues choisies, plus toute langue qui a encore des mots.
-- **Pas de « réglages » de langue dans la manche** (`#practice-settings-btn` + `#settings-panel` masqués en `.session-mode`) : mots neufs/jour (espacé), mélange (libre) et formes grammaticales (zone de phrase) n'y agissent pas. La dernière question dit **« Terminer »** (`sess_finish`) au lieu de « Suivant ».
-- **« Autre mot neuf »** est dans le menu « options » du mot (`#ctx-swap`, mot neuf à l'écran et pas encore répondu) ; le lien sous les réponses est masqué.
-- **Une manche attend** (`#session-start.waiting`) : seulement « Reprendre (N) » et « Nouvelle manche », centrés. « Nouvelle manche » (`composeNewRound`) rouvre les curseurs avec **Commencer** et **retour** (`cancelComposeRound`) ; `_roundComposing` est remis à zéro par `showSessionStart`/`beginRound`.
-- **Fin de manche = la dernière RÉPONSE** (2026-11-12) : une question répondue compte dès la réponse (`answeredCount`, `roundAllAnswered`) — la barre avance à la réponse (`paintRoundHead`, appelé aussi par `addSessionNextButton`), `saveRound` reprend à la question **suivante** (quitter juste après une réponse redonnait le même mot, et après la dernière laissait « Reprendre (1 mot) »). Après la dernière réponse : journée au vert tout de suite, « quitter la manche » devient **« retour »** (`sess_back`), et « Terminer » / « retour » / second appui mènent à `finishRound()` → **écran de départ directement** (plus de carte « Séance terminée » ; `renderSessionEnd` n'en est plus qu'un alias). `renderSessionStart` ferme la définition restée ouverte.
-- **Sous les réponses** : plus de « Définition » (elle est dans « options », grisée avec sa raison) ; « je ne sais pas (voir la réponse) » est la **dernière ligne** de la liste (`.qcm-choice.qcm-dunno`, `sess_dunno_see`) ; « Autres phrases » (`#qcm-regen` du QCM) masqué, code intact.
-- **La sortie du verrou, c'est l'écran de départ lui-même** : « reprendre » ou « nouvelle manche ». Sans ce choix, une manche qu'on ne veut pas finir verrouillerait les curseurs pour toujours. Depuis le **2026-09-18**, on y va directement par **« ✕ quitter la manche »** (`quitRound`, dans `.session-headline`) : il **sauvegarde avant de sortir**, donc la manche reste reprenable. ⚠️ Jamais appelé « annuler » — les réponses déjà données sont enregistrées au fur et à mesure, on ne perd rien.
-- `nextRound()` renvoie au **choix**, pas à une manche identique : c'est là que se décide « je rattrape » ou « je découvre ».
-
-### Historique des manches (2026-11-14)
-Page de test : https://claude.ai/artifact/MHXSzUbscHncr6YYzGiudV (choix 1 A · 2 C · 3 A · 4 A · 5 B, **sans lien** « manches précédentes » sur la page de la langue).
-- **Page de la langue** : sous « Commencer », `#round-log-today` (`renderRoundLogToday`) = les manches **du jour** seulement, titre « hoy », une ligne par manche (« ronda 1 — 10 palabras, 3 nuevas », score `ok/répondus` à droite) qui **se déplie sur place** (mots dans l'ordre, « nueva » en italique, « bien / mal »). Rien s'il n'y en a pas. En langue pratiquée.
-- **Les autres jours** : Historique (mon compte), onglets **« mots » / « manches »** (`setHistoryTab`, `renderHistoryRounds`), par jour, même filtre par langue, même dépliage. En langue de l'appli.
-- **Écriture** : `logRoundAnswer` en tête de `recordSessionAnswer`, à **chaque réponse** — une manche quittée en route reste, « sin terminar », et se complète à la reprise (l'identifiant `rid` voyage dans l'état sauvé, donc aussi d'un appareil à l'autre). Une manche sans aucune réponse n'apparaît pas. `done` = dernière question répondue (`roundAllAnswered`).
-- **Affichage sans attendre la base** : `_roundLogLocal` (ce que l'appareil vient d'écrire) est fusionné avec ce que renvoie la base (`mergeRoundLogs`, union des mots) — la dernière réponse est encore en route quand l'écran de départ revient.
-- Numéro « ronda N » = rang dans la journée **et** la langue (`numberRounds`, par `started_at`). Rien avant le 2026-11-14 : `history` ne disait pas à quelle manche appartenait une réponse.
-
-### Étoiles en séance (2026-09-10)
-
-Les étoiles disent où en est le mot, et donc **pourquoi** l'app propose tel exercice : QCM en dessous de deux étoiles, texte à trous au-dessus. Elles manquaient depuis que le mode espacé n'était plus le mode par défaut.
-- **QCM** : `starsHtml(word)` sous le mot (`#session-stars`), **recalé après la réponse** — la progression vient de bouger, le mot montre son nouvel état tout de suite.
-- **La prochaine échéance avec elles** (2026-09-18, `sessionDueLabel` / `sessionDueSuffix`) : « ★★☆ · 📅 dans 4 j », et une ligne par mot dans le récapitulatif du texte à trous. La date est **déjà calculée** au moment où l'on répond ; l'afficher dit **pourquoi** le mot ne reviendra pas demain. En **délai** plutôt qu'en date : ça se lit sans compter. Depuis le 2026-09-29, en langue **pratiquée** (`tPrac`) comme tout le panneau de séance — voir « Langue de l'interface ».
-- **Texte à trous** : récapitulatif de **tous** les mots visés sous le score (`.cloze-recap`), chacun avec ✓/✗, la forme employée, l'écart de flexion s'il y en a un, et ses étoiles. Il remplace les seules lignes « dans ta liste : … », qui ne couvraient que les mots fléchis.
-- ⚠️ `checkCloze` peint **avant** d'écrire la progression : un **second `paintCloze()`** après la boucle, sinon le récapitulatif montre les étoiles d'avant la réponse. ⚠️ Mais ces écritures durent **une seconde** et « Suivant » est déjà à l'écran : le texte à trous étant **toujours le dernier item** de la manche, appuyer pendant ce temps affichait la carte « terminé »… que le second rendu écrasait aussitôt par le texte (bug du 2026-09-20). Le second rendu vérifie donc qu'on est **encore sur le même item** (`sessionRunning && sessionItems[sessionIdx] === item`).
-
-### « Quel mot ? » et « Tape le mot » (2026-10-22) — le texte à trous est RETIRÉ
-Après un mois d'usage : la mémoire passive progressait, l'active non, et le texte à trous se résolvait par la grammaire (genre, nombre, nature autour de chaque trou) sans connaître le sens. Il est remplacé par deux exercices **par mot**, préchargés comme le QCM (`prefetchItem`, `item.choicesPromise`) :
-- **« Quel mot ? »** (`kind: 'pick'`, 2 ≤ net < 6) : une **situation décrite sans trou** (`pickPrompt`/`fetchPick`, filet à gauche `.session-situation`) et **5 mots** — la cible + 4 intrus **choisis par le modèle** dans 40 mots du stock (`pickCandidates`, de préférence déjà travaillés), **même nature** que la cible, **jamais synonymes**. Pas de trou → aucune grammaire ne peut trahir la réponse. Rendu par `renderSessionQCM` (mêmes boutons, même `answerSessionQCM`/`paintQcmAnswer`). Le mot n'apparaît qu'**après la réponse** (`revealSessionWord`, avec sa note et son ⋯).
-- **« Tape le mot »** (`kind: 'type'`, net ≥ 6 = trois réussites nettes de plus que ★★★) : une phrase à trou (`typePrompt`/`fetchType`), **sans liste**, dans la **forme que la phrase demande** (`form`, rendu « dans ta liste : … » si elle diffère). Correction **stricte** (`normType` : casse, espaces, apostrophes ignorés ; un accent compte), la bonne forme affichée avec les lettres manquées **soulignées** (`typeDiffHtml`, alignement LCS). **première lettre et nombre de lettres donnés d'emblée** (2026-11-17, `typeMaskHtml` : `c_______ l_ r______`, espaces et apostrophes visibles ; la phrase admettait sinon plusieurs réponses justes — ne compte pas comme un indice) ; **« pista / indice »** révèle la lettre suivante, 3 au plus (`TYPE_HINT_MAX`, jamais la dernière) ; réussi avec indice = **compte sans étoile** (`recordSessionAnswer(word, true, hinted)` → `saveProgressReviewHint` : demain, net inchangé).
-- Paliers : `PICK_AT_NET = 2`, `TYPE_AT_NET = 6`, `sessionLevel()` rend `'qcm' | 'pick' | 'type'` ; l'item porte son genre, fixé à la composition (`buildSessionItems`). Un échec retire 1 au net : le mot redescend tout seul d'un palier.
-- Une manche sauvée **avant** le 2026-10-22 avec un texte à trous est reprise mot par mot (`savedRound` déplie l'item `cloze`). Plus aucun autre code du texte à trous.
-- ⚠️ Leçons du texte à trous toujours valables pour les nouveaux prompts : jamais de définition/paraphrase/synonyme à côté de la cible ; intrus pris dans le stock, choisis par le modèle (lui seul sait les natures), jamais synonymes d'une cible.
-
-### QCM
-Prompt extrait en **`qcmPrompt(word)`**, partagé avec le QCM d'après-verdict.
-- ⚠️ **La bonne réponse ne doit pas se reconnaître à sa FORME** : même longueur, même nombre de phrases, même niveau de détail, même registre pour les quatre. Le modèle soigne spontanément la bonne réponse et on la trouve sans connaître le mot. Le **mélange**, lui, est hors de cause : Fisher-Yates canonique, vérifié sur 200 000 tirages (24,8 / 25,1 / 25,1 / 25,0 %, chi² 4,1 pour un seuil de 7,8) — ne pas y revenir.
-- **Nombre de réponses montrées : 2, 3 ou 4** (`qcmShownCount()`, clé `vocab_qcm_shown`, défaut 4, synchronisée, **une valeur pour toutes les langues**, réglage `#qcm-shown-pills` dans les réglages du compte). Quatre scénarios à lire à chaque question faisaient décrocher. Le modèle écrit toujours sept scénarios ; seul le nombre gardé change (`pickQcmShown`, ex-`pickQcmFour`). Avec 2, on garde au moins **trois** candidates crédibles pour tirer le rang de longueur — sinon deux candidates toutes deux plus longues désignaient la bonne. « Quel mot ? » garde ses 5 mots (des mots, pas des scénarios).
-- ⚠️ **La longueur se règle dans l'APP, plus dans le prompt** (2026-10-22). Étude sur 114 QCM de vrais mots (deux par mot, 4 langues) : malgré la consigne « compte les mots » et le garde-fou `qcmLenSkew` (rejouer si la bonne dépasse la plus courte de 30 %, déclenché **1 fois sur 57**), la bonne réponse était la plus longue **42 %** du temps (25 % au hasard), la plus courte 12 %. Désormais le modèle écrit **1 bonne + 6 fausses**, trois plus courtes et trois plus longues qu'elle, et **`pickQcmShown`** en garde trois en tirant au sort le **rang** de la bonne parmi les quatre longueurs. Mesuré après coup sur 114 nouveaux QCM : plus longue 29 %, plus courte 18 %, et une réponse nettement plus longue que la suivante n'est la bonne que 27 % du temps. `qcmLenSkew`/`QCM_LEN_TOLERANCE` supprimés. Même sélection pour le QCM d'après-verdict (`startQCM`).
-- ⚠️ **Pas d'intrus « à part » — lecteur aveugle** (2026-10-22, le soir). Mesure : un modèle qui ne voit **pas** le mot (`blindScores`) trouvait la bonne réponse **66 %** du temps (hasard 25 %) — la seule scène où il se passe quelque chose, la seule sur un autre thème, la seule qui n'est pas le contraire des autres (*precipitados* contre six scènes de prudence), ou un mot qui désigne la cible (« tabaquera » pour *rapé*). Règle **NO ODD ONE OUT** dans `qcmPrompt` : chaque fausse réponse illustre un **autre mot aussi précis** (`fits`), dans le **même univers**, jamais le simple contraire, aucun mot-indice → **34 %**. Puis l'app fait noter les 7 scénarios par ce lecteur aveugle et garde les **3 fausses les plus crédibles** (parmi les 4 meilleures, rang de longueur toujours tiré au sort) → **26 %**. Un appel de plus par question, préchargé ; en cas d'échec du lecteur, tirage sans lui.
-- ⚠️ **La bonne réponse ne doit pas DÉFINIR le mot** (2026-10-22) : « combinación metálica » pour *aleación*, « obtuvo ilegalmente… pasó a controlar » pour *apoderarse* — on la trouvait en reconnaissant la définition, sans connaître le mot. Règle dans `qcmPrompt` : ni paraphrase, ni glose, ni synonyme ; la situation porte le sens.
-- ⚠️ **Un distracteur ne doit jamais être un meilleur exemple du mot que la bonne réponse.** Le modèle doit, pour chaque distracteur, nommer le mot qui conviendrait vraiment ; si c'est la cible ou un synonyme, il remplace. Cas réel : sur `doublespeak`, il avait marqué faux « appeler des licenciements une *workforce optimization initiative* » — la définition même du mot.
-- **Mémoire des QCM déjà servis** (`KEY_QCM_SEEN`, 8 par mot, par langue) injectée dans le prompt : un mot revient 3 fois ou plus, et sans ça on reconnaît la forme de la bonne réponse au lieu de connaître le mot. **localStorage**, donc par appareil, et **exclu de `_isSyncableSettingKey`** (garde-fou de génération, pas un réglage).
-- **« Je ne sais pas »** (`sessionDunno`) : compte ✗, révèle la réponse, ouvre la définition. ⚠️ Sans ce bouton, un mot inconnu n'a d'autre issue qu'un clic au hasard — et un ✓ tiré au sort fait monter le mot d'un palier.
-- ⚠️ **`qcmPrompt(word)` lisait le global `qcmWord` pour `entryContext`** alors qu'il construit sa cible depuis son **paramètre**. `qcmWord` n'est posé que par `startQCM` (le QCM d'après-verdict) : en mode pratique quotidienne il valait la chaîne vide, donc **la note de l'entrée et le traitement « expression figée » n'étaient jamais envoyés**. Corrigé le 2026-09-18 — c'est la vraie cause du QCM inventé sur `dañaparche (jerga colombiana)`.
-- ⚠️ **Le mot ne doit pas laisser un TROU dans le scénario.** Interdiction de le remplacer par une ellipse, un tiret ou un modificateur laissé en l'air : le grec rendait « οι φίλοι νοίκιασαν **ένα μικρό** για να… » pour `σκάφος` — du grec cassé, et la même phrase quatre fois avec seulement la destination qui change. Chaque scénario doit être une **phrase complète qu'un natif écrirait**, où le mot n'est simplement pas nécessaire.
-- ⚠️ **Quatre situations réellement différentes** (personnes, lieux, actions). L'ancienne règle de forme imposait « même patron syntaxique » et poussait au **clonage** : on comparait alors l'élément permuté au lieu de peser le sens. Ne restent de la règle de forme que la **longueur comparable**, le **même niveau de détail** et le **même registre**.
-- **Le modèle peut avouer qu'il ne connaît pas le mot** (2026-09-18) : devant un mot jamais lu — argot régional, dialecte — il **reconstruit un sens à partir des morceaux** et l'affirme sans réserve (`dañaparche` devenait une rustine ratée, au lieu de « celui qui gâche le plan »). Le prompt lui offre donc de répondre `{"unknown": true, "why": "…"}`. L'app affiche alors un panneau, **n'écrit aucune progression** (le mot n'a pas été testé, il reste dû) et propose **✏️ écrire son sens entre parenthèses**.
-  - ⚠️ **L'aveu ne vaut que pour le MOT SIMPLE jamais lu**, pas pour une **tournure transparente** (2026-09-20). L'ancienne formulation faisait avouer le modèle devant « crianza ausente » — qu'il comprend parfaitement mot à mot — parce qu'il n'y voyait pas *une expression établie à sens figé* ; et 🔍 vérifier le mot, qui pose une autre question (« ce mot existe-t-il ? »), le déclarait valide dans le même écran. Le prompt dit maintenant qu'une entrée dont le sens est la somme de ses mots **n'a pas à être une locution figée** : on bâtit le QCM sur son sens compositionnel. Purge unique des aveux d'avant (`vocab_qcm_unknown_reset_flag`) — mémorisés, ils n'auraient jamais été réessayés.
-  - Mémoire locale `KEY_QCM_UNKNOWN` (`vocab_qcm_unknown_<Langue>`, **exclue de la sync**) : l'aveu est retenu pour ne pas repayer dix secondes à chaque manche. ⚠️ La clé porte l'**entrée complète** — écrire le sens entre parenthèses change l'entrée, donc la clé, donc le mot est **réessayé tout seul**. ⚠️ `unknownWhy` teste la **présence** de la clé (`in`), pas sa valeur : un aveu sans phrase d'explication est stocké en chaîne vide, et un `|| null` le rendait indiscernable d'un mot jamais vu.
-- **« ↻ autre question »** (`regenQCM`, à côté du ⋯) : refait la question à la demande — mauvais QCM, ou mot renommé depuis. ⚠️ **Jamais automatique après un renommage** : dix secondes d'attente qu'on n'a pas demandées. La question rejetée est déjà dans la mémoire des QCM servis, donc la suivante ne lui ressemblera pas. Masqué une fois la réponse donnée (la progression est écrite).
-- **Préchargement** (`prefetchQCM`) : le QCM de l'item suivant part **avant** l'`await` du courant, la chaîne se propage. Mesuré en navigateur : 0,0 s d'attente dès le 2e item (seul le premier coûte ~10 s).
-
-### Reste à faire
-Tirage par groupe au démarrage · lien « pourquoi ? » sur un trou raté · **fondre le mode espacé dans le mode libre** (pool « à réviser aujourd'hui » à côté des groupes virtuels existants ; le calendrier des révisions se rattache au mode pratique) · retrait des `console.log` `[Séance]` · plus tard : écriture en clôture de groupe, mémoire des QCM en D1.
-
-> **Reset du 2026-09-09** : `progress`, `history` et `sessions` vidées en D1 (142 + 1409 + 99 lignes, sauvegarde JSON dans `~/Desktop/vocab-backup-2026-09-09/`, hors dépôt public) pour éprouver le mode depuis le premier jour. Mots, groupes, blacklist et formes intacts. ⚠️ Les compteurs « nouveaux du jour » vivent **aussi** en localStorage (`loadTodayCount` garde le maximum des deux) : d'où la purge unique au chargement (`purgeDayCountersOnce`, drapeau `vocab_today_new_reset_flag`) — sans elle, chaque appareil déjà ouvert croyait son quota du jour épuisé et ne servait plus un seul mot neuf.
-
----
-
-## Prompts IA
-
-Tous répondent dans `feedbackLang`. `LANGS` = mappings (English, Spanish, French, Modern Greek).
-
-**Mot cible = la `base`**, jamais l'entrée complète (voir « Entrées annotées »). Les 6 prompts (évaluation, définition, QCM, Situation génération + verdict, mots liés) reçoivent en plus `entryContext(words)` : « expression figée, ne pas lire mot à mot » — déclenché par toute entrée **multi-mots**, même **sans note** — et la note quand elle existe. En Situation, le prompt interdit explicitement de citer ou paraphraser la note (elle donnerait la réponse).
-
-### Évaluation
-Deux **BLOCS indépendants** : (1) **Verdict** ✓/✗ sur le(s) mot(s) cible(s) (un ✗ → verdict ✗ ; mot absent → ✗) ; (2) **Analyse linguistique** (grammaire/registre/ponctuation), indépendante du verdict.
-**Version améliorée — lexique figé / grammaire libre** (6 règles) : chaque entrée cible doit apparaître, jamais remplacée par un synonyme ou un équivalent moderne (règles 1-2) ; **mais** elle DOIT être fléchie pour entrer dans la phrase (conjugaison, accord, clitiques, déterminant — règle 3), les mots grammaticaux que l'apprenant a mis autour de l'expression peuvent sauter (règle 4 : plus de « como cualquier **un candidato** de corte y pinta »), la **grammaticalité prime** sur le collage littéral (règle 5), et la note entre parenthèses n'entre jamais dans la phrase (règle 6). Vaut pour 1 mot comme pour N. ⚠️ Ne jamais revenir à « MUST use the exact target word(s) as given » : c'est cette formule qui produisait *« a que **da a luz** »* au lieu de *dieran a luz*. Une flexion fautive du mot cible est signalée en **Analyse linguistique**, jamais dans le verdict.
-Règles : period/semicolon/colon entre phrases = TOUJOURS correct · analyser UNIQUEMENT l'écrit · accepter archaïsmes/dialectes · **CRITICAL FILTER** (items incertains/corrects → silently dropped) · version améliorée seulement si ✓ (italique, mot cible exact).
-Format : `## Verdict`, `## Analyse linguistique`, `## Version améliorée`.
-**Parsing verdict (multi-mots)** : pour chaque mot, 1re ligne contenant **`promptLabel(w, currentWords)`** — le libellé réellement envoyé au modèle, pas l'entrée complète (sinon aucun match → tous les mots comptés ✗) — puis 1er `✓`/`✗`. Regex tolérante aux variantes emoji (`OK_RE=[✓✔✅]`, `KO_RE=[✗✘❌]`). `wordResults` (mot→bool) = **source unique de vérité** (couleur boîte, score `N/total`, contours mots, QCM). **Piège accents** : frontières Unicode `(^|[^\p{L}])mot([^\p{L}]|$)` flag `u`, jamais `\b…\b` ASCII (échoue sur accentués, critique pour le grec).
-**Gravité des remarques** (2026-08-28) : le prompt n'imposait aucun ordre, donc le modèle listait dans l'**ordre de lecture du texte** — une majuscule oubliée (premier caractère) passait presque toujours en tête, et l'aperçu replié de 2 lignes ne montrait qu'elle.
-- **Prompt** : B2-STEP 3 attribue à chaque erreur `[MAJ]` (langue fausse : accord, conjugaison, mode, genre, préposition, **et les accents** — une faute d'accent est orthographique, pas typographique) · `[MIN]` (correct mais pas idiomatique) · `[DET]` (majuscules, ponctuation, espaces). Liste triée du plus grave au moins grave, chaque item **préfixé du marqueur ASCII** juste après son numéro.
-- **Front** : `renderAnalysisBody(body, final)` (appelé via `feedbackBodyHtml`, actif seulement si `hasSeverityTags`). En **streaming** → pastilles seules, **ordre du modèle conservé** (trier en direct ferait sauter les items sous les yeux). Au rendu **final** → tri stable + les `[DET]` repliés dans un `<details>` « N détails de forme ».
-- ⚠️ Un item **sans marqueur** est traité en `MIN` et garde sa place : on ne perd jamais une remarque parce que le modèle a oublié l'étiquette. Un corps sans aucun marqueur retombe sur `renderMarkdown` (ancien format).
-- **État replié (2026-08-31)** : une section portant des `[MAJ]` ne se coupe plus à deux lignes — elle affiche ses graves **en entier**, **3 au plus** (`MAJ_VISIBLE`), avec « ＋N autres erreurs graves » (`expandFbSection`) ; `[MIN]` et `[DET]` masqués, compte dans le titre (`.fb-count` : « 4 graves · 6 autres »). Le rendu pose `is-maj`/`over-cap` sur les items et `data-has-maj` sur la section, **c'est le CSS qui décide** ; l'aperçu 2 lignes ne vaut plus que pour les sections sans rien de grave. Inchangé pendant le **streaming** (pastilles seules, ordre du modèle).
-- Pastilles `.sev` en `currentColor` : elles doivent rester lisibles sur les trois états vert / orange / rouge de la boîte.
-
-**Rendu de la boîte** (`renderFeedbackSections`) : après le streaming, re-rendu en **sections repliables** (verdict ouvert, reste = aperçu 2 lignes `-webkit-line-clamp`), bouton « tout déplier/replier », **note `N/total` en bas**. Couleur boîte 3 états : `.correct` vert (tout ✓) / `.partial` orange (quelques ✗) / `.incorrect` rouge (tout ✗) — ⚠️ `.partial` doit être dans **tous** les `classList.remove` (sinon orange bloqué). Bordure neutre pendant le streaming.
-
-### Définition
-Cache `definitionCache["mot|lang|model"]` 24h. Lock `_hintInFlight`. 3 sections `##` : **Sens** (polysémie : liste numérotée, **max 3** sens distincts, **un exemple en italique par sens**), Registre (global, étiquette « (sens N) » si diffère), Collocations. Budget tokens `4000` (relevé pour 3 sens). Le prompt interdit de sur-découper les nuances ; 1 sens → 1 entrée.
-
-### QCM
-4 scénarios (le mot cible n'apparaît pas), 1 correct + 3 distracteurs, Fisher-Yates JS. JSON via regex.
-
-### Mots du même univers (`fetchRelatedWords`)
-1 mot → 3 du même champ ; N mots → 3 liés (`relatedTo`). **Rendu = carte, pas pilule** : `.related-chip` en colonne (`.rel-head` = mot + `↖ relatedTo` + `＋` · `.rel-note` dessous), `min-width:0` + `overflow-wrap` — une note longue passe à la ligne au lieu de pousser la carte hors de la boîte. Note cadrée à **12 mots max** dans le prompt (idem « mots utiles » du mode Imagen, même CSS). Affiché après ✓, filtre `allWords` + `blacklistWords`, `＋` pour ajouter. **Blacklist** : les mots affichés mais non ajoutés partent en `/api/blacklist` (fire-and-forget) et ne sont plus jamais suggérés. **Point de sortie unique = `flushBlacklist()`, appelé en tête de `resetPracticeUI()`** — donc aussi par `setMode`, `selectLanguage`, la file du mode libre et `nextSituation`. ⚠️ Jusqu'au 2026-08-28 seul `nextWord()` blacklistait : tout mot vu puis quitté par un autre chemin était perdu (214 lignes en base, mais des suggestions qui revenaient). Un second flush sur **`pagehide`** (`keepalive: true` — `sendBeacon` ne permet pas l'en-tête JWT) couvre la fermeture de l'app.
-
-### Mode Imagen — « ¿Cuál es ? » (2026-09-29)
-Décrire une photo n'avait ni but ni fin vérifiable (idée tirée du *task-based learning*, Ellis). Désormais une **devinette** : quatre photos Unsplash du même sujet, l'app marque la sienne d'un filet de tinta, on la décrit, et le modèle — qui voit les quatre **sans savoir laquelle** — doit la retrouver. Maquette et options retenues : https://claude.ai/artifact/UA8Da47r3m8rvjzvfRKe4H (4 photos · cuadrícula · filet · le modèle choisit même s'il doute · verdict + détail décisif · corrections ouvertes · une manche à la fois).
-- **Photos** : `newPracticePhoto()` → `/unsplash` avec **`count: 4`** (une seule requête Unsplash, pas quatre — quota horaire). Le sujet vient de `IMAGE_SCENES[imageTheme]` (sujets précis : « cafe terrace people »…) ; sans thème, tiré dans toutes les listes. ⚠️ Un thème brut (« people ») donne quatre photos sans rapport, et un seul mot suffit alors à trouver la bonne. `photoRound = { photos, secret, choice, done }`.
-- **Verdict** (`analyzePhoto`) : un appel `callAIVision` (non streamé), JSON `{choice, ambiguous, decisive, others:{n: raison}, errors[≤3], words[3]}`. ⚠️ **Le numéro secret n'entre jamais dans le prompt** : le succès se décide dans l'app (`choice === secret`). En cas d'échec, `others[secret]` dit pourquoi le modèle a écarté la bonne photo — c'est ce qui manquait à la description.
-- **Après la tâche** : ≤3 erreurs confirmées (pas de majuscules ni de ponctuation) + 3 mots utiles, ajoutables (`_imgWords`, jamais par l'attribut `onclick`). Rien dans la progression ni l'historique.
-- Une manche répondue **verrouille** le champ et le bouton (le secret est révélé) jusqu'à « otras fotos » ; `resetPracticeUI` les rend aux autres modes.
-- Toute l'interface en langue **pratiquée** (`img_*`), les réponses en `feedbackLang` — plus rien d'écrit en espagnol en dur.
-- ⚠️ **État : poussé le 2026-09-29, Worker déployé le 2026-10-22, PAS ENCORE ESSAYÉ.** En local, `UNSPLASH_KEY` manque dans `.dev.vars`. **Prochaine fois** : jouer quelques manches, et juger (1) si quatre photos du même sujet se ressemblent assez pour que la tâche soit un défi — sinon, premier appel qui choisit les 4 plus proches parmi ~10 ; (2) si le modèle devine juste.
-
----
-
-## Comportements UI / iOS
-
-### Carte de langue (accueil) — 2026-09-09
-
-⚠️ **Une manche menée au bout = journée faite jusqu'à demain** (2026-10-27, `markRoundFinishedToday` à la carte de fin, date par langue `vocab_round_done_<Langue>`, synchronisée) : ajouter des mots après sa manche ne rouvre plus la journée (1 / 1 vert, puis 1 / 5 dès dix mots neufs ajoutés). La règle ci-dessous (« plus rien à servir ») reste l'autre façon d'être au vert.
-
-**L'objectif du jour est UNE MANCHE, pas la pile** (2026-09-10) : `goal = min(roundSizeFor(lang), fait + reste)`. ⚠️ L'anneau se remplissait sur tout ce qui était dû — une manche terminée le laissait à moitié vide et la journée avait l'air inachevée alors que l'objectif était atteint. L'objectif ne dépasse jamais ce qui existe (une langue où il ne reste que 3 mots est finie à 3, pas coincée à « 3 / 12 »).
-- **Journée faite** → `✓ <mots faits>`, anneau vert plein. ⚠️ Le nombre **réel**, pas « objectif / objectif » : baisser la taille de la manche après coup ferait dire « 8 » à une journée de 12 mots.
-- **Journée en cours** → `fait / objectif`, arc doré.
-- **La pile passe SOUS la fraction** (`.lang-sub`, « 14 en attente ») et ne pèse plus sur l'anneau. Elle annonce le **nombre de rappels dus, tel quel** — le même que l'écran de départ du mode. ⚠️ Elle disait auparavant « ce qui ne tient pas dans l'objectif du jour » (rappels + neufs − la manche) : **26** sur l'accueil contre **36** dans le mode, deux nombres différents sous le même mot « en attente ». La fraction porte déjà la manche, le sous-titre n'a pas à la reporter une seconde fois.
-- **Depuis le 2026-09-29 (style commun)** : plus d'anneau autour du drapeau. Deux langues par ligne séparées par des filets ; l'avancement est une **ligne fine** sous le nom (`.lang-bar::after`, largeur `--p` posé sur le bouton par `updateLangBadges`), noire en cours, verte quand la manche du jour est faite. Le piège du disque intérieur (`--card-bg` vs `inherit`) a disparu avec le dégradé conique.
-- `roundSizeFor(lang)` : la taille de la manche est **par langue**, et la carte parcourt les quatre.
-
-`updateLangBadges` annonçait auparavant le **pool du mode espacé** (mots dus + quota de neufs) : « 340 » quand la manche en sert 19. Depuis le **2026-09-23**, ce qu'une manche peut encore servir ne se lit plus sur un quota du jour disparu : c'est **tous les mots déjà travaillés** (dus, et à défaut les plus proches de leur date) **plus la réserve de neufs de la manche**. Une langue où rien n'a été travaillé a donc pour objectif ses seuls mots neufs — exact, la manche ne servira qu'eux.
-
-⚠️ Depuis le 2026-09-10 `doneToday` vient de la **base** : la carte dit donc la même chose sur tous les appareils, et le « plus grand des deux compteurs » a disparu avec le compteur local.
-
-Combinaison retenue sur page de test (https://claude.ai/code/artifact/7d5c8f21-095e-440b-8253-1111b1eddefd) : **anneau = la manche du jour · pile en ligne dessous · coche verte**.
-
-Forme arrêtée sur page de test (https://claude.ai/code/artifact/2cbeb644-6fb3-454a-b2d5-fa0a7445fbd0), variantes combinables — **fraction** (« 8 / 20 », « ✓ 8 / 8 » quand c'est fini) + **anneau autour du drapeau** (`conic-gradient` sur `.flag-ring`, `--p` posé sur le bouton) + **doré et vert**. ⚠️ Le **rouge a disparu** : à 8 mots neufs par jour, une carte rouge tous les matins ne veut plus rien dire. ⚠️ Le disque intérieur de l'anneau prend `background: inherit` — en `var(--surface)` il restait sombre au survol du bouton. `badge_todo` (« N à faire ») n'a plus d'emploi et a été retiré.
-
-### Écrans
-**Démarrage** (2026-11-12) : `screen-loading` (cercle) est actif dans le HTML, le démarrage part sur **DOMContentLoaded** (plus `load`, qui attendait le script Google), et l'accueil ne s'affiche qu'une fois **prêt** (`loadAccountInfo` + `updateLangBadges`, plafond 6 s) — avant, il se remplissait morceau par morceau.
-`screen-loading`, `screen-auth`, `screen-lang`, `screen-practice`, `screen-stats`, `screen-history`, `screen-mots`, `screen-revisions`, **`screen-add`** (ajouter du contenu). `showScreen(id)` (déclenche `updateLangBadges` sur screen-lang). Écrans-listes ancrés en haut (`align-self:flex-start`) — titre/recherche figés quand la liste change. **Modales** : `#help-modal` (instructions), `#lang-picker-modal` (choix langues), `#word-ctx-menu` (menu ⋯). `screen-lang` : « ? how it works » en haut à droite, grille des langues (`updateLangBadges`), **add words** + **my words** (pastilles), **my account** + **log out** (liens). **`screen-account`** (`showAccount`) : my statistics · word history (leur « retour » ramène ici) · edit languages · settings (`#account-settings-panel`, déplié sur place).
-
-### Mes mots (`screen-mots`, `showMots`)
-Voir/chercher/renommer/supprimer + **étoiles** (`motsStars`, charge progress des 4 langues). Charge les 4 langues (`/api/words?...&detail=1`), tri **chronologique** (récent d'abord, `created_at`), filtres par langue + compteurs, recherche live. Lignes `.mot-row` : case à cocher + drapeau + mot + étoiles + date + 🔍 (`verifyMot` → vérif du sens) + ✏️ (`editMot` → `PUT /api/words`, refuse collision) + 🔀 (`moveMot` → transfert de langue) + 🗑 (`deleteMot` → `DELETE`). **Pagination** (`motsPageSize` 5/15/25/50/100, défaut 25 ; `motsPage` ; `#mots-controls`) — la recherche/filtre porte sur **tous** les mots, l'affichage est paginé (fluide à ~10000 mots). **Sélection multiple** (`motsSelected` Set `lang|word`, multi-langues) : case par ligne + « tout sélectionner (cette page) » + barre « N sélectionnés → 🔀 / 🗑 » (`moveSelectedMots` ; `deleteSelectedMots` → `DELETE {items:[…]}` groupé, confirmation). `screen-revisions` a aussi étoiles + recherche.
-
-### Mots cachés (👁) · Chips cliquables
-Toggle header, raccourci `Opt+←` (blur 7px). `Opt+→` = `nextWord()`. À la **vérification**, les mots cachés réapparaissent (`revealHiddenWords`). Mot nouveau → `fetchHint`. Mot à réviser (avant soumission) → `showJeNeSaisPas` → `saveProgress(false)` + `startQCM` (1 seul QCM/mot via `_qcmStartedWords`). Casse : affichage + prompts en **minuscules** (`lc()`), DB en casse d'origine.
-
-### Édition / suppression de mot (bouton ⋯)
-Le clic-droit/appui long est **retiré**. Carte + chips ont un bouton **« ⋯ »** (`openWordMenu`) → `#word-ctx-menu` avec **✏️ Modifier** (`editWordOnCard` → `PUT /api/words`, propage à words+progress+history), **🔀 Changer de langue** (`ctxMenuMove` → sous-menu `#ctx-langs` dans le même popup) et **🗑 Supprimer** (`deleteWordFromSheets`, nom hérité : `DELETE /api/words` mot+progress). Ferme au clic dehors ; `closeWordContextMenu` repasse toujours au 1er niveau (`ctxMenuBack`).
-
-### Traduire un mot (🌐) · Voir une image (🖼)
-
-`wordGloss(word, lang)` : **un seul appel front** (`callAI`, BYOK + modèle de ⚙️) qui renvoie `{translation, english, concrete}` — la traduction sert l'affichage, `english` + `concrete` servent l'image. Cache mémoire `translationCache["mot|appLang"]`.
-- **Langue de sortie = `glossTargetCode(lang)`** : `appLang` (langue de l'appli), pas `feedbackLang` — **sauf** quand c'est déjà la langue du mot (français étudié + appli en français rendait une « traduction » français→français) : bascule alors sur l'**anglais**, et sur le **français** si le mot est anglais. Le cache est indexé sur la langue de sortie, pas sur `appLang`. Rien n'est stocké en D1 : changer de langue d'interface reste libre (c'est ce qui a fait écarter une colonne « glose » calculée à l'ajout).
-- **Points d'entrée** : menu ⋯ (`ctxMenuTranslate` / `ctxMenuPhoto`) et lien « 🌐 traduire » dans la boîte définition (`hintTranslate`). Masqués en mode **Situation** (`.ctx-gloss-btn`, `showWordContextMenu`) : le mot y est la réponse à trouver.
-- **Anti-triche** (`requestGloss`) : gratuit sur un mot **nouveau** ; sur un mot **à réviser**, passe par `showJeNeSaisPas` (✗ + QCM) et la glose ne s'affiche qu'après confirmation (`_pendingGloss`, repris dans `confirmJeNeSaisPas`) — même règle que la définition.
-- **Image** : `concrete: false` → message, **aucun appel Unsplash**. Sinon `/unsplash` avec `query = english` (la route accepte déjà un `query`). Affichée dans `#word-image-box`.
-
-### Vérifier le sens d'un mot (🔍)
-
-`verifyWordSense(word, lang)` : le mot existe-t-il vraiment ? Appel **front** (`callAI`, clé BYOK + modèle et raisonnement de ⚙️) — l'entonnoir `/add` valide avec la clé propriétaire, un modèle plus faible, et n'est pas exposé pour un mot déjà en base. Prompt sur la **base** seule + `entryContext`, réponse JSON `{valid, note, suggestion}`, `note` en une phrase dans le `feedbackLang` de la **langue du mot** (pas de la langue courante : « mes mots » est multi-langues). Budget `isGemini() ? 800 : 16000` (GPT = reasoning + texte dans le même budget).
-- Le prompt **accepte** archaïsmes, régionalismes, dialectes, registres familiers et mots rares : invalide seulement une coquille, un mot coupé **au milieu d'un mot**, ou un mot d'une autre langue. Le verdict **propose**, il ne supprime jamais tout seul (c'est la validité IA à tort qui a été retirée de l'import Kindle).
-- ⚠️ **Les fragments de phrase sont VALIDES** (2026-09-10). Le motif « chaîne tronquée » visait un mot coupé en deux (« développeme ») ; il attrapait aussi les **tournures** que l'utilisateur collecte exprès — « cabe inferir, aunque el texto no lo dice, que… », « futé de + infinitif » — et le popup lui offrait alors un bouton **Supprimer** sous une bonne entrée. Le prompt dit maintenant qu'être incomplet en soi n'est jamais un motif d'invalidité, et qu'une forme plus complète se propose **dans `suggestion` sans invalider**.
-- **`cleanSuggestion()` côté front** (jumeau de celui du Worker, qui gardait l'entonnoir d'ajout depuis toujours mais n'avait jamais été appliqué ici) : écarte une suggestion vide, `NONE`/`aucun`/`-`, de plus de 80 caractères, ou **identique à l'entrée**. ⚠️ Sans lui, le modèle recopiait le mot faute de mieux et « Corriger » pré-remplissait exactement le mot qu'il prétendait corriger.
-- **Libellés selon le verdict** : entrée valide → « Forme plus complète : … » + **✏️ Modifier**, jamais 🗑 Supprimer (une bonne entrée ne se voit pas offrir la poubelle parce qu'on peut l'améliorer) ; entrée invalide → « Correction proposée : … » + ✏️ Corriger + 🗑 Supprimer.
-- **UI** : `openVerifyPopup(word, lang, ev, actions, t)` réutilise `#word-ctx-menu` (3e panneau `#ctx-verify`, classe `.verify` pour élargir le popup). Spinner → verdict ✓/✗ + explication ; si invalide : **✏️ Corriger** (graphie suggérée pré-remplie dans `editWordOnCard(word, prefill)` / `editMot(lang, word, prefill)`) et **🗑 Supprimer**. `ctxMenuBack()` replie aussi ce panneau.
-- Deux points d'entrée : `ctxMenuVerify()` (menu ⋯ de la carte/chips, libellés en langue **pratiquée** via `tPrac`) et `verifyMot(lang, word, ev)` (bouton 🔍 par ligne de « mes mots », langue de l'**appli**) — même convention que `ctxMenuMove` ↔ `openLangMenu`.
-
-Suppression et transfert partagent **`removeWordFromSession(word)`** : retrait de `allWords`/`currentWords`/`previousWordsPool`/`progressMap`/`definitionCache` + pioche d'un remplaçant (ou `nextWord()` si plus rien).
-
-### Transfert de langue (mot mal classé)
-`PUT /api/words` avec **`newLang`** déplace `words` + `progress` + `history` → étoiles et `next_review` suivent le mot. Refus 409 si le mot existe déjà dans la langue cible (jamais d'écrasement). Un `DELETE` préalable retire une éventuelle ligne `progress` **orpheline** côté cible (PK `user_id+language+word`).
-- **Carte / chips** : menu ⋯ → 🔀 → langue → `moveWordToLang()` puis `removeWordFromSession()`.
-- **Mes mots** : 🔀 par ligne (`moveMot`) + **action groupée** sur la sélection (`moveSelectedMots`, multi-langues : chaque mot part de SA langue, les échecs sont listés à la fin).
-- **`openLangMenu(ev, label, excludeLang, onPick)`** réutilise `#word-ctx-menu` comme popup de choix de langue (positionné au clic, `stopPropagation` sinon le listener global le referme aussitôt).
-
-### Couleurs / contours des mots
-- Nouveau : doré (`--accent`) · À réviser : blanc (`chip-review`/`card-review`).
-- Après sauvegarde, `refreshWordColors()` recale doré/blanc **sans re-render** (un `renderWordDisplay()` effacerait les contours ✓/✗) : un nouveau mot validé reçoit sa date de révision et cesse aussitôt d'être doré.
-- **Après vérification** : contour vert (`--success`) si ✓, rouge (`#e05a5a`) si ✗ (`applyWordOutlines` d'après `wordResults`, classes `chip-correct/incorrect`/`card-correct/incorrect`), reset au mot suivant.
-
-### Champs / boutons
-- Inputs : `input[type=password|email]` stylés pareil (fond surface, radius), autofill Safari neutralisé (`-webkit-autofill`).
-- Bouton Vérifier inline iMessage (`.btn-submit-inline` dans `.textarea-wrap`), `↑`/spinner.
-- `#btn-next-below` « Autre mot → » après ✓ (autoscroll sauf `scroller.stoppedAtTop`).
-- Bouton Réessayer injecté après échec API.
-- Protection double soumission (`lastSubmittedSentence`) + « Autre mot » avec phrase non vérifiée (`confirm()`).
-- **Attente d'une boîte** : `SPINNER_BOX` (`<div class="spinner-wrap">`, flex centré) pour verdict / définition / situation / verdict Situation — écrasé avec l'`innerHTML` au 1er chunk, donc **rien à nettoyer** (pas de classe posée sur le conteneur, pas de résidu possible). Les spinners **dans un bouton** ou suivis d'un libellé restent des `<span class="spinner">` inline.
-
-### iOS
-- `--safe-top` par JS **uniquement en PWA standalone** (iPhone 59px, iPad 44px) ; en Safari normal on garde `env()` ≈ 0 (sinon gros rideau noir inutile). `#status-curtain` (CSS pur, `z-index:9999`).
-- **PWA** : `manifest.json` `start_url:"./"` (relatif — `/vocab-app/` faisait un 404 sur byov.net). `apple-mobile-web-app-capable`, `apple-touch-icon` = `icon.svg`.
-- **Sticky bar `#sticky-words-bar` : retirée** (instable en PWA ; `_updateStickyVisibility` = no-op, élément `display:none`).
-- **Autoscroll clavier retiré** (trop glitchy — on laisse iOS gérer le focus). L'app ne déclenche **aucun** scroll au focus (handler `focus` du textarea supprimé ; pas d'auto-focus du champ Situation). Auto-scroll **streaming** conservé : `startAutoScroll(box, spacer)` suit le bas, stoppe quand le haut atteint `PAD_TOP`, spacer dynamique, interrompu par `wheel`/`touchmove`. ⚠️ **Ne jamais pré-allouer `#scroll-spacer`** : la vérification gonflait le spacer d'un écran entier *avant* le 1er chunk → grand rectangle vide sous la boîte dès le clic. Il grandit uniquement via **`growSpacer(spacer, px)`**, qui pose `height` **et** `display` — les anciens appels ne réglaient que `height` sur un spacer en `display:none`, donc l'autoscroll de Situation et de la définition ne pouvait pas étendre le document. Définition : remonte le haut de la boîte en fin de streaming. Le verdict Situation utilise aussi `startAutoScroll`.
-- **Changement de mode** : `setMode()` appelle `resetPracticeUI()` (nettoyage complet) → plus de résidu d'un autre mode (définition `#hint-box`, feedback/boutons Situation, QCM, mots liés…).
-
-### Brouillon de session (2026-08-31)
-
-Le tour en cours ne vivait qu'en mémoire : quitter l'app, un crash ou un déchargement iOS faisait perdre la phrase tapée **et** retirait de nouveaux mots au retour.
-
-- Clé **`vocab_draft_<Langue>_<mode>`** — un brouillon **par langue et par mode**. ⚠️ Avec une clé unique, ouvrir une autre langue au retour écrasait silencieusement le travail qu'on venait de sauver.
-- Écrit **à chaque frappe** (débounce 300 ms sur `input`) + filet sur `pagehide`. ⚠️ Un crash ne déclenche **aucun** `pagehide` : sauvegarder à la sortie ne suffit pas.
-- Contenu : `words`, `prev` (pool du slider), `studied`, `sentence`, et en Situation le texte généré (`sit`, brut) + la réponse en cours.
-- **Reprise** = `applyDraft()`, appelé à la fin de `pickWords()` — **après** le tirage, dont il ne remplace que la sélection : compteurs, plafond du slider et « dûs aujourd'hui » restent calculés par le chemin normal. ⚠️ Une seule reprise par chargement (`_draftPending`), et jamais par-dessus une file ou un groupe explicites (`freeQueueActive`, `_sitGroupWords`) — sinon choisir un groupe se faisait écraser par le brouillon.
-- **Effacement** : « Autre mot », « Autre situation », et surtout **après l'écriture de la progression** (`await Promise.all(savePromises)`). ⚠️ Pas sur **erreur d'API** : c'est le moment où l'on quitte, la phrase doit rester récupérable.
-- ⚠️ Le préfixe est exclu de `_isSyncableSettingKey` : sans ça `collectSettings()` (qui ramasse toutes les clés `vocab_*`) poussait le brouillon en D1 et le propageait aux autres appareils.
-- `showSituationAnswerUI(words)` extraite de `generateSituation` : la zone de réponse est mise en place au même endroit à la génération et à la reprise.
-
-### Historique / stats
-Lus depuis D1 en parallèle (`/api/history` journal + `/api/progress` scores cumulés). Filtre par langue.
-
-### renderMarkdown
-`**gras**`, `*italique*`, `##` → `<br><strong class="md-h2">…</strong><br>`, `•` puces. Max 2 `<br>`. `.md-h2` stylé selon contexte (image = label DM Mono ; correct/incorrect = couleur héritée).
-
----
-
-## Problèmes connus
-
-1. **gpt-5.6 hallucinations** : rares. Garde-fous prompts (CRITICAL FILTER) imparfaits.
-2. ~~**Doublon `callAIVision`**~~ **RÉGLÉ le 2026-09-29** : la déclaration GPT s'appelle `callMistralVision`, la vision suit le modèle choisi.
-3. **`WORKER_SECRET` exposé** (repo public + historique git) → rotation à faire. Encore utilisé par `/openai-script` (route legacy).
-4. **Gemma 4 thinking** : `NONE`/`thinkingBudget:0` non supportés (`MINIMAL`/`HIGH` seulement).
-5. ~~**Langues à 4/4**~~ **RÉGLÉ le 2026-10-27** : « edit languages » dans my account ajoute ou retire.
-6. ~~**Latence de vérification (~20 s)**~~ **RÉGLÉ le 2026-08-31** : la cause était le **rendu par chunk**, pas le modèle (qui répond en ~3 s, mesuré en direct) ni le réseau. Une centaine de reconstructions complètes du DOM, chacune suivie de trois recalculs de layout synchrones. Corrigé par le coalescing sur `requestAnimationFrame` dans `callAIStream` + l'effort de raisonnement envoyé explicitement (~1,5 s). Réponses redevenues instantanées. ⚠️ Ni la clé BYOK ni un buffering SSE du Worker n'étaient en cause — ne pas repartir sur ces pistes.
-7. **Jauge `12/128 ★★★` invisible** dans `#groups-modal` : `renderGroupsList` l'écrit dans `.fp-order`, en `opacity:0` tant que la ligne n'est pas cochée.
-8. **`wrangler dev --remote`** se fait throttler (erreur Cloudflare 1031) après plusieurs heures → relancer le process.
-9. ~~**`wrangler.jsonc` parasite à la racine**~~ **supprimé le 2026-09-09**. Il avait été écrit par Wrangler lui-même, un `deploy` lancé depuis la racine : faute de config, il en créait une pour publier le dossier courant en assets statiques (`"assets": { "directory": "." }`), puis captait tous les déploiements suivants et échouait sur un binaire de 103 Mo de `node_modules`. Toujours déployer le Worker depuis `dark-brook-87cc/`.
-10. ~~**Quota D1 de lignes lues à 82 %**~~ **RÉGLÉ le 2026-10-27** (alerte Cloudflare : 4,1 M sur 5 M `rows_read` par jour, offre gratuite). Cause : `GET /api/groups` — SQLite joignait `word_groups` par sa clé primaire (`user_id` seul) et relisait **tous** les rattachements de l'utilisateur **pour chaque groupe** : ~400 000 lignes par appel en espagnol (38 × 10 500), près d'un million à chaque ouverture de « mes mots » (4 langues). Corrigé par `INDEXED BY idx_word_groups_group` → ~7 800. ⚠️ Toute nouvelle requête avec jointure : mesurer `rows_read` sur la vraie base (`wrangler d1 execute vocab --remote --json --command "…"`, champ `meta.rows_read`) et lire `EXPLAIN QUERY PLAN`. `wrangler d1 insights` refuse le jeton OAuth actuel (erreur 10000).
-
----
-
-## Workflow
-
-### Modifier `index.html`
-```bash
-node -e "const fs=require('fs'),html=fs.readFileSync('index.html','utf8'),m=html.match(/<script>([\s\S]*?)<\/script>/);fs.writeFileSync('/tmp/check.js',m[1]);" && node --check /tmp/check.js && echo "OK"
-```
-Toujours vérifier la syntaxe JS avant `git push`. Tester en local (Safari).
-
-### Modifier le Worker
-```bash
-cd ~/Desktop/vocab-app/dark-brook-87cc && node --check src/worker.js && wrangler deploy
-```
-Le Worker est versionné → commiter `dark-brook-87cc/src/worker.js`, `wrangler.jsonc`, `migrations/`.
-
-### Dev local
-`wrangler dev` (D1 `--local`, `.dev.vars` pour `JWT_SECRET`) + `python3 -m http.server 8080`. `API_ENDPOINT` détecte localhost. L'IA est testable en local en collant une vraie clé dans ⚙️ (BYOK).
-
-### Déployer en prod
-Worker : `wrangler deploy`. Front : push `main` → GitHub Actions → `gh-pages`. Migrations D1 : `wrangler d1 migrations apply vocab --remote`.
-
----
-
-## Groupes de mots (2026-08-29)
-
-Chaque mot appartient à **0 à 3 groupes thématiques**, **par langue** (les groupes sont nommés dans la langue pratiquée : *comida* en espagnol, *nourriture* en français). Taxonomie de 88 groupes construite à partir du corpus réel : 38 espagnols, 24 français, 14 anglais, 12 grecs.
-
-| Table | Colonnes |
-|---|---|
-| `groups` | id, user_id, language, **name**, **kind** (`theme`\|`lot`), **scope**, created_at — `UNIQUE(user_id, language, name)` |
-| `word_groups` | user_id, language, word, group_id, **auto** (1 = posé par l'IA, 0 = à la main) |
-| `words.grouped` | 0/1 — un mot classé dans *zéro* groupe est indiscernable d'un mot jamais traité |
-
-Migrations `0004_groups.sql` (tables + colonne) et `0005_group_scope.sql` (`groups.scope`).
-
-- **`scope`** = ligne de portée du groupe (« ce qu'il contient, et surtout ce qu'il ne contient pas »). ⚠️ **Indispensable** : avec le seul nom, le modèle lisait « fórmulas del ensayo y la crítica » comme « tout ce qui est intellectuel » et y rangeait des adjectifs. Sert aussi de définition à l'écran de gestion.
-- **`auto`** : un reclassement ne recalcule QUE les lignes `auto = 1`. Tout ce qui passe par `/api/word-groups` est `auto = 0`.
-- **Changement de langue** (`PUT /api/words` avec `newLang`) → les rattachements **tombent** (ils appartiennent à la taxonomie de l'ancienne langue) et le mot repasse à `grouped = 0`. Un simple renommage les garde. `DELETE /api/words` les supprime.
-
-### Routes
-- `/api/autogroup` POST (**JWT ou token perso**, clé OpenAI de l'utilisateur — header sinon `users.openai_key`, jamais de repli propriétaire) → classe `body.words` ou, à défaut, les `limit` premiers mots `grouped = 0`. `dry: true` rend le verdict sans écrire. `model` ∈ luna\|terra.
-  - Prompt : **numéros des deux côtés** (groupes ET entrées) — 3× moins de tokens et plus aucun rapprochement de chaînes ; hors liste, l'index est ignoré, donc le modèle ne peut pas inventer de groupe.
-  - **Le classement vit dans `/add`** (`ctx.waitUntil(autogroupOnAdd(...))`, après l'insertion) : app, raccourci iPhone et Kindle sont couverts par le même point, et l'ajout n'attend jamais le modèle. Un échec laisse `grouped = 0`, repris par « 🏷 classer les mots sans groupe ». ⚠️ Ne pas remettre d'appel côté client (l'ancien `autogroupAfterAdd` du front et l'`autogroup()` de `kindle_import.py` ont été retirés le 2026-08-30) : un mot ne doit pas dépendre du client qui l'a ajouté — les mots venus du raccourci iPhone n'étaient jamais classés.
-  - `classifyAndStore()` (Worker) = verdict + écriture, appelée par `/api/autogroup` **et** par `/add`.
-- `/api/groups` GET (effectif + jauge `mastered` en une requête) · POST · PUT (nom, scope) · DELETE (relâche les mots à `grouped = 0`)
-- `/api/word-groups` GET (`?group_id=`) · POST · DELETE — toujours `auto = 0`
-
-### UI
-- **Mode libre** : bouton **🏷 groupes** → `#groups-modal` (liste + jauge `12/128 ★★★`, choix multiple) puis **tous / au hasard N / à la main**. Le « au hasard » est un **tirage pondéré restreint au groupe** (`pickWeightedOne(picked, pool)`), donc gouverné par le curseur de mélange.
-- **`beginFreeQueue(list)`** = point d'entrée unique d'une file imposée (recherche manuelle ET groupe) — sans lui les deux chemins recalaient le slider différemment.
-- **`screen-groups`** (⚙ gérer) : renommer, supprimer, créer un groupe ou un **lot d'étude** (N mots tirés par `pickWeightedOne`, `kind='lot'`, jamais alimenté par l'IA).
-- Les mots d'un groupe s'affichent dans `screen-revisions` via **`revisionsView = 'group'`** — un mot de groupe peut n'avoir jamais été pratiqué, d'où `next` vide → tiret, et compteur « dûs aujourd'hui » réservé à la vue `due`.
-
-### Classement initial (2026-08-29)
-9 785 mots en 96 appels **gpt-5.6-luna « low »**, ~0,30 $. Mesure faite avant de choisir : **luna comparé à lui-même = 90/100 verdicts identiques** ; luna vs terra = 86/100, donc dans le bruit (terra gagne 4 fois, perd 4 fois sur 14 divergences). Résultat : 1,5 % de mots sans groupe en espagnol, 2,4 % en français (des formes fléchies nues — refus justifié), 0,7 % en anglais après ajout de deux groupes manquants (*change, process & consequence* et *nature, body & the physical world* : la taxonomie anglaise, pensée « par registre », n'avait aucune étagère pour le concret). ~1,01 groupe par mot : le classement est en pratique mono-groupe.
-
-### Refaire la taxonomie (`mode: 'propose'`)
-`/api/autogroup` avec `mode: 'propose'` envoie **tout le corpus de la langue** (plafond `PROPOSE_MAX` = 5000 entrées tirées au hasard) et rend une liste de groupes `[{name, scope}]`, **sans rien écrire**. Nombre visé calculé sur la taille du corpus (`targetGroupCount` : 12 / 18 / 24 / 38). Le prompt impose de **réutiliser le nom exact** d'un groupe existant qui convient encore, et de prévoir des catégories **fonctionnelles** si le corpus est riche en locutions.
-- Front : `screen-groups` → **⟳ refaire la taxonomie** → panneau de validation (nouveaux groupes cochables, descriptions à mettre à jour, groupes « plus proposés » simplement signalés). ⚠️ **Jamais de suppression automatique** : elle emporterait aussi les rattachements manuels.
-- **🏷 classer les mots sans groupe** (`reopen: 'orphans'`) rouvre les seuls orphelins puis les repasse par lots de 100 — ce qui rend l'ajout d'un groupe rattrapable sans tout reclasser. Validation croisée : relancée à l'aveugle sur le grec, la passe a retrouvé **exactement** les 12 groupes existants.
-
-### Rattacher un mot à la main
-- Menu ⋯ → **🏷 Groupes** (`ctxMenuGroups`, panneau `#ctx-groups`) : liste cochable, bascule optimiste avec retour arrière si le réseau échoue.
-- « mes mots » → **🏷** sur la sélection (`groupSelectedMots` + `openGroupMenu`, jumeau d'`openLangMenu`). Les groupes étant par langue, une sélection **multi-langues est refusée** explicitement.
-- `GET /api/word-groups?lang=&word=` rend les groupes d'un mot.
-- `kindle_import.py` : `parse_added()` seulement — le classement est fait par `/add`, mot par mot, côté Worker.
-
-### Groupes virtuels et pools
-`VGROUPS` (ids **négatifs**, jamais en base) : **★★★ maîtrisés** · **à travailler** · **sans groupe** (celui-ci via `GET /api/word-groups?ungrouped=1&lang=`). Offerts dans le même sélecteur que les vrais groupes — d'où l'absence d'un mode « pratiquer les maîtrisés » séparé.
-- **Sémantique du pool** (`resolveGroupPool`) : les vrais groupes s'**additionnent**, les virtuels **filtrent** ce qui en sort (« comida ∩ maîtrisés »).
-- **Situation et Libre offrent les MÊMES commandes** (🏷 groupes · 🔍 chercher un mot · 👁 voir les mots · ✕ quitter) et le même sélecteur avec les mêmes sous-options. Seule l'exploitation du pool diffère, et elle passe par **`usePool(words, label)`** : file à parcourir en Libre, **restriction du tirage** en Situation (`_sitGroupWords`).
-- Sans sélection, Situation se pratique sur les ★★★ ; **avec** sélection, elle fait foi telle quelle — le filtre « maîtrisés » étant offert comme **groupe virtuel**, l'imposer par-dessus ignorerait un choix explicite. Le sélecteur pré-coche donc ★★★ en Situation au lieu d'appliquer un filtre invisible.
-- **👁 voir les mots** (mode libre) : ouvre le pool trié par **poids de tirage décroissant** — avec le curseur de mélange tout est « possible », seule la probabilité change. Passe par `openWordListScreen('group', {keepOrder:true})` → `revisionsSort = 'given'`.
-
-### La file ne se termine plus toute seule
-⚠️ Avant : file épuisée → `freeQueueActive = false` et retour **silencieux** dans tout le stock, alors qu'on croyait travailler son groupe. Désormais elle **reboucle** (`freeLap++`, ordre re-tiré par `reorderQueueByWeight` → les mots ratés reviennent en tête) et seul le bouton ✕ en sort. Le compteur affiche `🏷 <groupe> · tour N`.
-
-### « Mes mots » : filtre par groupe
-Chaque ligne porte les **pastilles de ses groupes** (`hydrateMotsGroups`/`paintMotsGroups`, `GET /api/word-groups?lang=&words=` — les mots de la **page affichée** seulement, mémorisés ; cache vidé au renommage, au transfert de langue et au rattachement manuel). Un clic sur une pastille filtre sur ce groupe (`motsFilterByGroup`, qui bascule d'abord sur la langue si on regardait « Tout »).
-**Filtre par groupe = un seul bouton** (2026-08-31) : `#mots-group-filters` rend `🏷 groupe : <nom> ▾` (`.group-select-btn`), qui ouvre `#mots-group-modal` — sélecteur à **choix unique** avec les effectifs, **masqué sur « Tout »** (les groupes sont par langue). ⚠️ Les 38 groupes espagnols rendus en pilules poussaient l'en-tête **collé** au-delà de la hauteur de l'écran : plus un mot visible, et un sticky plus haut que la fenêtre ne se parcourt pas. ⚠️ Ce n'est **pas** `#groups-modal` (sélecteur de *pratique* : choix multiple, subset, « Commencer », lié à `currentLang`) — « mes mots » filtre, sur une langue qui n'est pas forcément celle qu'on pratique. Même idiome visuel (`.free-pick-row`), état distinct. ⚠️ Les effectifs passent par `.fp-count` et non `.fp-order`, en `opacity:0` tant que la ligne n'est pas cochée. `openGroupsManager(lang, back)` — l'écran de gestion s'ouvre donc sur une langue qui n'est pas forcément celle qu'on pratique (`_manageLang`, `_manageBack`) ; le bouton « lot d'étude » est masqué dans ce cas (un lot se tire dans le stock de la langue **pratiquée**).
-
-### Divers
-- **Mélange par langue** : `vocab_free_mix_<Langue>` via `freeMixKey()`, **repli sur l'ancienne clé globale** (même motif que la grammaire). Recalé par `selectLanguage()`. Le curseur vit dans **⚙**, avec les autres réglages de la langue — pas sur l'écran de pratique.
-- **`progress.last_practiced`** est désormais chargé côté front (`progressMap[...].lastPracticed`) → tris **A-Z / vus récemment / les plus anciens / jamais vus** dans « chercher un mot » (« jamais vus » filtre en plus de trier ; « les plus anciens » renvoie les jamais-vus en fin, ils ne sont pas « anciens »).
-
-### `screen-mots` — visuel (2026-08-29)
-Retenu après essai comparatif : **cartes** (inchangé) · **sélection à la ligne** · **en-tête collé** · densité aérée.
-- `.mots-head` = `position: sticky; top: var(--safe-top)` autour du titre, de la recherche, des deux lignes de pilules et de la pagination. Elle **porte le fond** (`--bg`), sinon la liste défilerait au travers.
-- **Plus de case native** : `.mot-row.selectable` bascule au clic n'importe où, `.sel` allume la bordure et un ✓ (`toggleMotRow` ignore les clics sur 🔍 ✏️ 🔀 🗑). Même idiome que `.free-pick-row`.
-- **Espacement par le conteneur** (2026-08-31) : `.mots-head` et `#mots-controls` sont des colonnes flex avec `gap` ; plus aucune `margin-bottom` inline ni le `margin-bottom:-0.6rem` qui les compensait. ⚠️ C'est cet arrangement qui laissait le bouton de groupe collé aux pilules de langue. Bénéfice : un enfant en `display:none` ne crée pas de `gap`, donc la ligne du filtre par groupe masquée sur « Tout » ne laisse plus de trou.
-- **Barre de pagination** (2026-08-31) : `.mots-toolbar` = total à gauche · `◀ page N sur M ▶` au centre · `N par page ▾` à droite (`openPageSizeMenu`, qui réutilise `#word-ctx-menu` comme les langues et les groupes). ⚠️ Remplace le `<select>` natif, **seul menu système de l'app** : police et chrome de l'OS au milieu d'une interface qui n'en a nulle part ailleurs. Nombres formatés (`toLocaleString`) et pluriel réel (`words_count_one`) au lieu de « 6412 mot(s) ».
-- ⚠️ Écartés : le défilement imbriqué (famille de solutions déjà retirée en PWA iOS, cf. `#sticky-words-bar`) et l'en-tête qui se réduit (essayé, jugé instable à l'usage).
-
-## Idées futures
-
-**Faites ✅** : **brouillon de session (reprise après crash)** · **erreurs graves toujours visibles** · **filtre par groupe en un bouton** · **rendu du streaming coalescé** · Auth Google + email/mdp · migration Sheets → D1 · BYOK + sync · ajout de mots `/add` (token) · **écran « ajouter du contenu » in-app (mots + formes grammaticales)** · Mes mots (+ étoiles) · calendrier des révisions (tri + recherche + étoiles) · **sync de tous les réglages** · **langues configurables par utilisateur** (sous-ensemble des 4) · **page d'instructions (modale)** · **boîte de vérif repliable** · `kindle_import.py` → `/add`/D1 · compteur tokens corrigé · PWA `manifest` corrigé · déploiement prod · **refonte mode Situation** (bouton Commencer, multi-mots 1-5, poids de relance ×4, verdict par mot + score, autoscroll, UI cohérente) · **toggle progression Situation+Libre** · **refonte import Kindle** (validité IA off + filtre charabia/`wordfreq`, similarité groupée GPT-5.6 Terra via `/judge-similar`, **clé Kindle dédiée** `.openai_key`, import reprenable) · **« mes mots » paginé + sélection multiple/suppression groupée** · **notes entre parenthèses** (`hacer el oso (expresión colombiana)`) + traitement « expression figée » automatique pour toute entrée multi-mots · **formes grammaticales dans les 4 langues** (réglages par langue, libellé `{lang}`) · **transfert d'un mot d'une langue à l'autre** (menu ⋯, mes mots, action groupée) · spinners centrés · **modèles 2026-08** (GPT-5.6 Terra, Gemini 3.7 Flash / 3.5 Flash Lite, efforts `xhigh`/`max` + budget doublé) · **version améliorée : flexion autorisée, lexique figé** · **cartes « même univers » sans débordement** · **slider Libre débloqué** · **compteur de mots par mode + valeur souhaitée persistante** · **pilules de langue + panneaux pleine largeur dans « ajouter »** · **« 🔍 vérifier le mot »** (menu ⋯ + « mes mots ») · **quota des nouveaux mots respecté quand on bouge le slider** · **liste « ★★★ mes mots maîtrisés »** (mode Situation) · **entonnoir d'ajout sur gpt-5.6-luna** (10× moins cher, qualité vérifiée) · **spacer d'autoscroll non pré-alloué** · **« étudier un mot »** (définition + QCM à la place de la phrase, nouveaux mots seulement) · **traduction et image d'un mot à la demande** · **graphie proposée à l'ajout** · **curseur de mélange du mode libre** · **mode « pratique quotidienne »** (QCM → texte à trous, palier sur les étoiles, séance à budget fixe, intrus choisis par le modèle) · **sélecteur de mode replié en un nom** · **nettoyage des entrées sous forme fléchie** (doublons grecs, FR et ES).
-
-> **2026-09-10** — refonte des manches : **manche comptée en mots** et **réglable** (deux curseurs, rappels déduits) · **bouton « commencer »** (plus aucun appel avant le clic) et curseurs verrouillés pendant la manche · **reprise d'une manche interrompue** (le texte à trous n'est pas repayé) · **bouton « que des rappels »** · **compteur des mots faits lu en base** (fin de la divergence iPhone/iPad). Le **frein automatique** du quota a été **écarté** au profit du choix explicite à chaque manche. Récapitulatif de conception : https://claude.ai/code/artifact/bfdf696d-7895-4772-a07e-5bc4470ffc45
-
-**À faire / à concevoir** :
-- **BYOK total** : le **raccourci iPhone** utilise encore `OPENAI_API_KEY_SCRIPT` (pas d'UI BYOK). La Kindle, elle, est passée BYOK (`.openai_key`).
-- **Plus de 4 langues** : les 4 possibles sont codées en dur dans `LANGS` (mappings, prompts, détection `/add`). Pour une langue hors-liste, il faudrait généraliser `LANGS`.
-- **Rotation `WORKER_SECRET`** + suppression secrets morts (`SA_JSON`, `OPENAI_API_KEY`, `GEMINI_KEY`).
-- **Sécurité/scalabilité** : OK pour des centaines d'utilisateurs ; 1ers plafonds = quotas D1 gratuits (~100K écritures/j) + clé `/add` du propriétaire.
-- **PWA** : service worker (offline) · **App Store** via Capacitor (Apple Dev $99/an).
-- **Gérer mes langues** : pouvoir retirer une langue quand on a les 4.
-- **Réserve de questions préparées d'avance** (discuté le 2026-11-17, pas commencé) : la première question d'une manche coûte ~10 s d'attente, et une réponse rapide (surtout à 2 réponses) rattrape le préchargement d'un seul cran. Idée de l'utilisateur, affinée :
-  - **Une réserve en base** : une question prête par mot susceptible de sortir, consommée quand le mot sort, gardée d'un jour et d'un appareil à l'autre. Rien n'est perdu sauf si le mot est supprimé / renommé avant.
-  - **Remplie la nuit par le Worker** (Cron Trigger) : les **rappels** sont prévisibles (servis du plus en retard au moins en retard) ; les **mots neufs** du lendemain sont **tirés la nuit d'avant** (même hasard, tiré plus tôt) et la manche les prend d'abord dans cette liste ; les **mots choisis à la main** (`_roundChosen`) ne se devinent pas → leur question part **dès qu'on les coche**, avant « Commencer ».
-  - **Prérequis, le gros du travail** : les prompts (`qcmPrompt`, `pickPrompt`, `typePrompt`, lecteur aveugle) passent **dans le Worker**, seule copie — l'app demande ses questions au serveur, préparées ou faites sur le moment. La mémoire des QCM servis (`KEY_QCM_SEEN`, localStorage) passe en base (la table `examples` a déjà tout depuis le 2026-11-12).
-  - Clé : `users.openai_key` ; compte sans clé → réserve bornée aux 10 mots du jour. ⚠️ Vérifier la limite d'appels sortants par invocation de l'offre gratuite Cloudflare : sans doute répartir sur plusieurs réveils.
-  - Règle : une question préparée pour un autre palier que celui du mot au moment de servir (mot réussi ailleurs entre-temps) est jetée et refaite sur le moment.
-  - Étape intermédiaire possible, côté app seulement : préparer les premières questions dès l'écran de départ et garder trois questions d'avance au lieu d'une ; servir d'abord la question prête.
-  - Question ouverte : combien de manches par langue et par jour (taille de la réserve de nuit).
-- **File d'attente hors ligne pour le raccourci iPhone** (conçu le 2026-09-23, pas implémenté) : le mot est perdu quand le téléphone n'a pas de réseau au moment du partage.
-  - ⚠️ **Raccourcis n'a pas de « essayer / sinon »** : quand « Obtenir le contenu de l'URL » échoue, le raccourci s'arrête net et aucune action suivante ne tourne. On ne peut donc pas rattraper l'échec après coup — il faut **écrire avant de risquer**, donc faire passer **tout** mot par la file, connecté ou non.
-  - Déroulé : (1) récupérer le mot comme aujourd'hui · (2) lire `vocab-en-attente.txt` (iCloud Drive, case **« erreur si introuvable » décochée**) · (3) y ajouter le mot et réenregistrer · (4) **Répéter pour chaque ligne** → c'est là que vivent l'appel `/add` et les alertes INVALID / SIMILAR existantes · (5) la boucle finie, écraser le fichier avec du vide · (6) notification « N mots ajoutés ».
-  - Le fichier n'est vidé **qu'à la fin, en bloc** : une coupure en plein milieu fait repartir des mots déjà envoyés au coup suivant, et le Worker répond « Doublon » — inoffensif, et ça évite une comptabilité fragile. ⚠️ Un mot auquel on répond « non » à l'alerte INVALID **bloque la file** jusqu'à ce qu'on l'accepte ou qu'on édite le fichier.
-  - Hors ligne, l'alerte d'erreur iOS reste (inévitable) mais le mot est déjà sauvé. Option : automatisation personnelle « à la connexion au Wi-Fi → exécuter le raccourci » pour vider la file sans y penser.
-
-> Case study portfolio : `~/Desktop/vocab-app/portfolio-case-study.md` (ES+EN).
-
-> **2026-09-23** — lot « les curseurs disent la vérité » : **les deux curseurs mesurent la MANCHE** (les mots neufs cessent d'être un quota du jour : `vocab_round_new_<Langue>`) · **plus de frein automatique**, remplacé par un **miroir** (« 12 mots neufs aujourd'hui — à revoir demain ») · **« rappel » ne désigne plus qu'une chose**, les révisions prises en avance sont nommées à part · **la manche fait toujours son compte** quand le stock suit · disparition du bouton « ouvrir N mots neufs de plus » et du curseur grisé · `maxNewPerDay` ne gouverne plus que le **mode espacé** · **le trou suivant** dans le texte à trous · prompts : **plus de `a`/`an` devant un trou**, **aucun intrus synonyme d'une cible**, **longueur des QCM mesurée et rejouée** (`qcmLenSkew`) · **retrait du bouton « que des rappels »**, devenu un doublon du 0 sur le curseur. Page de test des formulations : https://claude.ai/artifact/DdQnGyJGZ7sM28e84R4Gq5
-
-> **2026-09-20** — lot « les nombres de la manche » : **une seule fonction décide de la composition** (`planRound`), la ligne de l'écran de départ la lit au lieu de la recalculer · **les deux curseurs deviennent des plafonds** (plus de mots neufs que demandé quand le retard est court) · **on ne réserve que ce que le stock peut tenir** · la ligne **nomme les deux** (« → 6 rappels + 1 neuf ») et le curseur des neufs se **grise** quand le quota du jour est épuisé · **carte « terminé » qui ne se fait plus écraser** par le texte à trous · **minuteur des 350 ms lié à sa question** (une réponse ne saute plus la suivante) · **l'aveu « je ne connais pas » réservé aux mots vraiment inconnus**, plus aux tournures transparentes.
-
-> **2026-09-18** — lot « après trois jours d'usage » : **bordure dorée collée** au survol iOS (`@media (hover: hover)`) · **📖 définition sous les réponses** (les cartes ne descendent plus, le second appui tombe juste) · **prochaine échéance dès la réponse** (QCM et récapitulatif du texte) · **ligne déduite honnête** sur l'écran de départ (le quota de neufs est celui du jour) · **✕ quitter la manche** · **accueil et mode disent le même nombre** de rappels dus · **manche reprenable d'un appareil à l'autre** (table `rounds`, route `/api/round`) · **`entryContext` du QCM réparé** (la note n'était jamais envoyée en pratique quotidienne) · **le modèle peut avouer qu'il ne connaît pas un mot** au lieu d'en inventer le sens · **↻ autre question** · prompts du **texte à trous** (plusieurs scènes, droit d'écarter un mot, accord de la réserve entière, article dans le trou) et du **QCM** (pas d'ellipse à la place du mot, quatre situations réellement différentes).
+- Tokens collés dans le `<style>` (bloc « Estilo común — copiado de ~/Desktop/estilo ») : ne pas les éditer ici. **Thème sombre** (`oscuro.css`). `--barra-estado` sombre dans les deux thèmes.
+- Mono du système seulement pour le technique (tokens, clés, lien d'ajout, `code`).
+- **Colonne étroite centrée** (`.screen`, 480 px), contenu aligné à gauche.
+- Popups/modales (`#word-ctx-menu`, `.modal-card`) : papier + filet `--linea-fuerte`, sans ombre ni radius.
+- Pastilles un peu plus grandes (`6px 16px`, `--t-nav`) : app au pouce.
+- ⚠️ `base.css` colore le survol de **tout** `button` (dans `@media (hover: hover)`) : chaque bouton non-pastille le neutralise avec `.classe:hover:not(:disabled)`.
+- `input[type=range]` et cases à cocher : `border:0; padding:0`.
+- **Pas d'emojis ni de symboles dans l'interface**, des mots. Restent : étoiles `★☆` (donnée), `→` dans une phrase, ✓/✗ des prompts et du parsing (`OK_RE`/`KO_RE`), ✓/✗ en marge d'une réponse de QCM (`markQcmChoice`), ▸/▾ au bout d'un titre repliable, `+` du carré « nuevo grupo », `⌫` du clavier.
+- Pastilles flottantes centrées en bas : `#catchup-btn`, `#back-current-btn`. « Reprendre / Nouvelle manche » centrés quand une manche attend.
+- Bascule « diaria / grupos » : pastille coupée par **une seule** diagonale (`.diag`).
+- Mouvement permis : couleur au survol, fondu de photo, spinner. Rien d'autre.
+
+## Langue de l'interface
+Accueil et ce qu'on ouvre depuis lui = **langue de l'appli** (`tApp`). Tout ce qui vit dans la page d'une langue (pratique, menu ⋯, sélecteurs) = **langue pratiquée** (`tPrac`, `applyPracticeLangUI`). Un texte en dur dans la page d'une langue est un bug. Libellés dans `I18N` (en/fr/es/el). `{lang}` dans une traduction = nom de la langue courante.
+
+## Worker (`dark-brook-87cc/src/worker.js`)
+URL `https://dark-brook-87cc.georg-dreym.workers.dev`.
+- Auth : `/auth/signup`, `/auth/login`, `/auth/google` (lie par email), `/me`.
+- `/add` (token perso, sans JWT) : ajout de mot (raccourci iPhone, écran « ajouter », Kindle). Réponses texte `INVALID:… | Langue[ | SUGGEST:…]`, `SIMILAR:…`, `Doublon…`, `Succès…` — le raccourci iPhone les parse, ne pas changer le format. Entonnoir sur `gpt-5.6-luna` low. **Plus de classement automatique en groupes** (arrêté le 2026-11-26).
+- `/judge-similar` (Kindle). `/openai-script` (legacy, `X-Worker-Secret`).
+- Données (JWT, filtrées par `user_id`) : `/api/words` (GET/POST/DELETE/PUT renommer ou changer de langue), `/api/progress`, `/api/session`, `/api/history`, `/api/blacklist`, `/api/usage`, `/api/keys`, `/api/settings`, `/api/grammar`, `/api/examples` (+`/mark`), `/api/round` (manche en cours), `/api/round-log` (historique des manches), `/api/groups` (`?kind=mine` = groupes de l'utilisateur **avec leurs mots**), `/api/word-groups`.
+- IA : `/` = OpenAI Responses API, clé en `X-OpenAI-Key` ; sans clé, clé du propriétaire, recadrée (terra, `none`, 16 000 tokens), `FREE_AI_PER_DAY` 40 → 429 `free_limit`.
+- Secrets : `JWT_SECRET`, `OPENAI_API_KEY_SCRIPT`, `UNSPLASH_KEY`, `WORKER_SECRET` (⚠️ a fuité, rotation à faire). Morts : `OPENAI_API_KEY`, `GEMINI_KEY`, `SA_JSON`.
+- ⚠️ Toute requête D1 avec jointure : mesurer `meta.rows_read` sur la vraie base (`wrangler d1 execute vocab --remote --json --command "…"`) — un `GET /api/groups` sans `INDEXED BY` a mangé 82 % du quota gratuit.
+
+## D1 (base `vocab`)
+Toutes les tables portent `user_id`. `words` (`word` peut être `base (note)`), `progress` (correct, incorrect, last_practiced, next_review), `history` (date **UTC**), `sessions`, `usage`, `rounds`, `round_log`, `free_quota`, `examples` (toutes les questions écrites par le modèle, `shown`/`picked`/`ok`), `blacklist`, `grammar_forms`, `groups` (`kind` : `mine` = créé par l'utilisateur ; `theme`/`lot` = anciens groupes de l'IA, **cachés**), `word_groups`.
+`language` ∈ English · Spanish · French · Greek (codées en dur dans `LANGS`).
+
+## Clés et limites
+- Clé de l'utilisateur : `X-OpenAI-Key`, garde-fou `DAILY_TOKEN_LIMIT` = **500 000** tokens/jour (relevé le 2026-11-26).
+- Sans clé : `FREE_WORDS_PER_DAY` = 10 dans l'app, `FREE_AI_PER_DAY` 40 / `FREE_ADDS_PER_DAY` 30 dans le Worker.
+- `sanitizeKey()` sur chaque clé (un caractère parasite cassait l'en-tête en Safari).
+- Compte du propriétaire : `body.owner` (SHA-256 de l'email, jamais l'email en clair dans le dépôt).
+
+## Modèle IA
+- `reasoning: { effort: 'none' }` **toujours envoyé** (l'omettre = défaut plus lent). `max_output_tokens` compte raisonnement + texte.
+- `usage.output_tokens` inclut déjà le raisonnement : ne pas l'additionner deux fois.
+- `callAIJson` = `json_schema` strict (QCM, « quel mot ? », « tape le mot », lecteur aveugle). Les autres appels lisent le JSON à la main.
+- ⚠️ Streaming : **un rendu par frame** (`coalesceChunks`), jamais un rendu par delta.
+
+## Mode « pratique quotidienne » (le seul visible, `VISIBLE_MODES = ['practice']`)
+Les autres modes (espacé, Situation, libre, image) sont cachés, code intact.
+- Écran de départ : bascule **diaria / grupos**, deux curseurs (*mots par manche*, *dont neufs*), « Commencer », manches du jour. Rien n'appelle l'IA avant « Commencer ». `planRound()` est la **source unique** de la composition (neufs demandés → rappels dus du plus en retard → mots pas encore dus).
+- Exercice selon le **net** (`sessionLevel`) : < 2 → QCM ; 2 à 5 → alternance « quel mot ? » (pair) / « tape le mot » (impair) ; ≥ 6 → « tape le mot ».
+- Progression : SM-2 sur le net (`calcNextReview`). Un mot neuf revient demain, réussi ou non, net inchangé. **Étoiles une fois par jour** par mot (`practicedToday`). Réussi avec piste = sans étoile.
+- Toute la manche est préparée d'avance (`pumpPrefetch`, 3 à la fois) et gardée avec elle (`prep` dans `saveRound`). Reprise d'un appareil à l'autre (`/api/round`) ; à la reprise, chaque mot restant est revérifié contre la base.
+- **Revoir une question** : le compteur « 5 / 12 » ouvre la liste des questions ; une question passée se relit en lecture seule (`#session-past`), « volver a la pregunta actual » ramène à la question en cours, intacte.
+- **Tape le mot** : une case par lettre, clavier à l'écran (`TYPE_KEYS`), « ocultar / mostrar teclado », caché tout seul quand on ouvre la définition. Accents ignorés sauf ñ. « tenía razón » retourne un échec en réussite.
+- **Groupes** (2026-11-26) : créés par l'utilisateur, façon playlist (`renderGroupsView`). « añadir palabras » rouvre le sélecteur « chercher un mot » (`_freeSearchFor = 'group'`). « Practicar » = une manche avec tous les mots du groupe (`practiceGroup`, `_roundGroup`) : pas de remplaçant, pas d'« autre mot neuf », ne marque pas la journée faite. ⚠️ Elle remplace une manche quotidienne laissée en plan (une seule manche reprenable par langue).
+
+## ⚠️ Pièges qui ont déjà coûté cher
+- **Ne jamais vider `#hint-box.innerHTML`** (seulement `#hint-text`, `#hint-translation`) : sa structure disparaît et la définition ne s'ouvre plus.
+- Une question ne reçoit **qu'une** réponse (`item.answered`) ; un re-rendu redessine l'état répondu sans rien réenregistrer.
+- Le minuteur de « second appui = suivant » appartient à **sa** question (garde `sessionItems[sessionIdx] !== mine`).
+- `history.date` est UTC : le client envoie **son** minuit local.
+- Une valeur de curseur **affichée** (bornée par le stock) ne se persiste jamais ; seul le geste de l'utilisateur écrit le réglage.
+- `collectSettings()` ramasse toutes les clés `vocab_*` : tout état local qui n'est pas un réglage (manche, brouillon, `vocab_device_id`, mémoire des QCM) doit être exclu par `_isSyncableSettingKey`.
+- Entrées annotées `base (note)` : la clé de progression est l'entrée **complète** ; la note n'entre jamais dans la réponse attendue ; parenthèses validées (`assertParens`), jamais retirées en silence.
+- Accents dans les regex : `(^|[^\p{L}])mot([^\p{L}]|$)` avec `u`, jamais `\b`.
+- QCM : la bonne réponse ne doit se reconnaître ni à sa **longueur** (`pickQcmShown` tire son rang), ni à un **intrus à part** (lecteur aveugle `blindScores`), ni parce qu'elle **définit** le mot. Le modèle peut avouer ne pas connaître un mot (`unknown`) : rien n'est enregistré.
+- iOS : pas d'autoscroll au focus ; `#scroll-spacer` ne grandit que par `growSpacer` ; survol enfermé dans `@media (hover: hover)` (sinon l'appui reste « collé »).
+- Oublier une **déclaration avant usage** au chargement fige l'app (TDZ) : tester le démarrage après tout ajout de `const` au niveau global.
+
+## Reste à faire
+- Réserve de questions préparées la nuit par le Worker (voir `docs/historique.md`, « Réserve de questions »). En attendant : servir les questions déjà écrites mais jamais montrées (`examples.shown = 0`) quand la limite de tokens est atteinte.
+- File d'attente hors ligne pour le raccourci iPhone (conçue, voir historique).
+- Rotation de `WORKER_SECRET`, suppression des secrets morts.
+- Mode Imagen : poussé, jamais essayé.
