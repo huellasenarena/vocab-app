@@ -2862,6 +2862,11 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
       grp_due:          { en: `{n} to review`, fr: `{n} à revoir`, es: `{n} por repasar`, el: `{n} για επανάληψη` },
       grp_up_to_date:   { en: `up to date`, fr: `à jour`, es: `al día`, el: `ενημερωμένη` },
       grp_practice:     { en: `Practise all {n}`, fr: `Pratiquer les {n}`, es: `Practicar las {n}`, el: `Εξάσκηση και στις {n}` },
+      grp_practice_part:{ en: `Practise {k} of {n}`, fr: `Pratiquer {k} sur {n}`, es: `Practicar {k} de {n}`, el: `Εξάσκηση σε {k} από {n}` },
+      stored_start:     { en: `Today's token limit is reached: the round reuses saved questions, only for words you have already practised.`, fr: `Limite de tokens du jour atteinte : la manche ressort des questions gardées, seulement pour des mots déjà travaillés.`, es: `Límite de tokens de hoy alcanzado: la ronda reutiliza preguntas guardadas, solo de palabras ya practicadas.`, el: `Συμπληρώθηκε το σημερινό όριο tokens: ο γύρος ξαναχρησιμοποιεί αποθηκευμένες ερωτήσεις, μόνο για λέξεις που έχεις ήδη εξασκήσει.` },
+      stored_note:      { en: `saved question (token limit reached)`, fr: `question gardée (limite de tokens atteinte)`, es: `pregunta guardada (límite de tokens alcanzado)`, el: `αποθηκευμένη ερώτηση (όριο tokens)` },
+      stored_none:      { en: `Today's token limit is reached and there is no saved question for this word. It stays due.`, fr: `Limite de tokens atteinte, et aucune question gardée pour ce mot. Il reste à revoir.`, es: `Límite de tokens alcanzado, y no hay ninguna pregunta guardada para esta palabra. Sigue pendiente.`, el: `Συμπληρώθηκε το όριο tokens και δεν υπάρχει αποθηκευμένη ερώτηση για αυτή τη λέξη. Μένει για επανάληψη.` },
+      stored_empty:     { en: `Today's token limit is reached and none of these words has a saved question yet. Come back tomorrow.`, fr: `Limite de tokens atteinte, et aucun de ces mots n'a encore de question gardée. Reviens demain.`, es: `Límite de tokens alcanzado, y ninguna de estas palabras tiene aún una pregunta guardada. Vuelve mañana.`, el: `Συμπληρώθηκε το όριο tokens και καμία από αυτές τις λέξεις δεν έχει ακόμη αποθηκευμένη ερώτηση. Έλα αύριο.` },
       grp_practice_one: { en: `Practise it`, fr: `La pratiquer`, es: `Practicarla`, el: `Εξάσκηση` },
       grp_add_words:    { en: `add words`, fr: `ajouter des mots`, es: `añadir palabras`, el: `προσθήκη λέξεων` },
       grp_rename:       { en: `rename`, fr: `renommer`, es: `renombrar`, el: `μετονομασία` },
@@ -4117,7 +4122,7 @@ hr { border: 0; border-top: 1px solid var(--linea-suave); margin: 40px 0; }
     // Le plafond de tokens ne vaut que sur SA clé : sans clé, l'app s'arrête à
     // FREE_WORDS_PER_DAY mots et le Worker compte les appels.
     function checkDailyLimit() {
-      if (openaiKey && usagePct() >= 1) throw new Error(tApp('token_limit'));
+      if (openaiKey && usagePct() >= 1) throw Object.assign(new Error(tApp('token_limit')), { code: 'token_limit' });
     }
 
     function updateTokenDisplay() {
@@ -8454,6 +8459,7 @@ Write all scenarios and explanations in ${langName}.`;
       const note  = document.getElementById('session-empty-note');
       note.textContent = freeDone ? tPrac('sess_free_done').replace('{n}', FREE_WORDS_PER_DAY)
         : empty ? tPrac('sess_empty')
+        : !waiting && limitReached() ? tPrac('stored_start')
         : !waiting && left !== Infinity ? tPrac('sess_free_left').replace('{n}', wordsLabel(left))
         : '';
       note.style.display = note.textContent ? '' : 'none';
@@ -8552,12 +8558,15 @@ Write all scenarios and explanations in ${langName}.`;
       const words = groupMembers(g).sort((a, b) => lc(wordBase(a)).localeCompare(lc(wordBase(b))));
       const n     = words.length;
       const left  = freeWordsLeft();
-      const k     = Math.min(n, left);
+      const k     = Math.min(n, roundSize());
       const mastered = words.filter(w => netOf(w) >= 3).length;
       const meta  = groupMeta(words) + (mastered ? ` · ${mastered} ★★★` : '');
       const play  = n
         ? `<div class="session-actions"><button class="btn-secondary" onclick="practiceGroup()" ${k ? '' : 'disabled'}>`
-          + (k === 1 ? tPrac('grp_practice_one') : tPrac('grp_practice').replace('{n}', k)) + `</button></div>`
+          + (k === 1 ? tPrac('grp_practice_one')
+             : k < n ? tPrac('grp_practice_part').replace('{k}', k).replace('{n}', n)
+             : tPrac('grp_practice').replace('{n}', k)) + `</button></div>`
+          + (limitReached() ? `<p class="session-note" style="margin:0">${tPrac('stored_start')}</p>` : '')
           + (left !== Infinity ? `<p class="session-note" style="margin:0">${left ? tPrac('sess_free_left').replace('{n}', wordsLabel(left)) : tPrac('sess_free_done').replace('{n}', FREE_WORDS_PER_DAY)}</p>` : '')
         : `<div class="session-actions"><button class="btn-secondary" onclick="editGroupWords()">${tPrac('grp_add_words')}</button></div>`;
       const rows  = words.map(w => {
@@ -8654,11 +8663,25 @@ Write all scenarios and explanations in ${langName}.`;
     // Une manche avec tous les mots du groupe (4 a), mélangés, chacun à son palier.
     // ⚠️ Elle remplace une manche quotidienne laissée en plan : il n'y a qu'une
     // manche reprenable par langue.
-    function practiceGroup() {
+    // Plafonnée à « mots par manche » (2026-11-26 : « jerga » a 123 mots, et une
+    // manche se prépare entière dès le départ). D'abord les mots à revoir, puis les
+    // neufs, puis les autres au plus près de leur date ; on relance pour continuer.
+    function groupRoundWords(g) {
+      const words = groupMembers(g);
+      const byDue = (a, b) => (progressMap[lc(a)]?.nextReview || '').localeCompare(progressMap[lc(b)]?.nextReview || '');
+      const due   = words.filter(w => progressMap[lc(w)]?.nextReview && isDue(w)).sort(byDue);
+      const fresh = shuffleInPlace(words.filter(w => isNewWord(w)));
+      const rest  = words.filter(w => !due.includes(w) && !fresh.includes(w)).sort(byDue);
+      return [...due, ...fresh, ...rest].slice(0, roundSize());
+    }
+
+    async function practiceGroup() {
       const g = currentGroup(); if (!g) return;
-      const left = freeWordsLeft();
-      const list = shuffleInPlace(groupMembers(g)).slice(0, left === Infinity ? undefined : left);
-      if (!list.length) return;
+      const list = limitReached()
+        ? await storedRoundWords(groupMembers(g), roundSize())
+        : groupRoundWords(g);
+      if (!list.length) { if (limitReached()) alert(tPrac('stored_empty')); return; }
+      shuffleInPlace(list);
       clearSavedRound();
       _roundSkipped   = new Set();
       _roundOffset    = 0;
@@ -8674,8 +8697,37 @@ Write all scenarios and explanations in ${langName}.`;
     function composeNewRound()    { _roundComposing = true;  renderSessionStart(true); }
     function cancelComposeRound() { _roundComposing = false; renderSessionStart(true); }
 
+    // Limite atteinte : la manche se compose parmi les mots qui ont une question
+    // gardée pour LEUR exercice — d'abord ceux à revoir, puis les autres.
+    async function storedRoundWords(pool, size) {
+      let avail;
+      try { avail = await storedAvailability(); } catch { return []; }
+      const ok = pool.filter(w => avail.get(lc(w))?.has(sessionLevel(w)));
+      const byDue = (a, b) => (progressMap[lc(a)]?.nextReview || '').localeCompare(progressMap[lc(b)]?.nextReview || '');
+      const due  = ok.filter(w => progressMap[lc(w)]?.nextReview && isDue(w)).sort(byDue);
+      const rest = shuffleInPlace(ok.filter(w => !due.includes(w)));
+      return [...due, ...rest].slice(0, size);
+    }
+
+    async function beginStoredRound() {
+      const words = await storedRoundWords(allWords, roundSize());
+      if (!words.length) {
+        const note = document.getElementById('session-empty-note');
+        note.textContent = tPrac('stored_empty'); note.style.display = '';
+        return;
+      }
+      clearSavedRound();
+      _roundSkipped = new Set(); _roundOffset = 0; _roundComposing = false; _roundGroup = null;
+      sessionItems = shuffleInPlace(words).map(w => ({ kind: sessionLevel(w), word: w }));
+      setRoundChosen([]);
+      newRoundLog();
+      sessionIdx = 0; sessionOk = 0;
+      launchRound();
+    }
+
     function beginRound() {
       if (!currentLang || !allWords.length) return;
+      if (limitReached()) return void beginStoredRound();
       clearSavedRound();                    // on repart de zéro : l'ancienne est jetée
       _roundSkipped   = new Set();
       _roundOffset    = 0;
@@ -9036,6 +9088,65 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
       return { choices: d.choices };
     }
 
+    // ── Questions gardées (2026-11-26) ─────────────────────────────────
+    // Quand la limite de tokens du jour est atteinte (250 000 sur sa clé : ce
+    // qu'OpenAI offre chaque jour), l'app ressort les questions déjà écrites et
+    // gardées en base (`examples`) : d'abord une jamais affichée, sinon celle vue il
+    // y a le plus longtemps — un QCM est re-tiré parmi ses sept scénarios. Une
+    // question n'existe que pour un mot déjà sorti dans une manche : la manche se
+    // compose donc parmi ces mots-là (`storedAvailability`).
+    const limitReached = () => !!openaiKey && usagePct() >= 1;
+    const isLimitErr   = e => !!e && (e.code === 'token_limit' || e.code === 'free_limit');
+
+    async function fetchStored(word, kind) {
+      const q = new URLSearchParams({ lang: currentLang, word, kind });
+      const r = await authFetch('/api/examples/stored?' + q);
+      const d = await r.json().catch(() => ({}));
+      const rows = (d.rows || []).map(x => ({ ...x, meta: (() => { try { return JSON.parse(x.meta || 'null') || {}; } catch { return {}; } })() }));
+      if (!rows.length) return { nostore: true };
+      const ex = d.fresh ? d.batch : null; // une question déjà vue garde sa réponse d'origine
+      if (kind === 'type') {
+        const row = rows.find(x => x.role === 'sentence');
+        if (!row || !row.meta.form) return { nostore: true };
+        return { sentence: row.text, form: row.meta.form, why: row.meta.why || '', ex, stored: true };
+      }
+      if (kind === 'pick') {
+        const row = rows.find(x => x.role === 'situation');
+        const opts = row && Array.isArray(row.meta.options) ? row.meta.options : [];
+        const base = lc(wordBase(word));
+        if (!row || !opts.includes(base)) return { nostore: true };
+        const options = shuffleInPlace(opts.map(t => ({ text: t, correct: t === base,
+          explanation: t === base ? (row.meta.why || '') : '', ex })));
+        return { situation: row.text, options, stored: true };
+      }
+      const choices = rows.filter(x => x.role === 'correct' || x.role === 'wrong').map(x => ({
+        text: x.text, correct: x.role === 'correct', explanation: x.meta.explanation || '', fits: x.meta.fits || null }));
+      if (!choices.some(c => c.correct)) return { nostore: true };
+      const scores = rows.some(x => x.meta.blind != null) ? rows.filter(x => x.role === 'correct' || x.role === 'wrong').map(x => +x.meta.blind || 0) : null;
+      const shown = pickQcmShown(choices, scores);
+      shown.forEach(c => { c.ex = ex; });
+      shown.stored = true;
+      return shown;
+    }
+
+    // Les mots qui ont une question gardée, par exercice : Map mot (lc) → Set(kinds).
+    async function storedAvailability() {
+      const r = await authFetch('/api/examples/available?lang=' + encodeURIComponent(currentLang));
+      const d = await r.json();
+      const m = new Map();
+      (d.items || []).forEach(x => { const k = lc(x.word); (m.get(k) || m.set(k, new Set()).get(k)).add(x.kind); });
+      return m;
+    }
+
+    // Un mot sans question gardée, alors que la limite est atteinte : on le dit et
+    // on passe — rien n'est enregistré, le mot reste dû.
+    function renderSessionNoStore(item, slotId) {
+      const el = document.getElementById(slotId);
+      if (el) el.innerHTML = `<p class="session-note">${tPrac('stored_none')}</p>`;
+      addSessionNextButton();
+    }
+    const storedNoteHtml = () => `<p class="session-note stored-note">${tPrac('stored_note')}</p>`;
+
     // Un QCM met 10 à 15 s à venir (deux appels). On préparait seulement la question
     // SUIVANTE : après trois « tape le mot » rapides, un QCM arrivait encore en
     // préparation et la manche attendait (2026-11-26). Désormais TOUTE la manche se
@@ -9048,19 +9159,21 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
       const it = sessionItems[i];
       if (!it || it.choicesPromise) return;
       let p;
-      if (it.kind === 'pick')      p = fetchPick(it.word);
-      else if (it.kind === 'type') p = fetchType(it.word);
-      else {
+      const gen = () => it.kind === 'pick' ? fetchPick(it.word)
+        : it.kind === 'type' ? fetchType(it.word) : fetchQCMChoices(it.word);
+      if (it.kind === 'qcm') {
         const why = unknownWhy(it.word);
         if (why !== null) { it.choicesPromise = Promise.resolve({ unknown: true, why }); return; }
-        p = fetchQCMChoices(it.word);
       }
+      // Limite du jour atteinte (avant ou pendant l'appel) : une question gardée.
+      p = limitReached() ? fetchStored(it.word, it.kind)
+        : gen().catch(e => isLimitErr(e) ? fetchStored(it.word, it.kind) : Promise.reject(e));
       it._pending = true;
       const mine = it.choicesPromise = p.catch(e => ({ error: e.message }));
       mine.then(r => {
         if (it.choicesPromise !== mine) return void pumpPrefetch(); // question refaite entre-temps
         it._pending = false;
-        if (r && !r.error && !r.unknown && sessionItems.includes(it)) { it.prep = r; saveRound(); }
+        if (r && !r.error && !r.unknown && !r.nostore && sessionItems.includes(it)) { it.prep = r; saveRound(); }
         pumpPrefetch();
       });
     }
@@ -9110,6 +9223,7 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
         // d'écrire son sens entre parenthèses : la note repart dans tous les
         // prompts, et l'entrée changée est réessayée d'elle-même.
         if (choices && choices.unknown) return renderSessionUnknown(item, choices.why);
+        if (choices && choices.nostore) return renderSessionNoStore(item, 'session-choices');
         if (item.kind === 'pick') {
           document.getElementById('session-situation').textContent = choices.situation;
           item.situation = choices.situation; // relue si l'on revient sur cette question
@@ -9123,7 +9237,8 @@ Return {"scores": [...]}: ${choices.length} integers, in the same order.`;
           + `<button class="qcm-choice qcm-dunno" id="session-dunno" onclick="sessionDunno()">${tPrac('sess_dunno_see')}</button>`
           + (item.wasNew && !item.answered
               // Passé dans le menu « options » du mot (`#ctx-swap`) ; gardé ici, masqué.
-              ? `<button class="btn-ghost" id="session-swap" onclick="swapNewWord()" style="display:none">${tPrac('sess_swap_new')}</button>` : '');
+              ? `<button class="btn-ghost" id="session-swap" onclick="swapNewWord()" style="display:none">${tPrac('sess_swap_new')}</button>` : '')
+          + (choices.stored ? storedNoteHtml() : '');
         // ⚠️ Un re-rendu (mot renommé ou transféré pendant la question) redessinait
         // une question NEUVE alors qu'elle avait déjà reçu sa réponse : la réussir
         // une seconde fois faisait gagner une seconde étoile. Elle revient telle
@@ -9827,6 +9942,7 @@ Return the JSON object {"sentence": "... ___ ...", "form": "...", "why": "..."}.
         const d = await item.choicesPromise;
         if (d && d.error) throw new Error(d.error);
         if (sessionItems[sessionIdx] !== item) return; // on est passé à la suite entre-temps
+        if (d && d.nostore) return renderSessionNoStore(item, 'type-sentence');
         if (item.data !== d) { item.data = d; item.slots = null; }
         if (!item.answered) markItemShown(item);
         paintTypeSentence(item);
@@ -9834,7 +9950,7 @@ Return the JSON object {"sentence": "... ___ ...", "form": "...", "why": "..."}.
           `<div class="session-below">
              <button class="btn-ghost" id="type-hint" onclick="typeHint()" ${typeCanHint(item) ? '' : 'disabled'}>${typeHintLabel(item)}</button>
              <button class="btn-ghost" id="session-dunno" onclick="typeDunno()">${tPrac('sess_dunno')}</button>
-           </div>`;
+           </div>` + (d.stored ? storedNoteHtml() : '');
         const kw = document.getElementById('type-kb-wrap');
         kw.innerHTML = typeKeyboardHtml();
         kw.addEventListener('mousedown', e => e.preventDefault()); // le clavier ne prend jamais le focus
@@ -11676,7 +11792,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
           signal: controller.signal
         });
         const data = await res.json();
-        if (data.error) throw new Error(aiErrorText(data.error));
+        if (data.error) throw Object.assign(new Error(aiErrorText(data.error)), { code: data.error.code }); // `free_limit` → question gardée
         trackTokens(data.usage);
         const text = data.output_text
           ?? (data.output ?? []).filter(o => o.type === 'message').flatMap(o => o.content ?? []).filter(c => c.type === 'output_text').map(c => c.text ?? '').join('');
@@ -11713,7 +11829,7 @@ Return ONLY a JSON array of exactly 3 items, no other text:
           signal: controller.signal
         });
         const data = await res.json();
-        if (data.error) throw new Error(aiErrorText(data.error));
+        if (data.error) throw Object.assign(new Error(aiErrorText(data.error)), { code: data.error.code }); // `free_limit` → question gardée
         trackTokens(data.usage);
         const text = data.output_text
           ?? (data.output ?? []).filter(o => o.type === 'message').flatMap(o => o.content ?? []).filter(c => c.type === 'output_text').map(c => c.text ?? '').join('');
